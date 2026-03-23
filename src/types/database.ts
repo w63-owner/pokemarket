@@ -389,6 +389,9 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["ocr_attempts"]["Insert"]>;
       };
     };
+    Views: {
+      [_ in never]: never;
+    };
     Functions: {
       search_listings_feed: {
         Args: {
@@ -423,6 +426,12 @@ export interface Database {
           seller_avatar_url: string | null;
         }[];
       };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }
