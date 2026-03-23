@@ -33,5 +33,5 @@ export default withSentryConfig(nextConfig, {
   org: "pokemarket",
   project: "pokemarket-web",
   silent: !process.env.CI,
-  disableSourceMapUpload: true,
+  sourcemaps: { disable: true },
 });
