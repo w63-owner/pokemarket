@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
+import { AddressAutocomplete } from "@/components/checkout/address-autocomplete";
 import { formatPrice } from "@/lib/utils";
 import { calcTotalBuyer } from "@/lib/pricing";
 import { SHIPPING_COUNTRIES, COUNTRY_LABELS } from "@/lib/constants";
@@ -158,15 +159,27 @@ export function CheckoutClient({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="address">Adresse</Label>
-              <Input
-                id="address"
-                value={addressLine}
-                onChange={(e) => setAddressLine(e.target.value)}
-                placeholder="12 rue de la Pokéball"
+            {country === "FR" ? (
+              <AddressAutocomplete
+                addressLine={addressLine}
+                onAddressLineChange={setAddressLine}
+                onSelect={({ addressLine: addr, postcode: pc, city: c }) => {
+                  setAddressLine(addr);
+                  setPostcode(pc);
+                  setCity(c);
+                }}
               />
-            </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="address">Adresse</Label>
+                <Input
+                  id="address"
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
+                  placeholder="12 rue de la Pokéball"
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

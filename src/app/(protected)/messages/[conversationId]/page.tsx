@@ -343,6 +343,9 @@ export default function ConversationThreadPage() {
               queryClient.invalidateQueries({
                 queryKey: queryKeys.conversations.unreadCount(),
               });
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.conversations.list(),
+              });
             } catch {
               /* silently fail for read marking */
             }
@@ -352,6 +355,24 @@ export default function ConversationThreadPage() {
     },
     [conversationId, queryClient],
   );
+
+  useEffect(() => {
+    if (!user) return;
+    const unreadSystemIds = realMessages
+      .filter(
+        (m) =>
+          SYSTEM_TYPES.has(m.message_type) &&
+          !m.read_at &&
+          m.sender_id !== user.id,
+      )
+      .map((m) => m.id);
+
+    if (unreadSystemIds.length > 0) {
+      for (const id of unreadSystemIds) {
+        handleMessageVisible(id);
+      }
+    }
+  }, [realMessages, user, handleMessageVisible]);
 
   useEffect(() => {
     return () => {

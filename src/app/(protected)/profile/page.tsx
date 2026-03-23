@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "next-themes";
 import {
@@ -30,11 +31,13 @@ const menuItems = [
 
 export default function ProfileHubPage() {
   const { signOut } = useAuth();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
   async function handleSignOut() {
     await signOut();
+    queryClient.clear();
     router.push("/");
     router.refresh();
   }

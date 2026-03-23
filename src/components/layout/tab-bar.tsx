@@ -15,7 +15,14 @@ const tabs = [
   { href: "/profile", label: "Profil", icon: User },
 ] as const;
 
-const HIDDEN_ROUTES = ["/sell", "/search", "/listing/", "/messages/"];
+const HIDDEN_ROUTES = [
+  "/sell",
+  "/search",
+  "/listing/",
+  "/messages/",
+  "/checkout/",
+  "/auth",
+];
 
 export function TabBar() {
   const pathname = usePathname();
