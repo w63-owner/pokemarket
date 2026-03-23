@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 
 /** Pokemon card standard ratio: 63mm × 88mm → width/height */
 export const CARD_ASPECT_RATIO = 63 / 88;
@@ -11,10 +11,14 @@ const CUTOUT_WIDTH_PERCENT = 88;
 const BRACKET_LEN = 22;
 const BRACKET_W = 2.5;
 
-const bracketPulse = {
+const bracketPulse: Variants = {
   animate: {
     opacity: [0.7, 1, 0.7],
-    transition: { duration: 2.4, repeat: Infinity, ease: "easeInOut" },
+    transition: {
+      duration: 2.4,
+      repeat: Infinity,
+      ease: "easeInOut",
+    },
   },
 };
 
