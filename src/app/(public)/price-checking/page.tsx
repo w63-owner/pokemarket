@@ -49,17 +49,17 @@ async function searchPrices(query: string): Promise<PriceResult[]> {
   const cardKeys = cards.map((c) => c.card_key);
   const { data: listings } = await supabase
     .from("listings")
-    .select("tcgdex_card_key, display_price")
-    .in("tcgdex_card_key", cardKeys)
+    .select("card_ref_id, display_price")
+    .in("card_ref_id", cardKeys)
     .eq("status", "ACTIVE");
 
   const priceMap = new Map<string, { total: number; count: number }>();
   listings?.forEach((l) => {
-    if (!l.tcgdex_card_key || l.display_price == null) return;
-    const entry = priceMap.get(l.tcgdex_card_key) ?? { total: 0, count: 0 };
+    if (!l.card_ref_id || l.display_price == null) return;
+    const entry = priceMap.get(l.card_ref_id) ?? { total: 0, count: 0 };
     entry.total += l.display_price;
     entry.count += 1;
-    priceMap.set(l.tcgdex_card_key, entry);
+    priceMap.set(l.card_ref_id, entry);
   });
 
   return cards.map((c) => {
