@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ArrowLeft, Bookmark, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -58,7 +58,7 @@ function readFiltersFromParams(sp: URLSearchParams): FeedFilters {
   return filters;
 }
 
-export default function SearchPage() {
+function SearchPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -338,5 +338,13 @@ export default function SearchPage() {
         </Button>
       </div>
     </main>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense>
+      <SearchPageInner />
+    </Suspense>
   );
 }

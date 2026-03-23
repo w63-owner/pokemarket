@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import Link from "next/link";
 
-export default function AuthPage() {
+function AuthForm() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -154,5 +155,29 @@ export default function AuthPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function AuthFormSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center gap-2">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-4 w-56" />
+      </div>
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<AuthFormSkeleton />}>
+      <AuthForm />
+    </Suspense>
   );
 }
