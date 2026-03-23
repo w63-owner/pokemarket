@@ -42,6 +42,7 @@ export interface Database {
           kyc_status?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
       };
       wallets: {
         Row: {
@@ -57,6 +58,7 @@ export interface Database {
           currency?: string;
         };
         Update: Partial<Database["public"]["Tables"]["wallets"]["Insert"]>;
+        Relationships: [];
       };
       listings: {
         Row: {
@@ -101,6 +103,15 @@ export interface Database {
           card_block?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["listings"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "listings_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       transactions: {
         Row: {
@@ -142,6 +153,7 @@ export interface Database {
           shipping_country?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["transactions"]["Insert"]>;
+        Relationships: [];
       };
       conversations: {
         Row: {
@@ -160,6 +172,29 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["conversations"]["Insert"]
         >;
+        Relationships: [
+          {
+            foreignKeyName: "conversations_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       messages: {
         Row: {
@@ -185,6 +220,15 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["messages"]["Insert"]> & {
           read_at?: string | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       offers: {
         Row: {
@@ -206,6 +250,22 @@ export interface Database {
           conversation_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["offers"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "offers_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "offers_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       reviews: {
         Row: {
@@ -226,6 +286,7 @@ export interface Database {
           comment?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["reviews"]["Insert"]>;
+        Relationships: [];
       };
       disputes: {
         Row: {
@@ -245,6 +306,7 @@ export interface Database {
           description?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["disputes"]["Insert"]>;
+        Relationships: [];
       };
       favorite_listings: {
         Row: { user_id: string; listing_id: string; created_at: string };
@@ -252,6 +314,22 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["favorite_listings"]["Insert"]
         >;
+        Relationships: [
+          {
+            foreignKeyName: "favorite_listings_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "favorite_listings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       favorite_sellers: {
         Row: { user_id: string; seller_id: string; created_at: string };
@@ -259,6 +337,7 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["favorite_sellers"]["Insert"]
         >;
+        Relationships: [];
       };
       saved_searches: {
         Row: {
@@ -277,6 +356,7 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["saved_searches"]["Insert"]
         >;
+        Relationships: [];
       };
       shipping_matrix: {
         Row: {
@@ -297,6 +377,7 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["shipping_matrix"]["Insert"]
         >;
+        Relationships: [];
       };
       push_subscriptions: {
         Row: {
@@ -313,6 +394,7 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["push_subscriptions"]["Insert"]
         >;
+        Relationships: [];
       };
       tcgdex_series: {
         Row: {
@@ -328,6 +410,7 @@ export interface Database {
         Update: Partial<
           Database["public"]["Tables"]["tcgdex_series"]["Insert"]
         >;
+        Relationships: [];
       };
       tcgdex_sets: {
         Row: {
@@ -347,6 +430,7 @@ export interface Database {
           release_date?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["tcgdex_sets"]["Insert"]>;
+        Relationships: [];
       };
       tcgdex_cards: {
         Row: {
@@ -369,6 +453,7 @@ export interface Database {
           variants?: Json | null;
         };
         Update: Partial<Database["public"]["Tables"]["tcgdex_cards"]["Insert"]>;
+        Relationships: [];
       };
       ocr_attempts: {
         Row: {
@@ -387,6 +472,7 @@ export interface Database {
           selected_card_key?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["ocr_attempts"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: {
