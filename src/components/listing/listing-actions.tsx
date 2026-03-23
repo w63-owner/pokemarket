@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { fetchOrCreateConversation } from "@/lib/api/conversations";
+import { deleteListing } from "@/lib/api/listings";
 
 interface ListingActionsProps {
   listingId: string;
@@ -43,6 +44,7 @@ export function ListingActions({
 }: ListingActionsProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
 
   const handleContact = async () => {
@@ -62,9 +64,19 @@ export function ListingActions({
     router.push(`/checkout/${listingId}`);
   };
 
-  const handleDelete = () => {
-    onDelete?.();
-    setDeleteOpen(false);
+  const handleDelete = async () => {
+    setDeleteLoading(true);
+    try {
+      await deleteListing(listingId);
+      onDelete?.();
+      setDeleteOpen(false);
+      toast.success("Annonce supprimée");
+      router.push("/");
+    } catch {
+      toast.error("Impossible de supprimer l'annonce. Réessayez.");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -127,7 +139,6 @@ export function ListingActions({
         )}
       </motion.div>
 
-      {/* Delete confirmation dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
@@ -145,9 +156,17 @@ export function ListingActions({
             <DialogClose render={<Button variant="outline" />}>
               Annuler
             </DialogClose>
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="size-4" />
-              Supprimer définitivement
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              {deleteLoading ? "Suppression…" : "Supprimer définitivement"}
             </Button>
           </DialogFooter>
         </DialogContent>

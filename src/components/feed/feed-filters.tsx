@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X, Bookmark } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
@@ -9,6 +9,7 @@ import {
   useUpdateFilters,
   countActiveFilters,
 } from "@/hooks/use-feed-filters";
+import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -37,6 +38,7 @@ import {
   SORT_OPTIONS,
   RARITY_OPTIONS,
 } from "@/lib/constants";
+import { SaveSearchDialog } from "@/components/saved-searches/save-search-dialog";
 
 function AdvancedFilters() {
   const filters = useFiltersFromUrl();
@@ -242,6 +244,7 @@ function FeedFiltersInner() {
   const filters = useFiltersFromUrl();
   const { updateFilters, resetFilters } = useUpdateFilters();
   const activeCount = countActiveFilters(filters);
+  const { user } = useAuth();
 
   const [searchText, setSearchText] = useState(filters.q ?? "");
   const debouncedSearch = useDebounce(searchText, 300);
@@ -260,7 +263,7 @@ function FeedFiltersInner() {
         <div className="relative flex-1">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
           <Input
-            placeholder="Rechercher une carte..."
+            placeholder="Rechercher (ex: Dracaufeu 11/25)..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             className="pr-8 pl-9"
@@ -559,6 +562,14 @@ function FeedFiltersInner() {
             <X className="mr-1 h-3 w-3" />
             Réinitialiser
           </Button>
+          {user && (
+            <SaveSearchDialog filters={filters}>
+              <Button variant="ghost" size="sm">
+                <Bookmark className="mr-1 h-3 w-3" />
+                Sauvegarder
+              </Button>
+            </SaveSearchDialog>
+          )}
         </div>
       )}
     </div>

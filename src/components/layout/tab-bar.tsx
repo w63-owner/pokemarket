@@ -6,6 +6,7 @@ import { Search, Heart, PlusCircle, MessageCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useUnreadCount } from "@/hooks/use-conversations";
+import { useSavedSearchNewCounts } from "@/hooks/use-saved-searches";
 
 const tabs = [
   { href: "/", label: "Recherche", icon: Search },
@@ -27,6 +28,7 @@ const HIDDEN_ROUTES = [
 export function TabBar() {
   const pathname = usePathname();
   const { data: unreadCount } = useUnreadCount();
+  const { totalNew: savedSearchNewTotal } = useSavedSearchNewCounts();
 
   const isHidden = HIDDEN_ROUTES.some((route) => {
     if (route === "/sell") return pathname === "/sell";
@@ -43,8 +45,14 @@ export function TabBar() {
           const isActive =
             tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
 
-          const showBadge =
+          const messageBadge =
             tab.href === "/messages" && !!unreadCount && unreadCount > 0;
+          const favBadge = tab.href === "/favorites" && savedSearchNewTotal > 0;
+          const badgeCount = messageBadge
+            ? unreadCount
+            : favBadge
+              ? savedSearchNewTotal
+              : 0;
 
           return (
             <Link
@@ -59,9 +67,9 @@ export function TabBar() {
             >
               <motion.div whileTap={{ scale: 0.85 }} className="relative">
                 <tab.icon className="size-5" />
-                {showBadge && (
+                {badgeCount > 0 && (
                   <span className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white">
-                    {unreadCount > 99 ? "99" : unreadCount}
+                    {badgeCount > 99 ? "99" : badgeCount}
                   </span>
                 )}
               </motion.div>

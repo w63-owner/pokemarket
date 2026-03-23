@@ -17,19 +17,22 @@ import type { ShippingCountry } from "@/lib/constants";
 import type { Profile } from "@/types";
 
 function buildInitialAddress(profile: Profile): AddressResult | null {
-  if (!profile.city) return null;
+  if (!profile.city && !profile.address_line) return null;
 
   const countryLabel =
     COUNTRY_LABELS[profile.country_code as ShippingCountry] ||
     profile.country_code;
 
-  const parts = [profile.city];
+  const parts: string[] = [];
+  if (profile.address_line) parts.push(profile.address_line);
+  if (profile.city) parts.push(profile.city);
   if (profile.postal_code) parts.push(profile.postal_code);
   parts.push(countryLabel);
 
   return {
     label: parts.join(", "),
-    city: profile.city,
+    addressLine: profile.address_line || "",
+    city: profile.city || "",
     postalCode: profile.postal_code || "",
     countryCode: profile.country_code,
   };
@@ -56,6 +59,13 @@ function EditProfileForm({ profile }: { profile: Profile }) {
     [updateProfile],
   );
 
+  function normalizeUrl(raw: string): string | undefined {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     updateProfile.mutate({
@@ -63,11 +73,12 @@ function EditProfileForm({ profile }: { profile: Profile }) {
       bio: bio || undefined,
       avatar_url: avatarUrl || undefined,
       country_code: address?.countryCode || profile.country_code,
+      address_line: address?.addressLine || null,
       city: address?.city || null,
       postal_code: address?.postalCode || null,
-      instagram_url: instagram || undefined,
-      facebook_url: facebook || undefined,
-      tiktok_url: tiktok || undefined,
+      instagram_url: normalizeUrl(instagram),
+      facebook_url: normalizeUrl(facebook),
+      tiktok_url: normalizeUrl(tiktok),
     });
   }
 
@@ -127,30 +138,27 @@ function EditProfileForm({ profile }: { profile: Profile }) {
             <Label htmlFor="instagram">Instagram</Label>
             <Input
               id="instagram"
-              type="url"
               value={instagram}
               onChange={(e) => setInstagram(e.target.value)}
-              placeholder="https://instagram.com/..."
+              placeholder="www.instagram.com/pseudo"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="facebook">Facebook</Label>
             <Input
               id="facebook"
-              type="url"
               value={facebook}
               onChange={(e) => setFacebook(e.target.value)}
-              placeholder="https://facebook.com/..."
+              placeholder="www.facebook.com/pseudo"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="tiktok">TikTok</Label>
             <Input
               id="tiktok"
-              type="url"
               value={tiktok}
               onChange={(e) => setTiktok(e.target.value)}
-              placeholder="https://tiktok.com/@..."
+              placeholder="www.tiktok.com/@pseudo"
             />
           </div>
         </div>

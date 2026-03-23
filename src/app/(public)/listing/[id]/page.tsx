@@ -8,6 +8,7 @@ import { ListingActions } from "@/components/listing/listing-actions";
 import { PriceDisplay } from "@/components/shared/price-display";
 import { ConditionBadge } from "@/components/shared/condition-badge";
 import { FavoriteButton } from "@/components/shared/favorite-button";
+import { PriceHistoryChart } from "@/components/listing/price-history-chart";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -216,6 +217,15 @@ export default async function ListingPage({ params }: Props) {
             </div>
           );
         })()}
+
+        {listing.card_ref_id && (
+          <PriceHistoryChart
+            cardKey={listing.card_ref_id}
+            condition={listing.condition}
+            language={listing.card_language}
+            isGraded={listing.is_graded}
+          />
+        )}
 
         <SellerBlock
           seller={{

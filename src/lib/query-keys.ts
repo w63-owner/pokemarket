@@ -45,6 +45,7 @@ export const queryKeys = {
     listingIds: () => ["favorites", "listingIds"] as const,
     sellers: () => ["favorites", "sellers"] as const,
     searches: () => ["favorites", "searches"] as const,
+    searchNewCounts: () => ["favorites", "searchNewCounts"] as const,
   },
   transactions: {
     all: ["transactions"] as const,
@@ -69,4 +70,10 @@ export const queryKeys = {
     sets: () => ["tcgdex", "sets"] as const,
     cards: (query: string) => ["tcgdex", "cards", query] as const,
   },
+  priceHistory: (
+    cardKey: string,
+    condition: string,
+    language: string,
+    isGraded: boolean,
+  ) => ["priceHistory", cardKey, condition, language, isGraded] as const,
 } as const;

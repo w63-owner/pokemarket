@@ -39,11 +39,12 @@ export const profileUpdateSchema = z.object({
     .optional(),
   bio: z.string().max(500).optional(),
   country_code: z.string().length(2).optional(),
+  address_line: z.string().max(300).optional().nullable(),
   city: z.string().max(200).optional().nullable(),
   postal_code: z.string().max(20).optional().nullable(),
-  instagram_url: z.string().url().optional().or(z.literal("")),
-  facebook_url: z.string().url().optional().or(z.literal("")),
-  tiktok_url: z.string().url().optional().or(z.literal("")),
+  instagram_url: z.string().optional().or(z.literal("")),
+  facebook_url: z.string().optional().or(z.literal("")),
+  tiktok_url: z.string().optional().or(z.literal("")),
 });
 
 export const listingCreateSchema = z

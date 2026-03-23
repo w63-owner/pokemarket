@@ -1,12 +1,35 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Search, UserCheck, Sparkles, Clock, Users } from "lucide-react";
+import {
+  Heart,
+  Search,
+  UserCheck,
+  Sparkles,
+  Users,
+  ExternalLink,
+  Trash2,
+} from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCard } from "@/components/feed/listing-card";
 import { ListingCardSkeleton } from "@/components/feed/listing-card-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useFavoriteListings } from "@/hooks/use-favorites";
+import {
+  useSavedSearches,
+  useDeleteSavedSearch,
+  useSavedSearchNewCounts,
+  useMarkSavedSearchSeen,
+} from "@/hooks/use-saved-searches";
+import { Badge } from "@/components/ui/badge";
+import {
+  filtersToLabel,
+  filtersToSearchString,
+} from "@/hooks/use-feed-filters";
+import type { FeedFilters } from "@/lib/query-keys";
 
 const SKELETON_COUNT = 6;
 
@@ -74,14 +97,140 @@ function FavoriteListingsTab() {
   );
 }
 
-function SavedSearchesTab() {
+function SavedSearchSkeleton() {
   return (
-    <EmptyState
-      icon={<Clock className="h-8 w-8" />}
-      title="Bientôt disponible"
-      description="Vos recherches sauvegardées apparaîtront ici. Vous pourrez les relancer en un tap."
-    />
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl border p-4">
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+          <Skeleton className="h-8 w-8 rounded-md" />
+        </div>
+      ))}
+    </div>
   );
+}
+
+function SavedSearchesTab() {
+  const router = useRouter();
+  const { data: searches, isLoading, isError, error } = useSavedSearches();
+  const { mutate: deleteSearch } = useDeleteSavedSearch();
+  const { countsMap } = useSavedSearchNewCounts();
+  const { mutate: markSeen } = useMarkSavedSearchSeen();
+
+  if (isLoading) return <SavedSearchSkeleton />;
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={<Search className="h-8 w-8" />}
+        title="Impossible de charger vos recherches"
+        description={error?.message ?? "Une erreur est survenue. Réessayez."}
+      />
+    );
+  }
+
+  if (!searches || searches.length === 0) {
+    return (
+      <EmptyState
+        icon={<Search className="h-8 w-8" />}
+        title="Aucune recherche sauvegardée"
+        description="Lancez une recherche avec des filtres puis appuyez sur « Sauvegarder » pour la retrouver ici."
+        action={{ label: "Explorer le marché", href: "/" }}
+      />
+    );
+  }
+
+  function handleRun(id: string, params: FeedFilters) {
+    markSeen(id);
+    const qs = filtersToSearchString(params);
+    router.push(qs ? `/?${qs}` : "/");
+  }
+
+  return (
+    <motion.div
+      className="space-y-3"
+      variants={gridVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {searches.map((search) => {
+        const params = (search.search_params ?? {}) as FeedFilters;
+        const label = filtersToLabel(params);
+        const createdAt = new Date(search.created_at);
+        const relative = formatRelativeDate(createdAt);
+        const newCount = countsMap.get(search.id) ?? 0;
+
+        return (
+          <motion.div key={search.id} variants={itemVariants}>
+            <div className="group hover:bg-muted/50 flex items-center gap-3 rounded-xl border p-4 transition-colors">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
+                onClick={() => handleRun(search.id, params)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground truncate text-sm font-medium">
+                    {search.name}
+                  </span>
+                  {newCount > 0 && (
+                    <Badge className="bg-brand hover:bg-brand/90 shrink-0 text-[10px] text-white">
+                      {newCount} nouvelle{newCount > 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                </div>
+                <span className="text-muted-foreground line-clamp-1 text-xs">
+                  {label}
+                </span>
+                <span className="text-muted-foreground/60 text-[11px]">
+                  {relative}
+                </span>
+              </button>
+
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => handleRun(search.id, params)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="sr-only">Lancer la recherche</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => deleteSearch(search.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Supprimer</span>
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+function formatRelativeDate(date: Date): string {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "À l'instant";
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Il y a ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Il y a ${days}j`;
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 function FavoriteSellersTab() {

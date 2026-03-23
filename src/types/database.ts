@@ -18,6 +18,7 @@ export interface Database {
           username: string;
           avatar_url: string | null;
           country_code: string;
+          address_line: string | null;
           city: string | null;
           postal_code: string | null;
           bio: string | null;
@@ -35,6 +36,7 @@ export interface Database {
           username: string;
           avatar_url?: string | null;
           country_code?: string;
+          address_line?: string | null;
           city?: string | null;
           postal_code?: string | null;
           bio?: string | null;
@@ -358,12 +360,14 @@ export interface Database {
           name: string;
           search_params: Json;
           created_at: string;
+          last_seen_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
           name: string;
           search_params: Json;
+          last_seen_at?: string;
         };
         Update: Partial<
           Database["public"]["Tables"]["saved_searches"]["Insert"]
@@ -519,6 +523,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["tcgdex_cards"]["Insert"]>;
         Relationships: [];
       };
+      card_price_history: {
+        Row: {
+          id: string;
+          card_key: string;
+          price: number;
+          condition: string;
+          language: string;
+          is_graded: boolean;
+          source: string;
+          recorded_at: string;
+        };
+        Insert: {
+          id?: string;
+          card_key: string;
+          price: number;
+          condition: string;
+          language: string;
+          is_graded?: boolean;
+          source?: string;
+          recorded_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["card_price_history"]["Insert"]
+        >;
+        Relationships: [];
+      };
       ocr_attempts: {
         Row: {
           id: string;
@@ -543,6 +573,13 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
+      count_new_for_saved_searches: {
+        Args: Record<string, never>;
+        Returns: {
+          search_id: string;
+          new_count: number;
+        }[];
+      };
       search_listings_feed: {
         Args: {
           p_query?: string;

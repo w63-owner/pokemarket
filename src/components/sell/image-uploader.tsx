@@ -3,11 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Trash2, UploadCloud, Loader2 } from "lucide-react";
+import { Camera, Trash2, Loader2, FolderOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CameraCapture } from "./camera-capture";
 
 interface ImageSlotState {
   file: File | null;
@@ -97,12 +98,14 @@ function ImageSlot({
   slot,
   onSelect,
   onRemove,
+  onOpenCamera,
   disabled,
 }: {
   label: string;
   slot: ImageSlotState;
   onSelect: (file: File) => void;
   onRemove: () => void;
+  onOpenCamera: () => void;
   disabled: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -258,41 +261,40 @@ function ImageSlot({
               </button>
             </motion.div>
           ) : (
-            <motion.button
+            <motion.div
               key="empty"
-              type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => inputRef.current?.click()}
-              className="flex h-full w-full flex-col items-center justify-center gap-3 p-4"
+              className="flex h-full w-full flex-col items-center justify-center gap-2 p-4"
             >
-              <motion.div
+              <motion.button
+                type="button"
+                onClick={onOpenCamera}
                 className={cn(
                   "flex size-14 items-center justify-center rounded-2xl transition-colors",
-                  isDragOver
-                    ? "bg-brand/15 text-brand"
-                    : "bg-muted text-muted-foreground",
+                  "bg-brand/10 text-brand hover:bg-brand/20",
                 )}
-                animate={isDragOver ? { scale: 1.1 } : { scale: 1 }}
-                transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                aria-label="Ouvrir la caméra"
               >
-                {isDragOver ? (
-                  <UploadCloud className="size-7" />
-                ) : (
-                  <Camera className="size-7" />
-                )}
-              </motion.div>
+                <Camera className="size-7" />
+              </motion.button>
 
-              <div className="text-center">
-                <p className="text-foreground text-sm font-medium">
-                  {isDragOver ? "Déposez ici" : "Ajouter une photo"}
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  JPG, PNG ou WebP
-                </p>
-              </div>
-            </motion.button>
+              <p className="text-foreground text-sm font-medium">
+                Prendre en photo
+              </p>
+
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1.5 text-xs transition-colors"
+              >
+                <FolderOpen className="size-3.5" />
+                Choisir un fichier
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
 
@@ -300,7 +302,6 @@ function ImageSlot({
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic"
-          capture="environment"
           className="hidden"
           onChange={(e) => {
             handleFileChange(e.target.files);
@@ -312,6 +313,8 @@ function ImageSlot({
     </div>
   );
 }
+
+type CameraTarget = "cover" | "back" | null;
 
 export function ImageUploader({
   onImagesChange,
@@ -331,6 +334,8 @@ export function ImageUploader({
       ? { ...INITIAL_SLOT, publicUrl: initialBackUrl }
       : { ...INITIAL_SLOT },
   );
+
+  const [cameraTarget, setCameraTarget] = useState<CameraTarget>(null);
 
   const notifyParent = useCallback(
     (nextCover: ImageSlotState | null, nextBack: ImageSlotState | null) => {
@@ -458,35 +463,62 @@ export function ImageUploader({
     [supabase, notifyParent],
   );
 
+  const handleCameraCapture = useCallback(
+    (file: File) => {
+      if (cameraTarget === "cover") {
+        uploadImage(file, setCover, cover, true);
+      } else if (cameraTarget === "back") {
+        uploadImage(file, setBack, back, false);
+      }
+      setCameraTarget(null);
+    },
+    [cameraTarget, cover, back, uploadImage],
+  );
+
   const isUploading = cover.uploading || back.uploading;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-display text-foreground text-base font-semibold">
-          Photos de la carte
-        </h3>
-        <span className="text-muted-foreground text-xs">
-          Recto & verso obligatoires
-        </span>
+    <>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-foreground text-base font-semibold">
+            Photos de la carte
+          </h3>
+          <span className="text-muted-foreground text-xs">
+            Recto & verso obligatoires
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <ImageSlot
+            label="Recto"
+            slot={cover}
+            disabled={isUploading && !cover.uploading}
+            onSelect={(file) => uploadImage(file, setCover, cover, true)}
+            onRemove={() => removeImage(setCover, cover, true)}
+            onOpenCamera={() => setCameraTarget("cover")}
+          />
+          <ImageSlot
+            label="Verso"
+            slot={back}
+            disabled={isUploading && !back.uploading}
+            onSelect={(file) => uploadImage(file, setBack, back, false)}
+            onRemove={() => removeImage(setBack, back, false)}
+            onOpenCamera={() => setCameraTarget("back")}
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <ImageSlot
-          label="Recto"
-          slot={cover}
-          disabled={isUploading && !cover.uploading}
-          onSelect={(file) => uploadImage(file, setCover, cover, true)}
-          onRemove={() => removeImage(setCover, cover, true)}
-        />
-        <ImageSlot
-          label="Verso"
-          slot={back}
-          disabled={isUploading && !back.uploading}
-          onSelect={(file) => uploadImage(file, setBack, back, false)}
-          onRemove={() => removeImage(setBack, back, false)}
-        />
-      </div>
-    </div>
+      {/* Fullscreen camera with overlay & auto-crop */}
+      <AnimatePresence>
+        {cameraTarget && (
+          <CameraCapture
+            key="camera"
+            onCapture={handleCameraCapture}
+            onClose={() => setCameraTarget(null)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }

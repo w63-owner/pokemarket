@@ -7,6 +7,33 @@ type RpcArgs = Database["public"]["Functions"]["search_listings_feed"]["Args"];
 
 const DEFAULT_PAGE_SIZE = 20;
 
+const CARD_NUMBER_RE = /\b([\w]*\d+[\w]*\/[\w]*\d+[\w]*)\b/;
+
+/**
+ * Splits a raw search string like "Dracaufeu 11/25" into a text query
+ * ("Dracaufeu") and a card number ("11/25").
+ */
+export function parseSearchQuery(raw: string | undefined): {
+  text: string | undefined;
+  cardNumber: string | undefined;
+} {
+  if (!raw) return { text: undefined, cardNumber: undefined };
+
+  const match = raw.match(CARD_NUMBER_RE);
+  if (!match) return { text: raw.trim() || undefined, cardNumber: undefined };
+
+  const cardNumber = match[1];
+  const text = raw
+    .replace(CARD_NUMBER_RE, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return {
+    text: text || undefined,
+    cardNumber,
+  };
+}
+
 export type FeedCursor = {
   created_at: string;
   id: string;
@@ -25,8 +52,10 @@ export async function fetchListingsFeed(
 ): Promise<FeedPage> {
   const supabase = createClient();
 
+  const parsed = parseSearchQuery(filters.q);
+
   const args: RpcArgs = {
-    p_query: filters.q || undefined,
+    p_query: parsed.text,
     p_set: filters.set || undefined,
     p_rarity: filters.rarity || undefined,
     p_condition: filters.condition || undefined,
@@ -35,7 +64,7 @@ export async function fetchListingsFeed(
     p_grade_max: filters.grade_max,
     p_price_min: filters.price_min,
     p_price_max: filters.price_max,
-    p_card_number: filters.card_number || undefined,
+    p_card_number: filters.card_number || parsed.cardNumber,
     p_series: filters.series || undefined,
     p_sort: filters.sort || "date_desc",
     p_limit: limit,
@@ -129,6 +158,24 @@ export async function createListing(
   if (error) throw new Error(error.message);
 
   return data as Listing;
+}
+
+export async function deleteListing(listingId: string): Promise<void> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Non authentifié");
+
+  const { error } = await supabase
+    .from("listings")
+    .delete()
+    .eq("id", listingId)
+    .eq("seller_id", user.id);
+
+  if (error) throw new Error(error.message);
 }
 
 export type UpdateListingInput = {

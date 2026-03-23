@@ -68,6 +68,8 @@ export type TcgdexCard = Database["public"]["Tables"]["tcgdex_cards"]["Row"];
 export type TcgdexSet = Database["public"]["Tables"]["tcgdex_sets"]["Row"];
 export type TcgdexSeries = Database["public"]["Tables"]["tcgdex_series"]["Row"];
 export type OcrAttempt = Database["public"]["Tables"]["ocr_attempts"]["Row"];
+export type CardPriceHistory =
+  Database["public"]["Tables"]["card_price_history"]["Row"];
 
 export type TcgdexCardTyped = Omit<
   TcgdexCard,

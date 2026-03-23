@@ -3,6 +3,11 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { FeedFilters } from "@/lib/query-keys";
+import {
+  CONDITION_LABELS,
+  RARITY_OPTIONS,
+  type CardCondition,
+} from "@/lib/constants";
 
 function parseNumber(value: string | null): number | undefined {
   if (!value) return undefined;
@@ -120,4 +125,52 @@ export function filtersToSearchString(filters: FeedFilters): string {
     }
   }
   return params.toString();
+}
+
+const rarityLabelMap = Object.fromEntries(
+  RARITY_OPTIONS.map((r) => [r.value, r.label]),
+);
+
+/**
+ * Human-readable summary of active filters, e.g. "Pikachu, Rare, 5–50 €"
+ */
+export function filtersToLabel(filters: FeedFilters): string {
+  const parts: string[] = [];
+
+  if (filters.q) parts.push(`"${filters.q}"`);
+  if (filters.series) parts.push(filters.series);
+  if (filters.set) parts.push(filters.set);
+  if (filters.card_number) parts.push(`#${filters.card_number}`);
+  if (filters.rarity) {
+    parts.push(rarityLabelMap[filters.rarity] ?? filters.rarity);
+  }
+  if (filters.condition) {
+    parts.push(
+      CONDITION_LABELS[filters.condition as CardCondition] ?? filters.condition,
+    );
+  }
+  if (filters.is_graded) {
+    const g = [filters.grade_min, filters.grade_max].filter(Boolean);
+    parts.push(g.length ? `Gradée ${g.join("–")}` : "Gradée");
+  }
+  if (filters.price_min !== undefined || filters.price_max !== undefined) {
+    const min = filters.price_min ?? 0;
+    const max = filters.price_max;
+    parts.push(max !== undefined ? `${min}–${max} €` : `≥ ${min} €`);
+  }
+
+  return parts.join(", ") || "Tous les résultats";
+}
+
+/**
+ * Suggest a short default name from filters (for the save dialog pre-fill).
+ */
+export function suggestSearchName(filters: FeedFilters): string {
+  const parts: string[] = [];
+  if (filters.q) parts.push(filters.q);
+  if (filters.set) parts.push(filters.set);
+  if (filters.rarity) {
+    parts.push(rarityLabelMap[filters.rarity] ?? filters.rarity);
+  }
+  return parts.join(" ") || "Ma recherche";
 }
