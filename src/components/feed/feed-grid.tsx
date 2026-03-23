@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useInView } from "react-intersection-observer";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { PackageOpen, RefreshCw } from "lucide-react";
 import { useInfiniteFeed } from "@/hooks/use-infinite-feed";
 import { ListingCard } from "@/components/feed/listing-card";
@@ -35,6 +35,8 @@ interface FeedGridProps {
 }
 
 export function FeedGrid({ filters = {} }: FeedGridProps) {
+  const prefersReducedMotion = useReducedMotion();
+
   const {
     data,
     isLoading,
@@ -111,13 +113,16 @@ export function FeedGrid({ filters = {} }: FeedGridProps) {
     <>
       <motion.div
         className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        variants={containerVariants}
-        initial="hidden"
+        variants={prefersReducedMotion ? undefined : containerVariants}
+        initial={prefersReducedMotion ? false : "hidden"}
         animate="visible"
       >
-        {allItems.map((item) => (
-          <motion.div key={item.id} variants={itemVariants}>
-            <ListingCard listing={item} />
+        {allItems.map((item, index) => (
+          <motion.div
+            key={item.id}
+            variants={prefersReducedMotion ? undefined : itemVariants}
+          >
+            <ListingCard listing={item} priority={index < 2} />
           </motion.div>
         ))}
 

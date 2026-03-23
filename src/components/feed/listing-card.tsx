@@ -14,11 +14,13 @@ const BLUR_PLACEHOLDER =
 interface ListingCardProps {
   listing: FeedItem;
   showFavorite?: boolean;
+  priority?: boolean;
 }
 
 export function ListingCard({
   listing,
   showFavorite = true,
+  priority = false,
 }: ListingCardProps) {
   return (
     <motion.div
@@ -37,6 +39,7 @@ export function ListingCard({
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 placeholder="blur"
                 blurDataURL={BLUR_PLACEHOLDER}
+                priority={priority}
               />
             ) : (
               <div className="flex h-full items-center justify-center">

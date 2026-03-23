@@ -2,7 +2,12 @@
 
 import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence, type PanInfo } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+  type PanInfo,
+} from "framer-motion";
 import { X, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +29,7 @@ const BLUR_PLACEHOLDER =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAFCAYAAABirU3bAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAMElEQVQIHWNgYPj/n4EBCBgZGf8zMDL+Z2Bg+M/IyPSfgYHhP8P//wwMDEz/GRgAH+oIAaHRcUUAAAAASUVORK5CYII=";
 
 export function ImageCarousel({ images, className }: ImageCarouselProps) {
+  const prefersReducedMotion = useReducedMotion();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [zoomedImage, setZoomedImage] = useState<CarouselImage | null>(null);
@@ -68,20 +74,23 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
     );
   }
 
-  const slideVariants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? "100%" : "-100%",
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? "-100%" : "100%",
-      opacity: 0,
-    }),
-  };
+  const slideVariants = prefersReducedMotion
+    ? {
+        enter: { opacity: 0 },
+        center: { opacity: 1 },
+        exit: { opacity: 0 },
+      }
+    : {
+        enter: (dir: number) => ({
+          x: dir > 0 ? "100%" : "-100%",
+          opacity: 0,
+        }),
+        center: { x: 0, opacity: 1 },
+        exit: (dir: number) => ({
+          x: dir > 0 ? "-100%" : "100%",
+          opacity: 0,
+        }),
+      };
 
   return (
     <>

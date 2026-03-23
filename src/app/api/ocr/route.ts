@@ -22,8 +22,18 @@ Return STRICTLY a JSON object with these keys:
 If you cannot read or identify a field, set it to null. Do NOT guess — only return what you can confidently read on the card.`;
 
 const MAX_CANDIDATES = 5;
-function buildTcgdexImageUrl(cardId: string, language: string): string {
-  return `https://assets.tcgdex.net/${language}/${cardId}/low.webp`;
+
+function buildTcgdexImageUrl(
+  cardId: string,
+  setId: string | null,
+  seriesId: string | null,
+  language: string,
+): string | null {
+  if (!setId || !seriesId) return null;
+  const localId = cardId.startsWith(setId + "-")
+    ? cardId.slice(setId.length + 1)
+    : cardId.split("-").pop();
+  return `https://assets.tcgdex.net/${language}/${seriesId}/${setId}/${localId}/low.webp`;
 }
 
 function normalizeStr(s: string): string {
@@ -223,16 +233,19 @@ async function matchTcgdexCards(parsed: OcrParsed): Promise<OcrCandidate[]> {
   ] as string[];
   const setsMap = new Map<string, string>();
 
+  const seriesMap = new Map<string, string>();
+
   if (setIds.length > 0) {
     const { data: sets } = await supabase
       .from("tcgdex_sets")
-      .select("id, name, language")
+      .select("id, name, language, series_id")
       .in("id", setIds)
       .eq("language", language);
 
     if (sets) {
       for (const s of sets) {
         setsMap.set(s.id, s.name);
+        if (s.series_id) seriesMap.set(s.id, s.series_id);
       }
     }
   }
@@ -246,7 +259,12 @@ async function matchTcgdexCards(parsed: OcrParsed): Promise<OcrCandidate[]> {
     hp: card.hp,
     rarity: card.rarity,
     language: card.language,
-    image_url: buildTcgdexImageUrl(card.id, card.language),
+    image_url: buildTcgdexImageUrl(
+      card.id,
+      card.set_id,
+      card.set_id ? (seriesMap.get(card.set_id) ?? null) : null,
+      card.language,
+    ),
     confidence: computeConfidence(parsed, card),
   }));
 

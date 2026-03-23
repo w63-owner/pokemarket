@@ -56,6 +56,9 @@ export const queryKeys = {
     balance: () => ["wallet", "balance"] as const,
     movements: () => ["wallet", "movements"] as const,
   },
+  paymentMethods: {
+    list: () => ["paymentMethods", "list"] as const,
+  },
   shipping: {
     matrix: () => ["shipping", "matrix"] as const,
   },

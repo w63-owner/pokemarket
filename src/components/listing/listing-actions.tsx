@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ShoppingCart,
@@ -8,7 +9,9 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,29 +26,47 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
+import { fetchOrCreateConversation } from "@/lib/api/conversations";
 
 interface ListingActionsProps {
+  listingId: string;
   mode: "buyer" | "seller";
   currentPrice?: number;
-  onBuy?: () => void;
-  onContact?: () => void;
   onEditPrice?: (newPrice: number) => void;
   onDelete?: () => void;
   className?: string;
 }
 
 export function ListingActions({
+  listingId,
   mode,
   currentPrice,
-  onBuy,
-  onContact,
   onEditPrice,
   onDelete,
   className,
 }: ListingActionsProps) {
+  const router = useRouter();
   const [editPriceOpen, setEditPriceOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [newPrice, setNewPrice] = useState(currentPrice?.toString() ?? "");
+  const [contactLoading, setContactLoading] = useState(false);
+
+  const handleContact = async () => {
+    setContactLoading(true);
+    try {
+      const conversationId = await fetchOrCreateConversation(listingId);
+      router.push(`/messages/${conversationId}`);
+    } catch {
+      toast.error("Connectez-vous pour contacter le vendeur");
+      router.push("/auth");
+    } finally {
+      setContactLoading(false);
+    }
+  };
+
+  const handleBuy = () => {
+    router.push(`/checkout/${listingId}`);
+  };
 
   const handleEditPriceSubmit = () => {
     const parsed = parseFloat(newPrice);
@@ -77,12 +98,20 @@ export function ListingActions({
               variant="outline"
               size="lg"
               className="flex-1"
-              onClick={onContact}
+              onClick={handleContact}
+              disabled={contactLoading}
             >
-              <MessageCircle data-icon="inline-start" className="size-4" />
+              {contactLoading ? (
+                <Loader2
+                  data-icon="inline-start"
+                  className="size-4 animate-spin"
+                />
+              ) : (
+                <MessageCircle data-icon="inline-start" className="size-4" />
+              )}
               Contacter
             </Button>
-            <Button size="lg" className="flex-[2]" onClick={onBuy}>
+            <Button size="lg" className="flex-[2]" onClick={handleBuy}>
               <ShoppingCart data-icon="inline-start" className="size-4" />
               Acheter
               {currentPrice != null ? ` · ${formatPrice(currentPrice)}` : ""}

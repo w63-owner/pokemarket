@@ -37,7 +37,7 @@ export async function getFavoriteListings(): Promise<FeedItem[]> {
         id, seller_id, title, display_price, condition,
         is_graded, grade_note, cover_image_url, card_series,
         created_at, status,
-        profiles!inner ( username, avatar_url )
+        profiles!listings_seller_id_fkey!inner ( username, avatar_url )
       )
     `,
     )

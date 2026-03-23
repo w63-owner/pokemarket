@@ -169,12 +169,31 @@ export default function ConversationThreadPage() {
       setPendingMessages((prev) => [tempMsg, ...prev]);
       return { tempId };
     },
-    onSuccess: (_data, _variables, context) => {
+    onSuccess: (data, _variables, context) => {
       setPendingMessages((prev) =>
         prev.filter((m) => m.id !== context?.tempId),
       );
+      queryClient.setQueryData<{
+        pages: MessagesPage[];
+        pageParams: unknown[];
+      }>(queryKeys.conversations.messages(conversationId), (old) => {
+        if (!old) return old;
+        const exists = old.pages.some((p) =>
+          p.messages.some((m) => m.id === data.id),
+        );
+        if (exists) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page, i) =>
+            i === 0 ? { ...page, messages: [data, ...page.messages] } : page,
+          ),
+        };
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.list(),
+      });
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       setPendingMessages((prev) =>
         prev.filter((m) => m.id !== context?.tempId),
       );

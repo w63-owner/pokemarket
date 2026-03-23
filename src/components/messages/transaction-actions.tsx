@@ -3,13 +3,26 @@
 import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Package, CheckCircle2, Loader2, Truck } from "lucide-react";
+import {
+  Package,
+  CheckCircle2,
+  Loader2,
+  Truck,
+  AlertTriangle,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -20,7 +33,12 @@ import {
 } from "@/components/ui/sheet";
 import { StarRating } from "@/components/shared/star-rating";
 import { queryKeys } from "@/lib/query-keys";
-import { shipOrder, confirmReception } from "@/lib/api/transactions";
+import {
+  shipOrder,
+  confirmReception,
+  createDispute,
+  type DisputeReason,
+} from "@/lib/api/transactions";
 import type { Transaction } from "@/types";
 import type { User } from "@supabase/supabase-js";
 
@@ -56,11 +74,18 @@ export function TransactionActions({
 
   if (transaction.status === "SHIPPED" && isBuyer) {
     return (
-      <ConfirmReceptionBar
-        transactionId={transaction.id}
-        conversationId={conversationId}
-        listingId={listingId}
-      />
+      <div>
+        <ConfirmReceptionBar
+          transactionId={transaction.id}
+          conversationId={conversationId}
+          listingId={listingId}
+        />
+        <ReportDisputeButton
+          transactionId={transaction.id}
+          conversationId={conversationId}
+          listingId={listingId}
+        />
+      </div>
     );
   }
 
@@ -69,6 +94,17 @@ export function TransactionActions({
       <StatusBar
         icon={<Truck className="size-4 text-amber-600 dark:text-amber-400" />}
         label="En attente de la confirmation de réception"
+      />
+    );
+  }
+
+  if (transaction.status === "DISPUTED") {
+    return (
+      <StatusBar
+        icon={
+          <AlertTriangle className="size-4 text-red-600 dark:text-red-400" />
+        }
+        label="Litige en cours — un administrateur va intervenir"
       />
     );
   }
@@ -223,6 +259,161 @@ function ShipOrderBar({
                 <>
                   <Package className="mr-2 size-4" />
                   Confirmer l&apos;expédition
+                </>
+              )}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+const DISPUTE_REASONS: { value: DisputeReason; label: string }[] = [
+  { value: "damaged_card", label: "Carte endommagée" },
+  { value: "wrong_card", label: "Mauvaise carte" },
+  { value: "empty_package", label: "Colis vide" },
+  { value: "other", label: "Autre" },
+];
+
+function ReportDisputeButton({
+  transactionId,
+  conversationId,
+  listingId,
+}: {
+  transactionId: string;
+  conversationId: string;
+  listingId: string;
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<DisputeReason | "">("");
+  const [description, setDescription] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      createDispute(
+        transactionId,
+        reason as DisputeReason,
+        description,
+        conversationId,
+      ),
+    onSuccess: () => {
+      setOpen(false);
+      setReason("");
+      setDescription("");
+      toast.success("Litige ouvert — un modérateur va intervenir.");
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.transactions.byListing(listingId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.messages(conversationId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.detail(conversationId),
+      });
+    },
+    onError: () => {
+      toast.error("Impossible d'ouvrir le litige");
+    },
+  });
+
+  const canSubmit =
+    reason !== "" && description.trim().length >= 10 && !mutation.isPending;
+
+  const handleSubmit = useCallback(() => {
+    if (!canSubmit) return;
+    mutation.mutate();
+  }, [canSubmit, mutation]);
+
+  return (
+    <>
+      <div className="flex justify-center py-2">
+        <button
+          onClick={() => setOpen(true)}
+          className="text-muted-foreground hover:text-destructive flex items-center gap-1.5 text-xs transition-colors"
+        >
+          <AlertTriangle className="size-3" />
+          Signaler un problème
+        </button>
+      </div>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <AlertTriangle className="text-destructive size-5" />
+              Signaler un problème
+            </SheetTitle>
+            <SheetDescription>
+              Décrivez le problème rencontré. Un modérateur examinera votre
+              demande.
+            </SheetDescription>
+          </SheetHeader>
+
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4 px-4"
+          >
+            <div className="space-y-2">
+              <Label>
+                Raison <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={reason}
+                onValueChange={(v) => setReason(v as DisputeReason)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez une raison" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DISPUTE_REASONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dispute-desc">
+                Description <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="dispute-desc"
+                placeholder="Décrivez le problème en détail (min. 10 caractères)…"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                disabled={mutation.isPending}
+              />
+              {description.length > 0 && description.trim().length < 10 && (
+                <p className="text-destructive text-xs">
+                  Minimum 10 caractères ({description.trim().length}/10)
+                </p>
+              )}
+            </div>
+          </motion.div>
+
+          <SheetFooter>
+            <Button
+              variant="destructive"
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className="w-full"
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Envoi en cours…
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="mr-2 size-4" />
+                  Ouvrir le litige
                 </>
               )}
             </Button>

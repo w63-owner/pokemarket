@@ -11,6 +11,7 @@ export async function createOffer(
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
   if (!user) throw new Error("Non authentifié");
 
   const { data: offer, error: offerError } = await supabase

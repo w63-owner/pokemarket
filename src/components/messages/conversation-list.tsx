@@ -125,7 +125,7 @@ function ConversationItem({
               {preview}
             </p>
             {hasUnread && (
-              <span className="bg-brand-primary flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white">
+              <span className="bg-brand text-brand-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
                 {unread_count > 99 ? "99+" : unread_count}
               </span>
             )}

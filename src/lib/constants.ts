@@ -104,7 +104,7 @@ export type OfferStatus = (typeof OFFER_STATUSES)[number];
 
 export const LIMITS = {
   MAX_OFFERS_PER_DAY: 10,
-  MIN_OFFER_PERCENT: 0.6,
+  MIN_OFFER_PERCENT: 0.7,
   MAX_MESSAGE_LENGTH: 2000,
   TITLE_MIN_LENGTH: 3,
   TITLE_MAX_LENGTH: 140,

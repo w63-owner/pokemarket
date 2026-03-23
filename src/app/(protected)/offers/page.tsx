@@ -411,7 +411,7 @@ export default function OffersPage() {
               <Inbox className="size-4" />
               Reçues
               {!!pendingReceivedCount && pendingReceivedCount > 0 && (
-                <span className="bg-brand-primary flex size-4.5 items-center justify-center rounded-full text-[10px] font-bold text-white">
+                <span className="bg-brand text-brand-foreground flex size-4.5 items-center justify-center rounded-full text-[10px] font-bold">
                   {pendingReceivedCount}
                 </span>
               )}
@@ -420,7 +420,7 @@ export default function OffersPage() {
               <Send className="size-4" />
               Envoyées
               {!!pendingSentCount && pendingSentCount > 0 && (
-                <span className="bg-brand-primary flex size-4.5 items-center justify-center rounded-full text-[10px] font-bold text-white">
+                <span className="bg-brand text-brand-foreground flex size-4.5 items-center justify-center rounded-full text-[10px] font-bold">
                   {pendingSentCount}
                 </span>
               )}

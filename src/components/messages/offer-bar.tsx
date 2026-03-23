@@ -174,7 +174,7 @@ export function OfferBar({
       return (
         <OfferBarShell>
           <div className="flex items-center gap-2">
-            <Tag className="text-brand-primary size-4 shrink-0" />
+            <Tag className="text-brand size-4 shrink-0" />
             <span className="text-sm font-medium">
               Offre de {formatPrice(activeOffer.offer_amount)} en attente
             </span>
@@ -269,7 +269,7 @@ export function OfferBar({
     return (
       <OfferBarShell highlight>
         <div className="flex items-center gap-2">
-          <Tag className="text-brand-primary size-4 shrink-0" />
+          <Tag className="text-brand size-4 shrink-0" />
           <span className="text-sm font-medium">
             Offre de {formatPrice(activeOffer.offer_amount)}
           </span>
@@ -321,9 +321,7 @@ function OfferBarShell({
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className={`border-border flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 ${
-        highlight
-          ? "bg-brand-primary/5 dark:bg-brand-primary/10"
-          : "bg-muted/50"
+        highlight ? "bg-brand/5 dark:bg-brand/10" : "bg-muted/50"
       }`}
     >
       {children}

@@ -1,6 +1,54 @@
 import { createClient } from "@/lib/supabase/client";
 import type { Transaction } from "@/types";
 
+export type DisputeReason =
+  | "damaged_card"
+  | "wrong_card"
+  | "empty_package"
+  | "other";
+
+export async function createDispute(
+  transactionId: string,
+  reason: DisputeReason,
+  description: string,
+  conversationId: string,
+): Promise<void> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const { error: disputeError } = await supabase.from("disputes").insert({
+    transaction_id: transactionId,
+    opened_by: user.id,
+    reason,
+    description: description.trim(),
+  });
+
+  if (disputeError) throw disputeError;
+
+  const { error: txError } = await supabase
+    .from("transactions")
+    .update({ status: "DISPUTED" })
+    .eq("id", transactionId)
+    .eq("buyer_id", user.id)
+    .eq("status", "SHIPPED");
+
+  if (txError) throw txError;
+
+  const { error: msgError } = await supabase.from("messages").insert({
+    conversation_id: conversationId,
+    sender_id: user.id,
+    content: "Litige ouvert",
+    message_type: "dispute_opened",
+    metadata: { reason, description: description.trim() },
+  });
+
+  if (msgError) throw msgError;
+}
+
 export async function fetchTransactionByListing(
   listingId: string,
 ): Promise<Transaction | null> {
@@ -62,6 +110,12 @@ export async function shipOrder(
   });
 
   if (msgError) throw msgError;
+
+  fetch("/api/orders/shipped-notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transaction_id: transactionId }),
+  }).catch(() => {});
 }
 
 export async function confirmReception(

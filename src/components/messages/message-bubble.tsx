@@ -50,7 +50,7 @@ export const MessageBubble = memo(function MessageBubble({
         className={cn(
           "relative max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
           isOwn
-            ? "bg-brand-primary rounded-br-md text-white"
+            ? "bg-brand text-brand-foreground rounded-br-md"
             : "bg-muted text-foreground rounded-bl-md",
         )}
       >
@@ -61,7 +61,7 @@ export const MessageBubble = memo(function MessageBubble({
         <div
           className={cn(
             "mt-0.5 flex items-center justify-end gap-1",
-            isOwn ? "text-white/60" : "text-muted-foreground/60",
+            isOwn ? "text-brand-foreground/60" : "text-muted-foreground/60",
           )}
         >
           <span className="text-[10px] leading-none">
@@ -71,7 +71,7 @@ export const MessageBubble = memo(function MessageBubble({
             (isPending ? (
               <Clock className="size-3" />
             ) : message.read_at ? (
-              <CheckCheck className="size-3 text-sky-200" />
+              <CheckCheck className="text-brand-foreground/80 size-3" />
             ) : (
               <Check className="size-3" />
             ))}

@@ -11,6 +11,18 @@ import { FavoriteButton } from "@/components/shared/favorite-button";
 
 type Props = { params: Promise<{ id: string }> };
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemarket.fr";
+
+const CONDITION_TO_SCHEMA: Record<string, string> = {
+  MINT: "https://schema.org/NewCondition",
+  NEAR_MINT: "https://schema.org/NewCondition",
+  EXCELLENT: "https://schema.org/UsedCondition",
+  GOOD: "https://schema.org/UsedCondition",
+  LIGHT_PLAYED: "https://schema.org/UsedCondition",
+  PLAYED: "https://schema.org/UsedCondition",
+  POOR: "https://schema.org/DamagedCondition",
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const listing = await fetchListingById(id);
@@ -68,8 +80,42 @@ export default async function ListingPage({ params }: Props) {
       : []),
   ];
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: listing.title,
+    ...(listing.cover_image_url && { image: listing.cover_image_url }),
+    ...(listing.card_series && {
+      description: `${listing.title} – ${listing.card_series}`,
+    }),
+    url: `${BASE_URL}/listing/${listing.id}`,
+    offers: {
+      "@type": "Offer",
+      price: listing.display_price.toFixed(2),
+      priceCurrency: "EUR",
+      availability:
+        listing.status === "ACTIVE"
+          ? "https://schema.org/InStock"
+          : "https://schema.org/SoldOut",
+      ...(listing.condition && {
+        itemCondition:
+          CONDITION_TO_SCHEMA[listing.condition] ??
+          "https://schema.org/UsedCondition",
+      }),
+      seller: {
+        "@type": "Person",
+        name: listing.profiles.username,
+        url: `${BASE_URL}/u/${listing.profiles.username}`,
+      },
+    },
+  };
+
   return (
     <div className="pb-24">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <ImageCarousel
         images={images}
         className="rounded-none sm:mx-auto sm:mt-4 sm:max-w-2xl sm:rounded-2xl"
@@ -133,6 +179,7 @@ export default async function ListingPage({ params }: Props) {
       </div>
 
       <ListingActions
+        listingId={listing.id}
         mode={isOwner ? "seller" : "buyer"}
         currentPrice={listing.display_price}
       />

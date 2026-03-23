@@ -149,6 +149,21 @@
       background-color 300ms ease,
       color 200ms ease;
   }
+
+  :focus-visible {
+    @apply ring-brand ring-offset-background ring-2 ring-offset-2 outline-none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes shimmer {

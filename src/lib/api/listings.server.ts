@@ -12,7 +12,7 @@ export const fetchListingById = cache(
 
     const { data, error } = await supabase
       .from("listings")
-      .select("*, profiles(*)")
+      .select("*, profiles!listings_seller_id_fkey(*)")
       .eq("id", id)
       .single();
 

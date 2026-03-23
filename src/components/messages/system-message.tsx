@@ -20,7 +20,7 @@ const SYSTEM_CONFIG: Record<
 > = {
   offer: {
     icon: Tag,
-    color: "text-brand-primary",
+    color: "text-brand",
   },
   offer_accepted: {
     label: "Offre acceptée",
