@@ -45,12 +45,36 @@ function AdvancedFilters() {
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="filter-set">Extension / Set</Label>
+        <Label htmlFor="filter-series">Bloc</Label>
+        <Input
+          id="filter-series"
+          placeholder="Ex: Écarlate et Violet..."
+          value={filters.series ?? ""}
+          onChange={(e) =>
+            updateFilters({ series: e.target.value || undefined })
+          }
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="filter-set">Série</Label>
         <Input
           id="filter-set"
-          placeholder="Ex: Écarlate et Violet..."
+          placeholder="Ex: Flammes Obsidiennes..."
           value={filters.set ?? ""}
           onChange={(e) => updateFilters({ set: e.target.value || undefined })}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="filter-card-number">N° de carte</Label>
+        <Input
+          id="filter-card-number"
+          placeholder="Ex: 25/165"
+          value={filters.card_number ?? ""}
+          onChange={(e) =>
+            updateFilters({ card_number: e.target.value || undefined })
+          }
         />
       </div>
 
@@ -334,12 +358,34 @@ function FeedFiltersInner() {
       <div className="hidden lg:block">
         <div className="grid grid-cols-2 gap-x-3 gap-y-3 xl:grid-cols-4">
           <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">Extension</Label>
+            <Label className="text-muted-foreground text-xs">Bloc</Label>
             <Input
               placeholder="Ex: Écarlate et Violet..."
+              value={filters.series ?? ""}
+              onChange={(e) =>
+                updateFilters({ series: e.target.value || undefined })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-muted-foreground text-xs">Série</Label>
+            <Input
+              placeholder="Ex: Flammes Obsidiennes..."
               value={filters.set ?? ""}
               onChange={(e) =>
                 updateFilters({ set: e.target.value || undefined })
+              }
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-muted-foreground text-xs">N° de carte</Label>
+            <Input
+              placeholder="Ex: 25/165"
+              value={filters.card_number ?? ""}
+              onChange={(e) =>
+                updateFilters({ card_number: e.target.value || undefined })
               }
             />
           </div>

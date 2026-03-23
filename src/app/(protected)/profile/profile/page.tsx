@@ -1,32 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useMyProfile, useUpdateProfile } from "@/hooks/use-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarUploader } from "@/components/profile/avatar-uploader";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AddressAutocomplete,
+  type AddressResult,
+} from "@/components/profile/address-autocomplete";
 import { COUNTRY_LABELS } from "@/lib/constants";
+import type { ShippingCountry } from "@/lib/constants";
 import type { Profile } from "@/types";
+
+function buildInitialAddress(profile: Profile): AddressResult | null {
+  if (!profile.city) return null;
+
+  const countryLabel =
+    COUNTRY_LABELS[profile.country_code as ShippingCountry] ||
+    profile.country_code;
+
+  const parts = [profile.city];
+  if (profile.postal_code) parts.push(profile.postal_code);
+  parts.push(countryLabel);
+
+  return {
+    label: parts.join(", "),
+    city: profile.city,
+    postalCode: profile.postal_code || "",
+    countryCode: profile.country_code,
+  };
+}
 
 function EditProfileForm({ profile }: { profile: Profile }) {
   const updateProfile = useUpdateProfile();
 
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [username, setUsername] = useState(profile.username);
   const [bio, setBio] = useState(profile.bio || "");
-  const [country, setCountry] = useState(profile.country_code);
+  const [address, setAddress] = useState<AddressResult | null>(
+    buildInitialAddress(profile),
+  );
   const [instagram, setInstagram] = useState(profile.instagram_url || "");
   const [facebook, setFacebook] = useState(profile.facebook_url || "");
   const [tiktok, setTiktok] = useState(profile.tiktok_url || "");
+
+  const handleAvatarUploaded = useCallback(
+    (publicUrl: string) => {
+      setAvatarUrl(publicUrl);
+      updateProfile.mutate({ avatar_url: publicUrl });
+    },
+    [updateProfile],
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     updateProfile.mutate({
       username,
       bio: bio || undefined,
-      country_code: country,
+      avatar_url: avatarUrl || undefined,
+      country_code: address?.countryCode || profile.country_code,
+      city: address?.city || null,
+      postal_code: address?.postalCode || null,
       instagram_url: instagram || undefined,
       facebook_url: facebook || undefined,
       tiktok_url: tiktok || undefined,
@@ -38,13 +76,15 @@ function EditProfileForm({ profile }: { profile: Profile }) {
       <h1 className="font-heading text-2xl font-bold">Éditer mon profil</h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-        <div className="flex justify-center">
-          <Avatar className="size-24">
-            <AvatarImage src={profile.avatar_url || undefined} />
-            <AvatarFallback className="text-2xl">
-              {profile.username?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+        <div className="flex flex-col items-center gap-2">
+          <AvatarUploader
+            currentUrl={avatarUrl}
+            fallback={profile.username?.charAt(0).toUpperCase() || "?"}
+            onUploaded={handleAvatarUploaded}
+          />
+          <span className="text-muted-foreground text-xs">
+            Appuyez pour changer
+          </span>
         </div>
 
         <div className="space-y-2">
@@ -71,19 +111,12 @@ function EditProfileForm({ profile }: { profile: Profile }) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="country">Pays</Label>
-          <select
-            id="country"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            className="border-input bg-background flex h-9 w-full rounded-md border px-3 py-1 text-sm"
-          >
-            {Object.entries(COUNTRY_LABELS).map(([code, label]) => (
-              <option key={code} value={code}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <Label htmlFor="address">Adresse</Label>
+          <AddressAutocomplete
+            id="address"
+            value={address}
+            onChange={setAddress}
+          />
         </div>
 
         <div className="space-y-4">

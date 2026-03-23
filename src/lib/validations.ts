@@ -39,6 +39,8 @@ export const profileUpdateSchema = z.object({
     .optional(),
   bio: z.string().max(500).optional(),
   country_code: z.string().length(2).optional(),
+  city: z.string().max(200).optional().nullable(),
+  postal_code: z.string().max(20).optional().nullable(),
   instagram_url: z.string().url().optional().or(z.literal("")),
   facebook_url: z.string().url().optional().or(z.literal("")),
   tiktok_url: z.string().url().optional().or(z.literal("")),
@@ -67,6 +69,9 @@ export const listingCreateSchema = z
     card_ref_id: z.string().optional(),
     card_series: z.string().optional(),
     card_block: z.string().optional(),
+    card_number: z.string().optional(),
+    card_language: z.string().optional(),
+    card_rarity: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -134,12 +139,8 @@ export const ocrRequestSchema = z.object({
 
 export const ocrParsedSchema = z.object({
   name: z.string().nullable().default(null),
-  hp: z.number().nullable().default(null),
-  set_code: z.string().nullable().default(null),
-  set_name: z.string().nullable().default(null),
   card_number: z.string().nullable().default(null),
   language: z.string().nullable().default(null),
-  rarity: z.string().nullable().default(null),
 });
 
 export const ocrCandidateSchema = z.object({
@@ -148,6 +149,9 @@ export const ocrCandidateSchema = z.object({
   name: z.string(),
   set_id: z.string().nullable(),
   set_name: z.string().nullable(),
+  series_name: z.string().nullable(),
+  local_id: z.string().nullable(),
+  set_official_count: z.number().nullable(),
   hp: z.number().nullable(),
   rarity: z.string().nullable(),
   language: z.string(),

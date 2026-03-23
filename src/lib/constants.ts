@@ -165,3 +165,16 @@ export const RARITY_OPTIONS = [
   { value: "Special Art Rare", label: "Special Art Rare" },
   { value: "Secret Rare", label: "Secrète" },
 ] as const;
+
+export const CARD_LANGUAGES = [
+  { value: "fr", label: "Français" },
+  { value: "en", label: "Anglais" },
+  { value: "ja", label: "Japonais" },
+  { value: "de", label: "Allemand" },
+  { value: "it", label: "Italien" },
+  { value: "es", label: "Espagnol" },
+  { value: "pt", label: "Portugais" },
+  { value: "ko", label: "Coréen" },
+  { value: "zh-tw", label: "Chinois (Traditionnel)" },
+  { value: "zh-cn", label: "Chinois (Simplifié)" },
+] as const;

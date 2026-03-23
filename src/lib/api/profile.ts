@@ -27,6 +27,8 @@ export async function updateMyProfile(
       | "bio"
       | "avatar_url"
       | "country_code"
+      | "city"
+      | "postal_code"
       | "instagram_url"
       | "facebook_url"
       | "tiktok_url"

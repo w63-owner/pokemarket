@@ -22,11 +22,11 @@ import {
   CARD_CONDITIONS,
   CONDITION_LABELS,
   GRADING_COMPANIES,
-  WEIGHT_CLASSES,
-  WEIGHT_CLASS_LABELS,
+  CARD_LANGUAGES,
+  RARITY_OPTIONS,
   LIMITS,
 } from "@/lib/constants";
-import type { CardCondition, WeightClass } from "@/lib/constants";
+import type { CardCondition } from "@/lib/constants";
 import { calcDisplayPrice } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 
@@ -53,7 +53,12 @@ const sellFormSchema = z
       .min(1, "Minimum 1")
       .max(10, "Maximum 10")
       .optional(),
-    delivery_weight_class: z.string(),
+    card_series: z.string().optional(),
+    card_block: z.string().optional(),
+    card_number: z.string().optional(),
+    card_language: z.string().optional(),
+    card_rarity: z.string().optional(),
+    card_illustrator: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.is_graded) {
@@ -86,6 +91,7 @@ interface SellFormProps {
   defaultValues?: Partial<SellFormValues>;
   onSubmit: (data: SellFormValues) => void;
   isLoading?: boolean;
+  submitLabel?: string;
 }
 
 function DisplayPricePreview({
@@ -142,6 +148,7 @@ export function SellForm({
   defaultValues,
   onSubmit,
   isLoading,
+  submitLabel = "Publier l'annonce",
 }: SellFormProps) {
   const {
     register,
@@ -157,7 +164,12 @@ export function SellForm({
       is_graded: false,
       grading_company: undefined,
       grade_note: undefined,
-      delivery_weight_class: "S",
+      card_series: undefined,
+      card_block: undefined,
+      card_number: undefined,
+      card_language: undefined,
+      card_rarity: undefined,
+      card_illustrator: undefined,
       ...defaultValues,
     },
   });
@@ -182,6 +194,88 @@ export function SellForm({
           {...register("title")}
         />
         <FieldError message={errors.title?.message} />
+      </div>
+
+      {/* Card metadata: Série, Bloc, Numéro */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="card_series">Série (Set)</Label>
+          <Input
+            id="card_series"
+            placeholder="Ex : Flammes Obsidiennes"
+            {...register("card_series")}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="card_block">Bloc</Label>
+          <Input
+            id="card_block"
+            placeholder="Ex : Écarlate et Violet"
+            {...register("card_block")}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="card_number">Numéro</Label>
+          <Input
+            id="card_number"
+            placeholder="Ex : 44/185"
+            {...register("card_number")}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Langue</Label>
+          <Controller
+            name="card_language"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Langue" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CARD_LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Rareté</Label>
+          <Controller
+            name="card_rarity"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Rareté" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RARITY_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="card_illustrator">Illustrateur</Label>
+        <Input
+          id="card_illustrator"
+          placeholder="Ex : Mitsuhiro Arita"
+          {...register("card_illustrator")}
+        />
       </div>
 
       {/* Seller price */}
@@ -328,39 +422,16 @@ export function SellForm({
         )}
       </AnimatePresence>
 
-      {/* Weight class */}
-      <div className="space-y-1.5">
-        <Label>Catégorie de poids</Label>
-        <Controller
-          name="delivery_weight_class"
-          control={control}
-          render={({ field }) => (
-            <Select value={field.value ?? "S"} onValueChange={field.onChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choisir le poids" />
-              </SelectTrigger>
-              <SelectContent>
-                {WEIGHT_CLASSES.map((wc) => (
-                  <SelectItem key={wc} value={wc}>
-                    {WEIGHT_CLASS_LABELS[wc as WeightClass]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </div>
-
       {/* Submit */}
       <div className="pt-2 pb-8">
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 size-4 animate-spin" />
-              Publication en cours…
+              En cours…
             </>
           ) : (
-            "Publier l'annonce"
+            submitLabel
           )}
         </Button>
       </div>

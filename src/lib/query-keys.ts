@@ -8,6 +8,8 @@ export type FeedFilters = {
   grade_max?: number;
   price_min?: number;
   price_max?: number;
+  card_number?: string;
+  series?: string;
   sort?: string;
 };
 

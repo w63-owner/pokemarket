@@ -1,6 +1,53 @@
 import type { Database } from "./database";
 
-// Shorthand row types
+// ─── TCGdex JSONB interfaces ─────────────────────────────
+
+export type CardAttack = {
+  cost: string[];
+  name: string;
+  effect?: string;
+  damage?: string | number;
+};
+
+export type CardWeakness = {
+  type: string;
+  value: string;
+};
+
+export type CardVariants = {
+  normal: boolean;
+  reverse: boolean;
+  holo: boolean;
+  firstEdition: boolean;
+  wPromo?: boolean;
+};
+
+export type CardLegal = {
+  standard: boolean;
+  expanded: boolean;
+};
+
+export type CardItem = {
+  name: string;
+  effect: string;
+};
+
+export type SetCardCount = {
+  total: number;
+  official: number;
+  reverse?: number;
+  holo?: number;
+  firstEd?: number;
+  normal?: number;
+};
+
+export type CardPricing = {
+  cardmarket?: Record<string, number | string>;
+  tcgplayer?: Record<string, unknown>;
+};
+
+// ─── Shorthand row types ─────────────────────────────────
+
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type Wallet = Database["public"]["Tables"]["wallets"]["Row"];
 export type Listing = Database["public"]["Tables"]["listings"]["Row"];
@@ -21,6 +68,32 @@ export type TcgdexCard = Database["public"]["Tables"]["tcgdex_cards"]["Row"];
 export type TcgdexSet = Database["public"]["Tables"]["tcgdex_sets"]["Row"];
 export type TcgdexSeries = Database["public"]["Tables"]["tcgdex_series"]["Row"];
 export type OcrAttempt = Database["public"]["Tables"]["ocr_attempts"]["Row"];
+
+export type TcgdexCardTyped = Omit<
+  TcgdexCard,
+  | "attacks"
+  | "weaknesses"
+  | "variants"
+  | "legal"
+  | "types"
+  | "dex_id"
+  | "item"
+  | "pricing"
+> & {
+  attacks: CardAttack[] | null;
+  weaknesses: CardWeakness[] | null;
+  variants: CardVariants | null;
+  legal: CardLegal | null;
+  types: string[] | null;
+  dex_id: number[] | null;
+  item: CardItem | null;
+  pricing: CardPricing | null;
+};
+
+export type TcgdexSetTyped = Omit<TcgdexSet, "card_count" | "legal"> & {
+  card_count: SetCardCount | null;
+  legal: CardLegal | null;
+};
 
 // Insert types
 export type ListingInsert = Database["public"]["Tables"]["listings"]["Insert"];

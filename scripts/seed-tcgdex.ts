@@ -18,8 +18,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const LANGUAGES = ["fr", "en", "ja"];
 const DB_BATCH_SIZE = 500;
-const FETCH_CONCURRENCY = 15;
-const DELAY_BETWEEN_BATCHES_MS = 250;
+const FETCH_CONCURRENCY = 10;
+const DELAY_BETWEEN_BATCHES_MS = 500;
 
 function baseUrl(lang: string) {
   return `https://api.tcgdex.net/v2/${lang}`;
@@ -31,12 +31,12 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJson<T>(url: string, retries = 3): Promise<T> {
+async function fetchJson<T>(url: string, retries = 4): Promise<T> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const res = await fetch(url);
       if (res.status === 429) {
-        const wait = attempt * 2000;
+        const wait = attempt * 3000;
         console.warn(`  ⚠ Rate-limited on ${url}, waiting ${wait}ms…`);
         await sleep(wait);
         continue;
@@ -46,7 +46,11 @@ async function fetchJson<T>(url: string, retries = 3): Promise<T> {
     } catch (err) {
       if (attempt === retries)
         throw new Error(`Failed after ${retries} attempts: ${url} — ${err}`);
-      await sleep(attempt * 1000);
+      const wait = attempt * 3000;
+      console.warn(
+        `  ⚠ Attempt ${attempt} failed for ${url}, retrying in ${wait}ms…`,
+      );
+      await sleep(wait);
     }
   }
   throw new Error("Unreachable");
@@ -102,9 +106,21 @@ interface SetDetail {
   id: string;
   name: string;
   logo?: string;
+  symbol?: string;
   releaseDate?: string;
+  tcgOnline?: string;
+  cardCount?: {
+    total?: number;
+    official?: number;
+    reverse?: number;
+    holo?: number;
+    firstEd?: number;
+    normal?: number;
+  };
   serie?: { id: string; name: string };
-  cards?: Array<{ id: string; localId: string; name: string }>;
+  legal?: { standard?: boolean; expanded?: boolean };
+  abbreviation?: { official?: string; localized?: string };
+  cards?: Array<{ id: string; localId: string; name: string; image?: string }>;
 }
 
 interface CardListItem {
@@ -115,11 +131,55 @@ interface CardListItem {
 
 interface CardDetail {
   id: string;
+  localId?: string;
   name?: string;
-  hp?: number | string;
+  category?: string;
+  illustrator?: string;
+  image?: string;
   rarity?: string;
-  set?: { id: string };
+  hp?: number | string;
+
+  set?: {
+    id: string;
+    name?: string;
+    logo?: string;
+    symbol?: string;
+    cardCount?: { official?: number; total?: number };
+  };
+
   variants?: Record<string, boolean>;
+  variants_detailed?: Array<{ type: string; size: string }>;
+
+  // Pokemon-specific
+  types?: string[];
+  evolveFrom?: string;
+  description?: string;
+  stage?: string;
+  attacks?: Array<{
+    cost?: string[];
+    name: string;
+    effect?: string;
+    damage?: string | number;
+  }>;
+  weaknesses?: Array<{ type: string; value: string }>;
+  retreat?: number;
+  regulationMark?: string;
+  dexId?: number[];
+  level?: string;
+  suffix?: string;
+  item?: { name: string; effect: string };
+
+  // Trainer-specific
+  effect?: string;
+  trainerType?: string;
+
+  // Energy-specific
+  energyType?: string;
+
+  // Meta
+  legal?: { standard?: boolean; expanded?: boolean };
+  pricing?: Record<string, unknown> | null;
+  updated?: string;
 }
 
 // ─── Step 1: Series ────────────────────────────────────────
@@ -170,6 +230,10 @@ async function seedSets(lang: string): Promise<SetDetail[]> {
     series_id: s.serie?.id ?? null,
     logo: s.logo ?? null,
     release_date: s.releaseDate ?? null,
+    symbol: s.symbol ?? null,
+    card_count: s.cardCount ?? null,
+    legal: s.legal ?? null,
+    tcg_online_code: s.tcgOnline ?? null,
   }));
 
   for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
@@ -235,25 +299,71 @@ async function seedCards(lang: string, setDetails: SetDetail[]) {
 
   const rows = allCardRefs.map((ref, i) => {
     const detail = cardDetails[i];
+
     if (detail) {
       return {
         language: lang,
         id: detail.id,
         name: detail.name ?? ref.name ?? null,
         set_id: detail.set?.id ?? extractSetId(ref.id, ref.localId),
+        local_id: detail.localId ?? ref.localId,
+        category: detail.category ?? null,
+        illustrator: detail.illustrator ?? null,
+        image: detail.image ?? null,
         hp: parseHp(detail.hp),
         rarity: detail.rarity ?? null,
         variants: detail.variants ?? null,
+        types: detail.types ?? null,
+        evolve_from: detail.evolveFrom ?? null,
+        description: detail.description ?? null,
+        stage: detail.stage ?? null,
+        attacks: detail.attacks ?? null,
+        weaknesses: detail.weaknesses ?? null,
+        retreat: detail.retreat ?? null,
+        regulation_mark: detail.regulationMark ?? null,
+        legal: detail.legal ?? null,
+        dex_id: detail.dexId ?? null,
+        level: detail.level ?? null,
+        suffix: detail.suffix ?? null,
+        item: detail.item ?? null,
+        effect: detail.effect ?? null,
+        trainer_type: detail.trainerType ?? null,
+        energy_type: detail.energyType ?? null,
+        pricing: detail.pricing ?? null,
+        updated_at: detail.updated ?? null,
       };
     }
+
     return {
       language: lang,
       id: ref.id,
       name: ref.name ?? null,
       set_id: extractSetId(ref.id, ref.localId),
+      local_id: ref.localId,
+      category: null,
+      illustrator: null,
+      image: null,
       hp: null,
       rarity: null,
       variants: null,
+      types: null,
+      evolve_from: null,
+      description: null,
+      stage: null,
+      attacks: null,
+      weaknesses: null,
+      retreat: null,
+      regulation_mark: null,
+      legal: null,
+      dex_id: null,
+      level: null,
+      suffix: null,
+      item: null,
+      effect: null,
+      trainer_type: null,
+      energy_type: null,
+      pricing: null,
+      updated_at: null,
     };
   });
 

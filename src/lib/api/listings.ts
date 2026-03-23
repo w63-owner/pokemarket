@@ -35,6 +35,8 @@ export async function fetchListingsFeed(
     p_grade_max: filters.grade_max,
     p_price_min: filters.price_min,
     p_price_max: filters.price_max,
+    p_card_number: filters.card_number || undefined,
+    p_series: filters.series || undefined,
     p_sort: filters.sort || "date_desc",
     p_limit: limit,
   };
@@ -82,6 +84,10 @@ export type CreateListingInput = {
   card_ref_id?: string | null;
   card_series?: string | null;
   card_block?: string | null;
+  card_number?: string | null;
+  card_language?: string | null;
+  card_rarity?: string | null;
+  card_illustrator?: string | null;
 };
 
 export async function createListing(
@@ -111,8 +117,69 @@ export async function createListing(
       card_ref_id: input.card_ref_id ?? null,
       card_series: input.card_series ?? null,
       card_block: input.card_block ?? null,
+      card_number: input.card_number ?? null,
+      card_language: input.card_language ?? null,
+      card_rarity: input.card_rarity ?? null,
+      card_illustrator: input.card_illustrator ?? null,
       status: "ACTIVE",
     })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  return data as Listing;
+}
+
+export type UpdateListingInput = {
+  id: string;
+  title: string;
+  price_seller: number;
+  condition?: string | null;
+  is_graded: boolean;
+  grading_company?: string | null;
+  grade_note?: number | null;
+  cover_image_url: string;
+  back_image_url: string;
+  card_series?: string | null;
+  card_block?: string | null;
+  card_number?: string | null;
+  card_language?: string | null;
+  card_rarity?: string | null;
+  card_illustrator?: string | null;
+};
+
+export async function updateListing(
+  input: UpdateListingInput,
+): Promise<Listing> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Non authentifié");
+
+  const { data, error } = await supabase
+    .from("listings")
+    .update({
+      title: input.title,
+      price_seller: input.price_seller,
+      condition: input.is_graded ? null : (input.condition ?? null),
+      is_graded: input.is_graded,
+      grading_company: input.is_graded ? (input.grading_company ?? null) : null,
+      grade_note: input.is_graded ? (input.grade_note ?? null) : null,
+      cover_image_url: input.cover_image_url,
+      back_image_url: input.back_image_url,
+      card_series: input.card_series ?? null,
+      card_block: input.card_block ?? null,
+      card_number: input.card_number ?? null,
+      card_language: input.card_language ?? null,
+      card_rarity: input.card_rarity ?? null,
+      card_illustrator: input.card_illustrator ?? null,
+    })
+    .eq("id", input.id)
+    .eq("seller_id", user.id)
     .select()
     .single();
 

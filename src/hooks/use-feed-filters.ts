@@ -37,6 +37,12 @@ export function useFiltersFromUrl(): FeedFilters {
     filters.price_min = parseNumber(searchParams.get("price_min"));
     filters.price_max = parseNumber(searchParams.get("price_max"));
 
+    const card_number = searchParams.get("card_number");
+    if (card_number) filters.card_number = card_number;
+
+    const series = searchParams.get("series");
+    if (series) filters.series = series;
+
     const sort = searchParams.get("sort");
     if (sort) filters.sort = sort;
 
@@ -96,6 +102,8 @@ export function countActiveFilters(filters: FeedFilters): number {
   if (filters.is_graded) count++;
   if (filters.price_min !== undefined) count++;
   if (filters.price_max !== undefined) count++;
+  if (filters.card_number) count++;
+  if (filters.series) count++;
   return count;
 }
 

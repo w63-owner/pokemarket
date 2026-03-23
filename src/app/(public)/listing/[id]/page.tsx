@@ -31,9 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Annonce introuvable" };
   }
 
-  const title = listing.card_series
-    ? `${listing.title} - ${listing.card_series}`
-    : listing.title;
+  const titleParts = [listing.title];
+  if (listing.card_series) titleParts.push(listing.card_series);
+  if (listing.card_number) titleParts.push(`N°${listing.card_number}`);
+  const title = titleParts.join(" - ");
 
   return {
     title,
@@ -150,22 +151,71 @@ export default async function ListingPage({ params }: Props) {
           )}
         </div>
 
-        {listing.card_series && (
-          <p className="text-muted-foreground mt-3 text-sm">
-            Set :{" "}
-            <span className="text-foreground font-medium">
-              {listing.card_series}
-            </span>
-            {listing.card_block && (
-              <>
-                {" · "}Bloc :{" "}
-                <span className="text-foreground font-medium">
-                  {listing.card_block}
-                </span>
-              </>
-            )}
-          </p>
-        )}
+        {(() => {
+          const meta = listing.card_metadata;
+          const series = listing.card_series ?? meta?.set_name;
+          const block = listing.card_block ?? meta?.series_name;
+          const rarity = listing.card_rarity ?? meta?.rarity;
+          const illustrator = listing.card_illustrator ?? meta?.illustrator;
+          const hasInfo =
+            series ||
+            block ||
+            listing.card_number ||
+            listing.card_language ||
+            rarity ||
+            illustrator;
+
+          if (!hasInfo) return null;
+
+          return (
+            <div className="mt-4 space-y-1.5">
+              <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                {series && (
+                  <span>
+                    Série :{" "}
+                    <span className="text-foreground font-medium">
+                      {series}
+                    </span>
+                  </span>
+                )}
+                {block && (
+                  <span>
+                    Bloc :{" "}
+                    <span className="text-foreground font-medium">{block}</span>
+                  </span>
+                )}
+                {listing.card_number && (
+                  <span>
+                    N° :{" "}
+                    <span className="text-foreground font-medium">
+                      {listing.card_number}
+                    </span>
+                  </span>
+                )}
+              </div>
+              {illustrator && (
+                <div className="text-muted-foreground text-sm">
+                  Illustrateur :{" "}
+                  <span className="text-foreground font-medium">
+                    {illustrator}
+                  </span>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {listing.card_language && (
+                  <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    {listing.card_language.toUpperCase()}
+                  </span>
+                )}
+                {rarity && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                    {rarity}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <SellerBlock
           seller={{

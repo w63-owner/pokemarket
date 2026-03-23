@@ -36,6 +36,7 @@ export async function getFavoriteListings(): Promise<FeedItem[]> {
       listings!inner (
         id, seller_id, title, display_price, condition,
         is_graded, grade_note, cover_image_url, card_series,
+        card_rarity, card_language, card_number,
         created_at, status,
         profiles!listings_seller_id_fkey!inner ( username, avatar_url )
       )
@@ -58,6 +59,9 @@ export async function getFavoriteListings(): Promise<FeedItem[]> {
         grade_note: number | null;
         cover_image_url: string | null;
         card_series: string | null;
+        card_rarity: string | null;
+        card_language: string | null;
+        card_number: string | null;
         created_at: string;
         status: string;
         profiles: { username: string; avatar_url: string | null };
@@ -72,6 +76,9 @@ export async function getFavoriteListings(): Promise<FeedItem[]> {
         grade_note: l.grade_note,
         cover_image_url: l.cover_image_url,
         card_series: l.card_series,
+        card_rarity: l.card_rarity,
+        card_language: l.card_language,
+        card_number: l.card_number,
         created_at: l.created_at,
         seller_username: l.profiles.username,
         seller_avatar_url: l.profiles.avatar_url,

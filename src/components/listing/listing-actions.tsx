@@ -22,8 +22,6 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { fetchOrCreateConversation } from "@/lib/api/conversations";
@@ -32,7 +30,6 @@ interface ListingActionsProps {
   listingId: string;
   mode: "buyer" | "seller";
   currentPrice?: number;
-  onEditPrice?: (newPrice: number) => void;
   onDelete?: () => void;
   className?: string;
 }
@@ -41,14 +38,11 @@ export function ListingActions({
   listingId,
   mode,
   currentPrice,
-  onEditPrice,
   onDelete,
   className,
 }: ListingActionsProps) {
   const router = useRouter();
-  const [editPriceOpen, setEditPriceOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [newPrice, setNewPrice] = useState(currentPrice?.toString() ?? "");
   const [contactLoading, setContactLoading] = useState(false);
 
   const handleContact = async () => {
@@ -66,14 +60,6 @@ export function ListingActions({
 
   const handleBuy = () => {
     router.push(`/checkout/${listingId}`);
-  };
-
-  const handleEditPriceSubmit = () => {
-    const parsed = parseFloat(newPrice);
-    if (!isNaN(parsed) && parsed > 0) {
-      onEditPrice?.(parsed);
-      setEditPriceOpen(false);
-    }
   };
 
   const handleDelete = () => {
@@ -132,61 +118,14 @@ export function ListingActions({
               variant="outline"
               size="lg"
               className="flex-[2]"
-              onClick={() => {
-                setNewPrice(currentPrice?.toString() ?? "");
-                setEditPriceOpen(true);
-              }}
+              onClick={() => router.push(`/sell/edit/${listingId}`)}
             >
               <Pencil data-icon="inline-start" className="size-4" />
-              Modifier le prix
+              Modifier l&apos;annonce
             </Button>
           </div>
         )}
       </motion.div>
-
-      {/* Edit price dialog */}
-      <Dialog open={editPriceOpen} onOpenChange={setEditPriceOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modifier le prix</DialogTitle>
-            <DialogDescription>
-              Entrez le nouveau prix de vente pour votre annonce.
-              {currentPrice != null && (
-                <>
-                  {" "}
-                  Prix actuel : <strong>{formatPrice(currentPrice)}</strong>
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            <Label htmlFor="new-price">Nouveau prix (€)</Label>
-            <Input
-              id="new-price"
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={newPrice}
-              onChange={(e) => setNewPrice(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleEditPriceSubmit()}
-              placeholder="0,00"
-            />
-          </div>
-
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>
-              Annuler
-            </DialogClose>
-            <Button
-              onClick={handleEditPriceSubmit}
-              disabled={!newPrice || parseFloat(newPrice) <= 0}
-            >
-              Confirmer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>

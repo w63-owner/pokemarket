@@ -32,6 +32,8 @@ interface ImageUploaderProps {
     coverUrl: string | null;
     backUrl: string | null;
   }) => void;
+  initialCoverUrl?: string | null;
+  initialBackUrl?: string | null;
 }
 
 const MAX_DIMENSION = 1200;
@@ -311,12 +313,24 @@ function ImageSlot({
   );
 }
 
-export function ImageUploader({ onImagesChange }: ImageUploaderProps) {
+export function ImageUploader({
+  onImagesChange,
+  initialCoverUrl,
+  initialBackUrl,
+}: ImageUploaderProps) {
   const { user } = useAuth();
   const supabase = createClient();
 
-  const [cover, setCover] = useState<ImageSlotState>({ ...INITIAL_SLOT });
-  const [back, setBack] = useState<ImageSlotState>({ ...INITIAL_SLOT });
+  const [cover, setCover] = useState<ImageSlotState>(
+    initialCoverUrl
+      ? { ...INITIAL_SLOT, publicUrl: initialCoverUrl }
+      : { ...INITIAL_SLOT },
+  );
+  const [back, setBack] = useState<ImageSlotState>(
+    initialBackUrl
+      ? { ...INITIAL_SLOT, publicUrl: initialBackUrl }
+      : { ...INITIAL_SLOT },
+  );
 
   const notifyParent = useCallback(
     (nextCover: ImageSlotState | null, nextBack: ImageSlotState | null) => {

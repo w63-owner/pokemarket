@@ -8,18 +8,14 @@ function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 }
 
-const SYSTEM_PROMPT = `You are a Pokemon TCG card analyzer. Analyze the provided image of a Pokemon card and extract structured information.
+const SYSTEM_PROMPT = `You are a Pokemon TCG card analyzer. Analyze the provided image and extract ONLY these 3 fields.
 
 Return STRICTLY a JSON object with these keys:
 - "name": The Pokemon name shown on the card (string or null if unreadable)
-- "hp": The HP value shown on the card (number or null)
-- "set_code": The set code/symbol identifier if visible (string or null)
-- "set_name": The full name of the set if recognizable (string or null)
-- "card_number": The card number printed on the card, e.g. "004/102" or "25/165" (string or null)
-- "language": The language of the card text: "fr" for French, "en" for English, "ja" for Japanese, "de" for German, "it" for Italian, "es" for Spanish, "pt" for Portuguese, "ko" for Korean, "zh-tw" for Traditional Chinese, "zh-cn" for Simplified Chinese (string or null)
-- "rarity": The rarity symbol or text if visible: "Common", "Uncommon", "Rare", "Ultra Rare", "Illustration Rare", "Special Art Rare", "Secret Rare", "Amazing Rare", "Radiant Rare" (string or null)
+- "card_number": The collector number printed at the bottom of the card, e.g. "004/102", "25/165", "31/40" (string or null)
+- "language": The language of the card text: "fr", "en", "ja", "de", "it", "es", "pt", "ko", "zh-tw", or "zh-cn" (string or null)
 
-If you cannot read or identify a field, set it to null. Do NOT guess — only return what you can confidently read on the card.`;
+If you cannot read a field, set it to null. Do NOT guess.`;
 
 const MAX_CANDIDATES = 5;
 
@@ -48,10 +44,10 @@ function computeConfidence(
   parsed: OcrParsed,
   card: {
     name: string | null;
-    hp: number | null;
-    rarity: string | null;
     id: string;
+    local_id: string | null;
   },
+  setOfficialCount: number | null,
 ): number {
   let score = 0;
   let weights = 0;
@@ -63,35 +59,28 @@ function computeConfidence(
     if (pName === cName) {
       score += 50;
     } else if (cName.includes(pName) || pName.includes(cName)) {
-      score += 35;
-    }
-  }
-
-  if (parsed.card_number) {
-    weights += 30;
-    const localNum = parsed.card_number.split("/")[0]?.replace(/^0+/, "");
-    const cardLocalNum = card.id
-      .split("/")
-      .pop()
-      ?.split("-")
-      .pop()
-      ?.replace(/^0+/, "");
-    if (localNum && cardLocalNum && localNum === cardLocalNum) {
       score += 30;
     }
   }
 
-  if (parsed.hp != null && card.hp != null) {
-    weights += 10;
-    if (parsed.hp === card.hp) {
-      score += 10;
-    }
-  }
+  if (parsed.card_number) {
+    const [rawLocalId, rawCount] = parsed.card_number.split("/");
+    const ocrLocalId = rawLocalId?.replace(/^0+/, "");
+    const ocrCount = rawCount?.replace(/^0+/, "");
 
-  if (parsed.rarity && card.rarity) {
-    weights += 10;
-    if (normalizeStr(parsed.rarity) === normalizeStr(card.rarity)) {
-      score += 10;
+    if (ocrLocalId && card.local_id) {
+      weights += 30;
+      const dbLocalId = card.local_id.replace(/^0+/, "");
+      if (ocrLocalId === dbLocalId) {
+        score += 30;
+      }
+    }
+
+    if (ocrCount && setOfficialCount) {
+      weights += 20;
+      if (ocrCount === String(setOfficialCount)) {
+        score += 20;
+      }
     }
   }
 
@@ -117,7 +106,7 @@ export async function POST(request: Request) {
     try {
       const completion = await getOpenAI().chat.completions.create({
         model: "gpt-4o-mini",
-        max_tokens: 500,
+        max_tokens: 200,
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
@@ -211,9 +200,11 @@ async function matchTcgdexCards(parsed: OcrParsed): Promise<OcrCandidate[]> {
 
   let query = supabase
     .from("tcgdex_cards")
-    .select("language, id, card_key, name, set_id, hp, rarity")
+    .select(
+      "language, id, card_key, name, set_id, hp, rarity, illustrator, local_id",
+    )
     .ilike("name", namePattern)
-    .limit(30);
+    .limit(20);
 
   if (parsed.language) {
     query = query.eq("language", language);
@@ -232,41 +223,78 @@ async function matchTcgdexCards(parsed: OcrParsed): Promise<OcrCandidate[]> {
     ...new Set(cards.map((c) => c.set_id).filter(Boolean)),
   ] as string[];
   const setsMap = new Map<string, string>();
-
-  const seriesMap = new Map<string, string>();
+  const seriesIdMap = new Map<string, string>();
+  const seriesNameMap = new Map<string, string>();
+  const setOfficialCountMap = new Map<string, number>();
 
   if (setIds.length > 0) {
     const { data: sets } = await supabase
       .from("tcgdex_sets")
-      .select("id, name, language, series_id")
+      .select("id, name, language, series_id, card_count")
       .in("id", setIds)
       .eq("language", language);
 
     if (sets) {
+      const seriesIds = [
+        ...new Set(sets.map((s) => s.series_id).filter(Boolean)),
+      ] as string[];
+
+      if (seriesIds.length > 0) {
+        const { data: series } = await supabase
+          .from("tcgdex_series")
+          .select("id, name")
+          .in("id", seriesIds)
+          .eq("language", language);
+
+        if (series) {
+          for (const sr of series) {
+            seriesNameMap.set(sr.id, sr.name);
+          }
+        }
+      }
+
       for (const s of sets) {
         setsMap.set(s.id, s.name);
-        if (s.series_id) seriesMap.set(s.id, s.series_id);
+        if (s.series_id) seriesIdMap.set(s.id, s.series_id);
+        const official = (s.card_count as Record<string, number> | null)
+          ?.official;
+        if (official) setOfficialCountMap.set(s.id, official);
       }
     }
   }
 
-  const scored: OcrCandidate[] = cards.map((card) => ({
-    card_key: card.card_key,
-    card_id: card.id,
-    name: card.name ?? "Unknown",
-    set_id: card.set_id,
-    set_name: card.set_id ? (setsMap.get(card.set_id) ?? null) : null,
-    hp: card.hp,
-    rarity: card.rarity,
-    language: card.language,
-    image_url: buildTcgdexImageUrl(
-      card.id,
-      card.set_id,
-      card.set_id ? (seriesMap.get(card.set_id) ?? null) : null,
-      card.language,
-    ),
-    confidence: computeConfidence(parsed, card),
-  }));
+  const scored: OcrCandidate[] = cards.map((card) => {
+    const seriesId = card.set_id
+      ? (seriesIdMap.get(card.set_id) ?? null)
+      : null;
+    return {
+      card_key: card.card_key,
+      card_id: card.id,
+      name: card.name ?? "Unknown",
+      set_id: card.set_id,
+      set_name: card.set_id ? (setsMap.get(card.set_id) ?? null) : null,
+      series_name: seriesId ? (seriesNameMap.get(seriesId) ?? null) : null,
+      local_id: card.local_id ?? null,
+      set_official_count: card.set_id
+        ? (setOfficialCountMap.get(card.set_id) ?? null)
+        : null,
+      hp: card.hp,
+      rarity: card.rarity,
+      illustrator: card.illustrator ?? null,
+      language: card.language,
+      image_url: buildTcgdexImageUrl(
+        card.id,
+        card.set_id,
+        seriesId,
+        card.language,
+      ),
+      confidence: computeConfidence(
+        parsed,
+        card,
+        card.set_id ? (setOfficialCountMap.get(card.set_id) ?? null) : null,
+      ),
+    };
+  });
 
   scored.sort((a, b) => b.confidence - a.confidence);
 

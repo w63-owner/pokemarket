@@ -65,16 +65,27 @@ export function ListingCard({
             {listing.card_series && (
               <p className="text-muted-foreground truncate text-xs">
                 {listing.card_series}
+                {listing.card_number ? ` · N°${listing.card_number}` : ""}
               </p>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {listing.condition && !listing.is_graded && (
                 <ConditionBadge condition={listing.condition} />
               )}
               {listing.is_graded && listing.grade_note !== null && (
                 <span className="bg-brand-accent/15 text-brand-accent inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold">
                   {listing.grade_note}/10
+                </span>
+              )}
+              {listing.card_rarity && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                  {listing.card_rarity}
+                </span>
+              )}
+              {listing.card_language && (
+                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                  {listing.card_language.toUpperCase()}
                 </span>
               )}
             </div>

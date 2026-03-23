@@ -26,12 +26,8 @@ export type OcrRequest = {
 
 export type OcrParsed = {
   name: string | null;
-  hp: number | null;
-  set_code: string | null;
-  set_name: string | null;
   card_number: string | null;
   language: string | null;
-  rarity: string | null;
 };
 
 export type OcrCandidate = {
@@ -40,8 +36,12 @@ export type OcrCandidate = {
   name: string;
   set_id: string | null;
   set_name: string | null;
+  series_name: string | null;
+  local_id: string | null;
+  set_official_count: number | null;
   hp: number | null;
   rarity: string | null;
+  illustrator: string | null;
   language: string;
   image_url: string | null;
   confidence: number;

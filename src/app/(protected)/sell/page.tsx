@@ -11,10 +11,11 @@ import { ImageUploader } from "@/components/sell/image-uploader";
 import { OcrResults } from "@/components/sell/ocr-results";
 import { SellForm, type SellFormValues } from "@/components/sell/sell-form";
 import { useCreateListing } from "@/hooks/use-listings";
-import type { OcrCandidate, OcrResponse } from "@/types/api";
+import type { OcrCandidate, OcrParsed, OcrResponse } from "@/types/api";
 
 type OcrState = {
   isLoading: boolean;
+  parsed: OcrParsed | null;
   candidates: OcrCandidate[];
   selectedCardKey: string | null;
   selectedCandidate: OcrCandidate | null;
@@ -23,6 +24,7 @@ type OcrState = {
 
 const INITIAL_OCR: OcrState = {
   isLoading: false,
+  parsed: null,
   candidates: [],
   selectedCardKey: null,
   selectedCandidate: null,
@@ -42,13 +44,13 @@ export default function SellPage() {
   const [ocr, setOcr] = useState<OcrState>({ ...INITIAL_OCR });
   const [showForm, setShowForm] = useState(false);
 
-  const hasCoverImage = !!images.coverUrl;
+  const hasBothImages = !!images.coverUrl && !!images.backUrl;
 
   const handleImagesChange = useCallback(
     (next: { coverUrl: string | null; backUrl: string | null }) => {
       setImages(next);
 
-      if (!next.coverUrl && ocr.hasRun) {
+      if ((!next.coverUrl || !next.backUrl) && ocr.hasRun) {
         setOcr({ ...INITIAL_OCR });
         setShowForm(false);
       }
@@ -83,12 +85,15 @@ export default function SellPage() {
       setOcr((prev) => ({
         ...prev,
         isLoading: false,
+        parsed: data.parsed,
         candidates: data.candidates,
       }));
 
       if (data.candidates.length === 0) {
         toast.info(
-          "Aucune carte identifiée. Remplissez le formulaire manuellement.",
+          data.parsed.name
+            ? "Carte non trouvée dans le catalogue, mais les champs ont été pré-remplis."
+            : "Aucune carte identifiée. Remplissez le formulaire manuellement.",
         );
         setShowForm(true);
       }
@@ -144,12 +149,16 @@ export default function SellPage() {
             ? (data.grading_company ?? null)
             : null,
           grade_note: data.is_graded ? (data.grade_note ?? null) : null,
-          delivery_weight_class: data.delivery_weight_class,
+          delivery_weight_class: "S",
           cover_image_url: images.coverUrl,
           back_image_url: images.backUrl,
           card_ref_id: ocr.selectedCandidate?.card_key ?? null,
-          card_series: ocr.selectedCandidate?.set_id ?? null,
-          card_block: ocr.selectedCandidate?.set_name ?? null,
+          card_series: data.card_series ?? null,
+          card_block: data.card_block ?? null,
+          card_number: data.card_number ?? null,
+          card_language: data.card_language ?? null,
+          card_rarity: data.card_rarity ?? null,
+          card_illustrator: data.card_illustrator ?? null,
         },
         {
           onSuccess: (listing) => {
@@ -163,7 +172,27 @@ export default function SellPage() {
   );
 
   const formDefaultValues: Partial<SellFormValues> | undefined =
-    ocr.selectedCandidate ? { title: ocr.selectedCandidate.name } : undefined;
+    ocr.selectedCandidate
+      ? {
+          title: ocr.selectedCandidate.name,
+          card_series: ocr.selectedCandidate.set_name ?? undefined,
+          card_block: ocr.selectedCandidate.series_name ?? undefined,
+          card_number:
+            ocr.selectedCandidate.local_id &&
+            ocr.selectedCandidate.set_official_count
+              ? `${ocr.selectedCandidate.local_id}/${ocr.selectedCandidate.set_official_count}`
+              : (ocr.selectedCandidate.local_id ?? undefined),
+          card_language: ocr.selectedCandidate.language ?? undefined,
+          card_rarity: ocr.selectedCandidate.rarity ?? undefined,
+          card_illustrator: ocr.selectedCandidate.illustrator ?? undefined,
+        }
+      : ocr.parsed?.name
+        ? {
+            title: ocr.parsed.name,
+            card_number: ocr.parsed.card_number ?? undefined,
+            card_language: ocr.parsed.language ?? undefined,
+          }
+        : undefined;
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
@@ -187,7 +216,7 @@ export default function SellPage() {
 
       {/* Step 2: OCR trigger */}
       <AnimatePresence mode="wait">
-        {hasCoverImage && !ocr.hasRun && (
+        {hasBothImages && !ocr.hasRun && (
           <motion.section
             key="ocr-trigger"
             initial={{ opacity: 0, y: 12 }}
@@ -276,7 +305,9 @@ export default function SellPage() {
             </div>
 
             <SellForm
-              key={ocr.selectedCardKey ?? "manual"}
+              key={
+                ocr.selectedCardKey ?? (ocr.parsed ? "ocr-parsed" : "manual")
+              }
               defaultValues={formDefaultValues}
               onSubmit={handleFormSubmit}
               isLoading={createListing.isPending}
