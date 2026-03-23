@@ -18,6 +18,8 @@ interface PhotonFeature {
     village?: string;
     postcode?: string;
     state?: string;
+    street?: string;
+    housenumber?: string;
     name?: string;
     type?: string;
   };
@@ -25,6 +27,7 @@ interface PhotonFeature {
 
 export interface AddressResult {
   label: string;
+  addressLine: string;
   city: string;
   postalCode: string;
   countryCode: string;
@@ -39,23 +42,58 @@ interface AddressAutocompleteProps {
 
 const ALLOWED_COUNTRIES = Object.keys(COUNTRY_LABELS) as ShippingCountry[];
 
-function formatLabel(props: PhotonFeature["properties"]): string {
-  const city = props.city || props.town || props.village || props.name || "";
+function extractCity(props: PhotonFeature["properties"]): string {
+  return props.city || props.town || props.village || "";
+}
+
+function extractStreet(props: PhotonFeature["properties"]): string {
   const parts: string[] = [];
+  if (props.housenumber) parts.push(props.housenumber);
+  if (props.street) parts.push(props.street);
+  if (
+    parts.length === 0 &&
+    props.name &&
+    props.type !== "city" &&
+    props.type !== "district"
+  ) {
+    parts.push(props.name);
+  }
+  return parts.join(" ");
+}
+
+function formatLabel(props: PhotonFeature["properties"]): string {
+  const street = extractStreet(props);
+  const city = extractCity(props);
+  const parts: string[] = [];
+  if (street) parts.push(street);
   if (city) parts.push(city);
   if (props.postcode) parts.push(props.postcode);
   if (props.country) parts.push(props.country);
   return parts.join(", ");
 }
 
-function extractCity(props: PhotonFeature["properties"]): string {
-  return props.city || props.town || props.village || props.name || "";
+function formatPrimary(props: PhotonFeature["properties"]): string {
+  const street = extractStreet(props);
+  if (street) return street;
+  return extractCity(props) || props.name || "";
+}
+
+function formatSecondary(props: PhotonFeature["properties"]): string {
+  const street = extractStreet(props);
+  const parts: string[] = [];
+  if (street) {
+    const city = extractCity(props);
+    if (city) parts.push(city);
+  }
+  if (props.postcode) parts.push(props.postcode);
+  if (props.country) parts.push(props.country);
+  return parts.join(", ");
 }
 
 export function AddressAutocomplete({
   value,
   onChange,
-  placeholder = "Rechercher une ville...",
+  placeholder = "12 Rue de la Paix, Paris...",
   id,
 }: AddressAutocompleteProps) {
   const [query, setQuery] = useState(value?.label || "");
@@ -65,10 +103,10 @@ export function AddressAutocomplete({
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.length < 2) {
+    if (q.length < 3) {
       setSuggestions([]);
       setIsOpen(false);
       return;
@@ -120,6 +158,7 @@ export function AddressAutocomplete({
     const props = feature.properties;
     const result: AddressResult = {
       label: formatLabel(props),
+      addressLine: extractStreet(props),
       city: extractCity(props),
       postalCode: props.postcode || "",
       countryCode: (props.countrycode || "FR").toUpperCase(),
@@ -226,10 +265,8 @@ export function AddressAutocomplete({
         >
           {suggestions.map((feature, idx) => {
             const props = feature.properties;
-            const city = extractCity(props);
-            const secondary = [props.postcode, props.state, props.country]
-              .filter(Boolean)
-              .join(", ");
+            const primary = formatPrimary(props);
+            const secondary = formatSecondary(props);
 
             return (
               <li
@@ -248,7 +285,7 @@ export function AddressAutocomplete({
               >
                 <MapPin className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                 <div className="min-w-0">
-                  <p className="font-medium">{city || props.name}</p>
+                  <p className="font-medium">{primary}</p>
                   {secondary && (
                     <p className="text-muted-foreground truncate text-xs">
                       {secondary}
