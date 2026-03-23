@@ -8,9 +8,10 @@ export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   useEffect(() => {
+    const supabase = createClient();
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setUser(s?.user ?? null);
@@ -26,44 +27,38 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, []);
 
-  const signIn = useCallback(
-    async (email: string, password: string) => {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      return { error };
-    },
-    [supabase],
-  );
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { error } = await createClient().auth.signInWithPassword({
+      email,
+      password,
+    });
+    return { error };
+  }, []);
 
   const signUp = useCallback(
     async (email: string, password: string, username: string) => {
-      const { error } = await supabase.auth.signUp({
+      const { error } = await createClient().auth.signUp({
         email,
         password,
         options: { data: { username } },
       });
       return { error };
     },
-    [supabase],
+    [],
   );
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-  }, [supabase]);
+    await createClient().auth.signOut();
+  }, []);
 
-  const resetPassword = useCallback(
-    async (email: string) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
-      });
-      return { error };
-    },
-    [supabase],
-  );
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await createClient().auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+    return { error };
+  }, []);
 
   return { user, session, loading, signIn, signUp, signOut, resetPassword };
 }
