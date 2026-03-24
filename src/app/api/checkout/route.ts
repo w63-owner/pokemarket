@@ -29,7 +29,13 @@ async function getShippingCost(
 }
 
 export async function POST(request: Request) {
+  // #region agent log
+  let _dbgStep = "init";
+  // #endregion
   try {
+    // #region agent log
+    _dbgStep = "auth";
+    // #endregion
     const supabase = await createClient();
     const {
       data: { user },
@@ -39,9 +45,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
+    // #region agent log
+    _dbgStep = "rate-limit";
+    // #endregion
     const rateLimitResponse = await applyRateLimit(checkoutRateLimit, user.id);
     if (rateLimitResponse) return rateLimitResponse;
 
+    // #region agent log
+    _dbgStep = "parse-body";
+    // #endregion
     const body = await request.json();
     const validation = checkoutSchema.safeParse(body);
 
@@ -60,6 +72,9 @@ export async function POST(request: Request) {
       shipping_address_postcode,
     } = validation.data;
 
+    // #region agent log
+    _dbgStep = "fetch-listing";
+    // #endregion
     const admin = createAdminClient();
 
     const { data: listing, error: listingError } = await admin
@@ -98,6 +113,9 @@ export async function POST(request: Request) {
         ? (listing.reserved_price ?? listing.display_price)
         : listing.display_price) ?? 0;
 
+    // #region agent log
+    _dbgStep = "shipping-cost";
+    // #endregion
     const shippingCost = await getShippingCost(
       "FR",
       shipping_country,
@@ -108,6 +126,9 @@ export async function POST(request: Request) {
     const feeAmount = calcFeeAmount(effectiveDisplayPrice, priceSeller);
     const totalAmount = calcTotalBuyer(effectiveDisplayPrice, shippingCost);
 
+    // #region agent log
+    _dbgStep = "lock-listing";
+    // #endregion
     const { error: lockError } = await admin
       .from("listings")
       .update({ status: "LOCKED" })
@@ -125,6 +146,9 @@ export async function POST(request: Request) {
       Date.now() + LIMITS.CHECKOUT_LOCK_MINUTES * 60 * 1000,
     ).toISOString();
 
+    // #region agent log
+    _dbgStep = "insert-transaction";
+    // #endregion
     const { data: transaction, error: txError } = await admin
       .from("transactions")
       .insert({
@@ -161,6 +185,19 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
       "http://localhost:3000";
 
+    // #region agent log
+    _dbgStep = "stripe-session";
+    const _dbgStripeParams = {
+      displayPrice: effectiveDisplayPrice,
+      shippingCost,
+      unitAmountProduct: Math.round(effectiveDisplayPrice * 100),
+      unitAmountShipping: Math.round(shippingCost * 100),
+      expiresAt:
+        Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
+      coverImageUrl: listing.cover_image_url,
+      appUrl,
+    };
+    // #endregion
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -197,6 +234,9 @@ export async function POST(request: Request) {
         Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
     });
 
+    // #region agent log
+    _dbgStep = "update-transaction-session";
+    // #endregion
     await admin
       .from("transactions")
       .update({ stripe_checkout_session_id: session.id })
@@ -211,9 +251,25 @@ export async function POST(request: Request) {
   } catch (err) {
     Sentry.captureException(err);
     console.error("Checkout error:", err);
+    // #region agent log
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errName = err instanceof Error ? err.name : "Unknown";
+    const errCode =
+      (err as Record<string, unknown>)?.code ??
+      (err as Record<string, unknown>)?.statusCode ??
+      null;
     return NextResponse.json(
-      { error: "Erreur serveur inattendue" },
+      {
+        error: "Erreur serveur inattendue",
+        _debug: {
+          step: _dbgStep,
+          message: errMsg,
+          name: errName,
+          code: errCode,
+        },
+      },
       { status: 500 },
     );
+    // #endregion
   }
 }

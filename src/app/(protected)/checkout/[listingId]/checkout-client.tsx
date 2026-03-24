@@ -82,6 +82,29 @@ export function CheckoutClient({
 
       const data = await res.json();
 
+      // #region agent log
+      if (!res.ok) {
+        fetch(
+          "http://127.0.0.1:7565/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "2761b8",
+            },
+            body: JSON.stringify({
+              sessionId: "2761b8",
+              location: "checkout-client.tsx:handleCheckout",
+              message: "Checkout API error response",
+              data: { status: res.status, body: data, debug: data._debug },
+              timestamp: Date.now(),
+              hypothesisId: "ALL",
+            }),
+          },
+        ).catch(() => {});
+      }
+      // #endregion
+
       if (!res.ok) {
         toast.error(data.error ?? "Une erreur est survenue");
         setIsLoading(false);
@@ -90,7 +113,27 @@ export function CheckoutClient({
 
       const checkout = data as CheckoutResponse;
       window.location.href = checkout.url;
-    } catch {
+    } catch (fetchErr) {
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7565/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "2761b8",
+          },
+          body: JSON.stringify({
+            sessionId: "2761b8",
+            location: "checkout-client.tsx:handleCheckout:catch",
+            message: "Checkout fetch network error",
+            data: { error: String(fetchErr) },
+            timestamp: Date.now(),
+            hypothesisId: "NETWORK",
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
       toast.error("Erreur réseau. Veuillez réessayer.");
       setIsLoading(false);
     }
