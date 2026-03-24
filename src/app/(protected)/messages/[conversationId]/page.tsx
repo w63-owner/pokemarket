@@ -10,14 +10,13 @@ import {
 } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import {
   useQuery,
   useInfiniteQuery,
   useQueryClient,
   useMutation,
 } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useInView } from "react-intersection-observer";
@@ -42,6 +41,7 @@ import { SystemMessage } from "@/components/messages/system-message";
 import { MessageInput } from "@/components/messages/message-input";
 import { OfferBar } from "@/components/messages/offer-bar";
 import { TransactionActions } from "@/components/messages/transaction-actions";
+import { ListingContextBar } from "@/components/messages/listing-context-bar";
 import { SmartBackButton } from "@/components/ui/smart-back-button";
 import type { Message } from "@/types";
 
@@ -438,33 +438,24 @@ export default function ConversationThreadPage() {
   return (
     <div className="flex h-dvh flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="border-border bg-background/80 sticky top-0 z-10 flex items-center gap-3 border-b px-2 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-md">
-        <SmartBackButton fallbackUrl="/messages" />
+      <header className="border-border bg-background/80 sticky top-0 z-10 border-b pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-md">
+        <div className="flex items-center gap-3 px-2 py-2.5">
+          <SmartBackButton fallbackUrl="/messages" />
 
-        <Link href={`/listing/${conversation.listing_id}`} className="shrink-0">
-          {conversation.listing.cover_image_url ? (
-            <div className="border-border size-9 overflow-hidden rounded-lg border">
-              <Image
-                src={conversation.listing.cover_image_url}
-                alt={conversation.listing.title}
-                width={36}
-                height={36}
-                className="size-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="bg-muted size-9 rounded-lg" />
-          )}
-        </Link>
+          <div className="min-w-0 flex-1 text-center">
+            <Link
+              href={`/u/${conversation.other_user.username}`}
+              className="hover:text-brand truncate text-sm font-semibold transition-colors"
+            >
+              {conversation.other_user.username}
+            </Link>
+          </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">
-            {conversation.other_user.username}
-          </p>
-          <p className="text-muted-foreground truncate text-[11px]">
-            {conversation.listing.title}
-          </p>
+          {/* Spacer to balance the back button for centering */}
+          <div className="w-9 shrink-0" />
         </div>
+
+        <ListingContextBar listing={conversation.listing} />
       </header>
 
       {/* ── Transaction / Offer bar ─────────────────────────────── */}
@@ -490,13 +481,13 @@ export default function ConversationThreadPage() {
         {messagesQuery.isLoading ? (
           <MessagesSkeleton />
         ) : allMessages.length === 0 ? (
-          <motion.p
+          <m.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-muted-foreground py-20 text-center text-sm"
           >
             Envoyez le premier message !
-          </motion.p>
+          </m.p>
         ) : (
           <>
             {allMessages.map((msg, i) => {

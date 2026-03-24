@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LazyMotion, domAnimation } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
@@ -36,22 +37,24 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange={false}
-      >
-        <NavigationHistoryTracker />
-        {children}
-        <Toaster
-          position="bottom-center"
-          offset={80}
-          toastOptions={{
-            className: "font-sans",
-          }}
-        />
-      </ThemeProvider>
+      <LazyMotion features={domAnimation} strict>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange={false}
+        >
+          <NavigationHistoryTracker />
+          {children}
+          <Toaster
+            position="bottom-center"
+            offset={80}
+            toastOptions={{
+              className: "font-sans",
+            }}
+          />
+        </ThemeProvider>
+      </LazyMotion>
     </QueryClientProvider>
   );
 }

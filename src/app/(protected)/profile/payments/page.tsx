@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { CreditCard, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,7 +56,7 @@ export default function PaymentsPage() {
     <>
       <MobileHeader title="Moyens de paiement" fallbackUrl="/profile" />
       <div className="mx-auto max-w-lg px-4 py-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -90,7 +90,7 @@ export default function PaymentsPage() {
           ) : (
             <div className="space-y-3">
               {cards.map((card, i) => (
-                <motion.div
+                <m.div
                   key={card.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -124,11 +124,11 @@ export default function PaymentsPage() {
                       </Button>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </m.div>
               ))}
             </div>
           )}
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

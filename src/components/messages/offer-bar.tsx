@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Tag, X, Check, ShoppingCart, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -261,14 +261,14 @@ export function OfferBar({
         </div>
         <AnimatePresence>
           {error && (
-            <motion.p
+            <m.p
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               className="text-destructive w-full text-xs"
             >
               {error}
-            </motion.p>
+            </m.p>
           )}
         </AnimatePresence>
       </OfferBarShell>
@@ -340,7 +340,7 @@ function OfferBarShell({
   highlight?: boolean;
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -349,6 +349,6 @@ function OfferBarShell({
       }`}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

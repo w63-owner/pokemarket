@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Search, SlidersHorizontal, X, Bookmark } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import {
   useFiltersFromUrl,
   useUpdateFilters,
@@ -143,7 +143,7 @@ function AdvancedFilters() {
 
         <AnimatePresence>
           {filters.is_graded && (
-            <motion.div
+            <m.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -200,7 +200,7 @@ function AdvancedFilters() {
                   />
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

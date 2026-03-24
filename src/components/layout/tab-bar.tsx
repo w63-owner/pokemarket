@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Heart, PlusCircle, MessageCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useUnreadCount } from "@/hooks/use-conversations";
 import { useSavedSearchNewCounts } from "@/hooks/use-saved-searches";
+import { spring, tapScaleSmall } from "@/lib/motion";
 
 const tabs = [
   { href: "/", label: "Recherche", icon: Search },
@@ -65,19 +66,20 @@ export function TabBar() {
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <motion.div whileTap={{ scale: 0.85 }} className="relative">
+              <m.div {...tapScaleSmall} className="relative">
                 <tab.icon className="size-5" />
                 {badgeCount > 0 && (
                   <span className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white">
                     {badgeCount > 99 ? "99" : badgeCount}
                   </span>
                 )}
-              </motion.div>
+              </m.div>
               <span>{tab.label}</span>
               {isActive && (
-                <motion.div
+                <m.div
                   layoutId="tab-indicator"
                   className="bg-brand absolute -top-px right-3 left-3 h-0.5 rounded-full"
+                  transition={spring.gentle}
                 />
               )}
             </Link>

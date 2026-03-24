@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Camera, Trash2, Loader2, FolderOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -156,7 +156,7 @@ function ImageSlot({
     <div className="flex flex-col gap-2">
       <span className="text-foreground text-sm font-medium">{label}</span>
 
-      <motion.div
+      <m.div
         className={cn(
           "relative aspect-[3/4] w-full overflow-hidden rounded-xl border-2 border-dashed transition-colors",
           hasImage
@@ -175,7 +175,7 @@ function ImageSlot({
       >
         <AnimatePresence mode="wait">
           {slot.uploading ? (
-            <motion.div
+            <m.div
               key="uploading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -217,9 +217,9 @@ function ImageSlot({
               <span className="text-muted-foreground text-xs font-medium">
                 Compression & upload…
               </span>
-            </motion.div>
+            </m.div>
           ) : hasImage ? (
-            <motion.div
+            <m.div
               key="preview"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -238,7 +238,7 @@ function ImageSlot({
 
               <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/30" />
 
-              <motion.button
+              <m.button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -250,7 +250,7 @@ function ImageSlot({
                 aria-label={`Supprimer ${label.toLowerCase()}`}
               >
                 <Trash2 className="size-4" />
-              </motion.button>
+              </m.button>
 
               <button
                 type="button"
@@ -259,16 +259,16 @@ function ImageSlot({
               >
                 Remplacer
               </button>
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key="empty"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="flex h-full w-full flex-col items-center justify-center gap-2 p-4"
             >
-              <motion.button
+              <m.button
                 type="button"
                 onClick={onOpenCamera}
                 className={cn(
@@ -280,7 +280,7 @@ function ImageSlot({
                 aria-label="Ouvrir la caméra"
               >
                 <Camera className="size-7" />
-              </motion.button>
+              </m.button>
 
               <p className="text-foreground text-sm font-medium">
                 Prendre en photo
@@ -294,7 +294,7 @@ function ImageSlot({
                 <FolderOpen className="size-3.5" />
                 Choisir un fichier
               </button>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
@@ -309,7 +309,7 @@ function ImageSlot({
           }}
           disabled={disabled || slot.uploading}
         />
-      </motion.div>
+      </m.div>
     </div>
   );
 }

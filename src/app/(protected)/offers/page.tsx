@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import {
   Tag,
   Check,
@@ -133,7 +133,7 @@ function ReceivedOfferCard({
   const isMutating = acceptMut.isPending || rejectMut.isPending;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.25 }}
@@ -190,7 +190,7 @@ function ReceivedOfferCard({
 
         <AnimatePresence>
           {offer.status === "PENDING" && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -223,11 +223,11 @@ function ReceivedOfferCard({
                 )}
                 Refuser
               </Button>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -252,7 +252,7 @@ function SentOfferCard({
   });
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.25 }}
@@ -309,7 +309,7 @@ function SentOfferCard({
 
         <AnimatePresence>
           {offer.status === "PENDING" && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -329,10 +329,10 @@ function SentOfferCard({
                 )}
                 Annuler
               </Button>
-            </motion.div>
+            </m.div>
           )}
           {offer.status === "ACCEPTED" && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -346,11 +346,11 @@ function SentOfferCard({
                 <CreditCard className="size-3.5" />
                 Payer {formatPrice(offer.offer_amount)}
               </Button>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -406,8 +406,8 @@ export default function OffersPage() {
 
       <div className="px-4 pt-4">
         <Tabs defaultValue="received">
-          <TabsList className="w-full">
-            <TabsTrigger value="received" className="flex-1 gap-1.5">
+          <TabsList className="grid w-full grid-cols-2" variant="line">
+            <TabsTrigger value="received">
               <Inbox className="size-4" />
               Reçues
               {!!pendingReceivedCount && pendingReceivedCount > 0 && (
@@ -416,7 +416,7 @@ export default function OffersPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="sent" className="flex-1 gap-1.5">
+            <TabsTrigger value="sent">
               <Send className="size-4" />
               Envoyées
               {!!pendingSentCount && pendingSentCount > 0 && (

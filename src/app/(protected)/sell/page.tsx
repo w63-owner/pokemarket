@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { ScanLine, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -203,7 +203,7 @@ export default function SellPage() {
     <>
       <MobileHeader title="Vendre une carte" fallbackUrl="/" />
       <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
@@ -211,7 +211,7 @@ export default function SellPage() {
           <p className="text-muted-foreground text-sm">
             Ajoutez vos photos, identifiez la carte et fixez votre prix.
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Step 1: Image upload */}
         <section className="mb-6">
@@ -221,7 +221,7 @@ export default function SellPage() {
         {/* Step 2: OCR trigger */}
         <AnimatePresence mode="wait">
           {hasBothImages && !ocr.hasRun && (
-            <motion.section
+            <m.section
               key="ocr-trigger"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -244,14 +244,14 @@ export default function SellPage() {
               >
                 Passer le scan <ArrowRight className="size-3" />
               </button>
-            </motion.section>
+            </m.section>
           )}
         </AnimatePresence>
 
         {/* Step 3: OCR results */}
         <AnimatePresence mode="wait">
           {ocr.hasRun && (ocr.isLoading || ocr.candidates.length > 0) && (
-            <motion.section
+            <m.section
               key="ocr-results"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -264,7 +264,7 @@ export default function SellPage() {
                 isLoading={ocr.isLoading}
                 onSelect={handleCandidateSelect}
               />
-            </motion.section>
+            </m.section>
           )}
         </AnimatePresence>
 
@@ -274,7 +274,7 @@ export default function SellPage() {
             !ocr.isLoading &&
             ocr.candidates.length > 0 &&
             !showForm && (
-              <motion.div
+              <m.div
                 key="confirm-hint"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -285,14 +285,14 @@ export default function SellPage() {
                   <ScanLine className="size-3.5" />
                   <span>Sélectionnez un résultat pour continuer</span>
                 </div>
-              </motion.div>
+              </m.div>
             )}
         </AnimatePresence>
 
         {/* Step 4: Sell form */}
         <AnimatePresence mode="wait">
           {showForm && (
-            <motion.section
+            <m.section
               key="sell-form"
               ref={formRef}
               initial={{ opacity: 0, y: 20 }}
@@ -316,7 +316,7 @@ export default function SellPage() {
                 onSubmit={handleFormSubmit}
                 isLoading={createListing.isPending}
               />
-            </motion.section>
+            </m.section>
           )}
         </AnimatePresence>
       </div>

@@ -3,7 +3,7 @@
 import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   Package,
   MapPin,
@@ -106,7 +106,7 @@ export default function SaleDetailPage({
         fallbackUrl="/profile/transactions"
       />
       <div className="mx-auto max-w-lg px-4 py-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -306,7 +306,7 @@ export default function SaleDetailPage({
               </Card>
             )}
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

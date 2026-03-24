@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
   type FormEvent,
 } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Send, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -80,7 +80,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
           )}
         />
 
-        <motion.div whileTap={{ scale: 0.9 }}>
+        <m.div whileTap={{ scale: 0.9 }}>
           <Button
             type="submit"
             size="icon"
@@ -90,7 +90,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
           >
             <Send className="size-4" />
           </Button>
-        </motion.div>
+        </m.div>
       </form>
     </div>
   );

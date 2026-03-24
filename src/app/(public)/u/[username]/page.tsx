@@ -1,16 +1,42 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatDate } from "@/lib/utils";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { ShareProfileButton } from "@/components/profile/share-profile-button";
+import { ProfileTabs } from "@/components/profile/profile-tabs";
+import { FollowButton } from "@/components/profile/follow-button";
 import type { Metadata } from "next";
+import type { Profile } from "@/types";
 
 type Props = { params: Promise<{ username: string }> };
 
+type ReviewWithReviewer = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  reviewer: { username: string; avatar_url: string | null } | null;
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
+  const supabase = await createClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_url, bio")
+    .eq("username", username)
+    .single();
+
   return {
     title: `${username} — Vendeur`,
-    description: `Profil vendeur de ${username} sur PokeMarket`,
+    description:
+      profile?.bio ?? `Découvrez le profil de ${username} sur PokeMarket`,
+    openGraph: {
+      title: `${username} — Vendeur sur PokeMarket`,
+      ...(profile?.avatar_url && {
+        images: [{ url: profile.avatar_url, width: 200, height: 200 }],
+      }),
+    },
   };
 }
 
@@ -26,81 +52,86 @@ export default async function PublicProfilePage({ params }: Props) {
 
   if (!profile) notFound();
 
-  const { data: listings } = await supabase
-    .from("listings")
-    .select("id, title, display_price, cover_image_url, condition")
-    .eq("seller_id", profile.id)
-    .eq("status", "ACTIVE")
-    .order("created_at", { ascending: false })
-    .limit(20);
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser();
 
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("rating, comment, created_at")
-    .eq("reviewee_id", profile.id)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const isOwnProfile = currentUser?.id === profile.id;
 
-  const avgRating =
-    reviews && reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : null;
+  const [listingsResult, reviewsResult, followResult] = await Promise.all([
+    supabase
+      .from("listings")
+      .select("id, title, display_price, cover_image_url, condition")
+      .eq("seller_id", profile.id)
+      .eq("status", "ACTIVE")
+      .order("created_at", { ascending: false })
+      .limit(50),
+
+    supabase
+      .from("reviews")
+      .select("id, rating, comment, created_at, reviewer_id")
+      .eq("reviewee_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+
+    currentUser && !isOwnProfile
+      ? supabase
+          .from("favorite_sellers")
+          .select("seller_id")
+          .eq("user_id", currentUser.id)
+          .eq("seller_id", profile.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const listings = listingsResult.data ?? [];
+
+  const rawReviews = reviewsResult.data ?? [];
+  let reviews: ReviewWithReviewer[] = [];
+
+  if (rawReviews.length > 0) {
+    const reviewerIds = [...new Set(rawReviews.map((r) => r.reviewer_id))];
+    const { data: reviewerProfiles } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url")
+      .in("id", reviewerIds);
+
+    const profileMap = new Map((reviewerProfiles ?? []).map((p) => [p.id, p]));
+
+    reviews = rawReviews.map((r) => {
+      const reviewer = profileMap.get(r.reviewer_id);
+      return {
+        id: r.id,
+        rating: r.rating,
+        comment: r.comment,
+        created_at: r.created_at,
+        reviewer: reviewer
+          ? { username: reviewer.username, avatar_url: reviewer.avatar_url }
+          : null,
+      };
+    });
+  }
+
+  const isFollowing = !!followResult.data;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-20">
-          <AvatarImage src={profile.avatar_url || undefined} />
-          <AvatarFallback className="text-2xl">
-            {profile.username.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <h1 className="font-heading text-2xl font-bold">
-            {profile.username}
-          </h1>
-          {profile.bio && (
-            <p className="text-muted-foreground mt-1 text-sm">{profile.bio}</p>
-          )}
-          <p className="text-muted-foreground mt-1 text-xs">
-            Membre depuis {formatDate(profile.created_at)}
-          </p>
-          {avgRating !== null && (
-            <p className="mt-1 text-sm">
-              ⭐ {avgRating.toFixed(1)} ({reviews?.length} avis)
-            </p>
-          )}
-        </div>
+    <>
+      <MobileHeader
+        title={profile.username}
+        rightAction={<ShareProfileButton username={profile.username} />}
+      />
+
+      <div className="mx-auto max-w-2xl px-4 pt-4 pb-28">
+        <ProfileTabs
+          profile={profile as Profile}
+          listings={listings}
+          reviews={reviews}
+        />
       </div>
 
-      <section className="mt-8">
-        <h2 className="font-heading text-lg font-semibold">
-          Annonces actives ({listings?.length || 0})
-        </h2>
-        {listings && listings.length > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {listings.map((listing) => (
-              <a
-                key={listing.id}
-                href={`/listing/${listing.id}`}
-                className="border-border hover:bg-muted rounded-lg border p-2 transition-colors"
-              >
-                <div className="bg-muted aspect-[4/5] rounded-md" />
-                <p className="mt-2 truncate text-sm font-medium">
-                  {listing.title}
-                </p>
-                <p className="text-brand text-sm font-bold">
-                  {listing.display_price?.toFixed(2)} €
-                </p>
-              </a>
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground mt-4 text-sm">
-            Aucune annonce active.
-          </p>
-        )}
-      </section>
-    </div>
+      {currentUser && !isOwnProfile && (
+        <FollowButton sellerId={profile.id} initialIsFollowing={isFollowing} />
+      )}
+    </>
   );
 }

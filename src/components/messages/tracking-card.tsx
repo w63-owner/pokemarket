@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Package, ExternalLink, Hash } from "lucide-react";
 import type { Message } from "@/types";
 
@@ -39,7 +39,7 @@ export function TrackingCard({ message }: TrackingCardProps) {
     : null;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95, y: 4 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -79,6 +79,6 @@ export function TrackingCard({ message }: TrackingCardProps) {
           )}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

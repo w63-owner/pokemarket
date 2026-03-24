@@ -1,9 +1,10 @@
 "use client";
 
 import { Heart } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/hooks/use-favorites";
+import { spring } from "@/lib/motion";
 
 interface FavoriteButtonProps {
   listingId: string;
@@ -35,15 +36,11 @@ export function FavoriteButton({
       aria-label={active ? "Retirer des favoris" : "Ajouter aux favoris"}
     >
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div
+        <m.div
           key={active ? "filled" : "empty"}
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{
-            type: "spring",
-            stiffness: 400,
-            damping: 10,
-          }}
+          transition={spring.bouncy}
         >
           <Heart
             className={cn(
@@ -53,7 +50,7 @@ export function FavoriteButton({
                 : "fill-transparent text-white",
             )}
           />
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </button>
   );

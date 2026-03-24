@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Tag, ChevronRight, Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +43,7 @@ export default function MyListingsPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -69,7 +69,7 @@ export default function MyListingsPage() {
             action={{ label: "Vendre une carte", href: "/sell" }}
           />
         ) : (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.2 }}
@@ -78,9 +78,9 @@ export default function MyListingsPage() {
             {data.map((listing, index) => (
               <ListingRow key={listing.id} listing={listing} index={index} />
             ))}
-          </motion.div>
+          </m.div>
         )}
-      </motion.div>
+      </m.div>
     </div>
   );
 }
@@ -90,7 +90,7 @@ function ListingRow({ listing, index }: { listing: Listing; index: number }) {
   const canEdit = listing.status === "ACTIVE" || listing.status === "DRAFT";
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
@@ -139,6 +139,6 @@ function ListingRow({ listing, index }: { listing: Listing; index: number }) {
           </CardContent>
         </Card>
       </Link>
-    </motion.div>
+    </m.div>
   );
 }

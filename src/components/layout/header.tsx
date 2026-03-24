@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Heart, PlusCircle, MessageCircle, User } from "lucide-react";
+import { m, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/use-conversations";
+import { useScrollDirection } from "@/hooks/use-scroll-direction";
+import { spring, scaleIn } from "@/lib/motion";
 
 const links = [
   { href: "/", label: "Marketplace", icon: Search },
@@ -17,9 +20,16 @@ const links = [
 export function Header() {
   const pathname = usePathname();
   const { data: unreadCount } = useUnreadCount();
+  const { direction, isAtTop } = useScrollDirection({ threshold: 15 });
+
+  const isHidden = direction === "down" && !isAtTop;
 
   return (
-    <header className="border-border bg-background/80 sticky top-0 z-50 hidden border-b backdrop-blur-lg lg:block">
+    <m.header
+      animate={{ y: isHidden ? "-100%" : "0%" }}
+      transition={spring.snappy}
+      className="border-border bg-background/80 sticky top-0 z-50 hidden border-b backdrop-blur-lg lg:block"
+    >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="font-heading text-xl font-bold">
           Poke<span className="text-brand">Market</span>
@@ -48,18 +58,33 @@ export function Header() {
               >
                 <span className="relative">
                   <link.icon className="size-4" />
-                  {showBadge && (
-                    <span className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white">
-                      {unreadCount > 99 ? "99" : unreadCount}
-                    </span>
-                  )}
+                  <AnimatePresence>
+                    {showBadge && (
+                      <m.span
+                        variants={scaleIn}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white"
+                      >
+                        {unreadCount > 99 ? "99" : unreadCount}
+                      </m.span>
+                    )}
+                  </AnimatePresence>
                 </span>
                 {link.label}
+                {isActive && (
+                  <m.div
+                    layoutId="header-active-indicator"
+                    className="bg-brand absolute inset-x-1 -bottom-1 h-0.5 rounded-full"
+                    transition={spring.gentle}
+                  />
+                )}
               </Link>
             );
           })}
         </nav>
       </div>
-    </header>
+    </m.header>
   );
 }

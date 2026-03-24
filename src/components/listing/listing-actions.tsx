@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   ShoppingCart,
   MessageCircle,
@@ -81,7 +81,7 @@ export function ListingActions({
 
   return (
     <>
-      <motion.div
+      <m.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 30, delay: 0.1 }}
@@ -137,7 +137,7 @@ export function ListingActions({
             </Button>
           </div>
         )}
-      </motion.div>
+      </m.div>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>

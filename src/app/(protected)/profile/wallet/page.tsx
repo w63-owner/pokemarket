@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { ArrowRight, TrendingUp, Clock } from "lucide-react";
 
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -23,7 +23,7 @@ export default function ProfileWalletPage() {
     <>
       <MobileHeader title="Mon portefeuille" fallbackUrl="/profile" />
       <div className="mx-auto max-w-lg px-4 py-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -69,7 +69,7 @@ export default function ProfileWalletPage() {
               </Button>
             </div>
           )}
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

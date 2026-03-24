@@ -3,7 +3,7 @@
 import { useForm, Controller, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Euro, ShieldCheck, Loader2 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -107,7 +107,7 @@ function DisplayPricePreview({
   return (
     <AnimatePresence mode="wait">
       {displayPrice != null && (
-        <motion.div
+        <m.div
           key="price-preview"
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
@@ -122,7 +122,7 @@ function DisplayPricePreview({
               {formatPrice(displayPrice)}
             </span>
           </p>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );
@@ -132,14 +132,14 @@ function FieldError({ message }: { message?: string }) {
   return (
     <AnimatePresence mode="wait">
       {message && (
-        <motion.p
+        <m.p
           initial={{ opacity: 0, x: -4 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -4 }}
           className="text-destructive text-xs"
         >
           {message}
-        </motion.p>
+        </m.p>
       )}
     </AnimatePresence>
   );
@@ -178,7 +178,7 @@ export function SellForm({
   const isGraded = useWatch({ control, name: "is_graded" });
 
   return (
-    <motion.form
+    <m.form
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
@@ -328,7 +328,7 @@ export function SellForm({
 
       <AnimatePresence mode="wait">
         {isGraded ? (
-          <motion.div
+          <m.div
             key="graded-fields"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -384,9 +384,9 @@ export function SellForm({
                 <FieldError message={errors.grade_note?.message} />
               </div>
             </div>
-          </motion.div>
+          </m.div>
         ) : (
-          <motion.div
+          <m.div
             key="condition-field"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -422,7 +422,7 @@ export function SellForm({
               />
               <FieldError message={errors.condition?.message} />
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
@@ -439,6 +439,6 @@ export function SellForm({
           )}
         </Button>
       </div>
-    </motion.form>
+    </m.form>
   );
 }

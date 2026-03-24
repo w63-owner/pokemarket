@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import {
   Heart,
   Search,
@@ -11,7 +12,7 @@ import {
   ExternalLink,
   Trash2,
 } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCard } from "@/components/feed/listing-card";
@@ -82,18 +83,18 @@ function FavoriteListingsTab() {
   }
 
   return (
-    <motion.div
+    <m.div
       className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
       variants={gridVariants}
       initial="hidden"
       animate="visible"
     >
       {listings.map((listing) => (
-        <motion.div key={listing.id} variants={itemVariants}>
+        <m.div key={listing.id} variants={itemVariants}>
           <ListingCard listing={listing} />
-        </motion.div>
+        </m.div>
       ))}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -150,7 +151,7 @@ function SavedSearchesTab() {
   }
 
   return (
-    <motion.div
+    <m.div
       className="space-y-3"
       variants={gridVariants}
       initial="hidden"
@@ -164,7 +165,7 @@ function SavedSearchesTab() {
         const newCount = countsMap.get(search.id) ?? 0;
 
         return (
-          <motion.div key={search.id} variants={itemVariants}>
+          <m.div key={search.id} variants={itemVariants}>
             <div className="group hover:bg-muted/50 flex items-center gap-3 rounded-xl border p-4 transition-colors">
               <button
                 type="button"
@@ -210,10 +211,10 @@ function SavedSearchesTab() {
                 </Button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         );
       })}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -244,14 +245,19 @@ function FavoriteSellersTab() {
 }
 
 export default function FavoritesPage() {
+  const [tab, setTab] = useState("listings");
+
   return (
     <div className="mx-auto max-w-5xl px-4 pt-6 pb-24">
       <h1 className="font-display text-foreground mb-5 text-2xl font-bold">
         Favoris
       </h1>
 
-      <Tabs defaultValue="listings">
-        <TabsList className="mx-auto mb-6 w-full max-w-md">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList
+          className="mx-auto mb-6 grid w-full max-w-md grid-cols-3"
+          variant="line"
+        >
           <TabsTrigger value="listings">
             <Heart className="size-4" />
             Annonces
@@ -267,41 +273,17 @@ export default function FavoritesPage() {
         </TabsList>
 
         <AnimatePresence mode="wait">
-          <TabsContent value="listings">
-            <motion.div
-              key="listings"
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <FavoriteListingsTab />
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="searches">
-            <motion.div
-              key="searches"
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <SavedSearchesTab />
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="sellers">
-            <motion.div
-              key="sellers"
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <FavoriteSellersTab />
-            </motion.div>
-          </TabsContent>
+          <m.div
+            key={tab}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {tab === "listings" && <FavoriteListingsTab />}
+            {tab === "searches" && <SavedSearchesTab />}
+            {tab === "sellers" && <FavoriteSellersTab />}
+          </m.div>
         </AnimatePresence>
       </Tabs>
     </div>

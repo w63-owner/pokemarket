@@ -2,33 +2,21 @@
 
 import { useEffect } from "react";
 import { useInView } from "react-intersection-observer";
-import { motion, useReducedMotion } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { PackageOpen, RefreshCw } from "lucide-react";
 import { useInfiniteFeed } from "@/hooks/use-infinite-feed";
 import { ListingCard } from "@/components/feed/listing-card";
 import { ListingCardSkeleton } from "@/components/feed/listing-card-skeleton";
 import { Button } from "@/components/ui/button";
+import {
+  staggerContainer,
+  fadeInUp,
+  safeVariants,
+  safeInitial,
+} from "@/lib/motion";
 import type { FeedFilters } from "@/lib/query-keys";
 
 const SKELETON_COUNT = 10;
-
-const containerVariants = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: "easeOut" as const },
-  },
-};
 
 interface FeedGridProps {
   filters?: FeedFilters;
@@ -111,26 +99,26 @@ export function FeedGrid({ filters = {} }: FeedGridProps) {
 
   return (
     <>
-      <motion.div
+      <m.div
         className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-        variants={prefersReducedMotion ? undefined : containerVariants}
-        initial={prefersReducedMotion ? false : "hidden"}
+        variants={safeVariants(staggerContainer(0.05), prefersReducedMotion)}
+        initial={safeInitial(prefersReducedMotion)}
         animate="visible"
       >
         {allItems.map((item, index) => (
-          <motion.div
+          <m.div
             key={item.id}
-            variants={prefersReducedMotion ? undefined : itemVariants}
+            variants={safeVariants(fadeInUp, prefersReducedMotion)}
           >
             <ListingCard listing={item} priority={index < 2} />
-          </motion.div>
+          </m.div>
         ))}
 
         {isFetchingNextPage &&
           Array.from({ length: SKELETON_COUNT }).map((_, i) => (
             <ListingCardSkeleton key={`next-skeleton-${i}`} />
           ))}
-      </motion.div>
+      </m.div>
 
       {hasNextPage && (
         <div ref={sentinelRef} className="h-10" aria-hidden="true" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { CheckCircle2, ShoppingBag, Home, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
@@ -164,13 +164,13 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
         />
       )}
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.8, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
         className="relative z-10 w-full max-w-md text-center"
       >
-        <motion.div
+        <m.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{
@@ -184,28 +184,28 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
           <div className="bg-primary/10 relative rounded-full p-5">
             <CheckCircle2 className="text-primary size-16" strokeWidth={1.5} />
             {isFresh && (
-              <motion.div
+              <m.div
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.5 }}
                 className="absolute -top-1 -right-1"
               >
                 <Sparkles className="size-6 text-yellow-500" />
-              </motion.div>
+              </m.div>
             )}
           </div>
-        </motion.div>
+        </m.div>
 
-        <motion.h1
+        <m.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="font-heading mb-2 text-2xl font-bold"
         >
           {copy.title}
-        </motion.h1>
+        </m.h1>
 
-        <motion.p
+        <m.p
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -223,10 +223,10 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
           ) : (
             copy.description
           )}
-        </motion.p>
+        </m.p>
 
         {transaction.listing_title && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
@@ -236,10 +236,10 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
             <p className="font-heading text-sm font-semibold">
               {transaction.listing_title}
             </p>
-          </motion.div>
+          </m.div>
         )}
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
@@ -262,8 +262,8 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
             <Home className="size-4" />
             Retour à l&apos;accueil
           </Button>
-        </motion.div>
-      </motion.div>
+        </m.div>
+      </m.div>
     </div>
   );
 }

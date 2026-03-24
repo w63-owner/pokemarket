@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -143,7 +143,7 @@ export default function EditListingPage() {
         fallbackUrl={`/listing/${listing.id}`}
       />
       <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
@@ -151,7 +151,7 @@ export default function EditListingPage() {
           <p className="text-muted-foreground text-sm">
             Modifiez les informations de votre annonce.
           </p>
-        </motion.div>
+        </m.div>
 
         <section className="mb-6">
           {imagesInitialized && (

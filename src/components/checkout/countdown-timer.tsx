@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,7 @@ export function CountdownTimer({
   return (
     <AnimatePresence mode="wait">
       {expired ? (
-        <motion.div
+        <m.div
           key="expired"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -63,9 +63,9 @@ export function CountdownTimer({
               Le délai de paiement a expiré. Veuillez recommencer.
             </p>
           </div>
-        </motion.div>
+        </m.div>
       ) : (
-        <motion.div
+        <m.div
           key="active"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -99,7 +99,7 @@ export function CountdownTimer({
               {String(timeLeft.seconds).padStart(2, "0")}
             </p>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

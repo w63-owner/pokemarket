@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { CreditCard, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -100,7 +100,7 @@ export function CheckoutClient({
     <>
       <MobileHeader title="Paiement" fallbackUrl={`/listing/${listing.id}`} />
       <div className="mx-auto max-w-lg px-4 pt-4 pb-32">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -198,9 +198,9 @@ export function CheckoutClient({
               sous séquestre jusqu&apos;à confirmation de réception de la carte.
             </p>
           </div>
-        </motion.div>
+        </m.div>
 
-        <motion.div
+        <m.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{
@@ -229,7 +229,7 @@ export function CheckoutClient({
               </>
             )}
           </Button>
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { ScanLine, CircleHelp, Sparkles } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,7 +41,7 @@ function ScanSkeleton() {
       <div className="border-border bg-card relative overflow-hidden rounded-xl border p-4">
         <div className="flex gap-4">
           <div className="bg-muted relative h-[100px] w-[72px] shrink-0 overflow-hidden rounded-lg">
-            <motion.div
+            <m.div
               className="via-brand/60 absolute inset-x-0 h-1 bg-gradient-to-r from-transparent to-transparent"
               animate={{ y: [0, 100, 0] }}
               transition={{
@@ -58,7 +58,7 @@ function ScanSkeleton() {
           </div>
         </div>
 
-        <motion.div
+        <m.div
           className="from-brand/[0.03] absolute inset-x-0 top-0 h-full bg-gradient-to-b to-transparent"
           animate={{ opacity: [0.3, 0.8, 0.3] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -95,7 +95,7 @@ function CandidateCard({
   const [imgError, setImgError] = useState(false);
 
   return (
-    <motion.label
+    <m.label
       htmlFor={`candidate-${candidate.card_key}`}
       className={cn(
         "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
@@ -157,7 +157,7 @@ function CandidateCard({
 
         <div className="mt-1 flex items-center gap-2">
           <div className="bg-muted h-1.5 flex-1 overflow-hidden rounded-full">
-            <motion.div
+            <m.div
               className={cn(
                 "h-full rounded-full",
                 confidenceColor(candidate.confidence),
@@ -186,7 +186,7 @@ function CandidateCard({
           {candidate.language.toUpperCase()}
         </span>
       </div>
-    </motion.label>
+    </m.label>
   );
 }
 
@@ -212,7 +212,7 @@ export function OcrResults({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -231,7 +231,7 @@ export function OcrResults({
       <RadioGroup value={selected ?? undefined} onValueChange={handleChange}>
         <AnimatePresence mode="popLayout">
           {candidates.map((candidate, i) => (
-            <motion.div
+            <m.div
               key={candidate.card_key}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -241,10 +241,10 @@ export function OcrResults({
                 candidate={candidate}
                 isSelected={selected === candidate.card_key}
               />
-            </motion.div>
+            </m.div>
           ))}
 
-          <motion.label
+          <m.label
             key="manual"
             htmlFor="candidate-manual"
             className={cn(
@@ -269,9 +269,9 @@ export function OcrResults({
                 Aucun de ces résultats (Saisie manuelle)
               </span>
             </div>
-          </motion.label>
+          </m.label>
         </AnimatePresence>
       </RadioGroup>
-    </motion.div>
+    </m.div>
   );
 }

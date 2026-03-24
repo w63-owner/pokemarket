@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { X, SwitchCamera, Aperture } from "lucide-react";
 
 import { CameraOverlay, getOverlayCropRatios } from "./camera-overlay";
@@ -179,7 +179,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         className="bg-background fixed inset-0 z-50 flex flex-col"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -214,7 +214,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
         <div className="safe-area-bottom bg-black px-6 py-5">
           <div className="mx-auto flex max-w-sm items-center justify-between">
             {/* Close */}
-            <motion.button
+            <m.button
               type="button"
               onClick={() => {
                 stopStream();
@@ -226,10 +226,10 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
               aria-label="Fermer la caméra"
             >
               <X className="size-5" />
-            </motion.button>
+            </m.button>
 
             {/* Shutter */}
-            <motion.button
+            <m.button
               type="button"
               onClick={handleCapture}
               disabled={!isReady || isCapturing}
@@ -248,10 +248,10 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   isCapturing ? "animate-spin text-black/40" : "text-black/70",
                 )}
               />
-            </motion.button>
+            </m.button>
 
             {/* Flip camera */}
-            <motion.button
+            <m.button
               type="button"
               onClick={handleFlip}
               className="flex size-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm"
@@ -260,10 +260,10 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
               aria-label="Changer de caméra"
             >
               <SwitchCamera className="size-5" />
-            </motion.button>
+            </m.button>
           </div>
         </div>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 }

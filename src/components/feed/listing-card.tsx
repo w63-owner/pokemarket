@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { ConditionBadge } from "@/components/shared/condition-badge";
 import { PriceDisplay } from "@/components/shared/price-display";
 import { FavoriteButton } from "@/components/shared/favorite-button";
+import { tapScale } from "@/lib/motion";
 import type { FeedItem } from "@/types";
 
 const BLUR_PLACEHOLDER =
@@ -23,10 +24,7 @@ export function ListingCard({
   priority = false,
 }: ListingCardProps) {
   return (
-    <motion.div
-      whileTap={{ scale: 0.97 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-    >
+    <m.div {...tapScale}>
       <Link href={`/listing/${listing.id}`} className="group block">
         <div className="bg-card overflow-hidden rounded-xl shadow-sm transition-shadow hover:shadow-md">
           <div className="bg-muted relative aspect-[4/5] overflow-hidden">
@@ -94,6 +92,6 @@ export function ListingCard({
           </div>
         </div>
       </Link>
-    </motion.div>
+    </m.div>
   );
 }

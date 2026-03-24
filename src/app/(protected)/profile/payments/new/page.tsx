@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -114,7 +114,7 @@ export default function NewPaymentMethodPage() {
     <>
       <MobileHeader title="Ajouter une carte" fallbackUrl="/profile/payments" />
       <div className="mx-auto max-w-lg px-4 py-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -156,7 +156,7 @@ export default function NewPaymentMethodPage() {
               <SetupForm />
             </Elements>
           ) : null}
-        </motion.div>
+        </m.div>
       </div>
     </>
   );

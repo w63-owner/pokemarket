@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Search, TrendingUp, X, Loader2, Sparkles } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -178,14 +178,14 @@ export default function PriceCheckingPage() {
 
         <AnimatePresence mode="popLayout">
           {results && results.length > 0 && (
-            <motion.ul
+            <m.ul
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="space-y-2"
             >
               {results.map((card, i) => (
-                <motion.li
+                <m.li
                   key={card.card_key}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -225,9 +225,9 @@ export default function PriceCheckingPage() {
                       <span className="text-muted-foreground text-xs">N/A</span>
                     )}
                   </div>
-                </motion.li>
+                </m.li>
               ))}
-            </motion.ul>
+            </m.ul>
           )}
         </AnimatePresence>
 

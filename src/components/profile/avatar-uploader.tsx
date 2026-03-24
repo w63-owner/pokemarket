@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Camera, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -154,7 +154,7 @@ export function AvatarUploader({
 
         <AnimatePresence>
           {uploading ? (
-            <motion.div
+            <m.div
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -162,9 +162,9 @@ export function AvatarUploader({
               className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50"
             >
               <Loader2 className="size-8 animate-spin text-white" />
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key="overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 0 }}
@@ -172,7 +172,7 @@ export function AvatarUploader({
               className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 transition-opacity group-hover:opacity-100"
             >
               <Camera className="size-6 text-white" />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </button>

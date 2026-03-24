@@ -5,6 +5,7 @@ import { ServiceWorkerRegister } from "@/components/pwa/sw-register";
 import { Header } from "@/components/layout/header";
 import { TabBar } from "@/components/layout/tab-bar";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { SplashScreen } from "@/components/layout/splash-screen";
 import "./globals.css";
 
 const inter = Inter({
@@ -58,6 +59,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-dvh flex-col antialiased">
+        <SplashScreen />
         <Providers>
           <Header />
           <main className="flex-1 pb-16 lg:pb-0">{children}</main>

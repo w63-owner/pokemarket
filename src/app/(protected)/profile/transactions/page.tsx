@@ -4,11 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { ShoppingBag, Store, ChevronRight, Receipt } from "lucide-react";
 
 import { MobileHeader } from "@/components/layout/mobile-header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -60,42 +60,47 @@ export default function TransactionsPage() {
     <>
       <MobileHeader title="Mes transactions" fallbackUrl="/profile" />
       <div className="mx-auto max-w-lg px-4 py-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="mb-4 w-full">
-              <TabsTrigger value="purchases" className="flex-1 gap-1.5">
+            <TabsList className="mb-4 grid w-full grid-cols-2" variant="line">
+              <TabsTrigger value="purchases">
                 <ShoppingBag className="size-4" />
                 Mes Achats
               </TabsTrigger>
-              <TabsTrigger value="sales" className="flex-1 gap-1.5">
+              <TabsTrigger value="sales">
                 <Store className="size-4" />
                 Mes Ventes
               </TabsTrigger>
             </TabsList>
 
             <AnimatePresence mode="wait">
-              <TabsContent key="purchases" value="purchases" className="mt-0">
+              <m.div
+                key={tab}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 8 }}
+                transition={{ duration: 0.2 }}
+                className="mt-0"
+              >
                 <TransactionList
-                  data={purchasesQuery.data}
-                  isLoading={purchasesQuery.isLoading}
-                  type="purchase"
+                  data={
+                    tab === "purchases" ? purchasesQuery.data : salesQuery.data
+                  }
+                  isLoading={
+                    tab === "purchases"
+                      ? purchasesQuery.isLoading
+                      : salesQuery.isLoading
+                  }
+                  type={tab === "purchases" ? "purchase" : "sale"}
                 />
-              </TabsContent>
-
-              <TabsContent key="sales" value="sales" className="mt-0">
-                <TransactionList
-                  data={salesQuery.data}
-                  isLoading={salesQuery.isLoading}
-                  type="sale"
-                />
-              </TabsContent>
+              </m.div>
             </AnimatePresence>
           </Tabs>
-        </motion.div>
+        </m.div>
       </div>
     </>
   );
@@ -150,7 +155,7 @@ function TransactionList({
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
@@ -164,7 +169,7 @@ function TransactionList({
           index={index}
         />
       ))}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -183,7 +188,7 @@ function TransactionRow({
     type === "sale" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}/success`;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
@@ -228,6 +233,6 @@ function TransactionRow({
           </CardContent>
         </Card>
       </Link>
-    </motion.div>
+    </m.div>
   );
 }

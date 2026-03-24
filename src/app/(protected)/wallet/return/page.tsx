@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { KycStatus } from "@/lib/constants";
@@ -44,7 +44,7 @@ export default function WalletReturnPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center px-4">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-sm text-center"
@@ -63,13 +63,13 @@ export default function WalletReturnPage() {
 
         {status === "success" && (
           <>
-            <motion.div
+            <m.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 15 }}
             >
               <CheckCircle2 className="mx-auto mb-4 size-12 text-emerald-500" />
-            </motion.div>
+            </m.div>
             <h1 className="font-heading mb-2 text-xl font-bold">
               {kycStatus === "VERIFIED"
                 ? "Identité vérifiée !"
@@ -100,7 +100,7 @@ export default function WalletReturnPage() {
             </Button>
           </>
         )}
-      </motion.div>
+      </m.div>
     </div>
   );
 }

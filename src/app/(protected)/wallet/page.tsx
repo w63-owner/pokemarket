@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   Wallet as WalletIcon,
   ShieldCheck,
@@ -92,7 +92,7 @@ export default function WalletPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -159,7 +159,7 @@ export default function WalletPage() {
             {(kycStatus === "UNVERIFIED" ||
               kycStatus === "PENDING" ||
               kycStatus === "REQUIRED") && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
@@ -184,10 +184,10 @@ export default function WalletPage() {
                     </>
                   )}
                 </Button>
-              </motion.div>
+              </m.div>
             )}
 
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -211,7 +211,7 @@ export default function WalletPage() {
                   Aucun solde disponible pour le moment
                 </p>
               )}
-            </motion.div>
+            </m.div>
 
             <div className="border-border border-t pt-4">
               <Button
@@ -224,7 +224,7 @@ export default function WalletPage() {
             </div>
           </div>
         )}
-      </motion.div>
+      </m.div>
     </div>
   );
 }

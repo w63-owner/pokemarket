@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Bookmark, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import type { FeedFilters } from "@/lib/query-keys";
 import {
   filtersToSearchString,
@@ -228,7 +228,7 @@ function SearchPageInner() {
 
           <AnimatePresence>
             {filters.is_graded && (
-              <motion.div
+              <m.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
@@ -275,7 +275,7 @@ function SearchPageInner() {
                     />
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>

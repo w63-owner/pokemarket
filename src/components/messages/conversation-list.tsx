@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { m } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatRelativeDate } from "@/lib/utils";
 import type { ConversationPreview } from "@/types";
@@ -57,7 +56,7 @@ function ConversationItem({
   const preview = formatMessagePreview(last_message, currentUserId);
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.25 }}
@@ -69,28 +68,23 @@ function ConversationItem({
           hasUnread && "bg-muted/30",
         )}
       >
+        {/* Listing thumbnail as primary visual */}
         <div className="relative shrink-0">
-          <Avatar size="lg">
-            {other_user.avatar_url ? (
-              <AvatarImage
-                src={other_user.avatar_url}
-                alt={other_user.username}
-              />
-            ) : null}
-            <AvatarFallback>
-              {other_user.username.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          {listing.cover_image_url && (
-            <div className="border-background absolute -right-1 -bottom-1 size-5 overflow-hidden rounded-sm border-2 shadow-sm">
+          <div className="border-border size-12 overflow-hidden rounded-md border shadow-sm">
+            {listing.cover_image_url ? (
               <Image
                 src={listing.cover_image_url}
                 alt={listing.title}
-                width={20}
-                height={20}
+                width={48}
+                height={48}
                 className="size-full object-cover"
               />
-            </div>
+            ) : (
+              <div className="bg-muted size-full" />
+            )}
+          </div>
+          {hasUnread && (
+            <span className="bg-brand ring-background absolute -top-1 -right-1 size-2.5 rounded-full ring-2" />
           )}
         </div>
 
@@ -104,7 +98,7 @@ function ConversationItem({
                   : "text-foreground font-medium",
               )}
             >
-              {other_user.username}
+              {listing.title}
             </span>
             {last_message && (
               <span className="text-muted-foreground shrink-0 text-[11px]">
@@ -113,30 +107,28 @@ function ConversationItem({
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <p
-              className={cn(
-                "truncate text-[13px]",
-                hasUnread
-                  ? "text-foreground font-medium"
-                  : "text-muted-foreground",
-              )}
-            >
-              {preview}
-            </p>
-            {hasUnread && (
+          <p
+            className={cn(
+              "mt-0.5 truncate text-[13px]",
+              hasUnread
+                ? "text-foreground font-medium"
+                : "text-muted-foreground",
+            )}
+          >
+            Avec {other_user.username}
+            {preview ? ` · ${preview}` : ""}
+          </p>
+
+          {hasUnread && (
+            <div className="mt-1 flex items-center justify-end">
               <span className="bg-brand text-brand-foreground flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold">
                 {unread_count > 99 ? "99+" : unread_count}
               </span>
-            )}
-          </div>
-
-          <p className="text-muted-foreground/70 mt-0.5 truncate text-[11px]">
-            {listing.title}
-          </p>
+            </div>
+          )}
         </div>
       </Link>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -168,14 +160,13 @@ export function ConversationListSkeleton() {
     <div className="divide-border divide-y">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3">
-          <Skeleton className="size-10 shrink-0 rounded-full" />
+          <Skeleton className="size-12 shrink-0 rounded-md" />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex items-center justify-between">
-              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-3.5 w-32" />
               <Skeleton className="h-3 w-10" />
             </div>
             <Skeleton className="h-3 w-48" />
-            <Skeleton className="h-2.5 w-32" />
           </div>
         </div>
       ))}

@@ -47,8 +47,8 @@ export default function MessagesPage() {
   if (isLoading || !user) {
     return (
       <div className="mx-auto w-full max-w-2xl">
-        <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 py-3 backdrop-blur-md">
-          <h1 className="font-display text-lg font-bold">Messages</h1>
+        <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 pt-6 pb-3 backdrop-blur-md">
+          <h1 className="font-display text-2xl font-bold">Messages</h1>
         </header>
         <ConversationListSkeleton />
       </div>
@@ -58,8 +58,8 @@ export default function MessagesPage() {
   if (error) {
     return (
       <div className="mx-auto w-full max-w-2xl">
-        <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 py-3 backdrop-blur-md">
-          <h1 className="font-display text-lg font-bold">Messages</h1>
+        <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 pt-6 pb-3 backdrop-blur-md">
+          <h1 className="font-display text-2xl font-bold">Messages</h1>
         </header>
         <EmptyState
           icon={<MessageCircle className="size-6" />}
@@ -75,8 +75,8 @@ export default function MessagesPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 py-3 backdrop-blur-md">
-        <h1 className="font-display text-lg font-bold">Messages</h1>
+      <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 pt-6 pb-3 backdrop-blur-md">
+        <h1 className="font-display text-2xl font-bold">Messages</h1>
       </header>
 
       {hasConversations ? (

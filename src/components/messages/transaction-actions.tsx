@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   Package,
   CheckCircle2,
@@ -125,7 +125,7 @@ export function TransactionActions({
 
 function StatusBar({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -133,7 +133,7 @@ function StatusBar({ icon, label }: { icon: React.ReactNode; label: string }) {
     >
       {icon}
       <span className="text-muted-foreground text-sm font-medium">{label}</span>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -188,7 +188,7 @@ function ShipOrderBar({
 
   return (
     <>
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -202,7 +202,7 @@ function ShipOrderBar({
           <Truck className="mr-1 size-3.5" />
           Expédier
         </Button>
-      </motion.div>
+      </m.div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl">
@@ -351,7 +351,7 @@ function ReportDisputeButton({
             </SheetDescription>
           </SheetHeader>
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
@@ -396,7 +396,7 @@ function ReportDisputeButton({
                 </p>
               )}
             </div>
-          </motion.div>
+          </m.div>
 
           <SheetFooter>
             <Button
@@ -475,7 +475,7 @@ function ConfirmReceptionBar({
 
   return (
     <>
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -489,7 +489,7 @@ function ConfirmReceptionBar({
           <CheckCircle2 className="mr-1 size-3.5" />
           Confirmer la réception
         </Button>
-      </motion.div>
+      </m.div>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl">

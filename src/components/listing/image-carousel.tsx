@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
-  motion,
+  m,
   AnimatePresence,
   useReducedMotion,
   type PanInfo,
@@ -103,7 +103,7 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
       >
         <div className="relative aspect-square">
           <AnimatePresence initial={false} custom={direction} mode="popLayout">
-            <motion.div
+            <m.div
               key={currentIndex}
               custom={direction}
               variants={slideVariants}
@@ -130,7 +130,7 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
                 blurDataURL={BLUR_PLACEHOLDER}
                 priority={currentIndex === 0}
               />
-            </motion.div>
+            </m.div>
           </AnimatePresence>
 
           {/* Zoom button */}
@@ -172,7 +172,7 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
       {/* Fullscreen zoom overlay */}
       <AnimatePresence>
         {zoomedImage && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -189,7 +189,7 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
               <X className="size-5" />
             </button>
 
-            <motion.div
+            <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -206,8 +206,8 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
                 quality={95}
                 priority
               />
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         )}
       </AnimatePresence>
     </>

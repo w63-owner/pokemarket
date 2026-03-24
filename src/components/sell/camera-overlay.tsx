@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
+import { m, type Variants } from "framer-motion";
 
 /** Pokemon card standard ratio: 63mm × 88mm → width/height */
 export const CARD_ASPECT_RATIO = 63 / 88;
@@ -27,7 +27,7 @@ function CornerBracket({ position }: { position: "tl" | "tr" | "bl" | "br" }) {
   const isLeft = position.endsWith("l");
 
   return (
-    <motion.span
+    <m.span
       className="absolute"
       style={{
         width: BRACKET_LEN,
@@ -83,14 +83,14 @@ export function CameraOverlay({ className }: CameraOverlayProps) {
       </div>
 
       {/* Instruction label below the cutout */}
-      <motion.p
+      <m.p
         className="absolute bottom-[8%] left-0 w-full text-center text-sm font-medium tracking-wide text-white/70"
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4, duration: 0.4 }}
       >
         Alignez la carte dans le cadre
-      </motion.p>
+      </m.p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   CheckCircle2,
   CreditCard,
@@ -74,7 +74,7 @@ export function SystemMessage({ message }: SystemMessageProps) {
   const label = config?.label ?? message.content ?? "Message système";
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -84,6 +84,6 @@ export function SystemMessage({ message }: SystemMessageProps) {
         <Icon className={cn("size-3.5 shrink-0", color)} />
         <span className="text-muted-foreground">{label}</span>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

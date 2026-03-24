@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import { Check, CheckCheck, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ export const MessageBubble = memo(function MessageBubble({
   });
 
   return (
-    <motion.div
+    <m.div
       ref={ref}
       layout="position"
       initial={{ opacity: 0, y: 10 }}
@@ -77,6 +77,6 @@ export const MessageBubble = memo(function MessageBubble({
             ))}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 });

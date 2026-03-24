@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   Bell,
   BellOff,
@@ -153,7 +153,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -223,7 +223,7 @@ export default function NotificationsPage() {
             </div>
           </div>
         )}
-      </motion.div>
+      </m.div>
     </div>
   );
 }

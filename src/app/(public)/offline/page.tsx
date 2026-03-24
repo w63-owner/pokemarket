@@ -1,26 +1,26 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function OfflinePage() {
   return (
     <main className="bg-background flex min-h-svh flex-col items-center justify-center px-6 text-center">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
         className="flex max-w-sm flex-col items-center gap-6"
       >
-        <motion.div
+        <m.div
           initial={{ y: -8 }}
           animate={{ y: [0, -6, 0] }}
           transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
           className="bg-muted relative flex size-24 items-center justify-center rounded-full"
         >
           <WifiOff className="text-muted-foreground size-10" />
-          <motion.div
+          <m.div
             className="bg-destructive absolute -right-1 -bottom-1 size-6 rounded-full"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -29,8 +29,8 @@ export default function OfflinePage() {
             <span className="flex size-full items-center justify-center text-xs font-bold text-white">
               !
             </span>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
 
         <div className="space-y-2">
           <h1 className="font-display text-2xl font-bold">
@@ -54,7 +54,7 @@ export default function OfflinePage() {
         <p className="text-muted-foreground/60 text-xs">
           PokeMarket nécessite une connexion pour fonctionner
         </p>
-      </motion.div>
+      </m.div>
     </main>
   );
 }
