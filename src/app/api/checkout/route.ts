@@ -5,6 +5,7 @@ import { getStripe } from "@/lib/stripe/server";
 import { checkoutSchema } from "@/lib/validations";
 import { calcPriceSeller, calcFeeAmount, calcTotalBuyer } from "@/lib/pricing";
 import { LIMITS } from "@/lib/constants";
+import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import type { CheckoutResponse } from "@/types/api";
 
 const MOCK_SHIPPING_COST = 4.99;
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
+
+    const rateLimitResponse = await applyRateLimit(checkoutRateLimit, user.id);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
     const validation = checkoutSchema.safeParse(body);
@@ -88,14 +92,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const effectiveDisplayPrice = isReservedForMe
-      ? (listing.reserved_price ?? listing.display_price)
-      : listing.display_price;
+    const effectiveDisplayPrice =
+      (isReservedForMe
+        ? (listing.reserved_price ?? listing.display_price)
+        : listing.display_price) ?? 0;
 
     const shippingCost = await getShippingCost(
       "FR",
       shipping_country,
-      listing.delivery_weight_class,
+      listing.delivery_weight_class ?? "standard",
     );
 
     const priceSeller = calcPriceSeller(effectiveDisplayPrice);

@@ -65,7 +65,7 @@ export const MessageBubble = memo(function MessageBubble({
           )}
         >
           <span className="text-[10px] leading-none">
-            {formatTime(message.created_at)}
+            {formatTime(message.created_at ?? "")}
           </span>
           {isOwn &&
             (isPending ? (

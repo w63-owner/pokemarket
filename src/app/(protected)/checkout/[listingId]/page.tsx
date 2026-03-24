@@ -35,9 +35,10 @@ export default async function CheckoutPage({ params }: Props) {
     redirect(`/listing/${listingId}?checkout=unavailable`);
   }
 
-  const effectivePrice = isReservedForMe
-    ? (listing.reserved_price ?? listing.display_price)
-    : listing.display_price;
+  const effectivePrice =
+    (isReservedForMe
+      ? (listing.reserved_price ?? listing.display_price)
+      : listing.display_price) ?? 0;
 
   const MOCK_SHIPPING_COST = 4.99;
 
@@ -47,13 +48,13 @@ export default async function CheckoutPage({ params }: Props) {
         id: listing.id,
         title: listing.title,
         cover_image_url: listing.cover_image_url,
-        display_price: listing.display_price,
+        display_price: listing.display_price ?? 0,
         condition: listing.condition,
-        is_graded: listing.is_graded,
+        is_graded: listing.is_graded ?? false,
         grading_company: listing.grading_company,
         grade_note: listing.grade_note,
         card_series: listing.card_series,
-        delivery_weight_class: listing.delivery_weight_class,
+        delivery_weight_class: listing.delivery_weight_class ?? "standard",
       }}
       effectivePrice={effectivePrice}
       shippingCost={MOCK_SHIPPING_COST}

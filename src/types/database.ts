@@ -1,6 +1,3 @@
-// This file should be regenerated with: npx supabase gen types typescript --project-id <id>
-// For now, we define manual types matching our schema.
-
 export type Json =
   | string
   | number
@@ -9,196 +6,90 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.4";
+  };
   public: {
     Tables: {
-      profiles: {
+      card_price_history: {
         Row: {
+          card_key: string;
+          condition: string;
           id: string;
-          username: string;
-          avatar_url: string | null;
-          country_code: string;
-          address_line: string | null;
-          city: string | null;
-          postal_code: string | null;
-          bio: string | null;
-          instagram_url: string | null;
-          facebook_url: string | null;
-          tiktok_url: string | null;
-          stripe_account_id: string | null;
-          stripe_customer_id: string | null;
-          kyc_status: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          username: string;
-          avatar_url?: string | null;
-          country_code?: string;
-          address_line?: string | null;
-          city?: string | null;
-          postal_code?: string | null;
-          bio?: string | null;
-          instagram_url?: string | null;
-          facebook_url?: string | null;
-          tiktok_url?: string | null;
-          stripe_account_id?: string | null;
-          stripe_customer_id?: string | null;
-          kyc_status?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
-        Relationships: [];
-      };
-      wallets: {
-        Row: {
-          user_id: string;
-          available_balance: number;
-          pending_balance: number;
-          currency: string;
-        };
-        Insert: {
-          user_id: string;
-          available_balance?: number;
-          pending_balance?: number;
-          currency?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["wallets"]["Insert"]>;
-        Relationships: [];
-      };
-      listings: {
-        Row: {
-          id: string;
-          seller_id: string;
-          card_ref_id: string | null;
-          title: string;
-          price_seller: number;
-          display_price: number;
-          condition: string | null;
           is_graded: boolean;
-          grading_company: string | null;
-          grade_note: number | null;
-          status: string;
-          delivery_weight_class: string;
-          cover_image_url: string | null;
-          back_image_url: string | null;
-          reserved_for: string | null;
-          reserved_price: number | null;
-          card_series: string | null;
-          card_block: string | null;
-          card_number: string | null;
-          card_language: string | null;
-          card_rarity: string | null;
-          card_illustrator: string | null;
-          created_at: string;
-          updated_at: string;
+          language: string;
+          price: number;
+          recorded_at: string;
+          source: string;
         };
         Insert: {
+          card_key: string;
+          condition: string;
           id?: string;
-          seller_id: string;
-          card_ref_id?: string | null;
-          title: string;
-          price_seller: number;
-          condition?: string | null;
           is_graded?: boolean;
-          grading_company?: string | null;
-          grade_note?: number | null;
-          status?: string;
-          delivery_weight_class?: string;
-          cover_image_url?: string | null;
-          back_image_url?: string | null;
-          reserved_for?: string | null;
-          reserved_price?: number | null;
-          card_series?: string | null;
-          card_block?: string | null;
-          card_number?: string | null;
-          card_language?: string | null;
-          card_rarity?: string | null;
-          card_illustrator?: string | null;
+          language: string;
+          price: number;
+          recorded_at?: string;
+          source?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["listings"]["Insert"]>;
+        Update: {
+          card_key?: string;
+          condition?: string;
+          id?: string;
+          is_graded?: boolean;
+          language?: string;
+          price?: number;
+          recorded_at?: string;
+          source?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "listings_seller_id_fkey";
-            columns: ["seller_id"];
+            foreignKeyName: "card_price_history_card_key_fkey";
+            columns: ["card_key"];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: "tcgdex_cards";
+            referencedColumns: ["card_key"];
           },
         ];
       };
-      transactions: {
-        Row: {
-          id: string;
-          listing_id: string;
-          buyer_id: string;
-          seller_id: string;
-          total_amount: number;
-          fee_amount: number;
-          shipping_cost: number;
-          status: string;
-          stripe_checkout_session_id: string | null;
-          expiration_date: string;
-          listing_title: string | null;
-          tracking_number: string | null;
-          tracking_url: string | null;
-          shipped_at: string | null;
-          shipping_address_line: string | null;
-          shipping_address_city: string | null;
-          shipping_address_postcode: string | null;
-          shipping_country: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          listing_id: string;
-          buyer_id: string;
-          seller_id: string;
-          total_amount: number;
-          fee_amount: number;
-          shipping_cost?: number;
-          status?: string;
-          stripe_checkout_session_id?: string | null;
-          listing_title?: string | null;
-          shipping_address_line?: string | null;
-          shipping_address_city?: string | null;
-          shipping_address_postcode?: string | null;
-          shipping_country?: string | null;
-        };
-        Update: Partial<Database["public"]["Tables"]["transactions"]["Insert"]>;
-        Relationships: [];
-      };
       conversations: {
         Row: {
+          buyer_id: string;
+          created_at: string | null;
           id: string;
           listing_id: string;
-          buyer_id: string;
           seller_id: string;
-          created_at: string;
         };
         Insert: {
+          buyer_id: string;
+          created_at?: string | null;
           id?: string;
           listing_id: string;
-          buyer_id: string;
           seller_id: string;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["conversations"]["Insert"]
-        >;
+        Update: {
+          buyer_id?: string;
+          created_at?: string | null;
+          id?: string;
+          listing_id?: string;
+          seller_id?: string;
+        };
         Relationships: [
-          {
-            foreignKeyName: "conversations_listing_id_fkey";
-            columns: ["listing_id"];
-            isOneToOne: false;
-            referencedRelation: "listings";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "conversations_buyer_id_fkey";
             columns: ["buyer_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
             referencedColumns: ["id"];
           },
           {
@@ -210,124 +101,67 @@ export interface Database {
           },
         ];
       };
-      messages: {
+      disputes: {
         Row: {
+          created_at: string | null;
+          description: string | null;
           id: string;
-          conversation_id: string;
-          sender_id: string;
-          content: string | null;
-          message_type: string;
-          offer_id: string | null;
-          metadata: Json | null;
-          read_at: string | null;
-          created_at: string;
+          opened_by: string;
+          reason: string | null;
+          status: string | null;
+          transaction_id: string;
         };
         Insert: {
+          created_at?: string | null;
+          description?: string | null;
           id?: string;
-          conversation_id: string;
-          sender_id: string;
-          content?: string | null;
-          message_type?: string;
-          offer_id?: string | null;
-          metadata?: Json | null;
+          opened_by: string;
+          reason?: string | null;
+          status?: string | null;
+          transaction_id: string;
         };
-        Update: Partial<Database["public"]["Tables"]["messages"]["Insert"]> & {
-          read_at?: string | null;
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          opened_by?: string;
+          reason?: string | null;
+          status?: string | null;
+          transaction_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "messages_conversation_id_fkey";
-            columns: ["conversation_id"];
-            isOneToOne: false;
-            referencedRelation: "conversations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      offers: {
-        Row: {
-          id: string;
-          listing_id: string;
-          buyer_id: string;
-          offer_amount: number;
-          status: string;
-          expires_at: string;
-          conversation_id: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          listing_id: string;
-          buyer_id: string;
-          offer_amount: number;
-          status?: string;
-          conversation_id?: string | null;
-        };
-        Update: Partial<Database["public"]["Tables"]["offers"]["Insert"]>;
-        Relationships: [
-          {
-            foreignKeyName: "offers_listing_id_fkey";
-            columns: ["listing_id"];
-            isOneToOne: false;
-            referencedRelation: "listings";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "offers_buyer_id_fkey";
-            columns: ["buyer_id"];
+            foreignKeyName: "disputes_opened_by_fkey";
+            columns: ["opened_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "disputes_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
         ];
       };
-      reviews: {
-        Row: {
-          id: string;
-          transaction_id: string;
-          reviewer_id: string;
-          reviewee_id: string;
-          rating: number;
-          comment: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          transaction_id: string;
-          reviewer_id: string;
-          reviewee_id: string;
-          rating: number;
-          comment?: string | null;
-        };
-        Update: Partial<Database["public"]["Tables"]["reviews"]["Insert"]>;
-        Relationships: [];
-      };
-      disputes: {
-        Row: {
-          id: string;
-          transaction_id: string;
-          opened_by: string;
-          reason: string | null;
-          description: string | null;
-          status: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          transaction_id: string;
-          opened_by: string;
-          reason?: string | null;
-          description?: string | null;
-        };
-        Update: Partial<Database["public"]["Tables"]["disputes"]["Insert"]>;
-        Relationships: [];
-      };
       favorite_listings: {
-        Row: { user_id: string; listing_id: string; created_at: string };
-        Insert: { user_id: string; listing_id: string };
-        Update: Partial<
-          Database["public"]["Tables"]["favorite_listings"]["Insert"]
-        >;
+        Row: {
+          created_at: string | null;
+          listing_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          listing_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          listing_id?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
             foreignKeyName: "favorite_listings_listing_id_fkey";
@@ -346,227 +180,824 @@ export interface Database {
         ];
       };
       favorite_sellers: {
-        Row: { user_id: string; seller_id: string; created_at: string };
-        Insert: { user_id: string; seller_id: string };
-        Update: Partial<
-          Database["public"]["Tables"]["favorite_sellers"]["Insert"]
-        >;
-        Relationships: [];
-      };
-      saved_searches: {
         Row: {
+          created_at: string | null;
+          seller_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          seller_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          seller_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "favorite_sellers_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "favorite_sellers_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      listings: {
+        Row: {
+          back_image_url: string | null;
+          card_block: string | null;
+          card_illustrator: string | null;
+          card_language: string | null;
+          card_number: string | null;
+          card_rarity: string | null;
+          card_ref_id: string | null;
+          card_series: string | null;
+          condition: string | null;
+          cover_image_url: string | null;
+          created_at: string | null;
+          delivery_weight_class: string | null;
+          display_price: number | null;
+          grade_note: number | null;
+          grading_company: string | null;
           id: string;
-          user_id: string;
-          name: string;
-          search_params: Json;
-          created_at: string;
-          last_seen_at: string;
+          is_graded: boolean | null;
+          price_seller: number;
+          reserved_for: string | null;
+          reserved_price: number | null;
+          seller_id: string;
+          status: string | null;
+          title: string;
+          updated_at: string | null;
         };
         Insert: {
+          back_image_url?: string | null;
+          card_block?: string | null;
+          card_illustrator?: string | null;
+          card_language?: string | null;
+          card_number?: string | null;
+          card_rarity?: string | null;
+          card_ref_id?: string | null;
+          card_series?: string | null;
+          condition?: string | null;
+          cover_image_url?: string | null;
+          created_at?: string | null;
+          delivery_weight_class?: string | null;
+          display_price?: number | null;
+          grade_note?: number | null;
+          grading_company?: string | null;
           id?: string;
-          user_id: string;
-          name: string;
-          search_params: Json;
-          last_seen_at?: string;
+          is_graded?: boolean | null;
+          price_seller: number;
+          reserved_for?: string | null;
+          reserved_price?: number | null;
+          seller_id: string;
+          status?: string | null;
+          title: string;
+          updated_at?: string | null;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["saved_searches"]["Insert"]
-        >;
+        Update: {
+          back_image_url?: string | null;
+          card_block?: string | null;
+          card_illustrator?: string | null;
+          card_language?: string | null;
+          card_number?: string | null;
+          card_rarity?: string | null;
+          card_ref_id?: string | null;
+          card_series?: string | null;
+          condition?: string | null;
+          cover_image_url?: string | null;
+          created_at?: string | null;
+          delivery_weight_class?: string | null;
+          display_price?: number | null;
+          grade_note?: number | null;
+          grading_company?: string | null;
+          id?: string;
+          is_graded?: boolean | null;
+          price_seller?: number;
+          reserved_for?: string | null;
+          reserved_price?: number | null;
+          seller_id?: string;
+          status?: string | null;
+          title?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "listings_reserved_for_fkey";
+            columns: ["reserved_for"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "listings_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      messages: {
+        Row: {
+          content: string | null;
+          conversation_id: string;
+          created_at: string | null;
+          id: string;
+          message_type: string | null;
+          metadata: Json | null;
+          offer_id: string | null;
+          read_at: string | null;
+          sender_id: string;
+        };
+        Insert: {
+          content?: string | null;
+          conversation_id: string;
+          created_at?: string | null;
+          id?: string;
+          message_type?: string | null;
+          metadata?: Json | null;
+          offer_id?: string | null;
+          read_at?: string | null;
+          sender_id: string;
+        };
+        Update: {
+          content?: string | null;
+          conversation_id?: string;
+          created_at?: string | null;
+          id?: string;
+          message_type?: string | null;
+          metadata?: Json | null;
+          offer_id?: string | null;
+          read_at?: string | null;
+          sender_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_offer_id_fkey";
+            columns: ["offer_id"];
+            isOneToOne: false;
+            referencedRelation: "offers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey";
+            columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ocr_attempts: {
+        Row: {
+          candidates: Json | null;
+          confidence: number | null;
+          created_at: string | null;
+          id: string;
+          listing_id: string | null;
+          model: string | null;
+          parsed: Json | null;
+          provider: string | null;
+          raw_text: string | null;
+          selected_card_ref_id: string | null;
+          user_id: string;
+        };
+        Insert: {
+          candidates?: Json | null;
+          confidence?: number | null;
+          created_at?: string | null;
+          id?: string;
+          listing_id?: string | null;
+          model?: string | null;
+          parsed?: Json | null;
+          provider?: string | null;
+          raw_text?: string | null;
+          selected_card_ref_id?: string | null;
+          user_id: string;
+        };
+        Update: {
+          candidates?: Json | null;
+          confidence?: number | null;
+          created_at?: string | null;
+          id?: string;
+          listing_id?: string | null;
+          model?: string | null;
+          parsed?: Json | null;
+          provider?: string | null;
+          raw_text?: string | null;
+          selected_card_ref_id?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ocr_attempts_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ocr_attempts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      offers: {
+        Row: {
+          buyer_id: string;
+          conversation_id: string | null;
+          created_at: string | null;
+          expires_at: string | null;
+          id: string;
+          listing_id: string;
+          offer_amount: number;
+          status: string | null;
+        };
+        Insert: {
+          buyer_id: string;
+          conversation_id?: string | null;
+          created_at?: string | null;
+          expires_at?: string | null;
+          id?: string;
+          listing_id: string;
+          offer_amount: number;
+          status?: string | null;
+        };
+        Update: {
+          buyer_id?: string;
+          conversation_id?: string | null;
+          created_at?: string | null;
+          expires_at?: string | null;
+          id?: string;
+          listing_id?: string;
+          offer_amount?: number;
+          status?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "offers_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "offers_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "offers_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      price_estimations: {
+        Row: {
+          card_name: string;
+          created_at: string | null;
+          currency: string | null;
+          estimated_price: number | null;
+          id: string;
+          set_name: string | null;
+          source: string | null;
+        };
+        Insert: {
+          card_name: string;
+          created_at?: string | null;
+          currency?: string | null;
+          estimated_price?: number | null;
+          id?: string;
+          set_name?: string | null;
+          source?: string | null;
+        };
+        Update: {
+          card_name?: string;
+          created_at?: string | null;
+          currency?: string | null;
+          estimated_price?: number | null;
+          id?: string;
+          set_name?: string | null;
+          source?: string | null;
+        };
         Relationships: [];
       };
-      shipping_matrix: {
+      profiles: {
         Row: {
-          id: number;
-          origin_country: string;
-          dest_country: string;
-          weight_class: string;
-          price: number;
-          currency: string;
+          address_line: string | null;
+          avatar_url: string | null;
+          bio: string | null;
+          city: string | null;
+          country_code: string | null;
+          created_at: string | null;
+          facebook_url: string | null;
+          id: string;
+          instagram_url: string | null;
+          kyc_status: string | null;
+          postal_code: string | null;
+          stripe_account_id: string | null;
+          stripe_customer_id: string | null;
+          tiktok_url: string | null;
+          updated_at: string | null;
+          username: string;
         };
         Insert: {
-          origin_country: string;
-          dest_country: string;
-          weight_class: string;
-          price: number;
-          currency?: string;
+          address_line?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
+          city?: string | null;
+          country_code?: string | null;
+          created_at?: string | null;
+          facebook_url?: string | null;
+          id: string;
+          instagram_url?: string | null;
+          kyc_status?: string | null;
+          postal_code?: string | null;
+          stripe_account_id?: string | null;
+          stripe_customer_id?: string | null;
+          tiktok_url?: string | null;
+          updated_at?: string | null;
+          username: string;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["shipping_matrix"]["Insert"]
-        >;
+        Update: {
+          address_line?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
+          city?: string | null;
+          country_code?: string | null;
+          created_at?: string | null;
+          facebook_url?: string | null;
+          id?: string;
+          instagram_url?: string | null;
+          kyc_status?: string | null;
+          postal_code?: string | null;
+          stripe_account_id?: string | null;
+          stripe_customer_id?: string | null;
+          tiktok_url?: string | null;
+          updated_at?: string | null;
+          username?: string;
+        };
         Relationships: [];
       };
       push_subscriptions: {
         Row: {
+          created_at: string | null;
           id: string;
-          user_id: string;
           subscription: Json;
-          created_at: string;
+          user_id: string;
         };
         Insert: {
+          created_at?: string | null;
           id?: string;
-          user_id: string;
           subscription: Json;
+          user_id: string;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["push_subscriptions"]["Insert"]
-        >;
-        Relationships: [];
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          subscription?: Json;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
-      tcgdex_series: {
+      reviews: {
         Row: {
-          language: string;
+          comment: string | null;
+          created_at: string | null;
           id: string;
-          name: string;
+          rating: number;
+          reviewee_id: string;
+          reviewer_id: string;
+          transaction_id: string;
         };
         Insert: {
-          language: string;
-          id: string;
-          name: string;
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string;
+          rating: number;
+          reviewee_id: string;
+          reviewer_id: string;
+          transaction_id: string;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["tcgdex_series"]["Insert"]
-        >;
-        Relationships: [];
+        Update: {
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string;
+          rating?: number;
+          reviewee_id?: string;
+          reviewer_id?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reviews_reviewee_id_fkey";
+            columns: ["reviewee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reviews_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
-      tcgdex_sets: {
+      saved_searches: {
         Row: {
-          language: string;
+          created_at: string | null;
           id: string;
+          last_seen_at: string;
           name: string;
-          series_id: string | null;
-          logo: string | null;
-          symbol: string | null;
-          release_date: string | null;
-          card_count: Json | null;
-          legal: Json | null;
-          tcg_online_code: string | null;
+          search_params: Json;
+          user_id: string;
         };
         Insert: {
-          language: string;
-          id: string;
+          created_at?: string | null;
+          id?: string;
+          last_seen_at?: string;
           name: string;
-          series_id?: string | null;
-          logo?: string | null;
-          symbol?: string | null;
-          release_date?: string | null;
-          card_count?: Json | null;
-          legal?: Json | null;
-          tcg_online_code?: string | null;
+          search_params: Json;
+          user_id: string;
         };
-        Update: Partial<Database["public"]["Tables"]["tcgdex_sets"]["Insert"]>;
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          last_seen_at?: string;
+          name?: string;
+          search_params?: Json;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "saved_searches_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shipping_matrix: {
+        Row: {
+          currency: string | null;
+          dest_country: string;
+          id: number;
+          origin_country: string;
+          price: number;
+          weight_class: string;
+        };
+        Insert: {
+          currency?: string | null;
+          dest_country: string;
+          id?: number;
+          origin_country: string;
+          price: number;
+          weight_class: string;
+        };
+        Update: {
+          currency?: string | null;
+          dest_country?: string;
+          id?: number;
+          origin_country?: string;
+          price?: number;
+          weight_class?: string;
+        };
+        Relationships: [];
+      };
+      stripe_webhooks_processed: {
+        Row: {
+          processed_at: string | null;
+          stripe_event_id: string;
+        };
+        Insert: {
+          processed_at?: string | null;
+          stripe_event_id: string;
+        };
+        Update: {
+          processed_at?: string | null;
+          stripe_event_id?: string;
+        };
         Relationships: [];
       };
       tcgdex_cards: {
         Row: {
-          language: string;
-          id: string;
-          card_key: string;
-          local_id: string | null;
-          name: string | null;
+          attacks: Json | null;
+          card_key: string | null;
           category: string | null;
+          description: string | null;
+          dex_id: Json | null;
+          effect: string | null;
+          energy_type: string | null;
+          evolve_from: string | null;
+          hp: number | null;
+          id: string;
           illustrator: string | null;
           image: string | null;
-          set_id: string | null;
-          hp: number | null;
-          rarity: string | null;
-          variants: Json | null;
-          types: Json | null;
-          evolve_from: string | null;
-          description: string | null;
-          stage: string | null;
-          attacks: Json | null;
-          weaknesses: Json | null;
-          retreat: number | null;
-          regulation_mark: string | null;
-          legal: Json | null;
-          dex_id: Json | null;
-          level: string | null;
-          suffix: string | null;
           item: Json | null;
-          effect: string | null;
-          trainer_type: string | null;
-          energy_type: string | null;
+          language: string;
+          legal: Json | null;
+          level: string | null;
+          local_id: string | null;
+          name: string | null;
           pricing: Json | null;
+          rarity: string | null;
+          regulation_mark: string | null;
+          retreat: number | null;
+          set_id: string | null;
+          stage: string | null;
+          suffix: string | null;
+          trainer_type: string | null;
+          types: Json | null;
+          updated_at: string | null;
+          variants: Json | null;
+          weaknesses: Json | null;
+        };
+        Insert: {
+          attacks?: Json | null;
+          card_key?: string | null;
+          category?: string | null;
+          description?: string | null;
+          dex_id?: Json | null;
+          effect?: string | null;
+          energy_type?: string | null;
+          evolve_from?: string | null;
+          hp?: number | null;
+          id: string;
+          illustrator?: string | null;
+          image?: string | null;
+          item?: Json | null;
+          language: string;
+          legal?: Json | null;
+          level?: string | null;
+          local_id?: string | null;
+          name?: string | null;
+          pricing?: Json | null;
+          rarity?: string | null;
+          regulation_mark?: string | null;
+          retreat?: number | null;
+          set_id?: string | null;
+          stage?: string | null;
+          suffix?: string | null;
+          trainer_type?: string | null;
+          types?: Json | null;
+          updated_at?: string | null;
+          variants?: Json | null;
+          weaknesses?: Json | null;
+        };
+        Update: {
+          attacks?: Json | null;
+          card_key?: string | null;
+          category?: string | null;
+          description?: string | null;
+          dex_id?: Json | null;
+          effect?: string | null;
+          energy_type?: string | null;
+          evolve_from?: string | null;
+          hp?: number | null;
+          id?: string;
+          illustrator?: string | null;
+          image?: string | null;
+          item?: Json | null;
+          language?: string;
+          legal?: Json | null;
+          level?: string | null;
+          local_id?: string | null;
+          name?: string | null;
+          pricing?: Json | null;
+          rarity?: string | null;
+          regulation_mark?: string | null;
+          retreat?: number | null;
+          set_id?: string | null;
+          stage?: string | null;
+          suffix?: string | null;
+          trainer_type?: string | null;
+          types?: Json | null;
+          updated_at?: string | null;
+          variants?: Json | null;
+          weaknesses?: Json | null;
+        };
+        Relationships: [];
+      };
+      tcgdex_series: {
+        Row: {
+          id: string;
+          language: string;
+          name: string;
+        };
+        Insert: {
+          id: string;
+          language: string;
+          name: string;
+        };
+        Update: {
+          id?: string;
+          language?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      tcgdex_sets: {
+        Row: {
+          card_count: Json | null;
+          id: string;
+          language: string;
+          legal: Json | null;
+          logo: string | null;
+          name: string;
+          release_date: string | null;
+          series_id: string | null;
+          symbol: string | null;
+          tcg_online_code: string | null;
+        };
+        Insert: {
+          card_count?: Json | null;
+          id: string;
+          language: string;
+          legal?: Json | null;
+          logo?: string | null;
+          name: string;
+          release_date?: string | null;
+          series_id?: string | null;
+          symbol?: string | null;
+          tcg_online_code?: string | null;
+        };
+        Update: {
+          card_count?: Json | null;
+          id?: string;
+          language?: string;
+          legal?: Json | null;
+          logo?: string | null;
+          name?: string;
+          release_date?: string | null;
+          series_id?: string | null;
+          symbol?: string | null;
+          tcg_online_code?: string | null;
+        };
+        Relationships: [];
+      };
+      transactions: {
+        Row: {
+          buyer_id: string;
+          created_at: string | null;
+          expiration_date: string | null;
+          fee_amount: number;
+          id: string;
+          listing_id: string;
+          listing_title: string | null;
+          seller_id: string;
+          shipped_at: string | null;
+          shipping_address_city: string | null;
+          shipping_address_line: string | null;
+          shipping_address_postcode: string | null;
+          shipping_cost: number | null;
+          shipping_country: string | null;
+          status: string | null;
+          stripe_checkout_session_id: string | null;
+          total_amount: number;
+          tracking_number: string | null;
+          tracking_url: string | null;
           updated_at: string | null;
         };
         Insert: {
-          language: string;
-          id: string;
-          local_id?: string | null;
-          name?: string | null;
-          category?: string | null;
-          illustrator?: string | null;
-          image?: string | null;
-          set_id?: string | null;
-          hp?: number | null;
-          rarity?: string | null;
-          variants?: Json | null;
-          types?: Json | null;
-          evolve_from?: string | null;
-          description?: string | null;
-          stage?: string | null;
-          attacks?: Json | null;
-          weaknesses?: Json | null;
-          retreat?: number | null;
-          regulation_mark?: string | null;
-          legal?: Json | null;
-          dex_id?: Json | null;
-          level?: string | null;
-          suffix?: string | null;
-          item?: Json | null;
-          effect?: string | null;
-          trainer_type?: string | null;
-          energy_type?: string | null;
-          pricing?: Json | null;
+          buyer_id: string;
+          created_at?: string | null;
+          expiration_date?: string | null;
+          fee_amount: number;
+          id?: string;
+          listing_id: string;
+          listing_title?: string | null;
+          seller_id: string;
+          shipped_at?: string | null;
+          shipping_address_city?: string | null;
+          shipping_address_line?: string | null;
+          shipping_address_postcode?: string | null;
+          shipping_cost?: number | null;
+          shipping_country?: string | null;
+          status?: string | null;
+          stripe_checkout_session_id?: string | null;
+          total_amount: number;
+          tracking_number?: string | null;
+          tracking_url?: string | null;
           updated_at?: string | null;
         };
-        Update: Partial<Database["public"]["Tables"]["tcgdex_cards"]["Insert"]>;
-        Relationships: [];
+        Update: {
+          buyer_id?: string;
+          created_at?: string | null;
+          expiration_date?: string | null;
+          fee_amount?: number;
+          id?: string;
+          listing_id?: string;
+          listing_title?: string | null;
+          seller_id?: string;
+          shipped_at?: string | null;
+          shipping_address_city?: string | null;
+          shipping_address_line?: string | null;
+          shipping_address_postcode?: string | null;
+          shipping_cost?: number | null;
+          shipping_country?: string | null;
+          status?: string | null;
+          stripe_checkout_session_id?: string | null;
+          total_amount?: number;
+          tracking_number?: string | null;
+          tracking_url?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "transactions_buyer_id_fkey";
+            columns: ["buyer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
-      card_price_history: {
+      wallets: {
         Row: {
-          id: string;
-          card_key: string;
-          price: number;
-          condition: string;
-          language: string;
-          is_graded: boolean;
-          source: string;
-          recorded_at: string;
+          available_balance: number | null;
+          currency: string | null;
+          pending_balance: number | null;
+          user_id: string;
         };
         Insert: {
-          id?: string;
-          card_key: string;
-          price: number;
-          condition: string;
-          language: string;
-          is_graded?: boolean;
-          source?: string;
-          recorded_at?: string;
-        };
-        Update: Partial<
-          Database["public"]["Tables"]["card_price_history"]["Insert"]
-        >;
-        Relationships: [];
-      };
-      ocr_attempts: {
-        Row: {
-          id: string;
+          available_balance?: number | null;
+          currency?: string | null;
+          pending_balance?: number | null;
           user_id: string;
-          image_url: string;
-          raw_response: Json | null;
-          selected_card_key: string | null;
-          created_at: string;
         };
-        Insert: {
-          id?: string;
-          user_id: string;
-          image_url: string;
-          raw_response?: Json | null;
-          selected_card_key?: string | null;
+        Update: {
+          available_balance?: number | null;
+          currency?: string | null;
+          pending_balance?: number | null;
+          user_id?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["ocr_attempts"]["Insert"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -574,50 +1005,67 @@ export interface Database {
     };
     Functions: {
       count_new_for_saved_searches: {
-        Args: Record<string, never>;
+        Args: never;
         Returns: {
-          search_id: string;
           new_count: number;
+          search_id: string;
+        }[];
+      };
+      match_tcgdex_cards: {
+        Args: { p_language?: string; p_name: string };
+        Returns: {
+          card_hp: number;
+          card_id: string;
+          card_illustrator: string;
+          card_key: string;
+          card_language: string;
+          card_local_id: string;
+          card_name: string;
+          card_rarity: string;
+          card_set_id: string;
+          series_id: string;
+          series_name: string;
+          set_name: string;
+          set_official_count: number;
         }[];
       };
       search_listings_feed: {
         Args: {
-          p_query?: string;
-          p_set?: string;
-          p_rarity?: string;
-          p_condition?: string;
-          p_is_graded?: boolean;
-          p_grade_min?: number;
-          p_grade_max?: number;
-          p_price_min?: number;
-          p_price_max?: number;
           p_card_number?: string;
-          p_series?: string;
-          p_sort?: string;
+          p_condition?: string;
           p_cursor_created_at?: string;
           p_cursor_id?: string;
           p_cursor_price?: number;
-          p_limit?: number;
           p_exclude_seller?: string;
+          p_grade_max?: number;
+          p_grade_min?: number;
+          p_is_graded?: boolean;
+          p_limit?: number;
+          p_price_max?: number;
+          p_price_min?: number;
+          p_query?: string;
+          p_rarity?: string;
+          p_series?: string;
+          p_set?: string;
+          p_sort?: string;
         };
         Returns: {
-          id: string;
-          seller_id: string;
-          title: string;
-          display_price: number;
+          card_series: string;
           condition: string;
-          is_graded: boolean;
-          grade_note: number | null;
-          cover_image_url: string | null;
-          card_series: string | null;
-          card_rarity: string | null;
-          card_language: string | null;
-          card_number: string | null;
+          cover_image_url: string;
           created_at: string;
+          display_price: number;
+          grade_note: number;
+          id: string;
+          is_graded: boolean;
+          seller_avatar_url: string;
+          seller_id: string;
           seller_username: string;
-          seller_avatar_url: string | null;
+          title: string;
         }[];
       };
+      show_limit: { Args: never; Returns: number };
+      show_trgm: { Args: { "": string }; Returns: string[] };
     };
     Enums: {
       [_ in never]: never;
@@ -626,4 +1074,130 @@ export interface Database {
       [_ in never]: never;
     };
   };
+};
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  "public"
+>];
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
 }
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R;
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I;
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U;
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never;
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals;
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals;
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never;
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const;

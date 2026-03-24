@@ -41,14 +41,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const listingPages: MetadataRoute.Sitemap = (listings ?? []).map((l) => ({
     url: `${BASE_URL}/listing/${l.id}`,
-    lastModified: new Date(l.updated_at),
+    lastModified: new Date(l.updated_at ?? Date.now()),
     changeFrequency: "daily" as const,
     priority: 0.8,
   }));
 
   const profilePages: MetadataRoute.Sitemap = (profiles ?? []).map((p) => ({
     url: `${BASE_URL}/u/${p.username}`,
-    lastModified: new Date(p.updated_at),
+    lastModified: new Date(p.updated_at ?? Date.now()),
     changeFrequency: "weekly" as const,
     priority: 0.6,
   }));

@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title,
-    description: `${listing.title} en vente sur PokeMarket – ${listing.display_price.toFixed(2)} €`,
+    description: `${listing.title} en vente sur PokeMarket – ${(listing.display_price ?? 0).toFixed(2)} €`,
     openGraph: {
       title: `${title} | PokeMarket`,
       description: `${listing.title} en vente sur PokeMarket`,
@@ -94,7 +94,7 @@ export default async function ListingPage({ params }: Props) {
     url: `${BASE_URL}/listing/${listing.id}`,
     offers: {
       "@type": "Offer",
-      price: listing.display_price.toFixed(2),
+      price: (listing.display_price ?? 0).toFixed(2),
       priceCurrency: "EUR",
       availability:
         listing.status === "ACTIVE"
@@ -146,7 +146,7 @@ export default async function ListingPage({ params }: Props) {
               />
             )}
           </div>
-          <PriceDisplay price={listing.display_price} size="lg" />
+          <PriceDisplay price={listing.display_price ?? 0} size="lg" />
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -232,7 +232,7 @@ export default async function ListingPage({ params }: Props) {
             cardKey={listing.card_ref_id}
             condition={listing.condition}
             language={listing.card_language}
-            isGraded={listing.is_graded}
+            isGraded={listing.is_graded ?? false}
           />
         )}
 
@@ -250,7 +250,7 @@ export default async function ListingPage({ params }: Props) {
       <ListingActions
         listingId={listing.id}
         mode={isOwner ? "seller" : "buyer"}
-        currentPrice={listing.display_price}
+        currentPrice={listing.display_price ?? 0}
       />
     </div>
   );

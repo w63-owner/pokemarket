@@ -38,7 +38,7 @@ export default async function OrderSuccessPage({ params }: Props) {
         id: transaction.id,
         listing_title: transaction.listing_title,
         total_amount: transaction.total_amount,
-        status: transaction.status,
+        status: transaction.status ?? "PENDING_PAYMENT",
       }}
     />
   );

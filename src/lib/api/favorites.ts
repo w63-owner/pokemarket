@@ -73,15 +73,15 @@ export async function getFavoriteListings(): Promise<FeedItem[]> {
         display_price: l.display_price,
         condition: l.condition,
         is_graded: l.is_graded,
-        grade_note: l.grade_note,
-        cover_image_url: l.cover_image_url,
-        card_series: l.card_series,
+        grade_note: l.grade_note ?? 0,
+        cover_image_url: l.cover_image_url ?? "",
+        card_series: l.card_series ?? "",
         card_rarity: l.card_rarity,
         card_language: l.card_language,
         card_number: l.card_number,
         created_at: l.created_at,
         seller_username: l.profiles.username,
-        seller_avatar_url: l.profiles.avatar_url,
+        seller_avatar_url: l.profiles.avatar_url ?? "",
       } satisfies FeedItem;
     })
     .filter((item) => item !== null);

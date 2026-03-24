@@ -93,7 +93,7 @@ export default function SaleDetailPage({
     );
   }
 
-  const statusConfig = getStatusConfig(sale.status);
+  const statusConfig = getStatusConfig(sale.status ?? "PENDING_PAYMENT");
   const StatusIcon = statusConfig.icon;
   const netEarnings = sale.total_amount - sale.fee_amount;
   const hasShippingAddress =
@@ -166,7 +166,7 @@ export default function SaleDetailPage({
                       </div>
                     )}
                     <p className="text-muted-foreground mt-1 text-xs">
-                      Vendue le {formatDate(sale.created_at)}
+                      Vendue le {formatDate(sale.created_at ?? "")}
                     </p>
                   </div>
                 </div>
@@ -193,13 +193,13 @@ export default function SaleDetailPage({
                     -{formatPrice(sale.fee_amount)}
                   </span>
                 </div>
-                {sale.shipping_cost > 0 && (
+                {(sale.shipping_cost ?? 0) > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
                       Frais de port (payé par l&apos;acheteur)
                     </span>
                     <span className="text-muted-foreground">
-                      {formatPrice(sale.shipping_cost)}
+                      {formatPrice(sale.shipping_cost ?? 0)}
                     </span>
                   </div>
                 )}

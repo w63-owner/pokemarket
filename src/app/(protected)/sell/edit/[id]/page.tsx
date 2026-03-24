@@ -124,7 +124,7 @@ export default function EditListingPage() {
     title: listing.title,
     price_seller: listing.price_seller,
     condition: listing.condition ?? undefined,
-    is_graded: listing.is_graded,
+    is_graded: listing.is_graded ?? false,
     grading_company: listing.grading_company ?? undefined,
     grade_note: listing.grade_note ?? undefined,
     card_series: listing.card_series ?? undefined,

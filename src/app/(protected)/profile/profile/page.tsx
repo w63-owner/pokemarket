@@ -27,14 +27,14 @@ function buildInitialAddress(profile: Profile): AddressResult | null {
   if (profile.address_line) parts.push(profile.address_line);
   if (profile.city) parts.push(profile.city);
   if (profile.postal_code) parts.push(profile.postal_code);
-  parts.push(countryLabel);
+  if (countryLabel) parts.push(countryLabel);
 
   return {
     label: parts.join(", "),
     addressLine: profile.address_line || "",
     city: profile.city || "",
     postalCode: profile.postal_code || "",
-    countryCode: profile.country_code,
+    countryCode: profile.country_code ?? "",
   };
 }
 

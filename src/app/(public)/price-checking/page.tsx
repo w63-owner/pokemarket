@@ -46,7 +46,9 @@ async function searchPrices(query: string): Promise<PriceResult[]> {
 
   const setMap = new Map(sets?.map((s) => [s.id, s.name]) ?? []);
 
-  const cardKeys = cards.map((c) => c.card_key);
+  const cardKeys = cards
+    .map((c) => c.card_key)
+    .filter((k): k is string => k != null);
   const { data: listings } = await supabase
     .from("listings")
     .select("card_ref_id, display_price")
@@ -62,20 +64,22 @@ async function searchPrices(query: string): Promise<PriceResult[]> {
     priceMap.set(l.card_ref_id, entry);
   });
 
-  return cards.map((c) => {
-    const priceEntry = priceMap.get(c.card_key);
-    return {
-      card_key: c.card_key,
-      name: c.name ?? "Carte inconnue",
-      set_name: setMap.get(c.set_id ?? "") ?? "Set inconnu",
-      rarity: c.rarity,
-      avg_price: priceEntry
-        ? Math.round((priceEntry.total / priceEntry.count) * 100) / 100
-        : null,
-      listing_count: priceEntry?.count ?? 0,
-      source: priceEntry ? "Annonces PokeMarket" : "Pas de données",
-    };
-  });
+  return cards
+    .filter((c): c is typeof c & { card_key: string } => c.card_key != null)
+    .map((c) => {
+      const priceEntry = priceMap.get(c.card_key);
+      return {
+        card_key: c.card_key,
+        name: c.name ?? "Carte inconnue",
+        set_name: setMap.get(c.set_id ?? "") ?? "Set inconnu",
+        rarity: c.rarity,
+        avg_price: priceEntry
+          ? Math.round((priceEntry.total / priceEntry.count) * 100) / 100
+          : null,
+        listing_count: priceEntry?.count ?? 0,
+        source: priceEntry ? "Annonces PokeMarket" : "Pas de données",
+      };
+    });
 }
 
 export default function PriceCheckingPage() {

@@ -88,7 +88,7 @@ export default function WalletPage() {
   const kycStatus = (kycData?.kyc_status ?? "UNVERIFIED") as KycStatus;
   const isVerified = kycStatus === "VERIFIED";
   const canPayout =
-    isVerified && wallet != null && wallet.available_balance > 0;
+    isVerified && wallet != null && (wallet.available_balance ?? 0) > 0;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">

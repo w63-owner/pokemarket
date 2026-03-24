@@ -86,7 +86,7 @@ export default function MyListingsPage() {
 }
 
 function ListingRow({ listing, index }: { listing: Listing; index: number }) {
-  const statusConfig = getStatusConfig(listing.status);
+  const statusConfig = getStatusConfig(listing.status ?? "ACTIVE");
   const canEdit = listing.status === "ACTIVE" || listing.status === "DRAFT";
 
   return (
@@ -122,13 +122,13 @@ function ListingRow({ listing, index }: { listing: Listing; index: number }) {
                   {statusConfig.label}
                 </Badge>
                 <span className="text-muted-foreground text-[11px]">
-                  {formatRelativeDate(listing.created_at)}
+                  {formatRelativeDate(listing.created_at ?? "")}
                 </span>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="font-heading text-sm font-semibold">
-                {formatPrice(listing.display_price)}
+                {formatPrice(listing.display_price ?? 0)}
               </span>
               {canEdit ? (
                 <Pencil className="text-muted-foreground size-4" />

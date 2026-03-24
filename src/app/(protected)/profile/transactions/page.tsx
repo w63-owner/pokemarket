@@ -182,7 +182,7 @@ function TransactionRow({
   type: "purchase" | "sale";
   index: number;
 }) {
-  const statusConfig = getStatusConfig(tx.status);
+  const statusConfig = getStatusConfig(tx.status ?? "PENDING_PAYMENT");
 
   const href =
     type === "sale" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}/success`;
@@ -220,7 +220,7 @@ function TransactionRow({
                   {statusConfig.label}
                 </Badge>
                 <span className="text-muted-foreground text-[11px]">
-                  {formatDate(tx.created_at)}
+                  {formatDate(tx.created_at ?? "")}
                 </span>
               </div>
             </div>

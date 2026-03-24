@@ -6,7 +6,7 @@
 
 ---
 
-## Sprint 1 : 🚨 Hotfixes Sécurité & Légal (Priorité CRITIQUE)
+## Sprint 1 : 🚨 Hotfixes Sécurité & Légal (Priorité CRITIQUE) 🎉
 
 > **Durée estimée :** 2-3 jours
 > **Objectif :** Éliminer les vulnérabilités exploitables immédiatement et couvrir le minimum légal.
@@ -15,11 +15,11 @@
 
 Les vrais JWT (anon key + service_role key) pointant vers `qevmnveyjdovupyveoqc.supabase.co` sont commités en clair. Un attaquant peut bypasser toute la RLS avec le service_role.
 
-- [ ] **Rotation des clés** dans le Supabase Dashboard (Settings → API → Regenerate keys)
-- [ ] **Remplacer** les vraies clés par des placeholders dans `.env.local.example`
-- [ ] **Vérifier** que `.env.local` est bien dans `.gitignore` (et `.env*` en général)
-- [ ] **Auditer l'historique git** : vérifier si d'autres secrets ont fuité dans des commits précédents (`git log -p -- .env*`)
-- [ ] Mettre à jour les variables d'environnement sur Vercel / l'hébergeur de production avec les nouvelles clés
+- [x] **Rotation des clés** dans le Supabase Dashboard (Settings → API → Regenerate keys)
+- [x] **Remplacer** les vraies clés par des placeholders dans `.env.local.example`
+- [x] **Vérifier** que `.env.local` est bien dans `.gitignore` (et `.env*` en général)
+- [x] **Auditer l'historique git** : vérifier si d'autres secrets ont fuité dans des commits précédents (`git log -p -- .env*`)
+- [x] Mettre à jour les variables d'environnement sur Vercel / l'hébergeur de production avec les nouvelles clés
 
 **Fichiers cibles :**
 
@@ -51,7 +51,7 @@ L'endpoint vérifie l'authentification mais accepte n'importe quel `user_id` en 
 - [x] Ajouter une vérification de légitimité : l'appelant ne peut envoyer une notification qu'à un utilisateur avec qui il a une conversation active ou une transaction en cours
 - [x] Requêter les tables `conversations` ou `transactions` pour valider la relation entre `caller.id` et `body.user_id`
 - [x] Retourner une `403 Forbidden` si la relation n'existe pas
-- [ ] Envisager de déplacer l'envoi de push en interne uniquement (appelé depuis les webhooks/server actions, jamais directement par le client)
+- [x] Envisager de déplacer l'envoi de push en interne uniquement (appelé depuis les webhooks/server actions, jamais directement par le client)
 
 **Fichiers cibles :**
 
@@ -83,7 +83,7 @@ Aucune page légale n'existe. Pour un marketplace C2C opérant en France/UE, c'e
 
 ---
 
-## Sprint 2 : 🛡️ Robustesse Backend & Performance (Priorité ÉLEVÉE)
+## Sprint 2 : 🛡️ Robustesse Backend & Performance (Priorité ÉLEVÉE) 🎉
 
 > **Durée estimée :** 3-4 jours
 > **Objectif :** Colmater les brèches de sécurité restantes, corriger les problèmes de performance backend, et aligner les types avec la réalité du schéma.
@@ -92,12 +92,12 @@ Aucune page légale n'existe. Pour un marketplace C2C opérant en France/UE, c'e
 
 Ces deux tables créées dans `00010_utility_tables.sql` n'ont jamais eu `ENABLE ROW LEVEL SECURITY`. Avec les grants par défaut de PostgREST, les rôles `anon`/`authenticated` peuvent les lire/écrire directement.
 
-- [ ] Créer une nouvelle migration `00036_rls_utility_tables.sql`
-- [ ] `ALTER TABLE ocr_attempts ENABLE ROW LEVEL SECURITY;`
-- [ ] Policy `ocr_attempts` : un utilisateur authentifié ne peut voir que ses propres tentatives (colonne `user_id`)
-- [ ] `ALTER TABLE stripe_webhooks_processed ENABLE ROW LEVEL SECURITY;`
-- [ ] Policy `stripe_webhooks_processed` : **aucun accès** pour `anon`/`authenticated` (table interne, accès uniquement via `service_role`)
-- [ ] Tester avec un client anon que les tables sont inaccessibles
+- [x] Créer une nouvelle migration `00036_rls_utility_tables.sql`
+- [x] `ALTER TABLE ocr_attempts ENABLE ROW LEVEL SECURITY;`
+- [x] Policy `ocr_attempts` : un utilisateur authentifié ne peut voir que ses propres tentatives (colonne `user_id`)
+- [x] `ALTER TABLE stripe_webhooks_processed ENABLE ROW LEVEL SECURITY;`
+- [x] Policy `stripe_webhooks_processed` : **aucun accès** pour `anon`/`authenticated` (table interne, accès uniquement via `service_role`)
+- [x] Tester avec un client anon que les tables sont inaccessibles
 
 **Fichiers cibles :**
 
@@ -110,10 +110,10 @@ Ces deux tables créées dans `00010_utility_tables.sql` n'ont jamais eu `ENABLE
 
 `matchTcgdexCards` fait 3 requêtes séquentielles (cards → sets → series). Pour 20 cartes, c'est 3 round-trips inutiles.
 
-- [ ] Créer une RPC PostgreSQL `match_tcgdex_cards(p_name TEXT, p_local_id TEXT)` qui fait le JOIN en une seule requête (cards JOIN sets JOIN series)
-- [ ] Retourner directement les colonnes nécessaires au scoring de confiance
-- [ ] Mettre à jour le handler OCR pour appeler la RPC au lieu des 3 `.select()` séquentiels
-- [ ] Ajouter la migration SQL correspondante
+- [x] Créer une RPC PostgreSQL `match_tcgdex_cards(p_name TEXT, p_local_id TEXT)` qui fait le JOIN en une seule requête (cards JOIN sets JOIN series)
+- [x] Retourner directement les colonnes nécessaires au scoring de confiance
+- [x] Mettre à jour le handler OCR pour appeler la RPC au lieu des 3 `.select()` séquentiels
+- [x] Ajouter la migration SQL correspondante
 
 **Fichiers cibles :**
 
@@ -126,11 +126,11 @@ Ces deux tables créées dans `00010_utility_tables.sql` n'ont jamais eu `ENABLE
 
 Les types dans `database.ts` sont désynchronisés : colonnes manquantes sur `ocr_attempts`, tables absentes (`price_estimations`, `stripe_webhooks_processed`), signature de `search_listings_feed` obsolète.
 
-- [ ] Exécuter `npx supabase gen types typescript --local > src/types/database.ts` (ou depuis le projet lié)
-- [ ] Vérifier que les tables `ocr_attempts`, `price_estimations`, `stripe_webhooks_processed` apparaissent dans les types générés
-- [ ] Vérifier que la signature de `search_listings_feed` correspond aux migrations `00031`/`00033`
-- [ ] Corriger les erreurs TypeScript résultantes dans le codebase (imports, accès aux colonnes)
-- [ ] Lancer `npm run type-check` et résoudre tous les échecs
+- [x] Exécuter `npx supabase gen types typescript --local > src/types/database.ts` (ou depuis le projet lié)
+- [x] Vérifier que les tables `ocr_attempts`, `price_estimations`, `stripe_webhooks_processed` apparaissent dans les types générés
+- [x] Vérifier que la signature de `search_listings_feed` correspond aux migrations `00031`/`00033`
+- [x] Corriger les erreurs TypeScript résultantes dans le codebase (imports, accès aux colonnes)
+- [x] Lancer `npm run type-check` et résoudre tous les échecs
 
 **Fichiers cibles :**
 
@@ -145,15 +145,15 @@ Les types dans `database.ts` sont désynchronisés : colonnes manquantes sur `oc
 
 Aucune des 12 routes API n'a de rate limiting. L'endpoint OCR est particulièrement critique (coût OpenAI illimité).
 
-- [ ] Installer `@upstash/ratelimit` + `@upstash/redis` (ou implémentation custom avec un Map en mémoire si pas de Redis en prod)
-- [ ] Créer un helper `src/lib/rate-limit.ts` avec des tiers configurables par route
-- [ ] Appliquer le rate limiter sur :
+- [x] Installer `@upstash/ratelimit` + `@upstash/redis` (ou implémentation custom avec un Map en mémoire si pas de Redis en prod)
+- [x] Créer un helper `src/lib/rate-limit.ts` avec des tiers configurables par route
+- [x] Appliquer le rate limiter sur :
   - `/api/ocr` — 5 req/min/user
   - `/api/checkout` — 3 req/min/user
   - `/api/push/send` — 10 req/min/user
   - `/api/stripe-connect/onboard` — 2 req/min/user
-- [ ] Retourner `429 Too Many Requests` avec header `Retry-After`
-- [ ] Ajouter les variables d'env Upstash dans `.env.local.example`
+- [x] Retourner `429 Too Many Requests` avec header `Retry-After`
+- [x] Ajouter les variables d'env Upstash dans `.env.local.example`
 
 **Fichiers cibles :**
 
@@ -171,14 +171,14 @@ Aucune des 12 routes API n'a de rate limiting. L'endpoint OCR est particulièrem
 
 Le code client (`src/lib/api/wallet.ts`) appelle `POST /api/stripe-connect/payout`, mais cette route n'existe pas. Les vendeurs ne peuvent pas retirer leurs fonds.
 
-- [ ] Créer la route `src/app/api/stripe-connect/payout/route.ts`
-- [ ] Authentifier l'appelant et vérifier qu'il est le propriétaire du wallet
-- [ ] Vérifier que le compte Stripe Connect du vendeur est `charges_enabled`
-- [ ] Créer un Transfer Stripe depuis le compte plateforme vers le compte connecté
-- [ ] Créer un Payout depuis le compte connecté vers le compte bancaire du vendeur
-- [ ] Mettre à jour le solde du wallet en base (via `service_role`)
-- [ ] Créer un enregistrement dans la table transactions pour traçabilité
-- [ ] Gérer les erreurs Stripe (fonds insuffisants, compte pas encore activé, etc.)
+- [x] Créer la route `src/app/api/stripe-connect/payout/route.ts`
+- [x] Authentifier l'appelant et vérifier qu'il est le propriétaire du wallet
+- [x] Vérifier que le compte Stripe Connect du vendeur est `charges_enabled`
+- [x] Créer un Transfer Stripe depuis le compte plateforme vers le compte connecté
+- [x] Créer un Payout depuis le compte connecté vers le compte bancaire du vendeur
+- [x] Mettre à jour le solde du wallet en base (via `service_role`)
+- [x] Créer un enregistrement dans la table transactions pour traçabilité
+- [x] Gérer les erreurs Stripe (fonds insuffisants, compte pas encore activé, etc.)
 
 **Fichiers cibles :**
 
@@ -192,9 +192,9 @@ Le code client (`src/lib/api/wallet.ts`) appelle `POST /api/stripe-connect/payou
 
 Les handlers GET et POST n'ont pas de try/catch. Si Stripe est down, c'est un 500 non contrôlé.
 
-- [ ] Envelopper les handlers GET et POST dans un try/catch
-- [ ] Retourner une erreur JSON structurée avec un message explicite
-- [ ] Ajouter `Sentry.captureException(error)` dans le catch
+- [x] Envelopper les handlers GET et POST dans un try/catch
+- [x] Retourner une erreur JSON structurée avec un message explicite
+- [x] Ajouter `Sentry.captureException(error)` dans le catch
 
 **Fichiers cibles :**
 

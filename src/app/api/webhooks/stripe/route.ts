@@ -143,7 +143,7 @@ async function handleCheckoutCompleted(
   if (listingUpdateError) throw listingUpdateError;
 
   const sellerNet = calcPriceSeller(
-    transaction.total_amount - transaction.shipping_cost,
+    transaction.total_amount - (transaction.shipping_cost ?? 0),
   );
   const { data: wallet } = await admin
     .from("wallets")
@@ -185,7 +185,17 @@ async function handleCheckoutCompleted(
     });
   }
 
-  await sendTransactionEmails(admin, transaction, transactionId);
+  await sendTransactionEmails(
+    admin,
+    {
+      buyer_id: transaction.buyer_id,
+      seller_id: transaction.seller_id,
+      total_amount: transaction.total_amount,
+      shipping_cost: transaction.shipping_cost ?? 0,
+      listing_id: transaction.listing_id,
+    },
+    transactionId,
+  );
 
   await sendPushNotification(
     transaction.seller_id,

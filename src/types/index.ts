@@ -149,6 +149,12 @@ export type ProfileWithStats = Profile & {
   listing_count: number;
 };
 
-// Feed item from the RPC
-export type FeedItem =
+// Feed item from the RPC, extended with optional fields available from joins
+type FeedItemBase =
   Database["public"]["Functions"]["search_listings_feed"]["Returns"][number];
+
+export type FeedItem = FeedItemBase & {
+  card_number?: string | null;
+  card_rarity?: string | null;
+  card_language?: string | null;
+};

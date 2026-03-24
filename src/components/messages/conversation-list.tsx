@@ -102,7 +102,7 @@ function ConversationItem({
             </span>
             {last_message && (
               <span className="text-muted-foreground shrink-0 text-[11px]">
-                {formatRelativeDate(last_message.created_at)}
+                {formatRelativeDate(last_message.created_at ?? "")}
               </span>
             )}
           </div>

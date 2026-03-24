@@ -168,7 +168,7 @@ function ReceivedOfferCard({
               {offer.listing.title}
             </p>
           </div>
-          <OfferStatusBadge status={offer.status} />
+          <OfferStatusBadge status={offer.status ?? "PENDING"} />
         </div>
 
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -184,7 +184,7 @@ function ReceivedOfferCard({
             {offer.buyer.username}
           </span>
           <span className="text-muted-foreground ml-auto shrink-0 text-[11px]">
-            {formatRelativeDate(offer.created_at)}
+            {formatRelativeDate(offer.created_at ?? "")}
           </span>
         </div>
 
@@ -287,7 +287,7 @@ function SentOfferCard({
               {offer.listing.title}
             </p>
           </div>
-          <OfferStatusBadge status={offer.status} />
+          <OfferStatusBadge status={offer.status ?? "PENDING"} />
         </div>
 
         <div className="mt-1.5 flex items-center gap-1.5">
@@ -303,7 +303,7 @@ function SentOfferCard({
             {offer.listing.seller.username}
           </span>
           <span className="text-muted-foreground ml-auto shrink-0 text-[11px]">
-            {formatRelativeDate(offer.created_at)}
+            {formatRelativeDate(offer.created_at ?? "")}
           </span>
         </div>
 

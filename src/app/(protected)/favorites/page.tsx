@@ -160,8 +160,9 @@ function SavedSearchesTab() {
       {searches.map((search) => {
         const params = (search.search_params ?? {}) as FeedFilters;
         const label = filtersToLabel(params);
-        const createdAt = new Date(search.created_at);
-        const relative = formatRelativeDate(createdAt);
+        const relative = search.created_at
+          ? formatRelativeDate(new Date(search.created_at))
+          : "—";
         const newCount = countsMap.get(search.id) ?? 0;
 
         return (

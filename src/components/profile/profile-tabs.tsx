@@ -221,9 +221,10 @@ function countryCodeToFlag(code: string): string {
 }
 
 function AboutTab({ profile }: { profile: Profile }) {
-  const memberSince = format(new Date(profile.created_at), "MMMM yyyy", {
-    locale: fr,
-  });
+  const memberSince =
+    profile.created_at != null
+      ? format(new Date(profile.created_at), "MMMM yyyy", { locale: fr })
+      : "—";
 
   const hasSocials =
     profile.instagram_url || profile.facebook_url || profile.tiktok_url;

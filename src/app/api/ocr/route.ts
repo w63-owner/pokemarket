@@ -3,7 +3,9 @@ import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ocrRequestSchema, ocrParsedSchema } from "@/lib/validations";
+import { ocrRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import type { OcrCandidate, OcrParsed, OcrResponse } from "@/types/api";
+import type { Json } from "@/types/database";
 
 function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
@@ -104,6 +106,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const rateLimitResponse = await applyRateLimit(ocrRateLimit, user.id);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const body = await request.json();
     const validation = ocrRequestSchema.safeParse(body);
 
@@ -203,8 +208,10 @@ export async function POST(request: Request) {
     const adminClient = createAdminClient();
     await adminClient.from("ocr_attempts").insert({
       user_id: user.id,
-      image_url,
-      raw_response: ocrResult as unknown as Record<string, unknown>,
+      parsed: ocrResult as unknown as Json,
+      candidates: candidates as unknown as Json,
+      provider: "openai",
+      model: "gpt-4o-mini",
     });
 
     const response: OcrResponse = {
@@ -226,107 +233,48 @@ async function matchTcgdexCards(parsed: OcrParsed): Promise<OcrCandidate[]> {
   if (!parsed.name) return [];
 
   const supabase = createAdminClient();
-  const language = parsed.language ?? "fr";
 
-  const namePattern = `%${parsed.name}%`;
-
-  let query = supabase
-    .from("tcgdex_cards")
-    .select(
-      "language, id, card_key, name, set_id, hp, rarity, illustrator, local_id",
-    )
-    .ilike("name", namePattern)
-    .limit(20);
-
-  if (parsed.language) {
-    query = query.eq("language", language);
-  }
-
-  const { data: cards, error } = await query;
+  const { data: rows, error } = await supabase.rpc("match_tcgdex_cards", {
+    p_name: parsed.name,
+    p_language: parsed.language ?? undefined,
+  });
 
   if (error) {
-    console.error("TCGdex query error:", error);
+    console.error("match_tcgdex_cards RPC error:", error);
     return [];
   }
 
-  if (!cards || cards.length === 0) return [];
+  if (!rows || rows.length === 0) return [];
 
-  const setIds = [
-    ...new Set(cards.map((c) => c.set_id).filter(Boolean)),
-  ] as string[];
-  const setsMap = new Map<string, string>();
-  const seriesIdMap = new Map<string, string>();
-  const seriesNameMap = new Map<string, string>();
-  const setOfficialCountMap = new Map<string, number>();
-
-  if (setIds.length > 0) {
-    const { data: sets } = await supabase
-      .from("tcgdex_sets")
-      .select("id, name, language, series_id, card_count")
-      .in("id", setIds)
-      .eq("language", language);
-
-    if (sets) {
-      const seriesIds = [
-        ...new Set(sets.map((s) => s.series_id).filter(Boolean)),
-      ] as string[];
-
-      if (seriesIds.length > 0) {
-        const { data: series } = await supabase
-          .from("tcgdex_series")
-          .select("id, name")
-          .in("id", seriesIds)
-          .eq("language", language);
-
-        if (series) {
-          for (const sr of series) {
-            seriesNameMap.set(sr.id, sr.name);
-          }
-        }
-      }
-
-      for (const s of sets) {
-        setsMap.set(s.id, s.name);
-        if (s.series_id) seriesIdMap.set(s.id, s.series_id);
-        const official = (s.card_count as Record<string, number> | null)
-          ?.official;
-        if (official) setOfficialCountMap.set(s.id, official);
-      }
-    }
-  }
-
-  const scored: OcrCandidate[] = cards.map((card) => {
-    const seriesId = card.set_id
-      ? (seriesIdMap.get(card.set_id) ?? null)
-      : null;
-    return {
-      card_key: card.card_key,
-      card_id: card.id,
-      name: card.name ?? "Unknown",
-      set_id: card.set_id,
-      set_name: card.set_id ? (setsMap.get(card.set_id) ?? null) : null,
-      series_name: seriesId ? (seriesNameMap.get(seriesId) ?? null) : null,
-      local_id: card.local_id ?? null,
-      set_official_count: card.set_id
-        ? (setOfficialCountMap.get(card.set_id) ?? null)
-        : null,
-      hp: card.hp,
-      rarity: card.rarity,
-      illustrator: card.illustrator ?? null,
-      language: card.language,
-      image_url: buildTcgdexImageUrl(
-        card.id,
-        card.set_id,
-        seriesId,
-        card.language,
-      ),
-      confidence: computeConfidence(
-        parsed,
-        card,
-        card.set_id ? (setOfficialCountMap.get(card.set_id) ?? null) : null,
-      ),
-    };
-  });
+  const scored: OcrCandidate[] = rows.map((row) => ({
+    card_key: row.card_key,
+    card_id: row.card_id,
+    name: row.card_name ?? "Unknown",
+    set_id: row.card_set_id,
+    set_name: row.set_name,
+    series_name: row.series_name,
+    local_id: row.card_local_id,
+    set_official_count: row.set_official_count,
+    hp: row.card_hp,
+    rarity: row.card_rarity,
+    illustrator: row.card_illustrator,
+    language: row.card_language,
+    image_url: buildTcgdexImageUrl(
+      row.card_id,
+      row.card_set_id,
+      row.series_id,
+      row.card_language,
+    ),
+    confidence: computeConfidence(
+      parsed,
+      {
+        name: row.card_name,
+        id: row.card_id,
+        local_id: row.card_local_id,
+      },
+      row.set_official_count,
+    ),
+  }));
 
   scored.sort((a, b) => b.confidence - a.confidence);
 

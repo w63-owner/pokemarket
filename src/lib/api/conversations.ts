@@ -106,8 +106,8 @@ export async function fetchConversations(): Promise<ConversationPreview[]> {
       } as ConversationPreview;
     })
     .sort((a, b) => {
-      const dateA = a.last_message?.created_at ?? a.created_at;
-      const dateB = b.last_message?.created_at ?? b.created_at;
+      const dateA = a.last_message?.created_at ?? a.created_at ?? "";
+      const dateB = b.last_message?.created_at ?? b.created_at ?? "";
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
 }
@@ -206,7 +206,13 @@ export async function fetchConversationDetail(
     listing_id: data.listing_id,
     buyer_id: data.buyer_id,
     seller_id: data.seller_id,
-    listing: data.listing,
+    listing: {
+      id: data.listing.id,
+      title: data.listing.title,
+      cover_image_url: data.listing.cover_image_url,
+      display_price: data.listing.display_price ?? 0,
+      status: data.listing.status ?? "ACTIVE",
+    },
     other_user: otherUser,
     is_buyer: isBuyer,
   };

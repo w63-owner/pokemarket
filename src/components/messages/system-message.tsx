@@ -68,7 +68,9 @@ export function SystemMessage({ message }: SystemMessageProps) {
     return <TrackingCard message={message} />;
   }
 
-  const config = SYSTEM_CONFIG[message.message_type];
+  const config = message.message_type
+    ? SYSTEM_CONFIG[message.message_type]
+    : undefined;
   const Icon = config?.icon ?? CheckCircle2;
   const color = config?.color ?? "text-muted-foreground";
   const label = config?.label ?? message.content ?? "Message système";

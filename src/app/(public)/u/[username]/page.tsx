@@ -84,7 +84,10 @@ export default async function PublicProfilePage({ params }: Props) {
       : Promise.resolve({ data: null }),
   ]);
 
-  const listings = listingsResult.data ?? [];
+  const listings = (listingsResult.data ?? []).map((l) => ({
+    ...l,
+    display_price: l.display_price ?? 0,
+  }));
 
   const rawReviews = reviewsResult.data ?? [];
   let reviews: ReviewWithReviewer[] = [];
@@ -104,7 +107,7 @@ export default async function PublicProfilePage({ params }: Props) {
         id: r.id,
         rating: r.rating,
         comment: r.comment,
-        created_at: r.created_at,
+        created_at: r.created_at ?? "",
         reviewer: reviewer
           ? { username: reviewer.username, avatar_url: reviewer.avatar_url }
           : null,

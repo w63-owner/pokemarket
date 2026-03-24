@@ -251,7 +251,7 @@ export default function ConversationThreadPage() {
         "offer_cancelled",
         "offer_cancelled_by_buyer",
       ]);
-      if (offerTypes.has(newMsg.message_type)) {
+      if (newMsg.message_type && offerTypes.has(newMsg.message_type)) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.offers.activeByConversation(conversationId),
         });
@@ -265,7 +265,11 @@ export default function ConversationThreadPage() {
         "order_shipped",
         "sale_completed",
       ]);
-      if (txTypes.has(newMsg.message_type) && convQuery.data?.listing_id) {
+      if (
+        newMsg.message_type &&
+        txTypes.has(newMsg.message_type) &&
+        convQuery.data?.listing_id
+      ) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.transactions.byListing(convQuery.data.listing_id),
         });
@@ -370,6 +374,7 @@ export default function ConversationThreadPage() {
     const unreadSystemIds = realMessages
       .filter(
         (m) =>
+          !!m.message_type &&
           SYSTEM_TYPES.has(m.message_type) &&
           !m.read_at &&
           m.sender_id !== user.id,
@@ -494,11 +499,14 @@ export default function ConversationThreadPage() {
               const nextMsg = allMessages[i + 1];
               const showDate =
                 i === allMessages.length - 1 ||
-                (nextMsg && !isSameDay(msg.created_at, nextMsg.created_at));
+                (nextMsg &&
+                  msg.created_at &&
+                  nextMsg.created_at &&
+                  !isSameDay(msg.created_at, nextMsg.created_at));
 
               return (
                 <Fragment key={msg.id}>
-                  {SYSTEM_TYPES.has(msg.message_type) ? (
+                  {SYSTEM_TYPES.has(msg.message_type ?? "") ? (
                     <SystemMessage message={msg} />
                   ) : (
                     <MessageBubble
@@ -508,7 +516,9 @@ export default function ConversationThreadPage() {
                       onVisible={handleMessageVisible}
                     />
                   )}
-                  {showDate && <DateSeparator date={msg.created_at} />}
+                  {showDate && msg.created_at && (
+                    <DateSeparator date={msg.created_at} />
+                  )}
                 </Fragment>
               );
             })}
