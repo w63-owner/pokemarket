@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { formatPrice } from "@/lib/utils";
 import { LIMITS } from "@/lib/constants";
 import { queryKeys } from "@/lib/query-keys";
+import { notifyUser } from "@/lib/api/push";
 import {
   createOffer,
   acceptOffer,
@@ -65,10 +66,17 @@ export function OfferBar({
       return createOffer(listing.id, numAmount, conversation.id);
     },
     onSuccess: () => {
+      const numAmount = parseFloat(amount);
       setAmount("");
       setError(null);
       invalidateAll();
       toast.success("Offre envoyée !");
+      notifyUser(
+        conversation.seller_id,
+        "Nouvelle offre",
+        `Offre de ${numAmount.toFixed(2)} €`,
+        `/messages/${conversation.id}`,
+      );
     },
     onError: () => {
       toast.error("Impossible d'envoyer l'offre");
@@ -89,6 +97,14 @@ export function OfferBar({
     onSuccess: () => {
       invalidateAll();
       toast.success("Offre acceptée !");
+      if (activeOffer) {
+        notifyUser(
+          activeOffer.buyer_id,
+          "Offre acceptée",
+          `Votre offre de ${activeOffer.offer_amount.toFixed(2)} € a été acceptée`,
+          `/messages/${conversation.id}`,
+        );
+      }
     },
     onError: () => {
       toast.error("Impossible d'accepter l'offre");
@@ -103,6 +119,14 @@ export function OfferBar({
     onSuccess: () => {
       invalidateAll();
       toast.success("Offre refusée");
+      if (activeOffer) {
+        notifyUser(
+          activeOffer.buyer_id,
+          "Offre déclinée",
+          `Votre offre de ${activeOffer.offer_amount.toFixed(2)} € a été déclinée`,
+          `/messages/${conversation.id}`,
+        );
+      }
     },
     onError: () => {
       toast.error("Impossible de refuser l'offre");

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { calcPriceSeller } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 import { sendEmail } from "@/lib/emails/send";
+import { sendPushNotification } from "@/lib/push/send";
 import OrderConfirmationEmail from "@/emails/order-confirmation";
 import SaleNotificationEmail from "@/emails/sale-notification";
 
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.warn(`Unhandled event type: ${event.type}`);
     }
   } catch (err) {
     console.error(`Error processing ${event.type}:`, err);
@@ -121,7 +122,7 @@ async function handleCheckoutCompleted(
   }
 
   if (transaction.status !== "PENDING_PAYMENT") {
-    console.log(
+    console.warn(
       `Transaction ${transactionId} already in status ${transaction.status}, skipping`,
     );
     return;
@@ -179,12 +180,19 @@ async function handleCheckoutCompleted(
       conversation_id: conversation.id,
       sender_id: transaction.buyer_id,
       content: "Paiement confirmé ! La commande est en attente d'expédition.",
-      message_type: "system",
-      metadata: { type: "payment_completed", transaction_id: transactionId },
+      message_type: "payment_completed",
+      metadata: { transaction_id: transactionId },
     });
   }
 
   await sendTransactionEmails(admin, transaction, transactionId);
+
+  await sendPushNotification(
+    transaction.seller_id,
+    "Paiement reçu 💰",
+    "L'acheteur a payé — expédiez le colis !",
+    `/messages/${conversation?.id ?? ""}`,
+  ).catch(() => {});
 }
 
 async function sendTransactionEmails(
@@ -285,7 +293,7 @@ async function handleCheckoutFailed(
     .single();
 
   if (!transaction || transaction.status !== "PENDING_PAYMENT") {
-    console.log(
+    console.warn(
       `Transaction ${transactionId} not in PENDING_PAYMENT, skipping`,
     );
     return;

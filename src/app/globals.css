@@ -180,6 +180,10 @@
   background-size: 200% 100%;
 }
 
+.safe-area-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
+}
+
 .safe-area-bottom {
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
 }

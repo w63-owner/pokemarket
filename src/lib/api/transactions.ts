@@ -82,13 +82,17 @@ export async function shipOrder(
   if (!user) throw new Error("Non authentifié");
 
   const now = new Date().toISOString();
+  const normalizedUrl =
+    trackingUrl && !/^https?:\/\//i.test(trackingUrl)
+      ? `https://${trackingUrl}`
+      : trackingUrl;
 
   const { error: txError } = await supabase
     .from("transactions")
     .update({
       status: "SHIPPED",
       tracking_number: trackingNumber,
-      tracking_url: trackingUrl,
+      tracking_url: normalizedUrl,
       shipped_at: now,
     })
     .eq("id", transactionId)
@@ -104,7 +108,7 @@ export async function shipOrder(
     message_type: "order_shipped",
     metadata: {
       tracking_number: trackingNumber,
-      ...(trackingUrl && { tracking_url: trackingUrl }),
+      ...(normalizedUrl && { tracking_url: normalizedUrl }),
       shipped_at: now,
     },
   });

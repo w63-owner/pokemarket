@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -10,9 +9,10 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { Button } from "@/components/ui/button";
 
 const stripePromise = loadStripe(
@@ -82,7 +82,6 @@ function SetupForm() {
 }
 
 export default function NewPaymentMethodPage() {
-  const router = useRouter();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,65 +111,53 @@ export default function NewPaymentMethodPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6"
-      >
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="shrink-0"
-          >
-            <ArrowLeft className="size-5" />
-          </Button>
-          <div>
-            <h1 className="font-heading text-xl font-bold">
-              Ajouter une carte
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Enregistrez un moyen de paiement pour vos achats
-            </p>
-          </div>
-        </div>
+    <>
+      <MobileHeader title="Ajouter une carte" fallbackUrl="/profile/payments" />
+      <div className="mx-auto max-w-lg px-4 py-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-6"
+        >
+          <p className="text-muted-foreground text-sm">
+            Enregistrez un moyen de paiement pour vos achats
+          </p>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="text-muted-foreground size-8 animate-spin" />
-          </div>
-        ) : error ? (
-          <div className="py-12 text-center">
-            <p className="text-destructive text-sm">{error}</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => window.location.reload()}
-            >
-              Réessayer
-            </Button>
-          </div>
-        ) : clientSecret ? (
-          <Elements
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: {
-                theme: "stripe",
-                variables: {
-                  borderRadius: "12px",
-                  fontFamily: "inherit",
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="text-muted-foreground size-8 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="py-12 text-center">
+              <p className="text-destructive text-sm">{error}</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => window.location.reload()}
+              >
+                Réessayer
+              </Button>
+            </div>
+          ) : clientSecret ? (
+            <Elements
+              stripe={stripePromise}
+              options={{
+                clientSecret,
+                appearance: {
+                  theme: "stripe",
+                  variables: {
+                    borderRadius: "12px",
+                    fontFamily: "inherit",
+                  },
                 },
-              },
-            }}
-          >
-            <SetupForm />
-          </Elements>
-        ) : null}
-      </motion.div>
-    </div>
+              }}
+            >
+              <SetupForm />
+            </Elements>
+          ) : null}
+        </motion.div>
+      </div>
+    </>
   );
 }

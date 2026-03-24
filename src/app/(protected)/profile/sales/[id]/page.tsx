@@ -2,11 +2,9 @@
 
 import { use } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   Package,
   MapPin,
   User,
@@ -16,7 +14,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { SmartBackButton } from "@/components/ui/smart-back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -69,7 +68,6 @@ export default function SaleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
   const { user } = useAuth();
 
   const { data: sale, isLoading } = useQuery({
@@ -86,9 +84,11 @@ export default function SaleDetailPage({
         <h1 className="font-heading mb-2 text-lg font-bold">
           Vente introuvable
         </h1>
-        <Button variant="outline" onClick={() => router.back()}>
-          Retour
-        </Button>
+        <SmartBackButton
+          fallbackUrl="/profile/transactions"
+          variant="secondary"
+          label="Retour"
+        />
       </div>
     );
   }
@@ -100,215 +100,215 @@ export default function SaleDetailPage({
     sale.shipping_address_line || sale.shipping_address_city;
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4 gap-1.5"
-          onClick={() => router.back()}
+    <>
+      <MobileHeader
+        title="Détail de la vente"
+        fallbackUrl="/profile/transactions"
+      />
+      <div className="mx-auto max-w-lg px-4 py-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          <ArrowLeft className="size-4" />
-          Retour
-        </Button>
-
-        <div className="mb-6 flex items-center gap-3">
-          <Badge variant={statusConfig.variant} className="gap-1.5 px-3 py-1">
-            <StatusIcon className="size-3.5" />
-            {statusConfig.label}
-          </Badge>
-        </div>
-
-        {user && (sale.status === "PAID" || sale.status === "SHIPPED") && (
-          <div className="mb-4 overflow-hidden rounded-xl border">
-            <TransactionActions
-              transaction={sale}
-              conversationId=""
-              listingId={sale.listing_id}
-              currentUser={user}
-              sellerId={sale.seller_id}
-              buyerId={sale.buyer_id}
-            />
+          <div className="mb-6 flex items-center gap-3">
+            <Badge variant={statusConfig.variant} className="gap-1.5 px-3 py-1">
+              <StatusIcon className="size-3.5" />
+              {statusConfig.label}
+            </Badge>
           </div>
-        )}
 
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Package className="size-4" />
-                Carte vendue
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex gap-3">
-                <div className="bg-muted relative size-16 shrink-0 overflow-hidden rounded-lg">
-                  {sale.listing?.cover_image_url ? (
-                    <Image
-                      src={sale.listing.cover_image_url}
-                      alt={sale.listing.title}
-                      fill
-                      className="object-cover"
-                      sizes="64px"
-                    />
-                  ) : (
-                    <div className="bg-muted flex size-full items-center justify-center">
-                      <Package className="text-muted-foreground size-6" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-heading truncate font-semibold">
-                    {sale.listing?.title ?? sale.listing_title ?? "—"}
-                  </p>
-                  {sale.listing?.condition && (
-                    <div className="mt-1">
-                      <ConditionBadge condition={sale.listing.condition} />
-                    </div>
-                  )}
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    Vendue le {formatDate(sale.created_at)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {user && (sale.status === "PAID" || sale.status === "SHIPPED") && (
+            <div className="mb-4 overflow-hidden rounded-xl border">
+              <TransactionActions
+                transaction={sale}
+                conversationId=""
+                listingId={sale.listing_id}
+                currentUser={user}
+                sellerId={sale.seller_id}
+                buyerId={sale.buyer_id}
+              />
+            </div>
+          )}
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <CreditCard className="size-4" />
-                Récapitulatif financier
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 pt-0">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Montant total</span>
-                <span>{formatPrice(sale.total_amount)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Commission PokeMarket
-                </span>
-                <span className="text-destructive">
-                  -{formatPrice(sale.fee_amount)}
-                </span>
-              </div>
-              {sale.shipping_cost > 0 && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Package className="size-4" />
+                  Carte vendue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex gap-3">
+                  <div className="bg-muted relative size-16 shrink-0 overflow-hidden rounded-lg">
+                    {sale.listing?.cover_image_url ? (
+                      <Image
+                        src={sale.listing.cover_image_url}
+                        alt={sale.listing.title}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    ) : (
+                      <div className="bg-muted flex size-full items-center justify-center">
+                        <Package className="text-muted-foreground size-6" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-heading truncate font-semibold">
+                      {sale.listing?.title ?? sale.listing_title ?? "—"}
+                    </p>
+                    {sale.listing?.condition && (
+                      <div className="mt-1">
+                        <ConditionBadge condition={sale.listing.condition} />
+                      </div>
+                    )}
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Vendue le {formatDate(sale.created_at)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <CreditCard className="size-4" />
+                  Récapitulatif financier
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 pt-0">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Montant total</span>
+                  <span>{formatPrice(sale.total_amount)}</span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Frais de port (payé par l&apos;acheteur)
+                    Commission PokeMarket
                   </span>
-                  <span className="text-muted-foreground">
-                    {formatPrice(sale.shipping_cost)}
+                  <span className="text-destructive">
+                    -{formatPrice(sale.fee_amount)}
                   </span>
                 </div>
-              )}
-              <Separator className="my-2" />
-              <div className="flex justify-between font-semibold">
-                <span>Prix net gagné</span>
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  {formatPrice(netEarnings)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <User className="size-4" />
-                Acheteur
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex items-center gap-3">
-                {sale.buyer?.avatar_url ? (
-                  <Image
-                    src={sale.buyer.avatar_url}
-                    alt={sale.buyer.username}
-                    width={36}
-                    height={36}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <div className="bg-muted flex size-9 items-center justify-center rounded-full">
-                    <User className="text-muted-foreground size-4" />
+                {sale.shipping_cost > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Frais de port (payé par l&apos;acheteur)
+                    </span>
+                    <span className="text-muted-foreground">
+                      {formatPrice(sale.shipping_cost)}
+                    </span>
                   </div>
                 )}
-                <span className="text-sm font-medium">
-                  {sale.buyer?.username ?? "Acheteur"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {hasShippingAddress && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <MapPin className="size-4" />
-                  Adresse de livraison
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-sm leading-relaxed">
-                  {sale.shipping_address_line && (
-                    <p>{sale.shipping_address_line}</p>
-                  )}
-                  <p>
-                    {[
-                      sale.shipping_address_postcode,
-                      sale.shipping_address_city,
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  </p>
-                  {sale.shipping_country && (
-                    <p className="text-muted-foreground">
-                      {sale.shipping_country}
-                    </p>
-                  )}
+                <Separator className="my-2" />
+                <div className="flex justify-between font-semibold">
+                  <span>Prix net gagné</span>
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    {formatPrice(netEarnings)}
+                  </span>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {sale.tracking_number && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm">
-                  <Truck className="size-4" />
-                  Suivi de livraison
+                  <User className="size-4" />
+                  Acheteur
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <p className="font-mono text-sm">{sale.tracking_number}</p>
-                {sale.tracking_url && (
-                  <a
-                    href={sale.tracking_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary mt-1 inline-block text-sm underline"
-                  >
-                    Suivre le colis →
-                  </a>
-                )}
-                {sale.shipped_at && (
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    Expédié le {formatDate(sale.shipped_at)}
-                  </p>
-                )}
+                <div className="flex items-center gap-3">
+                  {sale.buyer?.avatar_url ? (
+                    <Image
+                      src={sale.buyer.avatar_url}
+                      alt={sale.buyer.username}
+                      width={36}
+                      height={36}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <div className="bg-muted flex size-9 items-center justify-center rounded-full">
+                      <User className="text-muted-foreground size-4" />
+                    </div>
+                  )}
+                  <span className="text-sm font-medium">
+                    {sale.buyer?.username ?? "Acheteur"}
+                  </span>
+                </div>
               </CardContent>
             </Card>
-          )}
-        </div>
-      </motion.div>
-    </div>
+
+            {hasShippingAddress && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <MapPin className="size-4" />
+                    Adresse de livraison
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="text-sm leading-relaxed">
+                    {sale.shipping_address_line && (
+                      <p>{sale.shipping_address_line}</p>
+                    )}
+                    <p>
+                      {[
+                        sale.shipping_address_postcode,
+                        sale.shipping_address_city,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </p>
+                    {sale.shipping_country && (
+                      <p className="text-muted-foreground">
+                        {sale.shipping_country}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {sale.tracking_number && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Truck className="size-4" />
+                    Suivi de livraison
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <p className="font-mono text-sm">{sale.tracking_number}</p>
+                  {sale.tracking_url && (
+                    <a
+                      href={
+                        /^https?:\/\//i.test(sale.tracking_url)
+                          ? sale.tracking_url
+                          : `https://${sale.tracking_url}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary mt-1 inline-block text-sm underline"
+                    >
+                      Suivre le colis →
+                    </a>
+                  )}
+                  {sale.shipped_at && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Expédié le {formatDate(sale.shipped_at)}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    </>
   );
 }
 

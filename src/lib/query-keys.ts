@@ -16,7 +16,8 @@ export type FeedFilters = {
 export const queryKeys = {
   listings: {
     all: ["listings"] as const,
-    feed: (filters: FeedFilters) => ["listings", "feed", filters] as const,
+    feed: (filters: FeedFilters, viewerId?: string | null) =>
+      ["listings", "feed", filters, viewerId ?? null] as const,
     detail: (id: string) => ["listings", "detail", id] as const,
     mine: () => ["listings", "mine"] as const,
     seller: (sellerId: string) => ["listings", "seller", sellerId] as const,

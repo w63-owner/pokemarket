@@ -4,6 +4,12 @@ import { motion } from "framer-motion";
 import { Package, ExternalLink, Hash } from "lucide-react";
 import type { Message } from "@/types";
 
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 interface TrackingCardProps {
   message: Message;
 }
@@ -16,7 +22,9 @@ export function TrackingCard({ message }: TrackingCardProps) {
   } | null;
 
   const trackingNumber = metadata?.tracking_number;
-  const trackingUrl = metadata?.tracking_url;
+  const trackingUrl = metadata?.tracking_url
+    ? normalizeUrl(metadata.tracking_url)
+    : undefined;
   const shippedAt = metadata?.shipped_at;
 
   if (!trackingNumber) return null;

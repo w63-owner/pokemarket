@@ -167,14 +167,22 @@ export const RARITY_OPTIONS = [
 ] as const;
 
 export const CARD_LANGUAGES = [
-  { value: "fr", label: "Français" },
-  { value: "en", label: "Anglais" },
-  { value: "ja", label: "Japonais" },
-  { value: "de", label: "Allemand" },
-  { value: "it", label: "Italien" },
-  { value: "es", label: "Espagnol" },
-  { value: "pt", label: "Portugais" },
-  { value: "ko", label: "Coréen" },
-  { value: "zh-tw", label: "Chinois (Traditionnel)" },
-  { value: "zh-cn", label: "Chinois (Simplifié)" },
+  { value: "FR", label: "Français" },
+  { value: "JA", label: "Japonais" },
+  { value: "EN", label: "Anglais" },
 ] as const;
+
+export type CardLanguageCode = (typeof CARD_LANGUAGES)[number]["value"];
+
+const CARD_LANGUAGE_VALUES = new Set<string>(
+  CARD_LANGUAGES.map((l) => l.value),
+);
+
+/** Valid select value for listings, or "" if missing / legacy (not in FR|JA|EN). */
+export function toCardLanguageSelectValue(
+  raw: string | null | undefined,
+): CardLanguageCode | "" {
+  if (!raw) return "";
+  const upper = raw.trim().toUpperCase();
+  return CARD_LANGUAGE_VALUES.has(upper) ? (upper as CardLanguageCode) : "";
+}

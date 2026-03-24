@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ArrowLeft, Bookmark, X } from "lucide-react";
+import { Search, Bookmark, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { FeedFilters } from "@/lib/query-keys";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/hooks/use-feed-filters";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SmartBackButton } from "@/components/ui/smart-back-button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -103,10 +104,8 @@ function SearchPageInner() {
 
   return (
     <main className="bg-background flex min-h-svh flex-col">
-      <header className="bg-background/80 sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3 backdrop-blur-lg">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+      <header className="bg-background/80 sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-lg">
+        <SmartBackButton fallbackUrl="/" />
         <h1 className="font-heading text-lg font-semibold">
           Recherche avancée
         </h1>

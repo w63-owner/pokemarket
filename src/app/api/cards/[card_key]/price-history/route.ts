@@ -129,7 +129,7 @@ export async function GET(
 
     const { searchParams } = request.nextUrl;
     const condition = searchParams.get("condition") ?? "EXCELLENT";
-    const language = searchParams.get("language") ?? "fr";
+    const language = (searchParams.get("language") ?? "FR").toLowerCase();
     const isGraded = searchParams.get("isGraded") === "true";
 
     const supabase = await createClient();

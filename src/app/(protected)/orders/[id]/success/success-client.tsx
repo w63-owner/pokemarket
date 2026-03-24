@@ -16,12 +16,15 @@ interface SuccessClientProps {
   };
 }
 
-function useConfetti(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
+function useConfetti(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  enabled = true,
+) {
   const rafRef = useRef<number>(0);
   const particlesRef = useRef<Particle[]>([]);
 
   const spawn = useCallback(() => {
-    if (!canvasRef.current) return;
+    if (!enabled || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -90,16 +93,17 @@ function useConfetti(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
     }
 
     rafRef.current = requestAnimationFrame(animate);
-  }, [canvasRef]);
+  }, [canvasRef, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     spawn();
     const timeout = setTimeout(spawn, 1200);
     return () => {
       cancelAnimationFrame(rafRef.current);
       clearTimeout(timeout);
     };
-  }, [spawn]);
+  }, [spawn, enabled]);
 }
 
 interface Particle {
@@ -114,17 +118,51 @@ interface Particle {
   opacity: number;
 }
 
+const STATUS_COPY: Record<string, { title: string; description: string }> = {
+  PAID: {
+    title: "Commande confirmée !",
+    description:
+      "Votre paiement est en cours de validation. Le vendeur sera notifié et préparera l'envoi de votre carte.",
+  },
+  SHIPPED: {
+    title: "Commande expédiée",
+    description:
+      "Votre carte a été expédiée ! Vous recevrez bientôt votre colis.",
+  },
+  COMPLETED: {
+    title: "Vente terminée",
+    description:
+      "Cette vente est terminée. Merci pour votre achat sur PokeMarket !",
+  },
+};
+
+const FRESH_STATUSES = new Set(["PAID", "PENDING_PAYMENT"]);
+
+function getStatusCopy(status: string) {
+  return (
+    STATUS_COPY[status] ?? {
+      title: "Détail de la commande",
+      description: `Statut actuel : ${status.toLowerCase().replace("_", " ")}.`,
+    }
+  );
+}
+
 export function SuccessClient({ transaction }: SuccessClientProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  useConfetti(canvasRef);
+
+  const isFresh = FRESH_STATUSES.has(transaction.status);
+  useConfetti(canvasRef, isFresh);
+  const copy = getStatusCopy(transaction.status);
 
   return (
     <div className="relative flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center px-4 py-12">
-      <canvas
-        ref={canvasRef}
-        className="pointer-events-none fixed inset-0 z-50"
-        aria-hidden
-      />
+      {isFresh && (
+        <canvas
+          ref={canvasRef}
+          className="pointer-events-none fixed inset-0 z-50"
+          aria-hidden
+        />
+      )}
 
       <motion.div
         initial={{ opacity: 0, scale: 0.8, y: 30 }}
@@ -145,14 +183,16 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
         >
           <div className="bg-primary/10 relative rounded-full p-5">
             <CheckCircle2 className="text-primary size-16" strokeWidth={1.5} />
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="absolute -top-1 -right-1"
-            >
-              <Sparkles className="size-6 text-yellow-500" />
-            </motion.div>
+            {isFresh && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="absolute -top-1 -right-1"
+              >
+                <Sparkles className="size-6 text-yellow-500" />
+              </motion.div>
+            )}
           </div>
         </motion.div>
 
@@ -162,7 +202,7 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
           transition={{ delay: 0.3 }}
           className="font-heading mb-2 text-2xl font-bold"
         >
-          Commande confirmée !
+          {copy.title}
         </motion.h1>
 
         <motion.p
@@ -171,12 +211,18 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
           transition={{ delay: 0.4 }}
           className="text-muted-foreground mb-8 text-sm"
         >
-          Votre paiement de{" "}
-          <strong className="text-foreground">
-            {formatPrice(transaction.total_amount)}
-          </strong>{" "}
-          est en cours de validation. Le vendeur sera notifié et préparera
-          l&apos;envoi de votre carte.
+          {isFresh ? (
+            <>
+              Votre paiement de{" "}
+              <strong className="text-foreground">
+                {formatPrice(transaction.total_amount)}
+              </strong>{" "}
+              est en cours de validation. Le vendeur sera notifié et préparera
+              l&apos;envoi de votre carte.
+            </>
+          ) : (
+            copy.description
+          )}
         </motion.p>
 
         {transaction.listing_title && (

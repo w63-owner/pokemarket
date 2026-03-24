@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
+import { NavigationHistoryTracker } from "@/hooks/use-navigation-history";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -41,6 +42,7 @@ export function Providers({ children }: { children: ReactNode }) {
         enableSystem
         disableTransitionOnChange={false}
       >
+        <NavigationHistoryTracker />
         {children}
         <Toaster
           position="bottom-center"

@@ -7,6 +7,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag, Store, ChevronRight, Receipt } from "lucide-react";
 
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,51 +57,47 @@ export default function TransactionsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="mb-6 flex items-center gap-3">
-          <div className="bg-primary/10 rounded-full p-2.5">
-            <Receipt className="text-primary size-6" />
-          </div>
-          <h1 className="font-heading text-2xl font-bold">Mes transactions</h1>
-        </div>
+    <>
+      <MobileHeader title="Mes transactions" fallbackUrl="/profile" />
+      <div className="mx-auto max-w-lg px-4 py-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList className="mb-4 w-full">
+              <TabsTrigger value="purchases" className="flex-1 gap-1.5">
+                <ShoppingBag className="size-4" />
+                Mes Achats
+              </TabsTrigger>
+              <TabsTrigger value="sales" className="flex-1 gap-1.5">
+                <Store className="size-4" />
+                Mes Ventes
+              </TabsTrigger>
+            </TabsList>
 
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4 w-full">
-            <TabsTrigger value="purchases" className="flex-1 gap-1.5">
-              <ShoppingBag className="size-4" />
-              Mes Achats
-            </TabsTrigger>
-            <TabsTrigger value="sales" className="flex-1 gap-1.5">
-              <Store className="size-4" />
-              Mes Ventes
-            </TabsTrigger>
-          </TabsList>
+            <AnimatePresence mode="wait">
+              <TabsContent key="purchases" value="purchases" className="mt-0">
+                <TransactionList
+                  data={purchasesQuery.data}
+                  isLoading={purchasesQuery.isLoading}
+                  type="purchase"
+                />
+              </TabsContent>
 
-          <AnimatePresence mode="wait">
-            <TabsContent key="purchases" value="purchases" className="mt-0">
-              <TransactionList
-                data={purchasesQuery.data}
-                isLoading={purchasesQuery.isLoading}
-                type="purchase"
-              />
-            </TabsContent>
-
-            <TabsContent key="sales" value="sales" className="mt-0">
-              <TransactionList
-                data={salesQuery.data}
-                isLoading={salesQuery.isLoading}
-                type="sale"
-              />
-            </TabsContent>
-          </AnimatePresence>
-        </Tabs>
-      </motion.div>
-    </div>
+              <TabsContent key="sales" value="sales" className="mt-0">
+                <TransactionList
+                  data={salesQuery.data}
+                  isLoading={salesQuery.isLoading}
+                  type="sale"
+                />
+              </TabsContent>
+            </AnimatePresence>
+          </Tabs>
+        </motion.div>
+      </div>
+    </>
   );
 }
 
@@ -181,6 +178,7 @@ function TransactionRow({
   index: number;
 }) {
   const statusConfig = getStatusConfig(tx.status);
+
   const href =
     type === "sale" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}/success`;
 

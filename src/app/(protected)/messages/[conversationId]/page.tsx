@@ -8,7 +8,7 @@ import {
   useState,
   Fragment,
 } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -18,7 +18,7 @@ import {
   useMutation,
 } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useInView } from "react-intersection-observer";
 
@@ -34,14 +34,15 @@ import {
   type MessagesPage,
 } from "@/lib/api/conversations";
 import { fetchActiveOffer } from "@/lib/api/offers";
+import { notifyUser } from "@/lib/api/push";
 import { fetchTransactionByListing } from "@/lib/api/transactions";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { MessageBubble } from "@/components/messages/message-bubble";
 import { SystemMessage } from "@/components/messages/system-message";
 import { MessageInput } from "@/components/messages/message-input";
 import { OfferBar } from "@/components/messages/offer-bar";
 import { TransactionActions } from "@/components/messages/transaction-actions";
+import { SmartBackButton } from "@/components/ui/smart-back-button";
 import type { Message } from "@/types";
 
 const SYSTEM_TYPES = new Set([
@@ -99,7 +100,6 @@ function DateSeparator({ date }: { date: string }) {
 export default function ConversationThreadPage() {
   const params = useParams<{ conversationId: string }>();
   const conversationId = params.conversationId;
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -192,6 +192,15 @@ export default function ConversationThreadPage() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
       });
+
+      if (convQuery.data?.other_user) {
+        notifyUser(
+          convQuery.data.other_user.id,
+          "Nouveau message",
+          data.content ?? "",
+          `/messages/${conversationId}`,
+        );
+      }
     },
     onError: (error, _variables, context) => {
       setPendingMessages((prev) =>
@@ -414,9 +423,11 @@ export default function ConversationThreadPage() {
         <p className="text-muted-foreground text-sm">
           Conversation introuvable
         </p>
-        <Button variant="outline" onClick={() => router.push("/messages")}>
-          Retour aux messages
-        </Button>
+        <SmartBackButton
+          fallbackUrl="/messages"
+          variant="secondary"
+          label="Retour aux messages"
+        />
       </div>
     );
   }
@@ -427,16 +438,8 @@ export default function ConversationThreadPage() {
   return (
     <div className="flex h-dvh flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <header className="border-border bg-background/80 sticky top-0 z-10 flex items-center gap-3 border-b px-2 py-2.5 backdrop-blur-md">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-9 shrink-0"
-          onClick={() => router.push("/messages")}
-          aria-label="Retour"
-        >
-          <ArrowLeft className="size-5" />
-        </Button>
+      <header className="border-border bg-background/80 sticky top-0 z-10 flex items-center gap-3 border-b px-2 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-md">
+        <SmartBackButton fallbackUrl="/messages" />
 
         <Link href={`/listing/${conversation.listing_id}`} className="shrink-0">
           {conversation.listing.cover_image_url ? (

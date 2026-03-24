@@ -7,10 +7,12 @@ import { ScanLine, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { ImageUploader } from "@/components/sell/image-uploader";
 import { OcrResults } from "@/components/sell/ocr-results";
 import { SellForm, type SellFormValues } from "@/components/sell/sell-form";
 import { useCreateListing } from "@/hooks/use-listings";
+import { toCardLanguageSelectValue } from "@/lib/constants";
 import type { OcrCandidate, OcrParsed, OcrResponse } from "@/types/api";
 
 type OcrState = {
@@ -182,7 +184,9 @@ export default function SellPage() {
             ocr.selectedCandidate.set_official_count
               ? `${ocr.selectedCandidate.local_id}/${ocr.selectedCandidate.set_official_count}`
               : (ocr.selectedCandidate.local_id ?? undefined),
-          card_language: ocr.selectedCandidate.language ?? undefined,
+          card_language:
+            toCardLanguageSelectValue(ocr.selectedCandidate.language) ||
+            undefined,
           card_rarity: ocr.selectedCandidate.rarity ?? undefined,
           card_illustrator: ocr.selectedCandidate.illustrator ?? undefined,
         }
@@ -190,131 +194,132 @@ export default function SellPage() {
         ? {
             title: ocr.parsed.name,
             card_number: ocr.parsed.card_number ?? undefined,
-            card_language: ocr.parsed.language ?? undefined,
+            card_language:
+              toCardLanguageSelectValue(ocr.parsed.language) || undefined,
           }
         : undefined;
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <h1 className="font-display text-foreground text-xl font-bold">
-          Vendre une carte
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Ajoutez vos photos, identifiez la carte et fixez votre prix.
-        </p>
-      </motion.div>
+    <>
+      <MobileHeader title="Vendre une carte" fallbackUrl="/" />
+      <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <p className="text-muted-foreground text-sm">
+            Ajoutez vos photos, identifiez la carte et fixez votre prix.
+          </p>
+        </motion.div>
 
-      {/* Step 1: Image upload */}
-      <section className="mb-6">
-        <ImageUploader onImagesChange={handleImagesChange} />
-      </section>
+        {/* Step 1: Image upload */}
+        <section className="mb-6">
+          <ImageUploader onImagesChange={handleImagesChange} />
+        </section>
 
-      {/* Step 2: OCR trigger */}
-      <AnimatePresence mode="wait">
-        {hasBothImages && !ocr.hasRun && (
-          <motion.section
-            key="ocr-trigger"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6 space-y-3"
-          >
-            <Button
-              onClick={handleOcrScan}
-              className="w-full gap-2"
-              disabled={ocr.isLoading}
+        {/* Step 2: OCR trigger */}
+        <AnimatePresence mode="wait">
+          {hasBothImages && !ocr.hasRun && (
+            <motion.section
+              key="ocr-trigger"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+              className="mb-6 space-y-3"
             >
-              <Sparkles className="size-4" />
-              Scanner la carte avec l&apos;IA
-            </Button>
-            <button
-              type="button"
-              onClick={handleSkipOcr}
-              className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 text-xs transition-colors"
-            >
-              Passer le scan <ArrowRight className="size-3" />
-            </button>
-          </motion.section>
-        )}
-      </AnimatePresence>
+              <Button
+                onClick={handleOcrScan}
+                className="w-full gap-2"
+                disabled={ocr.isLoading}
+              >
+                <Sparkles className="size-4" />
+                Scanner la carte avec l&apos;IA
+              </Button>
+              <button
+                type="button"
+                onClick={handleSkipOcr}
+                className="text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 text-xs transition-colors"
+              >
+                Passer le scan <ArrowRight className="size-3" />
+              </button>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
-      {/* Step 3: OCR results */}
-      <AnimatePresence mode="wait">
-        {ocr.hasRun && (ocr.isLoading || ocr.candidates.length > 0) && (
-          <motion.section
-            key="ocr-results"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6"
-          >
-            <OcrResults
-              candidates={ocr.candidates}
-              isLoading={ocr.isLoading}
-              onSelect={handleCandidateSelect}
-            />
-          </motion.section>
-        )}
-      </AnimatePresence>
-
-      {/* Scan button when OCR produced no results */}
-      <AnimatePresence mode="wait">
-        {ocr.hasRun &&
-          !ocr.isLoading &&
-          ocr.candidates.length > 0 &&
-          !showForm && (
-            <motion.div
-              key="confirm-hint"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+        {/* Step 3: OCR results */}
+        <AnimatePresence mode="wait">
+          {ocr.hasRun && (ocr.isLoading || ocr.candidates.length > 0) && (
+            <motion.section
+              key="ocr-results"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
               className="mb-6"
             >
-              <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                <ScanLine className="size-3.5" />
-                <span>Sélectionnez un résultat pour continuer</span>
-              </div>
-            </motion.div>
+              <OcrResults
+                candidates={ocr.candidates}
+                isLoading={ocr.isLoading}
+                onSelect={handleCandidateSelect}
+              />
+            </motion.section>
           )}
-      </AnimatePresence>
+        </AnimatePresence>
 
-      {/* Step 4: Sell form */}
-      <AnimatePresence mode="wait">
-        {showForm && (
-          <motion.section
-            key="sell-form"
-            ref={formRef}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-          >
-            <div className="mb-4 flex items-center gap-2">
-              <div className="bg-border h-px flex-1" />
-              <span className="text-muted-foreground text-xs font-medium">
-                Détails de l&apos;annonce
-              </span>
-              <div className="bg-border h-px flex-1" />
-            </div>
+        {/* Scan button when OCR produced no results */}
+        <AnimatePresence mode="wait">
+          {ocr.hasRun &&
+            !ocr.isLoading &&
+            ocr.candidates.length > 0 &&
+            !showForm && (
+              <motion.div
+                key="confirm-hint"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="mb-6"
+              >
+                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                  <ScanLine className="size-3.5" />
+                  <span>Sélectionnez un résultat pour continuer</span>
+                </div>
+              </motion.div>
+            )}
+        </AnimatePresence>
 
-            <SellForm
-              key={
-                ocr.selectedCardKey ?? (ocr.parsed ? "ocr-parsed" : "manual")
-              }
-              defaultValues={formDefaultValues}
-              onSubmit={handleFormSubmit}
-              isLoading={createListing.isPending}
-            />
-          </motion.section>
-        )}
-      </AnimatePresence>
-    </div>
+        {/* Step 4: Sell form */}
+        <AnimatePresence mode="wait">
+          {showForm && (
+            <motion.section
+              key="sell-form"
+              ref={formRef}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <div className="bg-border h-px flex-1" />
+                <span className="text-muted-foreground text-xs font-medium">
+                  Détails de l&apos;annonce
+                </span>
+                <div className="bg-border h-px flex-1" />
+              </div>
+
+              <SellForm
+                key={
+                  ocr.selectedCardKey ?? (ocr.parsed ? "ocr-parsed" : "manual")
+                }
+                defaultValues={formDefaultValues}
+                onSubmit={handleFormSubmit}
+                isLoading={createListing.isPending}
+              />
+            </motion.section>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }

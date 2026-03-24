@@ -49,6 +49,7 @@ export async function fetchListingsFeed(
   filters: FeedFilters,
   cursor?: FeedCursor,
   limit = DEFAULT_PAGE_SIZE,
+  excludeSellerId?: string | null,
 ): Promise<FeedPage> {
   const supabase = createClient();
 
@@ -68,6 +69,7 @@ export async function fetchListingsFeed(
     p_series: filters.series || undefined,
     p_sort: filters.sort || "date_desc",
     p_limit: limit,
+    ...(excludeSellerId ? { p_exclude_seller: excludeSellerId } : {}),
   };
 
   if (cursor) {
@@ -158,6 +160,27 @@ export async function createListing(
   if (error) throw new Error(error.message);
 
   return data as Listing;
+}
+
+export async function fetchMyListings(limit = 50): Promise<Listing[]> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Non authentifié");
+
+  const { data, error } = await supabase
+    .from("listings")
+    .select("*")
+    .eq("seller_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []) as Listing[];
 }
 
 export async function deleteListing(listingId: string): Promise<void> {

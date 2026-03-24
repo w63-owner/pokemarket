@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { CreditCard, ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
+import { CreditCard, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { AddressAutocomplete } from "@/components/checkout/address-autocomplete";
 import { formatPrice } from "@/lib/utils";
 import { calcTotalBuyer } from "@/lib/pricing";
@@ -46,8 +46,6 @@ export function CheckoutClient({
   effectivePrice,
   shippingCost,
 }: CheckoutClientProps) {
-  const router = useRouter();
-
   const [country, setCountry] = useState<ShippingCountry>("FR");
   const [addressLine, setAddressLine] = useState("");
   const [city, setCity] = useState("");
@@ -99,150 +97,140 @@ export function CheckoutClient({
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 pt-4 pb-32">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6"
-      >
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="shrink-0"
-          >
-            <ArrowLeft className="size-5" />
-          </Button>
-          <div>
-            <h1 className="font-heading text-xl font-bold">Paiement</h1>
-            <p className="text-muted-foreground text-sm">
-              Finalisez votre achat en toute sécurité
+    <>
+      <MobileHeader title="Paiement" fallbackUrl={`/listing/${listing.id}`} />
+      <div className="mx-auto max-w-lg px-4 pt-4 pb-32">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="space-y-6"
+        >
+          <p className="text-muted-foreground text-sm">
+            Finalisez votre achat en toute sécurité
+          </p>
+
+          <CountdownTimer
+            expiresAt={expiresAt}
+            onExpired={() => setIsExpired(true)}
+          />
+
+          <OrderSummary
+            listing={listing}
+            effectivePrice={effectivePrice}
+            shippingCost={shippingCost}
+          />
+
+          <div className="bg-card border-border space-y-4 rounded-2xl border p-4 shadow-sm">
+            <h2 className="font-heading text-base font-semibold">
+              Adresse de livraison
+            </h2>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="country">Pays</Label>
+                <Select
+                  value={country}
+                  onValueChange={(v) => setCountry(v as ShippingCountry)}
+                >
+                  <SelectTrigger id="country">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SHIPPING_COUNTRIES.map((code) => (
+                      <SelectItem key={code} value={code}>
+                        {COUNTRY_LABELS[code]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {country === "FR" ? (
+                <AddressAutocomplete
+                  addressLine={addressLine}
+                  onAddressLineChange={setAddressLine}
+                  onSelect={({ addressLine: addr, postcode: pc, city: c }) => {
+                    setAddressLine(addr);
+                    setPostcode(pc);
+                    setCity(c);
+                  }}
+                />
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="address">Adresse</Label>
+                  <Input
+                    id="address"
+                    value={addressLine}
+                    onChange={(e) => setAddressLine(e.target.value)}
+                    placeholder="12 rue de la Pokéball"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="postcode">Code postal</Label>
+                  <Input
+                    id="postcode"
+                    value={postcode}
+                    onChange={(e) => setPostcode(e.target.value)}
+                    placeholder="75001"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="city">Ville</Label>
+                  <Input
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Paris"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-primary/5 border-primary/20 flex items-start gap-3 rounded-xl border p-3">
+            <ShieldCheck className="text-primary mt-0.5 size-5 shrink-0" />
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Votre paiement est sécurisé par Stripe. Les fonds sont conservés
+              sous séquestre jusqu&apos;à confirmation de réception de la carte.
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        <CountdownTimer
-          expiresAt={expiresAt}
-          onExpired={() => setIsExpired(true)}
-        />
-
-        <OrderSummary
-          listing={listing}
-          effectivePrice={effectivePrice}
-          shippingCost={shippingCost}
-        />
-
-        <div className="bg-card border-border space-y-4 rounded-2xl border p-4 shadow-sm">
-          <h2 className="font-heading text-base font-semibold">
-            Adresse de livraison
-          </h2>
-
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="country">Pays</Label>
-              <Select
-                value={country}
-                onValueChange={(v) => setCountry(v as ShippingCountry)}
-              >
-                <SelectTrigger id="country">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SHIPPING_COUNTRIES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {COUNTRY_LABELS[code]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {country === "FR" ? (
-              <AddressAutocomplete
-                addressLine={addressLine}
-                onAddressLineChange={setAddressLine}
-                onSelect={({ addressLine: addr, postcode: pc, city: c }) => {
-                  setAddressLine(addr);
-                  setPostcode(pc);
-                  setCity(c);
-                }}
-              />
-            ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="address">Adresse</Label>
-                <Input
-                  id="address"
-                  value={addressLine}
-                  onChange={(e) => setAddressLine(e.target.value)}
-                  placeholder="12 rue de la Pokéball"
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="postcode">Code postal</Label>
-                <Input
-                  id="postcode"
-                  value={postcode}
-                  onChange={(e) => setPostcode(e.target.value)}
-                  placeholder="75001"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="city">Ville</Label>
-                <Input
-                  id="city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="Paris"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-primary/5 border-primary/20 flex items-start gap-3 rounded-xl border p-3">
-          <ShieldCheck className="text-primary mt-0.5 size-5 shrink-0" />
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Votre paiement est sécurisé par Stripe. Les fonds sont conservés
-            sous séquestre jusqu&apos;à confirmation de réception de la carte.
-          </p>
-        </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{
-          type: "spring",
-          stiffness: 400,
-          damping: 30,
-          delay: 0.15,
-        }}
-        className="border-border bg-background/95 fixed right-0 bottom-0 left-0 z-40 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:bottom-0"
-      >
-        <Button
-          size="lg"
-          className="w-full text-base"
-          disabled={!isFormValid || isLoading || isExpired}
-          onClick={handleCheckout}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{
+            type: "spring",
+            stiffness: 400,
+            damping: 30,
+            delay: 0.15,
+          }}
+          className="border-border bg-background/95 fixed right-0 bottom-0 left-0 z-40 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:bottom-0"
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="size-5 animate-spin" />
-              Redirection vers Stripe…
-            </>
-          ) : (
-            <>
-              <CreditCard className="size-5" />
-              Payer {formatPrice(total)}
-            </>
-          )}
-        </Button>
-      </motion.div>
-    </div>
+          <Button
+            size="lg"
+            className="w-full text-base"
+            disabled={!isFormValid || isLoading || isExpired}
+            onClick={handleCheckout}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="size-5 animate-spin" />
+                Redirection vers Stripe…
+              </>
+            ) : (
+              <>
+                <CreditCard className="size-5" />
+                Payer {formatPrice(total)}
+              </>
+            )}
+          </Button>
+        </motion.div>
+      </div>
+    </>
   );
 }

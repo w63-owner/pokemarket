@@ -23,6 +23,7 @@ import {
   CONDITION_LABELS,
   GRADING_COMPANIES,
   CARD_LANGUAGES,
+  toCardLanguageSelectValue,
   RARITY_OPTIONS,
   LIMITS,
 } from "@/lib/constants";
@@ -231,7 +232,10 @@ export function SellForm({
             name="card_language"
             control={control}
             render={({ field }) => (
-              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+              <Select
+                value={toCardLanguageSelectValue(field.value)}
+                onValueChange={field.onChange}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Langue" />
                 </SelectTrigger>

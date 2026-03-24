@@ -9,6 +9,7 @@ import { PriceDisplay } from "@/components/shared/price-display";
 import { ConditionBadge } from "@/components/shared/condition-badge";
 import { FavoriteButton } from "@/components/shared/favorite-button";
 import { PriceHistoryChart } from "@/components/listing/price-history-chart";
+import { MobileHeader } from "@/components/layout/mobile-header";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -118,10 +119,18 @@ export default async function ListingPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <ImageCarousel
-        images={images}
-        className="rounded-none sm:mx-auto sm:mt-4 sm:max-w-2xl sm:rounded-2xl"
-      />
+      <div className="relative">
+        <MobileHeader
+          title={listing.title}
+          fallbackUrl="/"
+          transparent
+          className="absolute inset-x-0 top-0"
+        />
+        <ImageCarousel
+          images={images}
+          className="rounded-none sm:mx-auto sm:mt-4 sm:max-w-2xl sm:rounded-2xl"
+        />
+      </div>
 
       <div className="mx-auto max-w-2xl px-4 pt-5">
         <div className="space-y-2">

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, type FormEvent } from "react";
 import { Search, SlidersHorizontal, X, Bookmark } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDebounce } from "@/hooks/use-debounce";
 import {
   useFiltersFromUrl,
   useUpdateFilters,
@@ -247,20 +246,24 @@ function FeedFiltersInner() {
   const { user } = useAuth();
 
   const [searchText, setSearchText] = useState(filters.q ?? "");
-  const debouncedSearch = useDebounce(searchText, 300);
-
-  useEffect(() => {
-    const currentQ = new URLSearchParams(window.location.search).get("q") ?? "";
-    if (debouncedSearch === currentQ) return;
-    updateFilters({ q: debouncedSearch || undefined });
-  }, [debouncedSearch, updateFilters]);
-
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  const submitSearch = () => {
+    const currentQ = new URLSearchParams(window.location.search).get("q") ?? "";
+    const trimmed = searchText.trim();
+    if (trimmed === currentQ) return;
+    updateFilters({ q: trimmed || undefined });
+  };
+
+  const handleSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    submitSearch();
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <div className="relative flex-1">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
           <Input
             placeholder="Rechercher (ex: Dracaufeu 11/25)..."
@@ -281,7 +284,7 @@ function FeedFiltersInner() {
               <span className="sr-only">Effacer la recherche</span>
             </button>
           )}
-        </div>
+        </form>
 
         <Select
           value={filters.sort ?? "date_desc"}

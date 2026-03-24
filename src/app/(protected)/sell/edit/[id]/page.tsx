@@ -3,14 +3,15 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import Link from "next/link";
 
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { ImageUploader } from "@/components/sell/image-uploader";
 import { SellForm, type SellFormValues } from "@/components/sell/sell-form";
 import { useUpdateListing } from "@/hooks/use-listings";
 import { createClient } from "@/lib/supabase/client";
+import { toCardLanguageSelectValue } from "@/lib/constants";
 import type { Listing } from "@/types";
 
 export default function EditListingPage() {
@@ -129,57 +130,54 @@ export default function EditListingPage() {
     card_series: listing.card_series ?? undefined,
     card_block: listing.card_block ?? undefined,
     card_number: listing.card_number ?? undefined,
-    card_language: listing.card_language ?? undefined,
+    card_language:
+      toCardLanguageSelectValue(listing.card_language) || undefined,
     card_rarity: listing.card_rarity ?? undefined,
     card_illustrator: listing.card_illustrator ?? undefined,
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <Link
-          href={`/listing/${listing.id}`}
-          className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1.5 text-sm transition-colors"
-        >
-          <ArrowLeft className="size-4" />
-          Retour à l&apos;annonce
-        </Link>
-        <h1 className="font-display text-foreground text-xl font-bold">
-          Modifier l&apos;annonce
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Modifiez les informations de votre annonce.
-        </p>
-      </motion.div>
-
-      <section className="mb-6">
-        {imagesInitialized && (
-          <ImageUploader
-            onImagesChange={handleImagesChange}
-            initialCoverUrl={listing.cover_image_url}
-            initialBackUrl={listing.back_image_url}
-          />
-        )}
-      </section>
-
-      <div className="mb-4 flex items-center gap-2">
-        <div className="bg-border h-px flex-1" />
-        <span className="text-muted-foreground text-xs font-medium">
-          Détails de l&apos;annonce
-        </span>
-        <div className="bg-border h-px flex-1" />
-      </div>
-
-      <SellForm
-        defaultValues={defaultValues}
-        onSubmit={handleFormSubmit}
-        isLoading={updateListing.isPending}
-        submitLabel="Enregistrer les modifications"
+    <>
+      <MobileHeader
+        title="Modifier l'annonce"
+        fallbackUrl={`/listing/${listing.id}`}
       />
-    </div>
+      <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <p className="text-muted-foreground text-sm">
+            Modifiez les informations de votre annonce.
+          </p>
+        </motion.div>
+
+        <section className="mb-6">
+          {imagesInitialized && (
+            <ImageUploader
+              onImagesChange={handleImagesChange}
+              initialCoverUrl={listing.cover_image_url}
+              initialBackUrl={listing.back_image_url}
+            />
+          )}
+        </section>
+
+        <div className="mb-4 flex items-center gap-2">
+          <div className="bg-border h-px flex-1" />
+          <span className="text-muted-foreground text-xs font-medium">
+            Détails de l&apos;annonce
+          </span>
+          <div className="bg-border h-px flex-1" />
+        </div>
+
+        <SellForm
+          defaultValues={defaultValues}
+          onSubmit={handleFormSubmit}
+          isLoading={updateListing.isPending}
+          submitLabel="Enregistrer les modifications"
+        />
+      </div>
+    </>
   );
 }

@@ -105,25 +105,26 @@ export function PriceHistoryChart({
   isGraded,
 }: PriceHistoryProps) {
   const safeCondition = condition ?? "EXCELLENT";
-  const safeLanguage = language ?? "fr";
+  const languageCanonical = (language ?? "FR").toUpperCase();
+  const safeLanguageQuery = languageCanonical.toLowerCase();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.priceHistory(
       cardKey,
       safeCondition,
-      safeLanguage,
+      languageCanonical,
       isGraded,
     ),
     queryFn: () =>
-      fetchPriceHistory(cardKey, safeCondition, safeLanguage, isGraded),
+      fetchPriceHistory(cardKey, safeCondition, safeLanguageQuery, isGraded),
     staleTime: 5 * 60 * 1000,
   });
 
   const conditionLabel =
     CONDITION_LABELS[safeCondition as CardCondition] ?? safeCondition;
   const languageLabel =
-    CARD_LANGUAGES.find((l) => l.value === safeLanguage)?.label ??
-    safeLanguage.toUpperCase();
+    CARD_LANGUAGES.find((l) => l.value === languageCanonical)?.label ??
+    languageCanonical;
 
   if (isLoading) {
     return <Skeleton className="mt-6 h-[400px] w-full rounded-xl" />;
