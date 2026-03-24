@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushNotification } from "@/lib/push/send";
 import { pushRateLimit, applyRateLimit } from "@/lib/rate-limit";
@@ -70,7 +71,16 @@ export async function POST(request: Request) {
     );
   }
 
-  await sendPushNotification(body.user_id, body.title, body.body, body.url);
+  try {
+    await sendPushNotification(body.user_id, body.title, body.body, body.url);
+  } catch (err) {
+    Sentry.captureException(err);
+    console.error("[push/send] Failed to send push notification:", err);
+    return NextResponse.json(
+      { error: "Erreur lors de l'envoi de la notification" },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -11,6 +11,7 @@ import {
   Users,
   ExternalLink,
   Trash2,
+  UserMinus,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCard } from "@/components/feed/listing-card";
 import { ListingCardSkeleton } from "@/components/feed/listing-card-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
-import { useFavoriteListings } from "@/hooks/use-favorites";
+import Link from "next/link";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  useFavoriteListings,
+  useFavoriteSellers,
+  useUnfollowSeller,
+} from "@/hooks/use-favorites";
 import {
   useSavedSearches,
   useDeleteSavedSearch,
@@ -235,14 +242,113 @@ function formatRelativeDate(date: Date): string {
   });
 }
 
-function FavoriteSellersTab() {
+function FavoriteSellersSkeleton() {
   return (
-    <EmptyState
-      icon={<Users className="h-8 w-8" />}
-      title="Bientôt disponible"
-      description="Vos vendeurs favoris apparaîtront ici. Suivez-les pour ne rien manquer."
-    />
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl border p-4">
+          <Skeleton className="size-10 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <Skeleton className="size-8 rounded-md" />
+        </div>
+      ))}
+    </div>
   );
+}
+
+function FavoriteSellersTab() {
+  const { data: sellers, isLoading, isError, error } = useFavoriteSellers();
+  const { mutate: unfollow } = useUnfollowSeller();
+
+  if (isLoading) return <FavoriteSellersSkeleton />;
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={<Users className="h-8 w-8" />}
+        title="Impossible de charger vos vendeurs"
+        description={error?.message ?? "Une erreur est survenue. Réessayez."}
+      />
+    );
+  }
+
+  if (!sellers || sellers.length === 0) {
+    return (
+      <EmptyState
+        icon={<Users className="h-8 w-8" />}
+        title="Aucun vendeur suivi"
+        description="Suivez vos vendeurs préférés depuis leur profil pour les retrouver ici."
+        action={{ label: "Explorer le marché", href: "/" }}
+      />
+    );
+  }
+
+  return (
+    <m.div
+      className="space-y-3"
+      variants={gridVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {sellers.map((seller) => {
+        const initials = seller.profiles.username.slice(0, 2).toUpperCase();
+
+        return (
+          <m.div key={seller.seller_id} variants={itemVariants}>
+            <div className="group hover:bg-muted/50 flex items-center gap-3 rounded-xl border p-4 transition-colors">
+              <Link
+                href={`/u/${seller.profiles.username}`}
+                className="flex min-w-0 flex-1 items-center gap-3"
+              >
+                <Avatar size="lg">
+                  {seller.profiles.avatar_url ? (
+                    <AvatarImage
+                      src={seller.profiles.avatar_url}
+                      alt={seller.profiles.username}
+                    />
+                  ) : null}
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-foreground truncate text-sm font-semibold">
+                    {seller.profiles.username}
+                  </p>
+                  {seller.profiles.country_code && (
+                    <p className="text-muted-foreground text-xs">
+                      {countryFlag(seller.profiles.country_code)}{" "}
+                      {seller.profiles.country_code}
+                    </p>
+                  )}
+                </div>
+              </Link>
+
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => unfollow(seller.seller_id)}
+                className="text-muted-foreground hover:text-destructive shrink-0"
+              >
+                <UserMinus className="h-4 w-4" />
+                <span className="sr-only">Ne plus suivre</span>
+              </Button>
+            </div>
+          </m.div>
+        );
+      })}
+    </m.div>
+  );
+}
+
+function countryFlag(code: string): string {
+  return code
+    .toUpperCase()
+    .split("")
+    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join("");
 }
 
 export default function FavoritesPage() {

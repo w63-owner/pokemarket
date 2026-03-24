@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -78,6 +79,7 @@ export async function GET() {
 
     return NextResponse.json({ url: accountLink.url });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Stripe Connect onboard error:", err);
     return NextResponse.json(
       { error: "Erreur serveur inattendue" },

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -67,6 +68,7 @@ export async function GET() {
       payouts_enabled: account.payouts_enabled,
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Stripe Connect status error:", err);
     return NextResponse.json(
       { error: "Erreur serveur inattendue" },

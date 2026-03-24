@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ocrRequestSchema, ocrParsedSchema } from "@/lib/validations";
@@ -196,6 +197,7 @@ export async function POST(request: Request) {
           );
         }
       }
+      Sentry.captureException(err);
       console.error("OpenAI OCR error:", err);
       return NextResponse.json(
         { error: "Erreur lors de l'analyse de l'image. Veuillez réessayer." },
@@ -221,6 +223,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("OCR route error:", err);
     return NextResponse.json(
       { error: "Erreur serveur inattendue." },

@@ -6,7 +6,6 @@ import { Header } from "@/components/layout/header";
 import { TabBar } from "@/components/layout/tab-bar";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { SplashScreen } from "@/components/layout/splash-screen";
-import { Footer } from "@/components/layout/footer";
 import { CookieBanner } from "@/components/shared/cookie-banner";
 import "./globals.css";
 
@@ -65,7 +64,6 @@ export default function RootLayout({
         <Providers>
           <Header />
           <main className="flex-1 pb-16 lg:pb-0">{children}</main>
-          <Footer />
           <TabBar />
         </Providers>
         <InstallPrompt />

@@ -53,9 +53,7 @@ export function StarRating({
                 : "cursor-default",
             )}
             aria-label={
-              interactive
-                ? `${starIndex} étoile${starIndex > 1 ? "s" : ""}`
-                : undefined
+              interactive ? `Noter ${starIndex} sur ${maxRating}` : undefined
             }
             tabIndex={interactive ? 0 : -1}
           >

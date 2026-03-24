@@ -3,7 +3,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import {
-  createListing,
+  createListingAction,
+  type ListingActionResult,
+} from "@/actions/listings";
+import {
   updateListing,
   type CreateListingInput,
   type UpdateListingInput,
@@ -15,7 +18,12 @@ export function useCreateListing() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateListingInput) => createListing(data),
+    mutationFn: async (data: CreateListingInput): Promise<Listing> => {
+      const result: ListingActionResult<Listing> =
+        await createListingAction(data);
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
     onSuccess: (_data: Listing) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.listings.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.listings.mine() });

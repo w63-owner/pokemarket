@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createElement } from "react";
 import type Stripe from "stripe";
+import * as Sentry from "@sentry/nextjs";
 import { getStripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcPriceSeller } from "@/lib/pricing";
@@ -35,6 +37,7 @@ export async function POST(request: Request) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    Sentry.captureException(err);
     console.error("Stripe signature verification failed:", message);
     return NextResponse.json(
       { error: `Webhook signature verification failed: ${message}` },
@@ -88,6 +91,7 @@ export async function POST(request: Request) {
         console.warn(`Unhandled event type: ${event.type}`);
     }
   } catch (err) {
+    Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
     return NextResponse.json(
       { error: "Webhook handler failed" },
@@ -141,6 +145,8 @@ async function handleCheckoutCompleted(
     .eq("id", listingId);
 
   if (listingUpdateError) throw listingUpdateError;
+
+  revalidatePath(`/listing/${listingId}`);
 
   const sellerNet = calcPriceSeller(
     transaction.total_amount - (transaction.shipping_cost ?? 0),
@@ -202,7 +208,7 @@ async function handleCheckoutCompleted(
     "Paiement reçu 💰",
     "L'acheteur a payé — expédiez le colis !",
     `/messages/${conversation?.id ?? ""}`,
-  ).catch(() => {});
+  ).catch((err) => Sentry.captureException(err));
 }
 
 async function sendTransactionEmails(
@@ -280,6 +286,7 @@ async function sendTransactionEmails(
       );
     }
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[webhook] Failed to send transaction emails:", err);
   }
 }

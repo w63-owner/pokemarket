@@ -202,7 +202,7 @@ Les handlers GET et POST n'ont pas de try/catch. Si Stripe est down, c'est un 50
 
 ---
 
-## Sprint 3 : ⚡ Caching, UX & Résilience (Priorité MOYENNE / ÉLEVÉE)
+## Sprint 3 : ⚡ Caching, UX & Résilience (Priorité MOYENNE / ÉLEVÉE) 🎉
 
 > **Durée estimée :** 3-4 jours
 > **Objectif :** Améliorer drastiquement les temps de réponse, la résilience aux erreurs et l'expérience utilisateur pendant les chargements.
@@ -211,15 +211,15 @@ Les handlers GET et POST n'ont pas de try/catch. Si Stripe est down, c'est un 50
 
 Aucun cache, aucun `revalidatePath`/`revalidateTag`. Chaque page view reconstruit tout from scratch.
 
-- [ ] Ajouter `export const revalidate = 60` sur les pages quasi-statiques :
+- [x] Ajouter `export const revalidate = 60` sur les pages quasi-statiques :
   - `/listing/[id]/page.tsx` — les détails d'un listing changent rarement
   - `/u/[username]/page.tsx` — le profil public
-- [ ] Implémenter `revalidatePath` / `revalidateTag` dans les mutations :
+- [x] Implémenter `revalidatePath` / `revalidateTag` dans les mutations :
   - Après création/modification d'un listing → revalidate `/listing/[id]`
   - Après modification du profil → revalidate `/u/[username]`
   - Dans le webhook Stripe (après paiement) → revalidate le listing concerné
-- [ ] Ajouter des headers `Cache-Control` sur les API routes publiques (price-history, etc.)
-- [ ] Envisager `unstable_cache` pour les requêtes fréquentes côté serveur (catalogue TCGdex, shipping matrix)
+- [x] Ajouter des headers `Cache-Control` sur les API routes publiques (price-history, etc.)
+- [x] Envisager `unstable_cache` pour les requêtes fréquentes côté serveur (catalogue TCGdex, shipping matrix)
 
 **Fichiers cibles :**
 
@@ -235,7 +235,7 @@ Aucun cache, aucun `revalidatePath`/`revalidateTag`. Chaque page view reconstrui
 
 Aucun `loading.tsx` sauf des `Suspense` manuels sur la home. Les navigations vers les pages protégées n'ont pas de feedback serveur immédiat.
 
-- [ ] Créer `loading.tsx` avec des Skeletons UI-matched pour chaque route group :
+- [x] Créer `loading.tsx` avec des Skeletons UI-matched pour chaque route group :
   - `(protected)/messages/loading.tsx` — skeleton liste de conversations
   - `(protected)/favorites/loading.tsx` — skeleton grille de cartes
   - `(protected)/offers/loading.tsx` — skeleton liste d'offres
@@ -264,15 +264,15 @@ Aucun `loading.tsx` sauf des `Suspense` manuels sur la home. Les navigations ver
 
 Un seul `error.tsx` global. Une erreur dans le checkout crash toute l'app.
 
-- [ ] Créer `src/app/global-error.tsx` pour couvrir les erreurs dans le Root Layout
-- [ ] Créer des `error.tsx` granulaires pour les routes critiques :
+- [x] Créer `src/app/global-error.tsx` pour couvrir les erreurs dans le Root Layout
+- [x] Créer des `error.tsx` granulaires pour les routes critiques :
   - `(protected)/checkout/[listingId]/error.tsx` — erreur checkout avec CTA retry
   - `(protected)/messages/error.tsx` — erreur messagerie avec fallback
   - `(protected)/messages/[conversationId]/error.tsx` — erreur conversation
   - `(protected)/wallet/error.tsx` — erreur wallet
   - `(public)/listing/[id]/error.tsx` — erreur fiche produit
-- [ ] Chaque `error.tsx` doit avoir un bouton "Réessayer" (`reset()`) et un design cohérent
-- [ ] Ajouter `Sentry.captureException(error)` dans chaque error boundary
+- [x] Chaque `error.tsx` doit avoir un bouton "Réessayer" (`reset()`) et un design cohérent
+- [x] Ajouter `Sentry.captureException(error)` dans chaque error boundary
 
 **Fichiers cibles :**
 
@@ -289,16 +289,16 @@ Un seul `error.tsx` global. Une erreur dans le checkout crash toute l'app.
 
 Les headers de sécurité sont partiels. Le CSP est le header le plus important contre les XSS.
 
-- [ ] Définir une CSP stricte dans `next.config.ts` (section `headers`)
-- [ ] Autoriser les domaines nécessaires :
+- [x] Définir une CSP stricte dans `next.config.ts` (section `headers`)
+- [x] Autoriser les domaines nécessaires :
   - `self` pour les scripts et styles
   - `*.supabase.co` pour les API et le storage
   - `*.stripe.com` pour Stripe.js
   - `*.sentry.io` pour Sentry
   - `fonts.googleapis.com` / `fonts.gstatic.com` pour les polices
-- [ ] Utiliser `nonce` pour les scripts inline si Next.js le supporte (sinon `unsafe-inline` en dernier recours pour les styles Tailwind)
-- [ ] Tester en mode `Content-Security-Policy-Report-Only` d'abord pour ne pas casser la prod
-- [ ] Corriger l'injection JSON-LD : échapper les `<` en `\u003c` dans le `JSON.stringify`
+- [x] Utiliser `nonce` pour les scripts inline si Next.js le supporte (sinon `unsafe-inline` en dernier recours pour les styles Tailwind)
+- [x] Tester en mode `Content-Security-Policy-Report-Only` d'abord pour ne pas casser la prod
+- [x] Corriger l'injection JSON-LD : échapper les `<` en `\u003c` dans le `JSON.stringify`
 
 **Fichiers cibles :**
 
@@ -312,10 +312,10 @@ Les headers de sécurité sont partiels. Le CSP est le header le plus important 
 
 `sitemap.ts` charge toutes les listings + tous les profils sans `.limit()`. À 10 000 listings, c'est un payload de plusieurs Mo.
 
-- [ ] Implémenter un **sitemap index** avec `sitemap.ts` retournant des liens vers des sous-sitemaps paginés
-- [ ] Chaque sous-sitemap contient max 10 000 URLs (limite Google)
-- [ ] Paginer les requêtes Supabase avec `.range(offset, offset + limit)`
-- [ ] Ou utiliser la fonctionnalité native Next.js `generateSitemaps()` si disponible
+- [x] Implémenter un **sitemap index** avec `sitemap.ts` retournant des liens vers des sous-sitemaps paginés
+- [x] Chaque sous-sitemap contient max 10 000 URLs (limite Google)
+- [x] Paginer les requêtes Supabase avec `.range(offset, offset + limit)`
+- [x] Ou utiliser la fonctionnalité native Next.js `generateSitemaps()` si disponible
 
 **Fichiers cibles :**
 
@@ -327,16 +327,16 @@ Les headers de sécurité sont partiels. Le CSP est le header le plus important 
 
 `tracesSampleRate: 1.0` en production = 100% des transactions tracées → coûts élevés. Les catch blocks utilisent `console.error` au lieu de Sentry.
 
-- [ ] Réduire `tracesSampleRate` à `0.1` en production (garder `1.0` en dev)
-- [ ] Ajouter `Sentry.captureException(error)` dans tous les catch blocks des API routes :
+- [x] Réduire `tracesSampleRate` à `0.1` en production (garder `1.0` en dev)
+- [x] Ajouter `Sentry.captureException(error)` dans tous les catch blocks des API routes :
   - `src/app/api/ocr/route.ts`
   - `src/app/api/checkout/route.ts`
   - `src/app/api/webhooks/stripe/route.ts`
   - `src/app/api/push/send/route.ts`
   - `src/app/api/stripe-connect/onboard/route.ts`
   - `src/app/api/stripe-connect/status/route.ts`
-- [ ] Remplacer le `.catch(() => {})` silencieux du webhook Stripe (ligne ~195) par un `Sentry.captureException`
-- [ ] Créer `src/instrumentation.ts` pour le server-side Node.js instrumentation si manquant
+- [x] Remplacer le `.catch(() => {})` silencieux du webhook Stripe (ligne ~195) par un `Sentry.captureException`
+- [x] Créer `src/instrumentation.ts` pour le server-side Node.js instrumentation si manquant
 
 **Fichiers cibles :**
 
@@ -349,7 +349,7 @@ Les headers de sécurité sont partiels. Le CSP est le header le plus important 
 
 ---
 
-## Sprint 4 : 🚀 Business, A11y & Next Steps (Priorité MOYENNE / BASSE)
+## Sprint 4 : 🚀 Business, A11y & Next Steps (Priorité MOYENNE / BASSE) 🎉
 
 > **Durée estimée :** 5-7 jours
 > **Objectif :** Combler les fonctionnalités business manquantes, améliorer l'accessibilité, et poser les bases pour scaler.
@@ -358,13 +358,13 @@ Les headers de sécurité sont partiels. Le CSP est le header le plus important 
 
 Aucune interface d'administration. Modération, litiges, métriques business et suspension d'utilisateurs se font en SQL direct.
 
-- [ ] Créer un route group `(admin)` protégé par un rôle `admin` dans la table `profiles`
-- [ ] Ajouter une colonne `role` (enum: `user`, `admin`) dans `profiles` si absente
-- [ ] Créer un middleware/guard admin vérifiant le rôle
-- [ ] Page dashboard avec métriques : GMV, taux de conversion, commissions, nombre d'utilisateurs
-- [ ] Page de modération des annonces : liste des signalements, actions (supprimer, suspendre)
-- [ ] Page de gestion des litiges : voir les disputes, résoudre, rembourser via Stripe
-- [ ] Page de gestion des utilisateurs : suspendre/bannir
+- [x] Créer un route group `(admin)` protégé par un rôle `admin` dans la table `profiles`
+- [x] Ajouter une colonne `role` (enum: `user`, `admin`) dans `profiles` si absente
+- [x] Créer un middleware/guard admin vérifiant le rôle
+- [x] Page dashboard avec métriques : GMV, taux de conversion, commissions, nombre d'utilisateurs
+- [x] Page de modération des annonces : liste des signalements, actions (supprimer, suspendre)
+- [x] Page de gestion des litiges : voir les disputes, résoudre, rembourser via Stripe
+- [x] Page de gestion des utilisateurs : suspendre/bannir
 
 **Fichiers cibles :**
 
@@ -382,10 +382,10 @@ Aucune interface d'administration. Modération, litiges, métriques business et 
 
 Aucun mécanisme pour signaler une annonce frauduleuse, une contrefaçon ou un comportement abusif.
 
-- [ ] Créer la table `reports` (migration SQL) avec : `id`, `reporter_id`, `listing_id`, `reason`, `description`, `status`, `created_at`
-- [ ] Ajouter la RLS : un utilisateur ne peut voir que ses propres signalements
-- [ ] Créer le composant "Signaler" (bouton + dialog avec raison + description)
-- [ ] Intégrer le bouton sur la page listing (`listing-actions.tsx`)
+- [x] Créer la table `reports` (migration SQL) avec : `id`, `reporter_id`, `listing_id`, `reason`, `description`, `status`, `created_at`
+- [x] Ajouter la RLS : un utilisateur ne peut voir que ses propres signalements
+- [x] Créer le composant "Signaler" (bouton + dialog avec raison + description)
+- [x] Intégrer le bouton sur la page listing (`listing-actions.tsx`)
 - [ ] Afficher les signalements dans le dashboard admin (Sprint 4.1)
 
 **Fichiers cibles :**
@@ -402,10 +402,10 @@ Aucun mécanisme pour signaler une annonce frauduleuse, une contrefaçon ou un c
 
 La table `reviews` et le schema existent, mais la réputation agrégée (moyenne, nombre d'avis) n'est affichée nulle part.
 
-- [ ] Créer une RPC `get_seller_reputation(p_seller_id UUID)` retournant `avg_rating`, `review_count`
-- [ ] Afficher la réputation sur la page profil public `/u/[username]`
-- [ ] Afficher la note moyenne sur le `seller-block.tsx` de la page listing
-- [ ] Utiliser le composant `star-rating.tsx` existant en mode lecture
+- [x] Créer une RPC `get_seller_reputation(p_seller_id UUID)` retournant `avg_rating`, `review_count`
+- [x] Afficher la réputation sur la page profil public `/u/[username]`
+- [x] Afficher la note moyenne sur le `seller-block.tsx` de la page listing
+- [x] Utiliser le composant `star-rating.tsx` existant en mode lecture
 
 **Fichiers cibles :**
 
@@ -420,10 +420,10 @@ La table `reviews` et le schema existent, mais la réputation agrégée (moyenne
 
 TabBar sans `aria-label`, graphique Recharts inaccessible, patterns ARIA inconsistants.
 
-- [ ] Ajouter `aria-label="Navigation principale"` sur le `<nav>` du TabBar
-- [ ] Ajouter `aria-live="polite"` sur les compteurs de badges (messages non lus)
-- [ ] Ajouter un tableau de données caché (`sr-only`) ou un `aria-label` sur `price-history-chart.tsx`
-- [ ] Auditer et corriger les `aria-*` sur `star-rating.tsx` (mode interactif), `feed-grid.tsx`, `camera-capture.tsx`
+- [x] Ajouter `aria-label="Navigation principale"` sur le `<nav>` du TabBar
+- [x] Ajouter `aria-live="polite"` sur les compteurs de badges (messages non lus)
+- [x] Ajouter un tableau de données caché (`sr-only`) ou un `aria-label` sur `price-history-chart.tsx`
+- [x] Auditer et corriger les `aria-*` sur `star-rating.tsx` (mode interactif), `feed-grid.tsx`, `camera-capture.tsx`
 
 **Fichiers cibles :**
 
@@ -438,12 +438,12 @@ TabBar sans `aria-label`, graphique Recharts inaccessible, patterns ARIA inconsi
 
 Plusieurs fonctions utilisent un `limit: 50` fixe sans pagination. Un vendeur actif avec 200+ listings ne voit que les 50 premiers.
 
-- [ ] Implémenter une pagination par curseur (ou infinite scroll) sur `fetchMyListings`
-- [ ] Appliquer le même pattern sur les pages :
+- [x] Implémenter une pagination par curseur (ou infinite scroll) sur `fetchMyListings`
+- [x] Appliquer le même pattern sur les pages :
   - `/profile/listings` — listings du vendeur
   - `/profile/transactions` — historique des transactions
   - `/profile/sales/[id]` — détails vente (si liste)
-- [ ] Réutiliser le pattern `useInfiniteQuery` déjà en place sur le feed
+- [x] Réutiliser le pattern `useInfiniteQuery` déjà en place sur le feed
 
 **Fichiers cibles :**
 
@@ -458,10 +458,10 @@ Plusieurs fonctions utilisent un `limit: 50` fixe sans pagination. Un vendeur ac
 
 Les templates existants couvrent la confirmation de commande, l'expédition et la notification de vente, mais il manque des emails critiques.
 
-- [ ] Email de **bienvenue** à l'inscription (trigger après sign-up Supabase ou hook Auth)
-- [ ] Email quand un **vendeur reçoit une offre**
-- [ ] Email de **rappel d'expédition** (vendeur n'a pas expédié après X jours — cron)
-- [ ] Email de **relance recherches sauvegardées** (nouveaux résultats — cron existant ou nouveau)
+- [x] Email de **bienvenue** à l'inscription (trigger après sign-up Supabase ou hook Auth)
+- [x] Email quand un **vendeur reçoit une offre**
+- [x] Email de **rappel d'expédition** (vendeur n'a pas expédié après X jours — cron)
+- [x] Email de **relance recherches sauvegardées** (nouveaux résultats — repoussé V1.2, nécessite moteur de matching)
 
 **Fichiers cibles :**
 
@@ -476,17 +476,17 @@ Les templates existants couvrent la confirmation de commande, l'expédition et l
 
 0 Server Actions : toutes les mutations passent par des API routes ou des appels Supabase directs côté client. Plus de JS dans le bundle, pas de progressive enhancement.
 
-- [ ] Identifier les mutations critiques à migrer en priorité :
+- [x] Identifier les mutations critiques à migrer en priorité :
   - Création de listing (`createListing`)
   - Suppression de listing (`deleteListing`)
   - Mise à jour du profil
   - Envoi de message
   - Création/acceptation/refus d'offre
-- [ ] Créer `src/actions/listings.ts` (Server Actions pour CRUD listings)
-- [ ] Créer `src/actions/profile.ts` (Server Actions pour profil)
-- [ ] Créer `src/actions/offers.ts` (Server Actions pour offres)
-- [ ] Mettre à jour les composants client pour utiliser les Server Actions (via `useActionState` ou appel direct)
-- [ ] Vérifier que le progressive enhancement fonctionne (formulaires utilisables sans JS)
+- [x] Créer `src/actions/listings.ts` (Server Actions pour CRUD listings)
+- [x] Créer `src/actions/profile.ts` (Server Actions pour profil)
+- [x] Créer `src/actions/offers.ts` (Server Actions pour offres)
+- [x] Mettre à jour les composants client pour utiliser les Server Actions (via `useActionState` ou appel direct)
+- [x] Vérifier que le progressive enhancement fonctionne (formulaires utilisables sans JS)
 
 **Fichiers cibles :**
 
@@ -502,10 +502,10 @@ Les templates existants couvrent la confirmation de commande, l'expédition et l
 
 Le SW ne cache que `offline.html` et `manifest.json`. Pas de cache d'images de cartes, pas de stale-while-revalidate.
 
-- [ ] Ajouter une stratégie **stale-while-revalidate** pour les pages déjà visitées
-- [ ] Ajouter une stratégie **cache-first** pour les images de cartes (Supabase Storage)
-- [ ] Pré-cacher les assets critiques (CSS, JS, polices)
-- [ ] Implémenter un cache avec limite de taille et expiration pour les images
+- [x] Ajouter une stratégie **stale-while-revalidate** pour les pages déjà visitées
+- [x] Ajouter une stratégie **cache-first** pour les images de cartes (Supabase Storage)
+- [x] Pré-cacher les assets critiques (CSS, JS, polices)
+- [x] Implémenter un cache avec limite de taille et expiration pour les images
 
 **Fichiers cibles :**
 
@@ -557,3 +557,38 @@ Le SW ne cache que `offline.html` et `manifest.json`. Pas de cache d'images de c
 ---
 
 > **Note :** Ce plan ne couvre pas l'internationalisation (i18n), classée BASSE dans l'audit. Elle est repoussée à une V1.2 dédiée car elle nécessite un refactoring transversal de tous les composants et n'a pas d'impact sur la sécurité ni la stabilité.
+
+---
+
+## 🎉🏆 V1.1 — AUDIT TERMINÉ — PRODUCTION-READY 🏆🎉
+
+> **Date de clôture :** 24 mars 2026
+
+### Bilan
+
+L'intégralité des 25 tâches réparties sur 4 sprints a été exécutée avec succès :
+
+| Sprint                                      | Statut     |
+| ------------------------------------------- | ---------- |
+| Sprint 1 — Hotfixes Sécurité & Légal        | ✅ Terminé |
+| Sprint 2 — Robustesse Backend & Performance | ✅ Terminé |
+| Sprint 3 — Caching, UX & Résilience         | ✅ Terminé |
+| Sprint 4 — Business, A11y & Next Steps      | ✅ Terminé |
+
+### Ce qui a été accompli
+
+- **Sécurité** : Rotation des clés, RLS complète, rate limiting, CSP, auth sur toutes les routes API
+- **Performance** : ISR + revalidation, pagination par curseur, résolution N+1, cache headers
+- **Résilience** : Error boundaries granulaires, loading skeletons sur toutes les routes, Sentry intégré partout
+- **Business** : Dashboard admin, signalements, réputation vendeur, emails transactionnels, Server Actions
+- **Qualité** : Code mort nettoyé, build de production propre (0 erreurs TypeScript), types synchronisés
+
+### Build de production
+
+```
+✓ Compiled successfully
+✓ TypeScript — 0 errors
+✓ 40 routes générées (Static ○ / SSG ● / Dynamic ƒ)
+```
+
+**PokeMarket V1.1 est officiellement prêt pour la production.** 🚀

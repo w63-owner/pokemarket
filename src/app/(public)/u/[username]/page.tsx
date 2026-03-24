@@ -1,9 +1,13 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MobileHeader } from "@/components/layout/mobile-header";
+
+export const revalidate = 60;
 import { ShareProfileButton } from "@/components/profile/share-profile-button";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
 import { FollowButton } from "@/components/profile/follow-button";
+import { SellerReputationBadge } from "@/components/shared/seller-reputation-badge";
+import { getSellerReputation } from "@/lib/api/reviews";
 import type { Metadata } from "next";
 import type { Profile } from "@/types";
 
@@ -58,31 +62,34 @@ export default async function PublicProfilePage({ params }: Props) {
 
   const isOwnProfile = currentUser?.id === profile.id;
 
-  const [listingsResult, reviewsResult, followResult] = await Promise.all([
-    supabase
-      .from("listings")
-      .select("id, title, display_price, cover_image_url, condition")
-      .eq("seller_id", profile.id)
-      .eq("status", "ACTIVE")
-      .order("created_at", { ascending: false })
-      .limit(50),
+  const [listingsResult, reviewsResult, followResult, reputation] =
+    await Promise.all([
+      supabase
+        .from("listings")
+        .select("id, title, display_price, cover_image_url, condition")
+        .eq("seller_id", profile.id)
+        .eq("status", "ACTIVE")
+        .order("created_at", { ascending: false })
+        .limit(50),
 
-    supabase
-      .from("reviews")
-      .select("id, rating, comment, created_at, reviewer_id")
-      .eq("reviewee_id", profile.id)
-      .order("created_at", { ascending: false })
-      .limit(50),
+      supabase
+        .from("reviews")
+        .select("id, rating, comment, created_at, reviewer_id")
+        .eq("reviewee_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(50),
 
-    currentUser && !isOwnProfile
-      ? supabase
-          .from("favorite_sellers")
-          .select("seller_id")
-          .eq("user_id", currentUser.id)
-          .eq("seller_id", profile.id)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+      currentUser && !isOwnProfile
+        ? supabase
+            .from("favorite_sellers")
+            .select("seller_id")
+            .eq("user_id", currentUser.id)
+            .eq("seller_id", profile.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+
+      getSellerReputation(profile.id),
+    ]);
 
   const listings = (listingsResult.data ?? []).map((l) => ({
     ...l,
@@ -125,6 +132,12 @@ export default async function PublicProfilePage({ params }: Props) {
       />
 
       <div className="mx-auto max-w-2xl px-4 pt-4 pb-28">
+        <SellerReputationBadge
+          avgRating={reputation.avgRating}
+          reviewCount={reputation.reviewCount}
+          className="mb-4"
+        />
+
         <ProfileTabs
           profile={profile as Profile}
           listings={listings}

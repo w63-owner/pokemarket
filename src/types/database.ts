@@ -521,6 +521,7 @@ export type Database = {
           instagram_url: string | null;
           kyc_status: string | null;
           postal_code: string | null;
+          role: string;
           stripe_account_id: string | null;
           stripe_customer_id: string | null;
           tiktok_url: string | null;
@@ -539,6 +540,7 @@ export type Database = {
           instagram_url?: string | null;
           kyc_status?: string | null;
           postal_code?: string | null;
+          role?: string;
           stripe_account_id?: string | null;
           stripe_customer_id?: string | null;
           tiktok_url?: string | null;
@@ -557,6 +559,7 @@ export type Database = {
           instagram_url?: string | null;
           kyc_status?: string | null;
           postal_code?: string | null;
+          role?: string;
           stripe_account_id?: string | null;
           stripe_customer_id?: string | null;
           tiktok_url?: string | null;
@@ -590,6 +593,44 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reports: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          listing_id: string;
+          reason: string;
+          reporter_id: string;
+          status: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          listing_id: string;
+          reason: string;
+          reporter_id: string;
+          status?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          listing_id?: string;
+          reason?: string;
+          reporter_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reports_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: false;
+            referencedRelation: "listings";
             referencedColumns: ["id"];
           },
         ];
@@ -1009,6 +1050,13 @@ export type Database = {
         Returns: {
           new_count: number;
           search_id: string;
+        }[];
+      };
+      get_seller_reputation: {
+        Args: { p_seller_id: string };
+        Returns: {
+          avg_rating: number;
+          review_count: number;
         }[];
       };
       match_tcgdex_cards: {

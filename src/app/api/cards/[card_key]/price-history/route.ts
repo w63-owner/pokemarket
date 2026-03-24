@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { subMonths, format } from "date-fns";
 
@@ -177,8 +178,17 @@ export async function GET(
 
     const stats = computeStats(chartData);
 
-    return NextResponse.json({ chartData, stats, targetPrice });
+    return NextResponse.json(
+      { chartData, stats, targetPrice },
+      {
+        headers: {
+          "Cache-Control":
+            "public, s-maxage=3600, stale-while-revalidate=86400",
+        },
+      },
+    );
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[price-history] Error:", err);
     return NextResponse.json(
       { error: "Erreur lors du calcul de l'historique des prix" },

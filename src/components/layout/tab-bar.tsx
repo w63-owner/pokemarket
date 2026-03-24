@@ -40,7 +40,10 @@ export function TabBar() {
   if (isHidden) return null;
 
   return (
-    <nav className="border-border bg-background/80 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:hidden">
+    <nav
+      aria-label="Navigation principale"
+      className="border-border bg-background/80 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:hidden"
+    >
       <div className="flex items-center justify-around pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const isActive =
@@ -69,7 +72,12 @@ export function TabBar() {
               <m.div {...tapScaleSmall} className="relative">
                 <tab.icon className="size-5" />
                 {badgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white">
+                  <span
+                    aria-live="polite"
+                    aria-atomic="true"
+                    aria-label={`${badgeCount} non lu${badgeCount > 1 ? "s" : ""}`}
+                    className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white"
+                  >
                     {badgeCount > 99 ? "99" : badgeCount}
                   </span>
                 )}

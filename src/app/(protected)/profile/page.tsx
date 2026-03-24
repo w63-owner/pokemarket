@@ -16,6 +16,10 @@ import {
   Moon,
   LogOut,
   ChevronRight,
+  Scale,
+  FileText,
+  ShieldCheck,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -27,6 +31,13 @@ const menuItems = [
   { href: "/profile/wallet", label: "Mon portefeuille", icon: Wallet },
   { href: "/profile/payments", label: "Moyens de paiement", icon: CreditCard },
   { href: "/profile/notifications", label: "Notifications", icon: Bell },
+];
+
+const legalItems = [
+  { href: "/legal/cgv", label: "CGV", icon: FileText },
+  { href: "/legal/cgu", label: "CGU", icon: Scale },
+  { href: "/legal/privacy", label: "Confidentialité", icon: ShieldCheck },
+  { href: "/legal/mentions", label: "Mentions légales", icon: Info },
 ];
 
 export default function ProfileHubPage() {
@@ -84,6 +95,28 @@ export default function ProfileHubPage() {
           <LogOut className="size-5" />
           Se déconnecter
         </Button>
+      </div>
+
+      <div className="border-border mt-6 border-t pt-4">
+        <p className="text-muted-foreground mb-2 px-3 text-xs font-medium tracking-wider uppercase">
+          Informations légales
+        </p>
+        <div className="space-y-1">
+          {legalItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="hover:bg-muted flex items-center gap-3 rounded-lg px-3 py-3 transition-colors"
+            >
+              <item.icon className="text-muted-foreground size-5" />
+              <span className="flex-1 text-sm font-medium">{item.label}</span>
+              <ChevronRight className="text-muted-foreground size-4" />
+            </Link>
+          ))}
+        </div>
+        <p className="text-muted-foreground mt-4 text-center text-xs">
+          © {new Date().getFullYear()} PokeMarket. Tous droits réservés.
+        </p>
       </div>
     </div>
   );

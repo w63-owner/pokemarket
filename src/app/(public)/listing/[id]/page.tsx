@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListingById } from "@/lib/api/listings.server";
+import { getSellerReputation } from "@/lib/api/reviews";
+
+export const revalidate = 60;
 import { ImageCarousel } from "@/components/listing/image-carousel";
 import { SellerBlock } from "@/components/listing/seller-block";
 import { ListingActions } from "@/components/listing/listing-actions";
@@ -9,6 +12,7 @@ import { PriceDisplay } from "@/components/shared/price-display";
 import { ConditionBadge } from "@/components/shared/condition-badge";
 import { FavoriteButton } from "@/components/shared/favorite-button";
 import { PriceHistoryChart } from "@/components/listing/price-history-chart";
+import { ReportDialog } from "@/components/listing/report-dialog";
 import { MobileHeader } from "@/components/layout/mobile-header";
 
 type Props = { params: Promise<{ id: string }> };
@@ -63,16 +67,9 @@ export default async function ListingPage({ params }: Props) {
 
   const isOwner = user?.id === listing.seller_id;
 
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("rating")
-    .eq("reviewee_id", listing.seller_id);
-
-  const reviewCount = reviews?.length ?? 0;
-  const avgRating =
-    reviewCount > 0
-      ? reviews!.reduce((sum, r) => sum + r.rating, 0) / reviewCount
-      : null;
+  const reputation = await getSellerReputation(listing.seller_id);
+  const avgRating = reputation.reviewCount > 0 ? reputation.avgRating : null;
+  const reviewCount = reputation.reviewCount;
 
   const images = [
     ...(listing.cover_image_url
@@ -117,7 +114,9 @@ export default async function ListingPage({ params }: Props) {
     <div className="pb-24">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
       />
       <div className="relative">
         <MobileHeader
@@ -245,6 +244,12 @@ export default async function ListingPage({ params }: Props) {
           }}
           className="mt-6"
         />
+
+        {!isOwner && (
+          <div className="mt-4 flex justify-end">
+            <ReportDialog listingId={listing.id} />
+          </div>
+        )}
       </div>
 
       <ListingActions

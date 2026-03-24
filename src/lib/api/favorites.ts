@@ -1,6 +1,61 @@
 import { createClient } from "@/lib/supabase/client";
 import type { FeedItem } from "@/types";
 
+export type FavoriteSellerRow = {
+  seller_id: string;
+  created_at: string | null;
+  profiles: {
+    username: string;
+    avatar_url: string | null;
+    country_code: string | null;
+  };
+};
+
+export async function getFavoriteSellers(): Promise<FavoriteSellerRow[]> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from("favorite_sellers")
+    .select(
+      `
+      seller_id,
+      created_at,
+      profiles!favorite_sellers_seller_id_fkey ( username, avatar_url, country_code )
+    `,
+    )
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    seller_id: row.seller_id,
+    created_at: row.created_at,
+    profiles: row.profiles as unknown as FavoriteSellerRow["profiles"],
+  }));
+}
+
+export async function unfollowSeller(sellerId: string): Promise<void> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { error } = await supabase
+    .from("favorite_sellers")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("seller_id", sellerId);
+  if (error) throw error;
+}
+
 export async function getFavoriteListingIds(): Promise<string[]> {
   const supabase = createClient();
 

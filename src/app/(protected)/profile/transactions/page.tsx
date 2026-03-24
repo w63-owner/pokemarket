@@ -1,11 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInView } from "react-intersection-observer";
 import Link from "next/link";
 import Image from "next/image";
 import { m, AnimatePresence } from "framer-motion";
-import { ShoppingBag, Store, ChevronRight, Receipt } from "lucide-react";
+import {
+  ShoppingBag,
+  Store,
+  ChevronRight,
+  Receipt,
+  Loader2,
+} from "lucide-react";
 
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,17 +51,23 @@ function getStatusConfig(status: string) {
 export default function TransactionsPage() {
   const [tab, setTab] = useState("purchases");
 
-  const purchasesQuery = useQuery({
+  const purchasesQuery = useInfiniteQuery({
     queryKey: queryKeys.transactions.purchases(),
-    queryFn: fetchMyPurchases,
+    queryFn: ({ pageParam }) => fetchMyPurchases({ pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: tab === "purchases",
   });
 
-  const salesQuery = useQuery({
+  const salesQuery = useInfiniteQuery({
     queryKey: queryKeys.transactions.sales(),
-    queryFn: fetchMySales,
+    queryFn: ({ pageParam }) => fetchMySales({ pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: tab === "sales",
   });
+
+  const activeQuery = tab === "purchases" ? purchasesQuery : salesQuery;
 
   return (
     <>
@@ -87,14 +100,7 @@ export default function TransactionsPage() {
                 className="mt-0"
               >
                 <TransactionList
-                  data={
-                    tab === "purchases" ? purchasesQuery.data : salesQuery.data
-                  }
-                  isLoading={
-                    tab === "purchases"
-                      ? purchasesQuery.isLoading
-                      : salesQuery.isLoading
-                  }
+                  query={activeQuery}
                   type={tab === "purchases" ? "purchase" : "sale"}
                 />
               </m.div>
@@ -106,15 +112,33 @@ export default function TransactionsPage() {
   );
 }
 
+type InfiniteTransactionsQuery = ReturnType<
+  typeof useInfiniteQuery<Awaited<ReturnType<typeof fetchMyPurchases>>, Error>
+>;
+
 function TransactionList({
-  data,
-  isLoading,
+  query,
   type,
 }: {
-  data: TransactionWithDetails[] | undefined;
-  isLoading: boolean;
+  query: InfiniteTransactionsQuery;
   type: "purchase" | "sale";
 }) {
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    query;
+
+  const { ref: sentinelRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: "200px",
+  });
+
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allTransactions = data?.pages.flatMap((page) => page.data) ?? [];
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -125,7 +149,7 @@ function TransactionList({
     );
   }
 
-  if (!data || data.length === 0) {
+  if (allTransactions.length === 0) {
     return (
       <EmptyState
         icon={
@@ -155,21 +179,33 @@ function TransactionList({
   }
 
   return (
-    <m.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2 }}
-      className="space-y-2"
-    >
-      {data.map((tx, index) => (
-        <TransactionRow
-          key={tx.id}
-          transaction={tx}
-          type={type}
-          index={index}
-        />
-      ))}
-    </m.div>
+    <>
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="space-y-2"
+      >
+        {allTransactions.map((tx, index) => (
+          <TransactionRow
+            key={tx.id}
+            transaction={tx}
+            type={type}
+            index={index}
+          />
+        ))}
+
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="text-muted-foreground size-5 animate-spin" />
+          </div>
+        )}
+      </m.div>
+
+      {hasNextPage && (
+        <div ref={sentinelRef} className="h-10" aria-hidden="true" />
+      )}
+    </>
   );
 }
 

@@ -121,9 +121,15 @@ export type CreateListingInput = {
   card_illustrator?: string | null;
 };
 
-export async function createListing(
-  input: CreateListingInput,
-): Promise<Listing> {
+export type PaginatedListings = {
+  data: Listing[];
+  nextCursor: number | undefined;
+};
+
+export async function fetchMyListings({
+  pageParam = 0,
+  limit = 20,
+}: { pageParam?: number; limit?: number } = {}): Promise<PaginatedListings> {
   const supabase = createClient();
 
   const {
@@ -132,73 +138,23 @@ export async function createListing(
 
   if (!user) throw new Error("Non authentifié");
 
-  const { data, error } = await supabase
-    .from("listings")
-    .insert({
-      seller_id: user.id,
-      title: input.title,
-      price_seller: input.price_seller,
-      condition: input.is_graded ? null : (input.condition ?? null),
-      is_graded: input.is_graded,
-      grading_company: input.is_graded ? (input.grading_company ?? null) : null,
-      grade_note: input.is_graded ? (input.grade_note ?? null) : null,
-      delivery_weight_class: input.delivery_weight_class,
-      cover_image_url: input.cover_image_url,
-      back_image_url: input.back_image_url,
-      card_ref_id: input.card_ref_id ?? null,
-      card_series: input.card_series ?? null,
-      card_block: input.card_block ?? null,
-      card_number: input.card_number ?? null,
-      card_language: input.card_language ?? null,
-      card_rarity: input.card_rarity ?? null,
-      card_illustrator: input.card_illustrator ?? null,
-      status: "ACTIVE",
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  return data as Listing;
-}
-
-export async function fetchMyListings(limit = 50): Promise<Listing[]> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
+  const from = pageParam * limit;
+  const to = from + limit - 1;
 
   const { data, error } = await supabase
     .from("listings")
     .select("*")
     .eq("seller_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .range(from, to);
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []) as Listing[];
-}
-
-export async function deleteListing(listingId: string): Promise<void> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
-
-  const { error } = await supabase
-    .from("listings")
-    .delete()
-    .eq("id", listingId)
-    .eq("seller_id", user.id);
-
-  if (error) throw new Error(error.message);
+  const items = (data ?? []) as Listing[];
+  return {
+    data: items,
+    nextCursor: items.length === limit ? pageParam + 1 : undefined,
+  };
 }
 
 export type UpdateListingInput = {

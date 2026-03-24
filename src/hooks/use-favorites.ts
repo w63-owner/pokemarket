@@ -5,6 +5,9 @@ import {
   getFavoriteListingIds,
   getFavoriteListings,
   toggleFavoriteListing,
+  getFavoriteSellers,
+  unfollowSeller,
+  type FavoriteSellerRow,
 } from "@/lib/api/favorites";
 import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
@@ -103,4 +106,56 @@ export function useFavorites() {
     isFavorite: (listingId: string) => favoriteIds.includes(listingId),
     toggleFavorite: handleToggle,
   };
+}
+
+export function useFavoriteSellers() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: queryKeys.favorites.sellers(),
+    queryFn: getFavoriteSellers,
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+}
+
+export function useUnfollowSeller() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sellerId: string) => unfollowSeller(sellerId),
+
+    onMutate: async (sellerId) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.favorites.sellers(),
+      });
+
+      const previous = queryClient.getQueryData<FavoriteSellerRow[]>(
+        queryKeys.favorites.sellers(),
+      );
+
+      queryClient.setQueryData<FavoriteSellerRow[]>(
+        queryKeys.favorites.sellers(),
+        (old = []) => old.filter((s) => s.seller_id !== sellerId),
+      );
+
+      return { previous };
+    },
+
+    onError: (_error, _sellerId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.favorites.sellers(),
+          context.previous,
+        );
+      }
+      toast.error("Impossible de se désabonner. Réessayez.");
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.favorites.sellers(),
+      });
+    },
+  });
 }

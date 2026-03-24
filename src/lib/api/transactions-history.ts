@@ -1,7 +1,30 @@
 import { createClient } from "@/lib/supabase/client";
 import type { TransactionWithDetails } from "@/types";
 
-export async function fetchMyPurchases(): Promise<TransactionWithDetails[]> {
+export type PaginatedTransactions = {
+  data: TransactionWithDetails[];
+  nextCursor: number | undefined;
+};
+
+const TRANSACTION_SELECT =
+  "*, listing:listings(id, title, cover_image_url), buyer:profiles!transactions_buyer_id_fkey(id, username), seller:profiles!transactions_seller_id_fkey(id, username)";
+
+const VISIBLE_STATUSES = [
+  "PAID",
+  "SHIPPED",
+  "COMPLETED",
+  "DISPUTED",
+  "CANCELLED",
+  "REFUNDED",
+] as const;
+
+export async function fetchMyPurchases({
+  pageParam = 0,
+  limit = 20,
+}: {
+  pageParam?: number;
+  limit?: number;
+} = {}): Promise<PaginatedTransactions> {
   const supabase = createClient();
 
   const {
@@ -9,29 +32,33 @@ export async function fetchMyPurchases(): Promise<TransactionWithDetails[]> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
+  const from = pageParam * limit;
+  const to = from + limit - 1;
+
   const { data, error } = await supabase
     .from("transactions")
-    .select(
-      "*, listing:listings(id, title, cover_image_url), buyer:profiles!transactions_buyer_id_fkey(id, username), seller:profiles!transactions_seller_id_fkey(id, username)",
-    )
+    .select(TRANSACTION_SELECT)
     .eq("buyer_id", user.id)
-    .in("status", [
-      "PAID",
-      "SHIPPED",
-      "COMPLETED",
-      "DISPUTED",
-      "CANCELLED",
-      "REFUNDED",
-    ])
+    .in("status", [...VISIBLE_STATUSES])
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(from, to);
 
   if (error) throw error;
 
-  return (data ?? []) as unknown as TransactionWithDetails[];
+  const items = (data ?? []) as unknown as TransactionWithDetails[];
+  return {
+    data: items,
+    nextCursor: items.length === limit ? pageParam + 1 : undefined,
+  };
 }
 
-export async function fetchMySales(): Promise<TransactionWithDetails[]> {
+export async function fetchMySales({
+  pageParam = 0,
+  limit = 20,
+}: {
+  pageParam?: number;
+  limit?: number;
+} = {}): Promise<PaginatedTransactions> {
   const supabase = createClient();
 
   const {
@@ -39,26 +66,24 @@ export async function fetchMySales(): Promise<TransactionWithDetails[]> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
+  const from = pageParam * limit;
+  const to = from + limit - 1;
+
   const { data, error } = await supabase
     .from("transactions")
-    .select(
-      "*, listing:listings(id, title, cover_image_url), buyer:profiles!transactions_buyer_id_fkey(id, username), seller:profiles!transactions_seller_id_fkey(id, username)",
-    )
+    .select(TRANSACTION_SELECT)
     .eq("seller_id", user.id)
-    .in("status", [
-      "PAID",
-      "SHIPPED",
-      "COMPLETED",
-      "DISPUTED",
-      "CANCELLED",
-      "REFUNDED",
-    ])
+    .in("status", [...VISIBLE_STATUSES])
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(from, to);
 
   if (error) throw error;
 
-  return (data ?? []) as unknown as TransactionWithDetails[];
+  const items = (data ?? []) as unknown as TransactionWithDetails[];
+  return {
+    data: items,
+    nextCursor: items.length === limit ? pageParam + 1 : undefined,
+  };
 }
 
 export type SaleDetail = TransactionWithDetails & {

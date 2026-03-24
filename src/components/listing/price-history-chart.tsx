@@ -192,50 +192,64 @@ export function PriceHistoryChart({
           />
         </div>
 
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart
-            data={chartData}
-            margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor="hsl(var(--primary))"
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset="100%"
-                  stopColor="hsl(var(--primary))"
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 12 }}
-              tickLine={false}
-              axisLine={false}
-              className="text-muted-foreground"
-            />
-            <YAxis
-              domain={[yMin, yMax]}
-              tick={{ fontSize: 12 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v: number) => `${v}€`}
-              className="text-muted-foreground"
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              fill="url(#priceGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <div
+          role="img"
+          aria-label={`Graphique d'évolution du prix : de ${formatEuro(prices[0])} à ${formatEuro(prices[prices.length - 1])} sur ${chartData.length} points`}
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart
+              data={chartData}
+              margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    stopColor="hsl(var(--primary))"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="hsl(var(--primary))"
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              </defs>
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+                className="text-muted-foreground"
+              />
+              <YAxis
+                domain={[yMin, yMax]}
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v: number) => `${v}€`}
+                className="text-muted-foreground"
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="price"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                fill="url(#priceGradient)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="sr-only">
+          Le prix a évolué de {formatEuro(prices[0])} à{" "}
+          {formatEuro(prices[prices.length - 1])} sur les {chartData.length}{" "}
+          derniers points de données. Fourchette 12 mois :{" "}
+          {formatEuro(stats.range12m[0])} – {formatEuro(stats.range12m[1])}.
+          Fourchette 3 mois : {formatEuro(stats.range3m[0])} –{" "}
+          {formatEuro(stats.range3m[1])}. Volatilité : {stats.volatility}% (
+          {getVolatilityLabel(stats.volatility)}).
+        </p>
       </CardContent>
     </Card>
   );

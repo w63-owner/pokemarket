@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { fetchOrCreateConversation } from "@/lib/api/conversations";
-import { deleteListing } from "@/lib/api/listings";
+import { deleteListingAction } from "@/actions/listings";
 
 interface ListingActionsProps {
   listingId: string;
@@ -67,7 +67,8 @@ export function ListingActions({
   const handleDelete = async () => {
     setDeleteLoading(true);
     try {
-      await deleteListing(listingId);
+      const result = await deleteListingAction(listingId);
+      if (!result.success) throw new Error(result.error);
       onDelete?.();
       setDeleteOpen(false);
       toast.success("Annonce supprimée");

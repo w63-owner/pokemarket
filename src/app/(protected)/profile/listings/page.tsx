@@ -1,10 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInView } from "react-intersection-observer";
 import Link from "next/link";
 import Image from "next/image";
 import { m } from "framer-motion";
-import { Tag, ChevronRight, Pencil } from "lucide-react";
+import { Tag, ChevronRight, Pencil, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,10 +38,26 @@ function getStatusConfig(status: string) {
 }
 
 export default function MyListingsPage() {
-  const { data, isLoading } = useQuery({
-    queryKey: queryKeys.listings.mine(),
-    queryFn: () => fetchMyListings(),
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: queryKeys.listings.mine(),
+      queryFn: ({ pageParam }) => fetchMyListings({ pageParam }),
+      initialPageParam: 0,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    });
+
+  const { ref: sentinelRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: "200px",
   });
+
+  useEffect(() => {
+    if (inView && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const allListings = data?.pages.flatMap((page) => page.data) ?? [];
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -61,7 +79,7 @@ export default function MyListingsPage() {
               <Skeleton key={i} className="h-20 rounded-xl" />
             ))}
           </div>
-        ) : !data || data.length === 0 ? (
+        ) : allListings.length === 0 ? (
           <EmptyState
             icon={<Tag className="size-6" />}
             title="Aucune annonce publiée"
@@ -69,16 +87,28 @@ export default function MyListingsPage() {
             action={{ label: "Vendre une carte", href: "/sell" }}
           />
         ) : (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-2"
-          >
-            {data.map((listing, index) => (
-              <ListingRow key={listing.id} listing={listing} index={index} />
-            ))}
-          </m.div>
+          <>
+            <m.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-2"
+            >
+              {allListings.map((listing, index) => (
+                <ListingRow key={listing.id} listing={listing} index={index} />
+              ))}
+
+              {isFetchingNextPage && (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="text-muted-foreground size-5 animate-spin" />
+                </div>
+              )}
+            </m.div>
+
+            {hasNextPage && (
+              <div ref={sentinelRef} className="h-10" aria-hidden="true" />
+            )}
+          </>
         )}
       </m.div>
     </div>

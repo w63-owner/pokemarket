@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Listing, Profile } from "@/types";
 
@@ -79,3 +80,11 @@ export const fetchListingById = cache(
     };
   },
 );
+
+export function revalidateListing(listingId: string) {
+  revalidatePath(`/listing/${listingId}`);
+}
+
+export function revalidateSellerProfile(username: string) {
+  revalidatePath(`/u/${username}`);
+}

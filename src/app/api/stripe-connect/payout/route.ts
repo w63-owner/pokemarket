@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -100,8 +101,7 @@ export async function POST() {
       );
       payoutId = payout.id;
     } catch (payoutErr) {
-      // Transfer already landed on the connected account — Stripe's
-      // automatic payout schedule will move funds to the bank.
+      Sentry.captureException(payoutErr);
       console.warn(
         "[payout] Explicit payout creation failed, auto-payout will handle it:",
         payoutErr,
@@ -138,6 +138,7 @@ export async function POST() {
       stripe_payout_id: payoutId,
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[payout] Error:", err);
 
     if (isStripeError(err)) {

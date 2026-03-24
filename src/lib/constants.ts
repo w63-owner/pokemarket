@@ -117,6 +117,22 @@ export const LIMITS = {
   AVATAR_SIZE: 200,
 } as const;
 
+export const REPORT_REASONS = [
+  "counterfeit",
+  "scam",
+  "inappropriate",
+  "other",
+] as const;
+
+export type ReportReason = (typeof REPORT_REASONS)[number];
+
+export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
+  counterfeit: "Contrefaçon",
+  scam: "Arnaque",
+  inappropriate: "Contenu inapproprié",
+  other: "Autre",
+};
+
 export const DISPUTE_REASONS = [
   "DAMAGED_CARD",
   "WRONG_CARD",

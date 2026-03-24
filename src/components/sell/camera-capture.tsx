@@ -240,7 +240,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                   : "bg-white/30",
               )}
               whileTap={isReady && !isCapturing ? { scale: 0.85 } : undefined}
-              aria-label="Prendre la photo"
+              aria-label="Prendre en photo la carte"
             >
               <Aperture
                 className={cn(

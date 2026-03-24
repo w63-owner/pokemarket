@@ -5,6 +5,7 @@ import {
   WEIGHT_CLASSES,
   SHIPPING_COUNTRIES,
   DISPUTE_REASONS,
+  REPORT_REASONS,
   LIMITS,
 } from "./constants";
 
@@ -38,6 +39,7 @@ export const profileUpdateSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/)
     .optional(),
   bio: z.string().max(500).optional(),
+  avatar_url: z.string().url().optional(),
   country_code: z.string().length(2).optional(),
   address_line: z.string().max(300).optional().nullable(),
   city: z.string().max(200).optional().nullable(),
@@ -73,6 +75,7 @@ export const listingCreateSchema = z
     card_number: z.string().optional(),
     card_language: z.string().optional(),
     card_rarity: z.string().optional(),
+    card_illustrator: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -128,6 +131,16 @@ export const disputeSchema = z.object({
   description: z
     .string()
     .min(10, "Décrivez le problème en au moins 10 caractères"),
+});
+
+export const reportSchema = z.object({
+  reason: z.enum(REPORT_REASONS, {
+    message: "Veuillez sélectionner une raison",
+  }),
+  description: z
+    .string()
+    .max(500, "La description ne doit pas dépasser 500 caractères")
+    .optional(),
 });
 
 export const savedSearchSchema = z.object({

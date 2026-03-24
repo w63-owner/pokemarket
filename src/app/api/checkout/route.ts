@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -208,6 +209,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Checkout error:", err);
     return NextResponse.json(
       { error: "Erreur serveur inattendue" },
