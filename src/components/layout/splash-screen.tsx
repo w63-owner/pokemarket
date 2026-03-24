@@ -57,10 +57,10 @@ export function SplashScreen() {
     const scanMs = reduced ? 300 : SCAN_PHASE_MS;
     const dismissMs = reduced ? 1000 : DISMISS_MS;
 
-    let t1: ReturnType<typeof setTimeout> | undefined;
-    let t2: ReturnType<typeof setTimeout> | undefined;
+    let t1: number | undefined;
+    let t2: number | undefined;
 
-    const t0 = window.setTimeout(() => {
+    const t0: number = window.setTimeout(() => {
       setIsVisible(true);
       t1 = window.setTimeout(() => setPhase("logo"), scanMs);
       t2 = window.setTimeout(() => setIsVisible(false), dismissMs);
