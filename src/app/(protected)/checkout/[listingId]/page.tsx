@@ -28,7 +28,8 @@ export default async function CheckoutPage({ params }: Props) {
   }
 
   const isReservedForMe =
-    listing.status === "RESERVED" && listing.reserved_for === user.id;
+    (listing.status === "RESERVED" || listing.status === "LOCKED") &&
+    listing.reserved_for === user.id;
   const isActive = listing.status === "ACTIVE";
 
   if (!isActive && !isReservedForMe) {

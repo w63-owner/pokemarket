@@ -167,7 +167,15 @@ export function OfferBar({
     createMutation.mutate();
   }, [amount, minOffer, createMutation]);
 
-  if (listing.status === "SOLD" || listing.status === "LOCKED") {
+  const isLockedForBuyer =
+    listing.status === "LOCKED" &&
+    isBuyer &&
+    activeOffer?.status === "ACCEPTED";
+
+  if (
+    listing.status === "SOLD" ||
+    (listing.status === "LOCKED" && !isLockedForBuyer)
+  ) {
     return null;
   }
 
