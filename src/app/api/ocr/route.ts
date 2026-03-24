@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ocrRequestSchema, ocrParsedSchema } from "@/lib/validations";
 import type { OcrCandidate, OcrParsed, OcrResponse } from "@/types/api";
@@ -90,6 +91,19 @@ function computeConfidence(
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Authentification requise. Veuillez vous connecter." },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const validation = ocrRequestSchema.safeParse(body);
 
@@ -101,6 +115,17 @@ export async function POST(request: Request) {
     }
 
     const { image_url } = validation.data;
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl || !image_url.startsWith(supabaseUrl)) {
+      return NextResponse.json(
+        {
+          error:
+            "URL d'image non autorisée. Seules les images hébergées sur notre plateforme sont acceptées.",
+        },
+        { status: 400 },
+      );
+    }
 
     let ocrResult: OcrParsed;
     try {
@@ -174,6 +199,13 @@ export async function POST(request: Request) {
     }
 
     const candidates = await matchTcgdexCards(ocrResult);
+
+    const adminClient = createAdminClient();
+    await adminClient.from("ocr_attempts").insert({
+      user_id: user.id,
+      image_url,
+      raw_response: ocrResult as unknown as Record<string, unknown>,
+    });
 
     const response: OcrResponse = {
       parsed: ocrResult,
