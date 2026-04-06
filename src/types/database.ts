@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4";
   };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       card_price_history: {
@@ -1045,18 +1070,33 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      release_escrow_funds: {
-        Args: {
-          p_transaction_id: string;
-          p_buyer_id: string;
-        };
-        Returns: boolean;
-      };
       count_new_for_saved_searches: {
         Args: never;
         Returns: {
           new_count: number;
           search_id: string;
+        }[];
+      };
+      get_inbox: {
+        Args: { p_user_id: string };
+        Returns: {
+          buyer_id: string;
+          created_at: string;
+          id: string;
+          last_message_content: string;
+          last_message_created_at: string;
+          last_message_sender_id: string;
+          last_message_type: string;
+          listing_cover_image_url: string;
+          listing_display_price: number;
+          listing_id: string;
+          listing_status: string;
+          listing_title: string;
+          other_user_avatar_url: string;
+          other_user_id: string;
+          other_user_username: string;
+          seller_id: string;
+          unread_count: number;
         }[];
       };
       get_seller_reputation: {
@@ -1083,6 +1123,10 @@ export type Database = {
           set_name: string;
           set_official_count: number;
         }[];
+      };
+      release_escrow_funds: {
+        Args: { p_buyer_id: string; p_transaction_id: string };
+        Returns: boolean;
       };
       search_listings_feed: {
         Args: {
@@ -1121,6 +1165,10 @@ export type Database = {
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      upsert_conversation: {
+        Args: { p_buyer_id: string; p_listing_id: string };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
@@ -1252,6 +1300,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

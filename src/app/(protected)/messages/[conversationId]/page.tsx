@@ -28,12 +28,11 @@ import { cn } from "@/lib/utils";
 import {
   fetchConversationDetail,
   fetchMessages,
-  sendMessage,
   markMessagesAsRead,
   type MessagesPage,
 } from "@/lib/api/conversations";
+import { sendMessageAction } from "@/actions/messages";
 import { fetchActiveOffer } from "@/lib/api/offers";
-import { notifyUser } from "@/lib/api/push";
 import { fetchTransactionByListing } from "@/lib/api/transactions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MessageBubble } from "@/components/messages/message-bubble";
@@ -135,7 +134,9 @@ export default function ConversationThreadPage() {
   const messagesQuery = useInfiniteQuery({
     queryKey: queryKeys.conversations.messages(conversationId),
     queryFn: ({ pageParam }) => fetchMessages(conversationId, pageParam),
-    initialPageParam: undefined as string | undefined,
+    initialPageParam: undefined as
+      | { created_at: string; id: string }
+      | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!user,
   });
@@ -152,7 +153,11 @@ export default function ConversationThreadPage() {
 
   // ── Send mutation with optimistic UI ─────────────────────────────────
   const sendMutation = useMutation({
-    mutationFn: (content: string) => sendMessage(conversationId, content),
+    mutationFn: async (content: string) => {
+      const result = await sendMessageAction(conversationId, content);
+      if (!result.success) throw new Error(result.error);
+      return result.message;
+    },
     onMutate: (content) => {
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const tempMsg: Message = {
@@ -192,17 +197,8 @@ export default function ConversationThreadPage() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
       });
-
-      if (convQuery.data?.other_user) {
-        notifyUser(
-          convQuery.data.other_user.id,
-          "Nouveau message",
-          data.content ?? "",
-          `/messages/${conversationId}`,
-        );
-      }
     },
-    onError: (error, _variables, context) => {
+    onError: (_error, _variables, context) => {
       setPendingMessages((prev) =>
         prev.filter((m) => m.id !== context?.tempId),
       );
@@ -217,7 +213,7 @@ export default function ConversationThreadPage() {
 
       if (newMsg.sender_id === user?.id) {
         setPendingMessages((prev) => {
-          const idx = prev.findIndex((p) => p.sender_id === newMsg.sender_id);
+          const idx = prev.findIndex((p) => p.content === newMsg.content);
           if (idx === -1) return prev;
           return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
         });
@@ -444,8 +440,11 @@ export default function ConversationThreadPage() {
     <div className="flex h-dvh flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className="border-border bg-background/80 sticky top-0 z-10 border-b pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-md">
-        <div className="flex items-center gap-3 px-2 py-2.5">
-          <SmartBackButton fallbackUrl="/messages" />
+        <div className="flex items-center gap-3 px-2 py-1.5">
+          <SmartBackButton
+            fallbackUrl="/messages"
+            className="min-h-0 min-w-0"
+          />
 
           <div className="min-w-0 flex-1 text-center">
             <Link
@@ -457,7 +456,7 @@ export default function ConversationThreadPage() {
           </div>
 
           {/* Spacer to balance the back button for centering */}
-          <div className="w-9 shrink-0" />
+          <div className="size-8 shrink-0" />
         </div>
 
         <ListingContextBar listing={conversation.listing} />

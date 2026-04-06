@@ -12,6 +12,10 @@ import {
   ConversationListSkeleton,
 } from "@/components/messages/conversation-list";
 import { EmptyState } from "@/components/shared/empty-state";
+import type { Database } from "@/types/database";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+
+type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -27,11 +31,20 @@ export default function MessagesPage() {
     });
   }, [queryClient]);
 
+  const handleMessageInsert = useCallback(
+    (payload: RealtimePostgresChangesPayload<MessageRow>) => {
+      const newMsg = payload.new as MessageRow | undefined;
+      if (newMsg?.sender_id === user?.id) return;
+      invalidateConversations();
+    },
+    [invalidateConversations, user?.id],
+  );
+
   useRealtime({
     channelName: `inbox-messages-${user?.id ?? "anon"}`,
     table: "messages",
     event: "INSERT",
-    onInsert: invalidateConversations,
+    onInsert: handleMessageInsert,
     enabled: !!user,
   });
 

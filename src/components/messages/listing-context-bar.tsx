@@ -17,15 +17,15 @@ export function ListingContextBar({ listing }: ListingContextBarProps) {
   return (
     <Link
       href={`/listing/${listing.id}`}
-      className="bg-card border-border hover:bg-muted/50 flex items-center gap-3 border-b p-3 transition-colors"
+      className="bg-card border-border hover:bg-muted/50 flex items-center gap-2.5 border-b px-3 py-2 transition-colors"
     >
-      <div className="border-border size-10 shrink-0 overflow-hidden rounded-sm border">
+      <div className="border-border size-8 shrink-0 overflow-hidden rounded-sm border">
         {listing.cover_image_url ? (
           <Image
             src={listing.cover_image_url}
             alt={listing.title}
-            width={40}
-            height={40}
+            width={32}
+            height={32}
             className="size-full object-cover"
           />
         ) : (
@@ -34,7 +34,7 @@ export function ListingContextBar({ listing }: ListingContextBarProps) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-foreground truncate text-sm font-medium">
+        <p className="text-foreground truncate text-xs font-medium">
           {listing.title}
         </p>
         <p className="text-brand text-xs font-semibold">

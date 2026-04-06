@@ -24,7 +24,7 @@ export interface ConversationDetail {
 
 export interface MessagesPage {
   messages: Message[];
-  nextCursor: string | null;
+  nextCursor: { created_at: string; id: string } | null;
 }
 
 export async function fetchConversations(): Promise<ConversationPreview[]> {
@@ -36,80 +36,41 @@ export async function fetchConversations(): Promise<ConversationPreview[]> {
 
   if (!user) throw new Error("Non authentifié");
 
-  const { data: conversations, error } = await supabase
-    .from("conversations")
-    .select(
-      `
-      *,
-      listing:listings!listing_id (
-        id,
-        title,
-        cover_image_url,
-        display_price,
-        status
-      ),
-      buyer:profiles!buyer_id (
-        id,
-        username,
-        avatar_url
-      ),
-      seller:profiles!seller_id (
-        id,
-        username,
-        avatar_url
-      ),
-      messages (
-        id,
-        content,
-        message_type,
-        created_at,
-        sender_id,
-        read_at
-      )
-    `,
-    )
-    .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-    .order("created_at", { referencedTable: "messages", ascending: false });
+  const { data, error } = await supabase.rpc("get_inbox", {
+    p_user_id: user.id,
+  });
 
   if (error) throw error;
-  if (!conversations) return [];
+  if (!data) return [];
 
-  return conversations
-    .map((conv) => {
-      const messages = conv.messages ?? [];
-      const lastMessage = messages[0] ?? null;
-      const isBuyer = conv.buyer_id === user.id;
-      const otherUser = isBuyer ? conv.seller : conv.buyer;
-
-      const unreadCount = messages.filter(
-        (m: { read_at: string | null; sender_id: string }) =>
-          m.read_at === null && m.sender_id !== user.id,
-      ).length;
-
-      return {
-        id: conv.id,
-        listing_id: conv.listing_id,
-        buyer_id: conv.buyer_id,
-        seller_id: conv.seller_id,
-        created_at: conv.created_at,
-        listing: conv.listing,
-        other_user: otherUser,
-        last_message: lastMessage
-          ? {
-              content: lastMessage.content,
-              message_type: lastMessage.message_type,
-              created_at: lastMessage.created_at,
-              sender_id: lastMessage.sender_id,
-            }
-          : null,
-        unread_count: unreadCount,
-      } as ConversationPreview;
-    })
-    .sort((a, b) => {
-      const dateA = a.last_message?.created_at ?? a.created_at ?? "";
-      const dateB = b.last_message?.created_at ?? b.created_at ?? "";
-      return new Date(dateB).getTime() - new Date(dateA).getTime();
-    });
+  return data.map((row) => ({
+    id: row.id,
+    listing_id: row.listing_id,
+    buyer_id: row.buyer_id,
+    seller_id: row.seller_id,
+    created_at: row.created_at,
+    listing: {
+      id: row.listing_id,
+      title: row.listing_title,
+      cover_image_url: row.listing_cover_image_url,
+      display_price: Number(row.listing_display_price ?? 0),
+      status: row.listing_status ?? "ACTIVE",
+    },
+    other_user: {
+      id: row.other_user_id,
+      username: row.other_user_username,
+      avatar_url: row.other_user_avatar_url,
+    },
+    last_message: row.last_message_created_at
+      ? {
+          content: row.last_message_content,
+          message_type: row.last_message_type ?? "text",
+          created_at: row.last_message_created_at,
+          sender_id: row.last_message_sender_id!,
+        }
+      : null,
+    unread_count: Number(row.unread_count ?? 0),
+  })) as ConversationPreview[];
 }
 
 export async function fetchOrCreateConversation(
@@ -123,38 +84,15 @@ export async function fetchOrCreateConversation(
 
   if (!user) throw new Error("Non authentifié");
 
-  const { data: listing } = await supabase
-    .from("listings")
-    .select("seller_id")
-    .eq("id", listingId)
-    .single();
+  const { data, error } = await supabase.rpc("upsert_conversation", {
+    p_listing_id: listingId,
+    p_buyer_id: user.id,
+  });
 
-  if (!listing) throw new Error("Annonce introuvable");
-  if (listing.seller_id === user.id)
-    throw new Error("Vous ne pouvez pas vous envoyer un message");
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Impossible de créer la conversation");
 
-  const { data: existing } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("listing_id", listingId)
-    .eq("buyer_id", user.id)
-    .eq("seller_id", listing.seller_id)
-    .maybeSingle();
-
-  if (existing) return existing.id;
-
-  const { data: created, error } = await supabase
-    .from("conversations")
-    .insert({
-      listing_id: listingId,
-      buyer_id: user.id,
-      seller_id: listing.seller_id,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw error;
-  return created.id;
+  return data;
 }
 
 export async function fetchConversationDetail(
@@ -220,7 +158,7 @@ export async function fetchConversationDetail(
 
 export async function fetchMessages(
   conversationId: string,
-  cursor?: string,
+  cursor?: { created_at: string; id: string },
 ): Promise<MessagesPage> {
   const supabase = createClient();
 
@@ -229,10 +167,13 @@ export async function fetchMessages(
     .select("*")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(LIMITS.MESSAGES_PER_PAGE);
 
   if (cursor) {
-    query = query.lt("created_at", cursor);
+    query = query.or(
+      `created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`,
+    );
   }
 
   const { data, error } = await query;
@@ -241,38 +182,13 @@ export async function fetchMessages(
   const messages = (data ?? []) as Message[];
   const nextCursor =
     messages.length === LIMITS.MESSAGES_PER_PAGE
-      ? messages[messages.length - 1].created_at
+      ? {
+          created_at: messages[messages.length - 1].created_at!,
+          id: messages[messages.length - 1].id,
+        }
       : null;
 
   return { messages, nextCursor };
-}
-
-export async function sendMessage(
-  conversationId: string,
-  content: string,
-  type: string = "text",
-): Promise<Message> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
-
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      sender_id: user.id,
-      content,
-      message_type: type,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as Message;
 }
 
 export async function fetchUnreadCount(): Promise<number> {
