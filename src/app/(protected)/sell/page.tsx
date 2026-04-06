@@ -71,11 +71,20 @@ export default function SellPage() {
     }));
 
     try {
-      const res = await fetch("/api/ocr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: images.coverUrl }),
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 55_000);
+
+      let res: Response;
+      try {
+        res = await fetch("/api/ocr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_url: images.coverUrl }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -100,8 +109,12 @@ export default function SellPage() {
         setShowForm(true);
       }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erreur lors du scan";
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      const message = isAbort
+        ? "L'analyse a pris trop de temps. Essayez avec une image plus petite."
+        : err instanceof Error
+          ? err.message
+          : "Erreur lors du scan";
       toast.error(message);
       setOcr((prev) => ({ ...prev, isLoading: false }));
     }

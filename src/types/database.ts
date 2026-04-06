@@ -1045,6 +1045,13 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      release_escrow_funds: {
+        Args: {
+          p_transaction_id: string;
+          p_buyer_id: string;
+        };
+        Returns: boolean;
+      };
       count_new_for_saved_searches: {
         Args: never;
         Returns: {

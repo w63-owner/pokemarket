@@ -8,6 +8,9 @@ import { ocrRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import type { OcrCandidate, OcrParsed, OcrResponse } from "@/types/api";
 import type { Json } from "@/types/database";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 }

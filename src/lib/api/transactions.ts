@@ -122,54 +122,6 @@ export async function shipOrder(
   }).catch(() => {});
 }
 
-export async function confirmReception(
-  transactionId: string,
-  rating: number,
-  comment: string | null,
-  conversationId: string,
-): Promise<void> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  const { data: tx, error: fetchError } = await supabase
-    .from("transactions")
-    .select("seller_id")
-    .eq("id", transactionId)
-    .eq("buyer_id", user.id)
-    .eq("status", "SHIPPED")
-    .single();
-
-  if (fetchError || !tx)
-    throw fetchError ?? new Error("Transaction introuvable");
-
-  const { error: txError } = await supabase
-    .from("transactions")
-    .update({ status: "COMPLETED" })
-    .eq("id", transactionId);
-
-  if (txError) throw txError;
-
-  const { error: reviewError } = await supabase.from("reviews").insert({
-    transaction_id: transactionId,
-    reviewer_id: user.id,
-    reviewee_id: (tx as { seller_id: string }).seller_id,
-    rating,
-    ...(comment && { comment }),
-  });
-
-  if (reviewError) throw reviewError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Vente finalisée",
-    message_type: "sale_completed",
-    metadata: { rating, ...(comment && { comment }) },
-  });
-
-  if (msgError) throw msgError;
-}
+// confirmReception has been moved to src/actions/transactions.ts (Server Action).
+// It now calls the release_escrow_funds RPC atomically and handles
+// revalidatePath for /wallet and /orders.

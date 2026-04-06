@@ -170,13 +170,33 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: buyerProfile } = await admin
+      .from("profiles")
+      .select("stripe_customer_id, email")
+      .eq("id", user.id)
+      .single();
+
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
       "http://localhost:3000";
 
+    const stripeCustomerProps = buyerProfile?.stripe_customer_id
+      ? {
+          customer: buyerProfile.stripe_customer_id,
+          customer_update: { address: "auto" as const, name: "auto" as const },
+        }
+      : { customer_email: user.email };
+
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      ...stripeCustomerProps,
+      // No application_fee_amount here: this integration uses the
+      // "separate charges and transfers" Connect model for escrow.
+      // application_fee_amount requires on_behalf_of / destination charges
+      // and cannot be combined with separate transfers (Stripe rejects it).
+      // The platform fee is tracked in transactions.fee_amount and deducted
+      // when the seller manually requests a payout after buyer confirmation.
       line_items: [
         {
           price_data: {

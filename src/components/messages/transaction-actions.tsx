@@ -35,10 +35,10 @@ import { StarRating } from "@/components/shared/star-rating";
 import { queryKeys } from "@/lib/query-keys";
 import {
   shipOrder,
-  confirmReception,
   createDispute,
   type DisputeReason,
 } from "@/lib/api/transactions";
+import { confirmReceptionAction } from "@/actions/transactions";
 import type { Transaction } from "@/types";
 import type { User } from "@supabase/supabase-js";
 
@@ -440,17 +440,23 @@ function ConfirmReceptionBar({
 
   const mutation = useMutation({
     mutationFn: () =>
-      confirmReception(
+      confirmReceptionAction({
         transactionId,
         rating,
-        comment.trim() || null,
+        comment: comment.trim() || null,
         conversationId,
-      ),
-    onSuccess: () => {
+      }),
+    onSuccess: (result) => {
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       setOpen(false);
       setRating(0);
       setComment("");
       toast.success("Réception confirmée ! Merci pour votre avis.");
+      // Invalidate React Query caches so the conversation and order status
+      // update instantly without waiting for a page reload.
       queryClient.invalidateQueries({
         queryKey: queryKeys.transactions.byListing(listingId),
       });
@@ -459,6 +465,10 @@ function ConfirmReceptionBar({
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.detail(conversationId),
+      });
+      // Reflect the new available_balance in the wallet widget if visible.
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.wallet.balance(),
       });
     },
     onError: () => {

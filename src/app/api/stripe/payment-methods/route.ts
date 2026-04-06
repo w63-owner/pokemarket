@@ -28,17 +28,19 @@ export async function GET() {
     }
 
     const stripe = getStripe();
+    // No type filter → returns all saved payment methods (cards, SEPA, etc.)
+    // consistent with dynamic payment methods being enabled on the account.
     const methods = await stripe.paymentMethods.list({
       customer: profile.stripe_customer_id,
-      type: "card",
     });
 
     const cards = methods.data.map((pm) => ({
       id: pm.id,
-      brand: pm.card?.brand ?? "unknown",
-      last4: pm.card?.last4 ?? "????",
-      exp_month: pm.card?.exp_month ?? 0,
-      exp_year: pm.card?.exp_year ?? 0,
+      type: pm.type,
+      brand: pm.card?.brand ?? null,
+      last4: pm.card?.last4 ?? pm.sepa_debit?.last4 ?? "????",
+      exp_month: pm.card?.exp_month ?? null,
+      exp_year: pm.card?.exp_year ?? null,
     }));
 
     return NextResponse.json({ payment_methods: cards });
@@ -84,9 +86,14 @@ export async function POST() {
         .eq("id", user.id);
     }
 
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
+      "http://localhost:3000";
+
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      payment_method_types: ["card"],
+      automatic_payment_methods: { enabled: true },
+      return_url: `${appUrl}/settings/payment-methods?setup_complete=true`,
     });
 
     return NextResponse.json({ client_secret: setupIntent.client_secret });

@@ -38,14 +38,22 @@ export async function GET() {
     let stripeAccountId = profile.stripe_account_id;
 
     if (!stripeAccountId) {
+      // Controller properties replace the deprecated type:"express" enum.
+      // "stripe" requirement_collection = Stripe hosts the onboarding UI.
+      // "application" fees payer = platform is responsible for Stripe fees.
       const account = await stripe.accounts.create({
-        type: "express",
-        country: "FR",
-        email: user.email,
+        controller: {
+          stripe_dashboard: { type: "express" },
+          fees: { payer: "application" },
+          losses: { payments: "application" },
+          requirement_collection: "stripe",
+        },
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },
         },
+        country: "FR",
+        email: user.email,
         metadata: { user_id: user.id },
       });
 

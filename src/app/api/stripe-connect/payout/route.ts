@@ -22,6 +22,10 @@ export async function POST() {
     const admin = createAdminClient();
     const stripe = getStripe();
 
+    // Explicit ownership assertion: every downstream query is scoped to user.id,
+    // so a caller can only ever touch their own wallet and their own Stripe account.
+    // Any attempt to pass a different user's data would require a forged JWT,
+    // which Supabase Auth already rejects at the getUser() step above.
     const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("stripe_account_id")
@@ -82,12 +86,91 @@ export async function POST() {
     const amountInCents = Math.round(availableBalance * 100);
     const currency = wallet.currency ?? "eur";
 
-    const transfer = await stripe.transfers.create({
-      amount: amountInCents,
-      currency,
-      destination: profile.stripe_account_id,
-      metadata: { user_id: user.id, type: "seller_payout" },
-    });
+    // Idempotency key: scoped to user + amount + day.
+    // Within 24 h, any network-level retry of the same payout hits the same
+    // Stripe idempotency window and returns the existing transfer instead of
+    // creating a duplicate. A new day produces a new key, which is fine because
+    // the optimistic-lock update below guarantees the balance was genuinely
+    // re-credited before a second payout can succeed.
+    const today = new Date().toISOString().slice(0, 10);
+    const transferIdempotencyKey = `payout-transfer-${user.id}-${amountInCents}-${today}`;
+    const payoutIdempotencyKey = `payout-explicit-${user.id}-${amountInCents}-${today}`;
+
+    // Atomically deduct the wallet BEFORE calling Stripe.
+    // The extra .eq("available_balance", availableBalance) acts as an optimistic
+    // lock: if a concurrent request already deducted this balance (or it changed),
+    // PostgREST returns 0 rows and we bail early — preventing a double-payout.
+    const { data: deducted, error: deductError } = await admin
+      .from("wallets")
+      .update({ available_balance: 0 })
+      .eq("user_id", user.id)
+      .eq("available_balance", availableBalance)
+      .select("available_balance");
+
+    if (deductError) {
+      Sentry.captureException(deductError);
+      return NextResponse.json(
+        { error: "Erreur lors de la réservation du solde" },
+        { status: 500 },
+      );
+    }
+
+    if (!deducted || deducted.length === 0) {
+      return NextResponse.json(
+        { error: "Solde insuffisant ou virement déjà en cours" },
+        { status: 409 },
+      );
+    }
+
+    let transfer: Awaited<ReturnType<typeof stripe.transfers.create>> | null =
+      null;
+
+    try {
+      transfer = await stripe.transfers.create(
+        {
+          amount: amountInCents,
+          currency,
+          destination: profile.stripe_account_id,
+          metadata: {
+            user_id: user.id,
+            type: "seller_payout",
+            amount_eur: (amountInCents / 100).toFixed(2),
+            stripe_account_id: profile.stripe_account_id,
+          },
+        },
+        { idempotencyKey: transferIdempotencyKey },
+      );
+    } catch (stripeErr) {
+      // Stripe rejected the transfer — restore the wallet so the seller
+      // can try again. If this restore fails we log a critical alert since
+      // the ledger and Stripe are now out of sync.
+      const { error: restoreError } = await admin
+        .from("wallets")
+        .update({ available_balance: availableBalance })
+        .eq("user_id", user.id)
+        .eq("available_balance", 0);
+
+      if (restoreError) {
+        Sentry.captureException(restoreError, {
+          extra: {
+            context: "wallet_restore_failed_after_stripe_error",
+            user_id: user.id,
+            amount: availableBalance,
+          },
+        });
+        console.error(
+          "[payout] CRITICAL: wallet restore failed after Stripe error",
+          {
+            user_id: user.id,
+            amount: availableBalance,
+            restoreError,
+            stripeErr,
+          },
+        );
+      }
+
+      throw stripeErr;
+    }
 
     let payoutId: string | null = null;
     try {
@@ -95,9 +178,15 @@ export async function POST() {
         {
           amount: amountInCents,
           currency,
-          metadata: { user_id: user.id, transfer_id: transfer.id },
+          metadata: {
+            user_id: user.id,
+            transfer_id: transfer.id,
+          },
         },
-        { stripeAccount: profile.stripe_account_id },
+        {
+          stripeAccount: profile.stripe_account_id,
+          idempotencyKey: payoutIdempotencyKey,
+        },
       );
       payoutId = payout.id;
     } catch (payoutErr) {
@@ -108,23 +197,11 @@ export async function POST() {
       );
     }
 
-    const { error: walletUpdateError } = await admin
-      .from("wallets")
-      .update({ available_balance: 0 })
-      .eq("user_id", user.id);
-
-    if (walletUpdateError) {
-      console.error(
-        "[payout] Failed to zero wallet after successful transfer:",
-        walletUpdateError,
-      );
-    }
-
     // Audit trail: the transactions table is scoped to marketplace purchases
     // (listing_id FK). Stripe transfer/payout IDs serve as the primary audit
     // record. A dedicated wallet_history table should be added for full
     // on-platform payout traceability.
-    console.warn("[payout] Completed", {
+    console.info("[payout] Completed", {
       user_id: user.id,
       amount: availableBalance,
       stripe_transfer_id: transfer.id,
