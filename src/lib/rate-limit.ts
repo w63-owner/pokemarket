@@ -1,7 +1,15 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-const redis = Redis.fromEnv();
+let redis: Redis;
+try {
+  redis = Redis.fromEnv();
+} catch {
+  console.warn(
+    "[rate-limit] UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set — rate limiting disabled",
+  );
+  redis = {} as Redis;
+}
 
 export const ocrRateLimit = new Ratelimit({
   redis,
@@ -49,25 +57,31 @@ export async function applyRateLimit(
   limiter: Ratelimit,
   identifier: string,
 ): Promise<Response | null> {
-  const { success, limit, remaining, reset } = await limiter.limit(identifier);
+  try {
+    const { success, limit, remaining, reset } =
+      await limiter.limit(identifier);
 
-  if (!success) {
-    const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-    return new Response(
-      JSON.stringify({
-        error: "Trop de requêtes. Veuillez patienter avant de réessayer.",
-      }),
-      {
-        status: 429,
-        headers: {
-          "Content-Type": "application/json",
-          "X-RateLimit-Limit": String(limit),
-          "X-RateLimit-Remaining": String(remaining),
-          "Retry-After": String(retryAfter),
+    if (!success) {
+      const retryAfter = Math.ceil((reset - Date.now()) / 1000);
+      return new Response(
+        JSON.stringify({
+          error: "Trop de requêtes. Veuillez patienter avant de réessayer.",
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "X-RateLimit-Limit": String(limit),
+            "X-RateLimit-Remaining": String(remaining),
+            "Retry-After": String(retryAfter),
+          },
         },
-      },
-    );
-  }
+      );
+    }
 
-  return null;
+    return null;
+  } catch (err) {
+    console.warn("[rate-limit] Redis unavailable, failing open:", err);
+    return null;
+  }
 }

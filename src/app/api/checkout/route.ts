@@ -48,32 +48,7 @@ export async function POST(request: Request) {
     }).catch(() => {});
     // #endregion
 
-    let supabase;
-    try {
-      supabase = await createClient();
-    } catch (scErr) {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "32ea25",
-          },
-          body: JSON.stringify({
-            sessionId: "32ea25",
-            location: "checkout/route.ts:createClient",
-            message: "createClient threw",
-            data: { error: String(scErr) },
-            timestamp: Date.now(),
-            hypothesisId: "H4",
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
-      throw scErr;
-    }
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -82,7 +57,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    let rateLimitResponse;
+    let rateLimitResponse: Response | null = null;
     try {
       rateLimitResponse = await applyRateLimit(checkoutRateLimit, user.id);
     } catch (rlErr) {
@@ -106,7 +81,7 @@ export async function POST(request: Request) {
         },
       ).catch(() => {});
       // #endregion
-      throw rlErr;
+      console.warn("Rate limiter unavailable, failing open:", rlErr);
     }
     if (rateLimitResponse) return rateLimitResponse;
 
