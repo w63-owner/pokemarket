@@ -288,7 +288,7 @@ export async function POST(request: Request) {
 
     const { data: buyerProfile } = await admin
       .from("profiles")
-      .select("stripe_customer_id, email")
+      .select("stripe_customer_id")
       .eq("id", user.id)
       .single();
 
