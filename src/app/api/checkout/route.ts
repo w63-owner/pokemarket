@@ -30,7 +30,50 @@ async function getShippingCost(
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    // #region agent log
+    fetch("http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "32ea25",
+      },
+      body: JSON.stringify({
+        sessionId: "32ea25",
+        location: "checkout/route.ts:POST:entry",
+        message: "Checkout POST started",
+        data: {},
+        timestamp: Date.now(),
+        hypothesisId: "ALL",
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    let supabase;
+    try {
+      supabase = await createClient();
+    } catch (scErr) {
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "32ea25",
+          },
+          body: JSON.stringify({
+            sessionId: "32ea25",
+            location: "checkout/route.ts:createClient",
+            message: "createClient threw",
+            data: { error: String(scErr) },
+            timestamp: Date.now(),
+            hypothesisId: "H4",
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+      throw scErr;
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -39,7 +82,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const rateLimitResponse = await applyRateLimit(checkoutRateLimit, user.id);
+    let rateLimitResponse;
+    try {
+      rateLimitResponse = await applyRateLimit(checkoutRateLimit, user.id);
+    } catch (rlErr) {
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "32ea25",
+          },
+          body: JSON.stringify({
+            sessionId: "32ea25",
+            location: "checkout/route.ts:rateLimit",
+            message: "Rate limiter threw",
+            data: { error: String(rlErr) },
+            timestamp: Date.now(),
+            hypothesisId: "H4",
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+      throw rlErr;
+    }
     if (rateLimitResponse) return rateLimitResponse;
 
     const body = await request.json();
@@ -137,25 +205,73 @@ export async function POST(request: Request) {
       Date.now() + LIMITS.CHECKOUT_LOCK_MINUTES * 60 * 1000,
     ).toISOString();
 
-    const { data: transaction, error: txError } = await admin
-      .from("transactions")
-      .insert({
-        listing_id,
-        buyer_id: user.id,
-        seller_id: listing.seller_id,
-        total_amount: totalAmount,
-        fee_amount: feeAmount,
-        shipping_cost: shippingCost,
-        status: "PENDING_PAYMENT",
-        expiration_date: expirationDate,
-        listing_title: listing.title,
-        shipping_address_line,
-        shipping_address_city,
-        shipping_address_postcode,
-        shipping_country,
-      })
-      .select("id")
-      .single();
+    let txResult;
+    try {
+      txResult = await admin
+        .from("transactions")
+        .insert({
+          listing_id,
+          buyer_id: user.id,
+          seller_id: listing.seller_id,
+          total_amount: totalAmount,
+          fee_amount: feeAmount,
+          shipping_cost: shippingCost,
+          status: "PENDING_PAYMENT",
+          expiration_date: expirationDate,
+          listing_title: listing.title,
+          shipping_address_line,
+          shipping_address_city,
+          shipping_address_postcode,
+          shipping_country,
+        })
+        .select("id")
+        .single();
+    } catch (txInsertErr) {
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "32ea25",
+          },
+          body: JSON.stringify({
+            sessionId: "32ea25",
+            location: "checkout/route.ts:txInsert",
+            message: "Transaction insert threw",
+            data: { error: String(txInsertErr) },
+            timestamp: Date.now(),
+            hypothesisId: "H3",
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+      throw txInsertErr;
+    }
+    const { data: transaction, error: txError } = txResult;
+
+    // #region agent log
+    fetch("http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "32ea25",
+      },
+      body: JSON.stringify({
+        sessionId: "32ea25",
+        location: "checkout/route.ts:txResult",
+        message: "Transaction insert result",
+        data: {
+          transactionId: transaction?.id,
+          txError: txError?.message,
+          txErrorCode: txError?.code,
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H3",
+      }),
+    }).catch(() => {});
+    // #endregion
 
     if (txError || !transaction) {
       const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
@@ -187,48 +303,108 @@ export async function POST(request: Request) {
         }
       : { customer_email: user.email };
 
-    const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      ...stripeCustomerProps,
-      // No application_fee_amount here: this integration uses the
-      // "separate charges and transfers" Connect model for escrow.
-      // application_fee_amount requires on_behalf_of / destination charges
-      // and cannot be combined with separate transfers (Stripe rejects it).
-      // The platform fee is tracked in transactions.fee_amount and deducted
-      // when the seller manually requests a payout after buyer confirmation.
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: listing.title,
-              images: listing.cover_image_url
-                ? [listing.cover_image_url]
-                : undefined,
-            },
-            unit_amount: Math.round(effectiveDisplayPrice * 100),
-          },
-          quantity: 1,
-        },
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: "Frais de livraison" },
-            unit_amount: Math.round(shippingCost * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        transaction_id: transaction.id,
-        listing_id,
+    const stripeExpiresAt =
+      Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60;
+
+    // #region agent log
+    fetch("http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "32ea25",
       },
-      success_url: `${appUrl}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/listing/${listing_id}?checkout=cancelled`,
-      expires_at:
-        Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
-    });
+      body: JSON.stringify({
+        sessionId: "32ea25",
+        location: "checkout/route.ts:beforeStripe",
+        message: "About to create Stripe session",
+        data: {
+          stripeCustomerProps,
+          appUrl,
+          effectiveDisplayPrice,
+          shippingCost,
+          unitAmountCard: Math.round(effectiveDisplayPrice * 100),
+          unitAmountShipping: Math.round(shippingCost * 100),
+          expiresAt: stripeExpiresAt,
+          transactionId: transaction.id,
+          listingId: listing_id,
+          listingTitle: listing.title,
+          coverImageUrl: listing.cover_image_url,
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H1_H2",
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    const stripe = getStripe();
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        ...stripeCustomerProps,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              product_data: {
+                name: listing.title,
+                images: listing.cover_image_url
+                  ? [listing.cover_image_url]
+                  : undefined,
+              },
+              unit_amount: Math.round(effectiveDisplayPrice * 100),
+            },
+            quantity: 1,
+          },
+          {
+            price_data: {
+              currency: "eur",
+              product_data: { name: "Frais de livraison" },
+              unit_amount: Math.round(shippingCost * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          transaction_id: transaction.id,
+          listing_id,
+        },
+        success_url: `${appUrl}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/listing/${listing_id}?checkout=cancelled`,
+        expires_at: stripeExpiresAt,
+      });
+    } catch (stripeErr: unknown) {
+      // #region agent log
+      const sErrData: Record<string, unknown> = { error: String(stripeErr) };
+      if (stripeErr && typeof stripeErr === "object") {
+        const se = stripeErr as Record<string, unknown>;
+        sErrData.type = se.type;
+        sErrData.code = se.code;
+        sErrData.statusCode = se.statusCode;
+        sErrData.message = se.message;
+        sErrData.param = se.param;
+      }
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "32ea25",
+          },
+          body: JSON.stringify({
+            sessionId: "32ea25",
+            location: "checkout/route.ts:stripeCreate",
+            message: "Stripe session create threw",
+            data: sErrData,
+            timestamp: Date.now(),
+            hypothesisId: "H1_H2",
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+      throw stripeErr;
+    }
 
     await admin
       .from("transactions")
@@ -242,11 +418,51 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (err) {
+    // #region agent log
+    const errData: Record<string, unknown> = {
+      error: String(err),
+      stack: (err as Error)?.stack,
+    };
+    if (err && typeof err === "object") {
+      const e = err as Record<string, unknown>;
+      errData.type = e.type;
+      errData.code = e.code;
+      errData.statusCode = e.statusCode;
+      errData.message = e.message;
+      errData.param = e.param;
+      errData.name = e.name;
+    }
+    fetch("http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "32ea25",
+      },
+      body: JSON.stringify({
+        sessionId: "32ea25",
+        location: "checkout/route.ts:catch",
+        message: "Unhandled checkout error",
+        data: errData,
+        timestamp: Date.now(),
+        hypothesisId: "ALL",
+      }),
+    }).catch(() => {});
+    // #endregion
     Sentry.captureException(err);
     console.error("Checkout error:", err);
+    // #region agent log — temporary: surface real error in production for debugging
+    const debugMsg = err instanceof Error ? err.message : String(err);
+    const debugCode =
+      (err as Record<string, unknown>)?.code ??
+      (err as Record<string, unknown>)?.type ??
+      "";
     return NextResponse.json(
-      { error: "Erreur serveur inattendue" },
+      {
+        error: "Erreur serveur inattendue",
+        _debug: { message: debugMsg, code: debugCode },
+      },
       { status: 500 },
     );
+    // #endregion
   }
 }

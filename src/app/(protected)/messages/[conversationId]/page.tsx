@@ -227,6 +227,7 @@ export default function ConversationThreadPage() {
         const exists = old.pages.some((p) =>
           p.messages.some((m) => m.id === newMsg.id),
         );
+
         if (exists) return old;
         return {
           ...old,

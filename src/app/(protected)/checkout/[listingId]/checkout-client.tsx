@@ -83,30 +83,34 @@ export function CheckoutClient({
       const data = await res.json();
 
       // #region agent log
-      if (!res.ok) {
-        fetch(
-          "http://127.0.0.1:7565/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "2761b8",
-            },
-            body: JSON.stringify({
-              sessionId: "2761b8",
-              location: "checkout-client.tsx:handleCheckout",
-              message: "Checkout API error response",
-              data: { status: res.status, body: data, debug: data._debug },
-              timestamp: Date.now(),
-              hypothesisId: "ALL",
-            }),
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "32ea25",
           },
-        ).catch(() => {});
-      }
+          body: JSON.stringify({
+            sessionId: "32ea25",
+            location: "checkout-client.tsx:response",
+            message: "Checkout API response received",
+            data: { status: res.status, ok: res.ok, body: data },
+            timestamp: Date.now(),
+            hypothesisId: "ALL",
+          }),
+        },
+      ).catch(() => {});
       // #endregion
 
       if (!res.ok) {
-        toast.error(data.error ?? "Une erreur est survenue");
+        // #region agent log — temporary: show debug details in production
+        const debugInfo = data._debug
+          ? ` [${data._debug.code}] ${data._debug.message}`
+          : "";
+        toast.error((data.error ?? "Une erreur est survenue") + debugInfo);
+        console.error("[checkout debug]", data);
+        // #endregion
         setIsLoading(false);
         return;
       }
@@ -116,16 +120,16 @@ export function CheckoutClient({
     } catch (fetchErr) {
       // #region agent log
       fetch(
-        "http://127.0.0.1:7565/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Debug-Session-Id": "2761b8",
+            "X-Debug-Session-Id": "32ea25",
           },
           body: JSON.stringify({
-            sessionId: "2761b8",
-            location: "checkout-client.tsx:handleCheckout:catch",
+            sessionId: "32ea25",
+            location: "checkout-client.tsx:catch",
             message: "Checkout fetch network error",
             data: { error: String(fetchErr) },
             timestamp: Date.now(),
