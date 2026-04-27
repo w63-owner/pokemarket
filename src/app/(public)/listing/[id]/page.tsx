@@ -256,6 +256,20 @@ export default async function ListingPage({ params }: Props) {
         listingId={listing.id}
         mode={isOwner ? "seller" : "buyer"}
         currentPrice={listing.display_price ?? 0}
+        listingStatus={
+          (listing.status ?? "ACTIVE") as
+            | "ACTIVE"
+            | "LOCKED"
+            | "RESERVED"
+            | "SOLD"
+            | "DRAFT"
+        }
+        isReservedForViewer={
+          !!user &&
+          (listing.status === "RESERVED" || listing.status === "LOCKED") &&
+          listing.reserved_for === user.id
+        }
+        reservedPrice={listing.reserved_price ?? null}
       />
     </div>
   );

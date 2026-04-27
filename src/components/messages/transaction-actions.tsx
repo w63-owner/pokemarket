@@ -62,6 +62,17 @@ export function TransactionActions({
   const isSeller = currentUser.id === sellerId;
   const isBuyer = currentUser.id === buyerId;
 
+  if (transaction.status === "PENDING_PAYMENT") {
+    return (
+      <StatusBar
+        icon={
+          <Loader2 className="size-4 animate-spin text-blue-600 dark:text-blue-400" />
+        }
+        label="Paiement en cours de validation…"
+      />
+    );
+  }
+
   if (transaction.status === "PAID" && isSeller) {
     return (
       <ShipOrderBar

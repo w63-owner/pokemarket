@@ -336,11 +336,25 @@ function SentOfferCard({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-2"
+              className="mt-2 flex items-center gap-2"
             >
               <Button
+                variant="outline"
                 size="sm"
-                className="h-8 w-full gap-1.5"
+                className="h-8 gap-1 text-xs"
+                onClick={() => cancelMut.mutate()}
+                disabled={cancelMut.isPending}
+              >
+                {cancelMut.isPending ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <X className="size-3" />
+                )}
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 flex-1 gap-1.5"
                 onClick={() => router.push(`/checkout/${offer.listing_id}`)}
               >
                 <CreditCard className="size-3.5" />

@@ -82,62 +82,15 @@ export function CheckoutClient({
 
       const data = await res.json();
 
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "32ea25",
-          },
-          body: JSON.stringify({
-            sessionId: "32ea25",
-            location: "checkout-client.tsx:response",
-            message: "Checkout API response received",
-            data: { status: res.status, ok: res.ok, body: data },
-            timestamp: Date.now(),
-            hypothesisId: "ALL",
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
-
       if (!res.ok) {
-        // #region agent log — temporary: show debug details in production
-        const debugInfo = data._debug
-          ? ` [${data._debug.code}] ${data._debug.message}`
-          : "";
-        toast.error((data.error ?? "Une erreur est survenue") + debugInfo);
-        console.error("[checkout debug]", data);
-        // #endregion
+        toast.error(data.error ?? "Une erreur est survenue");
         setIsLoading(false);
         return;
       }
 
       const checkout = data as CheckoutResponse;
       window.location.href = checkout.url;
-    } catch (fetchErr) {
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "32ea25",
-          },
-          body: JSON.stringify({
-            sessionId: "32ea25",
-            location: "checkout-client.tsx:catch",
-            message: "Checkout fetch network error",
-            data: { error: String(fetchErr) },
-            timestamp: Date.now(),
-            hypothesisId: "NETWORK",
-          }),
-        },
-      ).catch(() => {});
-      // #endregion
+    } catch {
       toast.error("Erreur réseau. Veuillez réessayer.");
       setIsLoading(false);
     }

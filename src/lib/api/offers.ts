@@ -55,12 +55,19 @@ export async function acceptOffer(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  const { error: offerError } = await supabase
+  // Atomic guard: only PENDING → ACCEPTED. A seller double-clicking "Accept"
+  // would otherwise insert duplicate system messages.
+  const { data: updated, error: offerError } = await supabase
     .from("offers")
     .update({ status: "ACCEPTED" })
-    .eq("id", offerId);
+    .eq("id", offerId)
+    .eq("status", "PENDING")
+    .select("id");
 
   if (offerError) throw offerError;
+  if (!updated || updated.length === 0) {
+    throw new Error("Cette offre ne peut plus être acceptée");
+  }
 
   const { error: listingError } = await supabase
     .from("listings")
@@ -104,12 +111,18 @@ export async function rejectOffer(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  const { error: offerError } = await supabase
+  // Atomic guard: only PENDING → REJECTED.
+  const { data: updated, error: offerError } = await supabase
     .from("offers")
     .update({ status: "REJECTED" })
-    .eq("id", offerId);
+    .eq("id", offerId)
+    .eq("status", "PENDING")
+    .select("id");
 
   if (offerError) throw offerError;
+  if (!updated || updated.length === 0) {
+    throw new Error("Cette offre ne peut plus être déclinée");
+  }
 
   const { error: msgError } = await supabase.from("messages").insert({
     conversation_id: conversationId,
@@ -126,29 +139,19 @@ export async function cancelOffer(
   offerId: string,
   conversationId: string,
 ): Promise<void> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  const { error: offerError } = await supabase
-    .from("offers")
-    .update({ status: "CANCELLED" })
-    .eq("id", offerId);
-
-  if (offerError) throw offerError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Offre annulée",
-    message_type: "offer_cancelled",
-    offer_id: offerId,
+  const res = await fetch("/api/offers/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      offer_id: offerId,
+      conversation_id: conversationId,
+    }),
   });
 
-  if (msgError) throw msgError;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Impossible d'annuler l'offre");
+  }
 }
 
 export async function fetchReceivedOffers(): Promise<OfferWithContext[]> {

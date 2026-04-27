@@ -270,6 +270,12 @@ export default function ConversationThreadPage() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.transactions.byListing(convQuery.data.listing_id),
         });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.conversations.detail(conversationId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.offers.activeByConversation(conversationId),
+        });
       }
     },
     [conversationId, queryClient, user?.id, convQuery.data],

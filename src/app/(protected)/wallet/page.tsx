@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { m } from "framer-motion";
 import {
   Wallet as WalletIcon,
@@ -20,7 +20,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { queryKeys } from "@/lib/query-keys";
-import { fetchWalletBalance, getOnboardingUrl } from "@/lib/api/wallet";
+import {
+  fetchWalletBalance,
+  getOnboardingUrl,
+  requestPayout,
+} from "@/lib/api/wallet";
 import { formatPrice } from "@/lib/utils";
 import type { KycStatus } from "@/lib/constants";
 
@@ -71,6 +75,7 @@ const KYC_CONFIG: Record<
 
 export default function WalletPage() {
   const { balanceQuery, kycQuery } = useWalletData();
+  const queryClient = useQueryClient();
 
   const onboardMutation = useMutation({
     mutationFn: getOnboardingUrl,
@@ -82,13 +87,29 @@ export default function WalletPage() {
     },
   });
 
+  const payoutMutation = useMutation({
+    mutationFn: requestPayout,
+    onSuccess: () => {
+      toast.success(
+        "Virement demandé ! Les fonds arriveront sous 1 à 3 jours ouvrés.",
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.wallet.balance() });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Impossible de demander le virement");
+    },
+  });
+
   const isLoading = balanceQuery.isLoading || kycQuery.isLoading;
   const wallet = balanceQuery.data;
   const kycData = kycQuery.data;
   const kycStatus = (kycData?.kyc_status ?? "UNVERIFIED") as KycStatus;
   const isVerified = kycStatus === "VERIFIED";
   const canPayout =
-    isVerified && wallet != null && (wallet.available_balance ?? 0) > 0;
+    isVerified &&
+    wallet != null &&
+    (wallet.available_balance ?? 0) > 0 &&
+    !payoutMutation.isPending;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -197,9 +218,21 @@ export default function WalletPage() {
                 size="lg"
                 className="w-full"
                 disabled={!canPayout}
+                onClick={() => payoutMutation.mutate()}
               >
-                <ArrowUpRight className="mr-2 size-4" />
-                Demander un virement
+                {payoutMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Demande en cours…
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpRight className="mr-2 size-4" />
+                    {wallet?.available_balance && wallet.available_balance > 0
+                      ? `Virer ${formatPrice(wallet.available_balance)}`
+                      : "Demander un virement"}
+                  </>
+                )}
               </Button>
               {!isVerified && (
                 <p className="text-muted-foreground mt-1.5 text-center text-xs">
