@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
-import { createElement } from "react";
 import type Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
+
 import { getStripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calcPriceSeller } from "@/lib/pricing";
-import { formatPrice } from "@/lib/utils";
-import { sendEmail } from "@/lib/emails/send";
-import { sendPushNotification } from "@/lib/push/send";
-import OrderConfirmationEmail from "@/emails/order-confirmation";
-import SaleNotificationEmail from "@/emails/sale-notification";
+import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,7 +61,6 @@ export async function POST(request: Request) {
       case "checkout.session.completed":
         await handleCheckoutCompleted(
           event.data.object as Stripe.Checkout.Session,
-          admin,
         );
         break;
 
@@ -104,10 +97,7 @@ export async function POST(request: Request) {
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-async function handleCheckoutCompleted(
-  session: Stripe.Checkout.Session,
-  admin: AdminClient,
-) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const transactionId = session.metadata?.transaction_id;
   const listingId = session.metadata?.listing_id;
 
@@ -115,179 +105,10 @@ async function handleCheckoutCompleted(
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
-  const { data: transaction, error: txFetchError } = await admin
-    .from("transactions")
-    .select("*")
-    .eq("id", transactionId)
-    .single();
+  const result = await finalizePaidTransaction(transactionId);
 
-  if (txFetchError || !transaction) {
+  if (result === "NOT_FOUND") {
     throw new Error(`Transaction ${transactionId} not found`);
-  }
-
-  if (transaction.status !== "PENDING_PAYMENT") {
-    console.warn(
-      `Transaction ${transactionId} already in status ${transaction.status}, skipping`,
-    );
-    return;
-  }
-
-  const { error: txUpdateError } = await admin
-    .from("transactions")
-    .update({ status: "PAID" })
-    .eq("id", transactionId);
-
-  if (txUpdateError) throw txUpdateError;
-
-  const { error: listingUpdateError } = await admin
-    .from("listings")
-    .update({ status: "SOLD" })
-    .eq("id", listingId);
-
-  if (listingUpdateError) throw listingUpdateError;
-
-  revalidatePath(`/listing/${listingId}`);
-
-  const sellerNet = calcPriceSeller(
-    transaction.total_amount - (transaction.shipping_cost ?? 0),
-  );
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("pending_balance")
-    .eq("user_id", transaction.seller_id)
-    .single();
-
-  if (wallet) {
-    const newPending =
-      Math.round((Number(wallet.pending_balance) + sellerNet) * 100) / 100;
-
-    await admin
-      .from("wallets")
-      .update({ pending_balance: newPending })
-      .eq("user_id", transaction.seller_id);
-  }
-
-  await admin
-    .from("offers")
-    .update({ status: "EXPIRED" })
-    .eq("listing_id", listingId)
-    .eq("status", "PENDING");
-
-  const { data: conversation } = await admin
-    .from("conversations")
-    .select("id")
-    .eq("listing_id", listingId)
-    .eq("buyer_id", transaction.buyer_id)
-    .eq("seller_id", transaction.seller_id)
-    .maybeSingle();
-
-  if (conversation) {
-    await admin.from("messages").insert({
-      conversation_id: conversation.id,
-      sender_id: transaction.buyer_id,
-      content: "Paiement confirmé ! La commande est en attente d'expédition.",
-      message_type: "payment_completed",
-      metadata: { transaction_id: transactionId },
-    });
-  }
-
-  await sendTransactionEmails(
-    admin,
-    {
-      buyer_id: transaction.buyer_id,
-      seller_id: transaction.seller_id,
-      total_amount: transaction.total_amount,
-      shipping_cost: transaction.shipping_cost ?? 0,
-      listing_id: transaction.listing_id,
-    },
-    transactionId,
-  );
-
-  await sendPushNotification(
-    transaction.seller_id,
-    "Paiement reçu 💰",
-    "L'acheteur a payé — expédiez le colis !",
-    `/messages/${conversation?.id ?? ""}`,
-  ).catch((err) => Sentry.captureException(err));
-}
-
-async function sendTransactionEmails(
-  admin: AdminClient,
-  transaction: {
-    buyer_id: string;
-    seller_id: string;
-    total_amount: number;
-    shipping_cost: number;
-    listing_id: string;
-  },
-  transactionId: string,
-) {
-  try {
-    const [buyerAuth, sellerAuth, listing] = await Promise.all([
-      admin.auth.admin.getUserById(transaction.buyer_id),
-      admin.auth.admin.getUserById(transaction.seller_id),
-      admin
-        .from("listings")
-        .select("title, cover_image_url")
-        .eq("id", transaction.listing_id)
-        .single(),
-    ]);
-
-    const buyerEmail = buyerAuth.data.user?.email;
-    const sellerEmail = sellerAuth.data.user?.email;
-    const title = listing.data?.title ?? "Carte Pokemon";
-    const coverUrl = listing.data?.cover_image_url ?? undefined;
-
-    const [{ data: buyerProfile }, { data: sellerProfile }] = await Promise.all(
-      [
-        admin
-          .from("profiles")
-          .select("username")
-          .eq("id", transaction.buyer_id)
-          .single(),
-        admin
-          .from("profiles")
-          .select("username")
-          .eq("id", transaction.seller_id)
-          .single(),
-      ],
-    );
-
-    const totalFormatted = formatPrice(transaction.total_amount);
-    const sellerNet = formatPrice(
-      calcPriceSeller(transaction.total_amount - transaction.shipping_cost),
-    );
-
-    if (buyerEmail) {
-      sendEmail(
-        buyerEmail,
-        `Confirmation de commande — ${title}`,
-        createElement(OrderConfirmationEmail, {
-          buyerName: buyerProfile?.username ?? "Dresseur",
-          listingTitle: title,
-          totalAmount: totalFormatted,
-          orderId: transactionId,
-          coverImageUrl: coverUrl,
-        }),
-      );
-    }
-
-    if (sellerEmail) {
-      sendEmail(
-        sellerEmail,
-        `Vous avez vendu ${title} !`,
-        createElement(SaleNotificationEmail, {
-          sellerName: sellerProfile?.username ?? "Vendeur",
-          listingTitle: title,
-          saleAmount: sellerNet,
-          orderId: transactionId,
-          coverImageUrl: coverUrl,
-        }),
-      );
-    }
-  } catch (err) {
-    Sentry.captureException(err);
-    console.error("[webhook] Failed to send transaction emails:", err);
   }
 }
 

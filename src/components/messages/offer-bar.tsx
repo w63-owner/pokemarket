@@ -191,13 +191,29 @@ export function OfferBar({
               Offre acceptée — {formatPrice(checkoutPrice)}
             </span>
           </div>
-          <Button
-            size="sm"
-            className="shrink-0"
-            onClick={() => router.push(`/checkout/${listing.id}`)}
-          >
-            Acheter à {formatPrice(checkoutPrice)}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={() => cancelMutation.mutate()}
+              disabled={isMutating}
+            >
+              {cancelMutation.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <X className="size-3.5" />
+              )}
+              <span className="ml-1">Annuler</span>
+            </Button>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={() => router.push(`/checkout/${listing.id}`)}
+            >
+              Acheter à {formatPrice(checkoutPrice)}
+            </Button>
+          </div>
         </OfferBarShell>
       );
     }

@@ -58,7 +58,7 @@ export async function fetchTransactionByListing(
     .from("transactions")
     .select("*")
     .eq("listing_id", listingId)
-    .in("status", ["PAID", "SHIPPED", "COMPLETED"])
+    .in("status", ["PENDING_PAYMENT", "PAID", "SHIPPED", "COMPLETED"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

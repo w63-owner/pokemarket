@@ -10,6 +10,8 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
+  CheckCircle2,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,10 +29,15 @@ import { formatPrice } from "@/lib/utils";
 import { fetchOrCreateConversation } from "@/lib/api/conversations";
 import { deleteListingAction } from "@/actions/listings";
 
+type ListingViewerStatus = "ACTIVE" | "LOCKED" | "RESERVED" | "SOLD" | "DRAFT";
+
 interface ListingActionsProps {
   listingId: string;
   mode: "buyer" | "seller";
   currentPrice?: number;
+  listingStatus?: ListingViewerStatus;
+  isReservedForViewer?: boolean;
+  reservedPrice?: number | null;
   onDelete?: () => void;
   className?: string;
 }
@@ -39,6 +46,9 @@ export function ListingActions({
   listingId,
   mode,
   currentPrice,
+  listingStatus = "ACTIVE",
+  isReservedForViewer = false,
+  reservedPrice = null,
   onDelete,
   className,
 }: ListingActionsProps) {
@@ -92,30 +102,83 @@ export function ListingActions({
         )}
       >
         {mode === "buyer" ? (
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              size="lg"
-              className="flex-1"
-              onClick={handleContact}
-              disabled={contactLoading}
-            >
-              {contactLoading ? (
-                <Loader2
-                  data-icon="inline-start"
-                  className="size-4 animate-spin"
-                />
-              ) : (
-                <MessageCircle data-icon="inline-start" className="size-4" />
-              )}
-              Contacter
-            </Button>
-            <Button size="lg" className="flex-[2]" onClick={handleBuy}>
-              <ShoppingCart data-icon="inline-start" className="size-4" />
-              Acheter
-              {currentPrice != null ? ` · ${formatPrice(currentPrice)}` : ""}
-            </Button>
-          </div>
+          (() => {
+            // ── SOLD: hide everything except a clear status pill ─────────
+            if (listingStatus === "SOLD") {
+              return (
+                <div className="flex h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 text-sm font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-400">
+                  <CheckCircle2 className="size-4" />
+                  Annonce vendue
+                </div>
+              );
+            }
+
+            // ── RESERVED for someone else: contact only, no Buy button ───
+            if (
+              (listingStatus === "RESERVED" || listingStatus === "LOCKED") &&
+              !isReservedForViewer
+            ) {
+              return (
+                <div className="space-y-2">
+                  <div className="flex h-9 items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 text-xs font-medium text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-400">
+                    <Lock className="size-3.5" />
+                    {listingStatus === "LOCKED"
+                      ? "Paiement en cours par un autre acheteur"
+                      : "Réservée à un autre acheteur"}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full"
+                    onClick={handleContact}
+                    disabled={contactLoading}
+                  >
+                    {contactLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <MessageCircle className="size-4" />
+                    )}
+                    Contacter le vendeur
+                  </Button>
+                </div>
+              );
+            }
+
+            // ── RESERVED for the current viewer: Buy at the reserved price ─
+            const buyPrice =
+              isReservedForViewer && reservedPrice != null
+                ? reservedPrice
+                : (currentPrice ?? 0);
+
+            return (
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1"
+                  onClick={handleContact}
+                  disabled={contactLoading}
+                >
+                  {contactLoading ? (
+                    <Loader2
+                      data-icon="inline-start"
+                      className="size-4 animate-spin"
+                    />
+                  ) : (
+                    <MessageCircle
+                      data-icon="inline-start"
+                      className="size-4"
+                    />
+                  )}
+                  Contacter
+                </Button>
+                <Button size="lg" className="flex-[2]" onClick={handleBuy}>
+                  <ShoppingCart data-icon="inline-start" className="size-4" />
+                  Acheter · {formatPrice(buyPrice)}
+                </Button>
+              </div>
+            );
+          })()
         ) : (
           <div className="flex gap-3">
             <Button
