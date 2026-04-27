@@ -1,0 +1,50 @@
+name: Cron — release-expired
+
+# Runs every 5 minutes. Hits /api/cron/release-expired on the deployed app
+# with the Bearer ${CRON_SECRET} header.
+#
+# IMPORTANT:
+#   - Schedules only fire from the repository default branch.
+#     This file must be merged to `main` for the cron to start.
+#   - GitHub Actions cron is best-effort: actual delivery can lag by 5–15 min
+#     during heavy global load. That's still 10× better than Vercel Hobby's
+#     once-per-day limit.
+#   - Required repo secrets (Settings → Secrets and variables → Actions):
+#       APP_URL       e.g. https://pokemarket.vercel.app
+#       CRON_SECRET   same value as the Vercel env var
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # allow manual runs from the Actions tab
+
+concurrency:
+  group: cron-release-expired
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping /api/cron/release-expired
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate secrets
+        run: |
+          if [ -z "${{ secrets.APP_URL }}" ] || [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::APP_URL and CRON_SECRET must be set as repository secrets"
+            exit 1
+          fi
+
+      - name: Call cron route
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(curl --silent --show-error --fail-with-body \
+            --max-time 60 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "User-Agent: pokemarket-gha-cron" \
+            "${APP_URL%/}/api/cron/release-expired")
+          echo "Response: ${response}"
