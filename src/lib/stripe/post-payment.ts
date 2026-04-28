@@ -1,4 +1,3 @@
-import { revalidatePath } from "next/cache";
 import { createElement } from "react";
 import * as Sentry from "@sentry/nextjs";
 
@@ -73,7 +72,14 @@ export async function finalizePaidTransaction(
     .eq("id", transaction.listing_id);
   if (listingUpdateError) throw listingUpdateError;
 
-  revalidatePath(`/listing/${transaction.listing_id}`);
+  // NOTE: revalidatePath() is intentionally NOT called here. This function is
+  // invoked from BOTH the Stripe webhook (a route handler — safe) and the
+  // /orders/:id/success page (a Server Component render — `revalidatePath`
+  // throws there in Next 16). Each caller is responsible for its own cache
+  // invalidation: the webhook revalidates `/listing/:id` after this returns;
+  // the success page doesn't need to (the listing detail page reloads fresh on
+  // next navigation, and the buyer's own `/orders/:id` is the page being
+  // rendered).
 
   const sellerNet = calcPriceSeller(
     transaction.total_amount - (transaction.shipping_cost ?? 0),

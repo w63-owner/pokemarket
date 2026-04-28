@@ -18,12 +18,20 @@ function getTimeLeft(expiresAt: Date) {
   return { minutes, seconds, total: diff };
 }
 
+// Placeholder used for the very first render so the markup matches between
+// server and client. We can't derive the real countdown during SSR because
+// `Date.now()` would differ from the value computed at hydration on the
+// client (the server clock is ahead of the user's clock by however long the
+// HTML spent travelling over the wire), which produced a hydration mismatch
+// warning attributed to whichever node happened to be next to the timer.
+const INITIAL_TIME_LEFT = { minutes: 0, seconds: 0, total: Infinity };
+
 export function CountdownTimer({
   expiresAt,
   onExpired,
   className,
 }: CountdownTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(expiresAt));
+  const [timeLeft, setTimeLeft] = useState(INITIAL_TIME_LEFT);
   const [expired, setExpired] = useState(false);
 
   const tick = useCallback(() => {
@@ -36,8 +44,18 @@ export function CountdownTimer({
   }, [expiresAt, onExpired]);
 
   useEffect(() => {
+    // Compute the real time left as soon as the next frame after mount (no
+    // flash of "00:00" visible to the user) and then keep ticking every
+    // second. We defer the first tick via rAF instead of calling it
+    // synchronously in the effect body to avoid the cascading-render lint
+    // (`react-hooks/set-state-in-effect`) — calling setState inside a rAF
+    // callback runs outside the effect body, so it's allowed.
+    const raf = requestAnimationFrame(tick);
     const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(id);
+    };
   }, [tick]);
 
   const isUrgent = timeLeft.total > 0 && timeLeft.minutes < 5;

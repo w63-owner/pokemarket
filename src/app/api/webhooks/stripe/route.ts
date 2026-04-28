@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
 
@@ -109,6 +110,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   if (result === "NOT_FOUND") {
     throw new Error(`Transaction ${transactionId} not found`);
+  }
+
+  // Bust the listing detail page cache so the SOLD pill appears immediately.
+  // (Safe inside a route handler — only forbidden during Server Component renders.)
+  if (result === "PAID") {
+    revalidatePath(`/listing/${listingId}`);
   }
 }
 

@@ -7,26 +7,8 @@ import { checkoutSchema } from "@/lib/validations";
 import { calcPriceSeller, calcFeeAmount, calcTotalBuyer } from "@/lib/pricing";
 import { LIMITS } from "@/lib/constants";
 import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
+import { getShippingCost } from "@/lib/shipping";
 import type { CheckoutResponse } from "@/types/api";
-
-const MOCK_SHIPPING_COST = 4.99;
-
-async function getShippingCost(
-  _originCountry: string,
-  destCountry: string,
-  weightClass: string,
-): Promise<number> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("shipping_matrix")
-    .select("price")
-    .eq("dest_country", destCountry)
-    .eq("weight_class", weightClass)
-    .limit(1)
-    .maybeSingle();
-
-  return data?.price ?? MOCK_SHIPPING_COST;
-}
 
 export async function POST(request: Request) {
   try {
@@ -216,7 +198,14 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .single();
 
+    // Derive the redirect base URL from the inbound request first so a buyer
+    // checking out from `localhost:3000` (or a Vercel preview deployment)
+    // doesn't get bounced to the production host on the success page. We only
+    // fall back to NEXT_PUBLIC_APP_URL when no Origin header is present
+    // (e.g. server-to-server invocations during tests).
+    const requestOrigin = request.headers.get("origin");
     const appUrl =
+      requestOrigin?.trim().replace(/\/$/, "") ??
       process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
       "http://localhost:3000";
 

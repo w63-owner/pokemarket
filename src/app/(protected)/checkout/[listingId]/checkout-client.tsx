@@ -24,6 +24,13 @@ import { SHIPPING_COUNTRIES, COUNTRY_LABELS } from "@/lib/constants";
 import type { ShippingCountry } from "@/lib/constants";
 import type { CheckoutResponse } from "@/types/api";
 
+export interface DefaultShipping {
+  addressLine: string;
+  city: string;
+  postcode: string;
+  country: string;
+}
+
 interface CheckoutClientProps {
   listing: {
     id: string;
@@ -39,17 +46,34 @@ interface CheckoutClientProps {
   };
   effectivePrice: number;
   shippingCost: number;
+  /**
+   * Address copied from the buyer's most recent transaction so returning
+   * customers don't have to retype the same shipping info on every checkout.
+   * `null` if this is the buyer's first purchase.
+   */
+  defaultShipping: DefaultShipping | null;
+}
+
+function isSupportedCountry(value: string): value is ShippingCountry {
+  return (SHIPPING_COUNTRIES as readonly string[]).includes(value);
 }
 
 export function CheckoutClient({
   listing,
   effectivePrice,
   shippingCost,
+  defaultShipping,
 }: CheckoutClientProps) {
-  const [country, setCountry] = useState<ShippingCountry>("FR");
-  const [addressLine, setAddressLine] = useState("");
-  const [city, setCity] = useState("");
-  const [postcode, setPostcode] = useState("");
+  const [country, setCountry] = useState<ShippingCountry>(() =>
+    defaultShipping && isSupportedCountry(defaultShipping.country)
+      ? defaultShipping.country
+      : "FR",
+  );
+  const [addressLine, setAddressLine] = useState(
+    defaultShipping?.addressLine ?? "",
+  );
+  const [city, setCity] = useState(defaultShipping?.city ?? "");
+  const [postcode, setPostcode] = useState(defaultShipping?.postcode ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
 

@@ -46,12 +46,26 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // Base UI's `Button` defaults `nativeButton` to `true`, which assumes a real
+  // `<button>` is rendered. When consumers pass `render={<Link />}` or any
+  // other non-button element, leaving `nativeButton` at its default produces:
+  //   1. a console warning about losing native button semantics, and
+  //   2. an SSR ↔ client hydration mismatch (the server renders the wrapper
+  //      with button-flavoured attributes while the client swaps in the
+  //      anchor's, surfacing as a generic hydration warning attributed to
+  //      `<m.h1>` / `<Button>` further down the tree).
+  // Auto-flip the default when `render` is provided; consumers can still
+  // override explicitly by passing `nativeButton={true}`.
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      nativeButton={nativeButton ?? !render}
       {...props}
     />
   );
