@@ -29,6 +29,22 @@ export const metadata: Metadata = {
   description:
     "Achetez et vendez des cartes Pokémon TCG entre particuliers. Paiement sécurisé, négociation par offres, messagerie temps réel.",
   manifest: "/manifest.json",
+  applicationName: "PokeMarket",
+  appleWebApp: {
+    capable: true,
+    title: "PokeMarket",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+  },
   openGraph: {
     type: "website",
     locale: "fr_FR",

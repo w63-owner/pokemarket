@@ -9,13 +9,18 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key)),
+    Promise.all([
+      caches.keys().then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
       ),
-    ),
+      // Take control of any uncontrolled clients so the new SW serves them
+      // immediately after activation (instead of only on next navigation).
+      self.clients.claim(),
+    ]),
   );
 });
 
