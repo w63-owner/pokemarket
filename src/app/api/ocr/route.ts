@@ -15,6 +15,41 @@ function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 }
 
+/**
+ * Strict allowlist for OCR input image URLs.
+ *
+ * Rejects:
+ *   - non-HTTPS schemes
+ *   - any host that is not exactly the configured Supabase host
+ *     (blocks subdomain-confusion attacks like "<project>.supabase.co.evil.com")
+ *   - paths outside the public storage object route
+ *   - malformed URLs
+ *
+ * Returns true ONLY for URLs of shape
+ *   https://<supabase-host>/storage/v1/object/...
+ */
+export function isAllowedSupabaseImageUrl(
+  imageUrl: string,
+  supabaseUrl: string | undefined,
+): boolean {
+  if (!supabaseUrl) return false;
+
+  let parsedImage: URL;
+  let parsedSupabase: URL;
+  try {
+    parsedImage = new URL(imageUrl);
+    parsedSupabase = new URL(supabaseUrl);
+  } catch {
+    return false;
+  }
+
+  return (
+    parsedImage.protocol === "https:" &&
+    parsedImage.hostname === parsedSupabase.hostname &&
+    parsedImage.pathname.startsWith("/storage/v1/object/")
+  );
+}
+
 const SYSTEM_PROMPT = `You are a Pokemon TCG card analyzer. Analyze the provided image and extract ONLY these 3 fields.
 
 Return STRICTLY a JSON object with these keys:
@@ -125,8 +160,12 @@ export async function POST(request: Request) {
 
     const { image_url } = validation.data;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl || !image_url.startsWith(supabaseUrl)) {
+    if (
+      !isAllowedSupabaseImageUrl(
+        image_url,
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+      )
+    ) {
       return NextResponse.json(
         {
           error:
