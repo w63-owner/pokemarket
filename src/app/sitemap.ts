@@ -5,17 +5,23 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemarket.fr";
 const URLS_PER_SITEMAP = 5000;
 
 export async function generateSitemaps() {
-  const supabase = createAdminClient();
+  try {
+    const supabase = createAdminClient();
 
-  const { count } = await supabase
-    .from("listings")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "ACTIVE");
+    const { count } = await supabase
+      .from("listings")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "ACTIVE");
 
-  const totalListings = count ?? 0;
-  const numChunks = Math.max(1, Math.ceil(totalListings / URLS_PER_SITEMAP));
+    const totalListings = count ?? 0;
+    const numChunks = Math.max(1, Math.ceil(totalListings / URLS_PER_SITEMAP));
 
-  return Array.from({ length: numChunks }, (_, i) => ({ id: i }));
+    return Array.from({ length: numChunks }, (_, i) => ({ id: i }));
+  } catch {
+    // Supabase unreachable (e.g. CI build with placeholder env vars).
+    // Return a single empty sitemap so the build can complete.
+    return [{ id: 0 }];
+  }
 }
 
 export default async function sitemap({
@@ -23,17 +29,24 @@ export default async function sitemap({
 }: {
   id: number;
 }): Promise<MetadataRoute.Sitemap> {
-  const supabase = createAdminClient();
+  let supabase: ReturnType<typeof createAdminClient> | null = null;
+  try {
+    supabase = createAdminClient();
+  } catch {
+    // Supabase env missing (CI build) — fall back to static pages only.
+  }
 
   const start = id * URLS_PER_SITEMAP;
   const end = start + URLS_PER_SITEMAP - 1;
 
-  const { data: listings } = await supabase
-    .from("listings")
-    .select("id, updated_at")
-    .eq("status", "ACTIVE")
-    .order("updated_at", { ascending: false })
-    .range(start, end);
+  const { data: listings } = supabase
+    ? await supabase
+        .from("listings")
+        .select("id, updated_at")
+        .eq("status", "ACTIVE")
+        .order("updated_at", { ascending: false })
+        .range(start, end)
+    : { data: null };
 
   const listingPages: MetadataRoute.Sitemap = (listings ?? []).map((l) => ({
     url: `${BASE_URL}/listing/${l.id}`,
@@ -46,10 +59,12 @@ export default async function sitemap({
     return listingPages;
   }
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("username, updated_at")
-    .not("username", "is", null);
+  const { data: profiles } = supabase
+    ? await supabase
+        .from("profiles")
+        .select("username, updated_at")
+        .not("username", "is", null)
+    : { data: null };
 
   const staticPages: MetadataRoute.Sitemap = [
     {
