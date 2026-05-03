@@ -9,8 +9,12 @@ const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SUPABASE_SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const APP_URL = process.env.QA_APP_URL ?? "http://localhost:3000";
 
-const admin = createClient(SUPABASE_URL, SUPABASE_SR, { auth: { persistSession: false } });
-const anon = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+const admin = createClient(SUPABASE_URL, SUPABASE_SR, {
+  auth: { persistSession: false },
+});
+const anon = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: false },
+});
 
 const stamp = Date.now();
 const email = `qa.chaos+${stamp}@pokemarket.local`;
@@ -23,13 +27,18 @@ async function cleanup() {
 
 try {
   const { data: created, error: cErr } = await admin.auth.admin.createUser({
-    email, password, email_confirm: true,
+    email,
+    password,
+    email_confirm: true,
     user_metadata: { username: `qa_chaos_${String(stamp).slice(-6)}` },
   });
   if (cErr) throw cErr;
   userId = created.user.id;
 
-  const { data: si, error: sErr } = await anon.auth.signInWithPassword({ email, password });
+  const { data: si, error: sErr } = await anon.auth.signInWithPassword({
+    email,
+    password,
+  });
   if (sErr) throw sErr;
 
   const projectRef = new URL(SUPABASE_URL).hostname.split(".")[0];
@@ -52,7 +61,9 @@ try {
     });
     const txt = await r.text();
     const ok = r.status === expect;
-    console.log(`${ok ? "OK  " : "FAIL"} [${label}] expected ${expect} got ${r.status}  body=${txt.slice(0, 120)}`);
+    console.log(
+      `${ok ? "OK  " : "FAIL"} [${label}] expected ${expect} got ${r.status}  body=${txt.slice(0, 120)}`,
+    );
     return ok;
   }
 
@@ -60,7 +71,11 @@ try {
     call("external URL", { image_url: "https://evil.example.com/x.png" }, 400),
     call("missing image_url", { foo: "bar" }, 400),
     call("non-string image_url", { image_url: 123 }, 400),
-    call("legit-looking but wrong host", { image_url: "https://qevmnveyjdovupyveoqc.evil.com/x.png" }, 400),
+    call(
+      "legit-looking but wrong host",
+      { image_url: "https://qevmnveyjdovupyveoqc.evil.com/x.png" },
+      400,
+    ),
     call("empty body", {}, 400),
   ]);
 

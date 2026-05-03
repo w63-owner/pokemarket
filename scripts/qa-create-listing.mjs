@@ -55,10 +55,11 @@ const TINY_PNG = Buffer.from(
 
 async function main() {
   // ─── 1. Login ─────────────────────────────────────────────────────────────
-  const { data: signin, error: signinErr } = await authed.auth.signInWithPassword({
-    email: TEST_EMAIL,
-    password: TEST_PASSWORD,
-  });
+  const { data: signin, error: signinErr } =
+    await authed.auth.signInWithPassword({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+    });
   if (signinErr || !signin.user) fail("login", signinErr);
   const userId = signin.user.id;
   ok("login", `user=${userId}`);
@@ -77,8 +78,10 @@ async function main() {
       .upload(path, TINY_PNG, { contentType: "image/png", upsert: false });
     if (upErr) fail(`storage.upload ${label}`, upErr);
   }
-  const coverUrl = authed.storage.from("listing-images").getPublicUrl(coverPath).data.publicUrl;
-  const backUrl = authed.storage.from("listing-images").getPublicUrl(backPath).data.publicUrl;
+  const coverUrl = authed.storage.from("listing-images").getPublicUrl(coverPath)
+    .data.publicUrl;
+  const backUrl = authed.storage.from("listing-images").getPublicUrl(backPath)
+    .data.publicUrl;
   ok("storage.upload (cover + back)");
 
   // ─── 3. Insert listing as authed user (RLS-enforced) ─────────────────────
@@ -130,7 +133,10 @@ async function main() {
     p_offset: 0,
   });
   if (feedErr) {
-    console.warn("WARN search_feed RPC failed (signature may differ):", feedErr.message);
+    console.warn(
+      "WARN search_feed RPC failed (signature may differ):",
+      feedErr.message,
+    );
   } else {
     const found = (feed ?? []).find((r) => r.id === listing.id);
     if (!found) {
