@@ -175,15 +175,44 @@ Adjust thresholds in dashboard once we have ≥3 months of charge history.
 | `STRIPE_SECRET_KEY`                  | Server-side API calls                                    | Yes      |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe.js + Elements bootstrap                           | Yes      |
 | `STRIPE_WEBHOOK_SECRET`              | Webhook signature verification                           | Yes      |
+| `CRON_SECRET`                        | Bearer token for `/api/cron/*` routes                    | Yes      |
 | `STRIPE_CONNECT_DEFAULT_COUNTRY`     | Override default country for `accounts.create()` (FR)    | No       |
 | `SUPPORT_EMAIL`                      | Surfaced in `business_profile.support_email` for Connect | No       |
+| `ADMIN_NOTIFICATION_EMAIL`           | Recipient for chargeback alerts + weekly Stripe report   | No       |
 | `NEXT_PUBLIC_APP_URL`                | Used to build `account_onboarding` return/refresh URLs   | Yes      |
 
 All Stripe secrets live in Vercel project env vars (per environment) and Cursor Cloud Agent secrets — never hardcode in the repo.
 
 ---
 
-## 7. Migration history
+## 7. Monitoring & reporting
+
+### Sentry alerts
+
+The webhook handlers and the weekly cron emit Sentry events at `warning` / `error` level for noteworthy occurrences:
+
+| Event                          | Source                      | Sentry level | Notes                                                |
+| ------------------------------ | --------------------------- | ------------ | ---------------------------------------------------- |
+| Chargeback opened              | `handleDisputeCreated`      | warning      | `extra.amount_eur`, `extra.evidence_due_by`          |
+| Wallet underwater after refund | `handleChargeRefunded`      | warning      | `extra.amount_owed`                                  |
+| Payout failed                  | `handlePayoutFailed`        | warning      | `extra.failure_code`, `extra.failure_message`        |
+| Weekly: ≥ 3 payout failures    | `cron/stripe-weekly-report` | error        | Tune `PAYOUT_FAIL_ALERT_THRESHOLD` once volume grows |
+| Weekly: ≥ 1 chargeback opened  | `cron/stripe-weekly-report` | warning      |                                                      |
+
+Configure Sentry alert rules to page you (Slack, email) when these messages match.
+
+### Weekly cron
+
+`/api/cron/stripe-weekly-report` runs every Monday at 08:00 UTC (see [vercel.json](../vercel.json)). It:
+
+- Aggregates GMV, refunds, internal disputes, chargebacks, payout failures over the previous 7 days
+- Computes the chargeback-to-GMV ratio
+- Emails the admin team via `ADMIN_NOTIFICATION_EMAIL` (template at [src/emails/weekly-stripe-report.tsx](../src/emails/weekly-stripe-report.tsx))
+- Raises Sentry alerts when thresholds are crossed
+
+---
+
+## 8. Migration history
 
 | Migration                                                                                                               | Notes                                                             |
 | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |

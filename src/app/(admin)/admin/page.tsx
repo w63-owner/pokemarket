@@ -14,6 +14,10 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 
+import { DisputesAdminBanner } from "./disputes-banner";
+
+export const dynamic = "force-dynamic";
+
 const metrics = [
   {
     label: "GMV (30j)",
@@ -82,7 +86,7 @@ const recentTransactions = [
   },
 ];
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div>
@@ -93,6 +97,8 @@ export default function AdminDashboardPage() {
           Vue d&apos;ensemble de l&apos;activité PokeMarket
         </p>
       </div>
+
+      <DisputesAdminBanner />
 
       {/* Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import type Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
 
@@ -5,6 +6,9 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 import { calcPriceSeller } from "@/lib/pricing";
 import { deriveKycStatus } from "@/lib/stripe/kyc";
 import { sendPushNotification } from "@/lib/push/send";
+import { sendEmail } from "@/lib/emails/send";
+import { formatPrice } from "@/lib/utils";
+import DisputeOpenedEmail from "@/emails/dispute-opened";
 import type { KycStatus } from "@/lib/constants";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -306,6 +310,98 @@ export async function handleDisputeCreated(
       },
     },
   );
+
+  await notifyDisputeOpened(admin, dispute, transaction).catch((err) =>
+    Sentry.captureException(err),
+  );
+}
+
+/**
+ * Best-effort notification fan-out when a chargeback is opened:
+ *   - Push to seller ("a dispute was opened on your sale")
+ *   - Email to seller
+ *   - Email to admin team (ADMIN_NOTIFICATION_EMAIL env var)
+ *
+ * Failures here are caught by the outer .catch — they should never block
+ * the webhook 2xx response (Stripe would retry endlessly otherwise).
+ */
+async function notifyDisputeOpened(
+  admin: AdminClient,
+  dispute: Stripe.Dispute,
+  transaction: {
+    id: string;
+    seller_id: string;
+    total_amount: number;
+    shipping_cost?: number | null;
+    status?: string | null;
+  } | null,
+): Promise<void> {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+  const amountEur = (dispute.amount ?? 0) / 100;
+  const amountFormatted = formatPrice(amountEur);
+  const evidenceDueBy = dispute.evidence_details?.due_by
+    ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+    : null;
+
+  let listingTitle = "Carte Pokémon";
+  let sellerEmail: string | null = null;
+  let sellerUsername: string | null = null;
+
+  if (transaction) {
+    const [txRes, profileRes, sellerAuth] = await Promise.all([
+      admin
+        .from("transactions")
+        .select("listing_title")
+        .eq("id", transaction.id)
+        .maybeSingle(),
+      admin
+        .from("profiles")
+        .select("username")
+        .eq("id", transaction.seller_id)
+        .maybeSingle(),
+      admin.auth.admin.getUserById(transaction.seller_id),
+    ]);
+    listingTitle = txRes.data?.listing_title ?? listingTitle;
+    sellerUsername = profileRes.data?.username ?? null;
+    sellerEmail = sellerAuth.data.user?.email ?? null;
+
+    sendPushNotification(
+      transaction.seller_id,
+      "Litige bancaire ouvert",
+      `Un acheteur a contesté ${amountFormatted} auprès de sa banque. L'équipe se charge de la suite.`,
+    ).catch((err) => Sentry.captureException(err));
+  }
+
+  if (sellerEmail) {
+    sendEmail(
+      sellerEmail,
+      `Litige bancaire sur votre vente — ${listingTitle}`,
+      createElement(DisputeOpenedEmail, {
+        recipientName: sellerUsername ?? "Vendeur",
+        audience: "seller",
+        listingTitle,
+        amount: amountFormatted,
+        reason: dispute.reason ?? "unknown",
+        evidenceDueBy,
+        disputeId: dispute.id,
+      }),
+    ).catch((err) => Sentry.captureException(err));
+  }
+
+  if (adminEmail) {
+    sendEmail(
+      adminEmail,
+      `[Admin] Nouveau chargeback ${amountFormatted} — ${listingTitle}`,
+      createElement(DisputeOpenedEmail, {
+        audience: "admin",
+        listingTitle,
+        amount: amountFormatted,
+        reason: dispute.reason ?? "unknown",
+        evidenceDueBy,
+        disputeId: dispute.id,
+      }),
+    ).catch((err) => Sentry.captureException(err));
+  }
 }
 
 /**
@@ -461,6 +557,21 @@ export async function handlePayoutFailed(
       amount_eur: amount,
       failure_code: payout.failure_code,
       failure_message: payout.failure_message,
+    },
+  });
+
+  // Mirror into admin_audit_log so the weekly-stripe-report cron can count
+  // failures over a period without scanning Sentry. admin_id is set to the
+  // affected user so audit history queries also surface payout issues.
+  await admin.from("admin_audit_log").insert({
+    admin_id: userId,
+    action: "payout.failed",
+    target_type: "stripe_payout",
+    target_id: payout.id,
+    metadata: {
+      amount_eur: amount,
+      failure_code: payout.failure_code ?? null,
+      failure_message: payout.failure_message ?? null,
     },
   });
 
