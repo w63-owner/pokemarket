@@ -30,7 +30,32 @@ export async function reconcileCheckoutSession(
   const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
   if (session.payment_status !== "paid") return "PENDING_PAYMENT";
 
-  const result = await finalizePaidTransaction(transactionId);
+  // Capture the payment_intent + charge IDs so refund / dispute webhooks can
+  // map back to this transaction.  See the webhook route for the full rationale.
+  const paymentIntent = session.payment_intent;
+  let paymentIntentId: string | null = null;
+  let chargeId: string | null = null;
+
+  if (typeof paymentIntent === "string") {
+    paymentIntentId = paymentIntent;
+    try {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntent);
+      const lc = pi.latest_charge;
+      chargeId = typeof lc === "string" ? lc : (lc?.id ?? null);
+    } catch {
+      // Best-effort — losing the charge_id only impacts refund/dispute
+      // attribution, never the buyer's confirmation flow.
+    }
+  } else if (paymentIntent && typeof paymentIntent === "object") {
+    paymentIntentId = paymentIntent.id;
+    const lc = paymentIntent.latest_charge;
+    chargeId = typeof lc === "string" ? lc : (lc?.id ?? null);
+  }
+
+  const result = await finalizePaidTransaction(transactionId, {
+    payment_intent_id: paymentIntentId,
+    charge_id: chargeId,
+  });
   if (result === "PAID" || result === "ALREADY_PROCESSED") return result;
   return "PENDING_PAYMENT";
 }

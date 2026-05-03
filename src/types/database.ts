@@ -39,6 +39,44 @@ export type Database = {
   };
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string;
+          admin_id: string;
+          created_at: string;
+          id: string;
+          metadata: Json;
+          target_id: string | null;
+          target_type: string | null;
+        };
+        Insert: {
+          action: string;
+          admin_id: string;
+          created_at?: string;
+          id?: string;
+          metadata?: Json;
+          target_id?: string | null;
+          target_type?: string | null;
+        };
+        Update: {
+          action?: string;
+          admin_id?: string;
+          created_at?: string;
+          id?: string;
+          metadata?: Json;
+          target_id?: string | null;
+          target_type?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_admin_id_fkey";
+            columns: ["admin_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       card_price_history: {
         Row: {
           card_key: string;
@@ -774,6 +812,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      stripe_disputes: {
+        Row: {
+          amount: number;
+          created_at: string;
+          currency: string;
+          evidence_due_by: string | null;
+          evidence_submitted_at: string | null;
+          id: string;
+          outcome: string | null;
+          reason: string;
+          status: string;
+          stripe_charge_id: string;
+          stripe_dispute_id: string;
+          transaction_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          currency?: string;
+          evidence_due_by?: string | null;
+          evidence_submitted_at?: string | null;
+          id?: string;
+          outcome?: string | null;
+          reason: string;
+          status: string;
+          stripe_charge_id: string;
+          stripe_dispute_id: string;
+          transaction_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          currency?: string;
+          evidence_due_by?: string | null;
+          evidence_submitted_at?: string | null;
+          id?: string;
+          outcome?: string | null;
+          reason?: string;
+          status?: string;
+          stripe_charge_id?: string;
+          stripe_dispute_id?: string;
+          transaction_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stripe_disputes_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       stripe_webhooks_processed: {
         Row: {
           processed_at: string | null;
@@ -954,6 +1048,8 @@ export type Database = {
           id: string;
           listing_id: string;
           listing_title: string | null;
+          refunded_amount: number;
+          refunded_at: string | null;
           seller_id: string;
           shipped_at: string | null;
           shipping_address_city: string | null;
@@ -962,7 +1058,9 @@ export type Database = {
           shipping_cost: number | null;
           shipping_country: string | null;
           status: string | null;
+          stripe_charge_id: string | null;
           stripe_checkout_session_id: string | null;
+          stripe_payment_intent_id: string | null;
           total_amount: number;
           tracking_number: string | null;
           tracking_url: string | null;
@@ -976,6 +1074,8 @@ export type Database = {
           id?: string;
           listing_id: string;
           listing_title?: string | null;
+          refunded_amount?: number;
+          refunded_at?: string | null;
           seller_id: string;
           shipped_at?: string | null;
           shipping_address_city?: string | null;
@@ -984,7 +1084,9 @@ export type Database = {
           shipping_cost?: number | null;
           shipping_country?: string | null;
           status?: string | null;
+          stripe_charge_id?: string | null;
           stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
           total_amount: number;
           tracking_number?: string | null;
           tracking_url?: string | null;
@@ -998,6 +1100,8 @@ export type Database = {
           id?: string;
           listing_id?: string;
           listing_title?: string | null;
+          refunded_amount?: number;
+          refunded_at?: string | null;
           seller_id?: string;
           shipped_at?: string | null;
           shipping_address_city?: string | null;
@@ -1006,7 +1110,9 @@ export type Database = {
           shipping_cost?: number | null;
           shipping_country?: string | null;
           status?: string | null;
+          stripe_charge_id?: string | null;
           stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
           total_amount?: number;
           tracking_number?: string | null;
           tracking_url?: string | null;

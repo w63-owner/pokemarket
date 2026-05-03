@@ -37,10 +37,25 @@ export async function GET() {
     const stripe = getStripe();
     let stripeAccountId = profile.stripe_account_id;
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
     if (!stripeAccountId) {
       // Controller properties replace the deprecated type:"express" enum.
       // "stripe" requirement_collection = Stripe hosts the onboarding UI.
       // "application" fees payer = platform is responsible for Stripe fees.
+      //
+      // business_type: "individual" is hardcoded because ~95% of PokeMarket
+      // sellers are individuals (collection clearing). Skipping this would
+      // make Stripe ask the seller "Type d'entreprise" (Entrepreneur
+      // individuel / Micro-entrepreneur) which is anxiety-inducing for
+      // casual sellers. Professional sellers (siret) will be handled by a
+      // dedicated `seller_type` profile flag in a future ticket.
+      //
+      // capabilities only requests `transfers` because we use the
+      // "separate charges and transfers" pattern: payments are made on the
+      // platform account, then transferred to sellers at payout time.
+      // Requesting `card_payments` would force extra KYC requirements that
+      // we don't actually need (sellers never directly accept cards).
       const account = await stripe.accounts.create({
         controller: {
           stripe_dashboard: { type: "express" },
@@ -49,11 +64,17 @@ export async function GET() {
           requirement_collection: "stripe",
         },
         capabilities: {
-          card_payments: { requested: true },
           transfers: { requested: true },
         },
         country: "FR",
         email: user.email,
+        business_type: "individual",
+        business_profile: {
+          mcc: "5945",
+          product_description: "Vente de cartes Pokémon entre collectionneurs",
+          url: `${appUrl}/seller/${user.id}`,
+          support_email: process.env.SUPPORT_EMAIL ?? "support@pokemarket.fr",
+        },
         metadata: { user_id: user.id },
       });
 
@@ -75,8 +96,6 @@ export async function GET() {
         );
       }
     }
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,

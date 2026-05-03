@@ -151,6 +151,41 @@ export const ocrRequestSchema = z.object({
   image_url: z.string().url("URL d'image invalide"),
 });
 
+export const REFUND_REASONS = [
+  "duplicate",
+  "fraudulent",
+  "requested_by_customer",
+] as const;
+
+export type RefundReason = (typeof REFUND_REASONS)[number];
+
+export const refundRequestSchema = z.object({
+  transaction_id: z.string().uuid("ID de transaction invalide"),
+  amount: z
+    .number()
+    .positive("Le montant doit être strictement positif")
+    .optional(),
+  reason: z.enum(REFUND_REASONS),
+  internal_note: z
+    .string()
+    .min(10, "Note interne d'au moins 10 caractères requise")
+    .max(500, "Note interne trop longue (500 caractères max)"),
+});
+
+export const disputeEvidenceSchema = z.object({
+  stripe_dispute_id: z.string().min(1, "ID du litige requis"),
+  evidence: z.object({
+    customer_communication: z.string().optional(),
+    shipping_carrier: z.string().optional(),
+    shipping_tracking_number: z.string().optional(),
+    shipping_date: z.string().optional(),
+    receipt: z.string().url().optional(),
+    service_documentation: z.string().url().optional(),
+    uncategorized_text: z.string().optional(),
+  }),
+  submit: z.boolean().default(false),
+});
+
 export const ocrParsedSchema = z.object({
   name: z.string().nullable().default(null),
   card_number: z.string().nullable().default(null),

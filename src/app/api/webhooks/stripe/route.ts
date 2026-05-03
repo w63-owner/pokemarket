@@ -6,6 +6,15 @@ import * as Sentry from "@sentry/nextjs";
 import { getStripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
+import {
+  handleAccountUpdated,
+  handleChargeRefunded,
+  handleDisputeClosed,
+  handleDisputeCreated,
+  handleDisputeUpdated,
+  handlePayoutFailed,
+  handlePayoutPaid,
+} from "./handlers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +90,34 @@ export async function POST(request: Request) {
         );
         break;
 
+      case "account.updated":
+        await handleAccountUpdated(event.data.object as Stripe.Account, admin);
+        break;
+
+      case "charge.refunded":
+        await handleChargeRefunded(event.data.object as Stripe.Charge, admin);
+        break;
+
+      case "charge.dispute.created":
+        await handleDisputeCreated(event.data.object as Stripe.Dispute, admin);
+        break;
+
+      case "charge.dispute.updated":
+        await handleDisputeUpdated(event.data.object as Stripe.Dispute, admin);
+        break;
+
+      case "charge.dispute.closed":
+        await handleDisputeClosed(event.data.object as Stripe.Dispute, admin);
+        break;
+
+      case "payout.failed":
+        await handlePayoutFailed(event.data.object as Stripe.Payout, admin);
+        break;
+
+      case "payout.paid":
+        await handlePayoutPaid(event.data.object as Stripe.Payout);
+        break;
+
       default:
         console.warn(`Unhandled event type: ${event.type}`);
     }
@@ -106,7 +143,36 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
-  const result = await finalizePaidTransaction(transactionId);
+  // The Checkout Session expands `payment_intent` and `payment_intent.latest_charge`
+  // when its mode is "payment".  Persisting these IDs is critical: refund and
+  // dispute webhooks (charge.refunded, charge.dispute.created) only carry the
+  // charge / payment_intent ID, never the transaction_id metadata, so we must
+  // be able to look the transaction up by Stripe ID later.
+  const paymentIntent = session.payment_intent;
+  let paymentIntentId: string | null = null;
+  let chargeId: string | null = null;
+
+  if (typeof paymentIntent === "string") {
+    paymentIntentId = paymentIntent;
+    const stripe = getStripe();
+    try {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntent);
+      const lc = pi.latest_charge;
+      chargeId = typeof lc === "string" ? lc : (lc?.id ?? null);
+    } catch (err) {
+      Sentry.captureException(err);
+      console.warn("[stripe-webhook] payment_intent retrieve failed", err);
+    }
+  } else if (paymentIntent && typeof paymentIntent === "object") {
+    paymentIntentId = paymentIntent.id;
+    const lc = paymentIntent.latest_charge;
+    chargeId = typeof lc === "string" ? lc : (lc?.id ?? null);
+  }
+
+  const result = await finalizePaidTransaction(transactionId, {
+    payment_intent_id: paymentIntentId,
+    charge_id: chargeId,
+  });
 
   if (result === "NOT_FOUND") {
     throw new Error(`Transaction ${transactionId} not found`);
