@@ -68,14 +68,19 @@ export async function POST() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, username")
       .eq("id", user.id)
       .single();
 
     let customerId = profile?.stripe_customer_id;
 
     if (!customerId) {
+      // email + name make the customer searchable in the Stripe dashboard
+      // and improve audit trails. We fall back to username because the
+      // profiles table doesn't store a separate full_name (yet).
       const customer = await stripe.customers.create({
+        email: user.email,
+        name: profile?.username ?? undefined,
         metadata: { supabase_user_id: user.id },
       });
       customerId = customer.id;
