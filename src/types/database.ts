@@ -1107,7 +1107,7 @@ export type Database = {
         }[];
       };
       match_tcgdex_cards: {
-        Args: { p_language?: string; p_name: string };
+        Args: { p_language?: string; p_local_id?: string; p_name: string };
         Returns: {
           card_hp: number;
           card_id: string;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { Search, SlidersHorizontal, X, Bookmark } from "lucide-react";
+import { useState } from "react";
+import { SlidersHorizontal, X, Bookmark } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import {
   useFiltersFromUrl,
@@ -34,10 +34,13 @@ import {
 import {
   CARD_CONDITIONS,
   CONDITION_LABELS,
-  SORT_OPTIONS,
   RARITY_OPTIONS,
 } from "@/lib/constants";
 import { SaveSearchDialog } from "@/components/saved-searches/save-search-dialog";
+import {
+  CardSearchInput,
+  type CardSuggestion,
+} from "@/components/feed/card-search-input";
 
 function AdvancedFilters() {
   const filters = useFiltersFromUrl();
@@ -248,63 +251,43 @@ function FeedFiltersInner() {
   const [searchText, setSearchText] = useState(filters.q ?? "");
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const submitSearch = () => {
+  const handleSubmitSearch = (val: string) => {
     const currentQ = new URLSearchParams(window.location.search).get("q") ?? "";
-    const trimmed = searchText.trim();
+    const trimmed = val.trim();
     if (trimmed === currentQ) return;
     updateFilters({ q: trimmed || undefined });
   };
 
-  const handleSearchSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    submitSearch();
+  const handleSelectCard = (card: CardSuggestion) => {
+    const cardNumber =
+      card.local_id && card.set_official_count
+        ? `${card.local_id}/${card.set_official_count}`
+        : (card.local_id ?? undefined);
+
+    setSearchText(card.name);
+    updateFilters({
+      q: card.name,
+      set: card.set_name ?? undefined,
+      series: card.series_name ?? undefined,
+      card_number: cardNumber,
+    });
+  };
+
+  const handleClearSearch = () => {
+    setSearchText("");
+    updateFilters({ q: undefined });
   };
 
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="Rechercher (ex: Dracaufeu 11/25)..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            className="pr-8 pl-9"
-          />
-          {searchText && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchText("");
-                updateFilters({ q: undefined });
-              }}
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2 rounded-sm transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-              <span className="sr-only">Effacer la recherche</span>
-            </button>
-          )}
-        </form>
-
-        <Select
-          value={filters.sort ?? "date_desc"}
-          onValueChange={(val) =>
-            updateFilters({
-              sort: !val || val === "date_desc" ? undefined : val,
-            })
-          }
-        >
-          <SelectTrigger className="w-auto shrink-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CardSearchInput
+          value={searchText}
+          onChange={setSearchText}
+          onClear={handleClearSearch}
+          onSubmit={handleSubmitSearch}
+          onSelectCard={handleSelectCard}
+        />
 
         {/* Mobile: bottom sheet trigger */}
         <div className="lg:hidden">
