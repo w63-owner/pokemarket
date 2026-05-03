@@ -20,8 +20,12 @@ if (!SUPABASE_URL || !SUPABASE_SR || !SUPABASE_ANON) {
   process.exit(2);
 }
 
-const admin = createClient(SUPABASE_URL, SUPABASE_SR, { auth: { persistSession: false } });
-const _anon = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+const admin = createClient(SUPABASE_URL, SUPABASE_SR, {
+  auth: { persistSession: false },
+});
+const _anon = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: false },
+});
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -47,7 +51,8 @@ async function main() {
   // Sign in as seller to upload the cover image to their RLS folder.
   const sellerClient = createClient(SUPABASE_URL, SUPABASE_ANON);
   const { error: sSiErr } = await sellerClient.auth.signInWithPassword({
-    email: sellerEmail, password: PASSWORD,
+    email: sellerEmail,
+    password: PASSWORD,
   });
   if (sSiErr) throw sSiErr;
 
@@ -59,8 +64,12 @@ async function main() {
       .upload(path, TINY_PNG, { contentType: "image/png" });
     if (error) throw error;
   }
-  const coverUrl = sellerClient.storage.from("listing-images").getPublicUrl(coverPath).data.publicUrl;
-  const backUrl = sellerClient.storage.from("listing-images").getPublicUrl(backPath).data.publicUrl;
+  const coverUrl = sellerClient.storage
+    .from("listing-images")
+    .getPublicUrl(coverPath).data.publicUrl;
+  const backUrl = sellerClient.storage
+    .from("listing-images")
+    .getPublicUrl(backPath).data.publicUrl;
 
   // Use a sensible price so we don't trip on the 999.99 EUR Stripe limit
   // for indirect (test-mode) charges.
@@ -104,13 +113,27 @@ async function main() {
     })
     .eq("id", buyerId);
 
-  console.log(JSON.stringify({
-    sellerEmail, buyerEmail, password: PASSWORD,
-    sellerId, buyerId,
-    listingId: listing.id, listingTitle: listing.title,
-    listingPrice: listing.price_seller, displayPrice: listing.display_price,
-    storage: { coverPath, backPath },
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        sellerEmail,
+        buyerEmail,
+        password: PASSWORD,
+        sellerId,
+        buyerId,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingPrice: listing.price_seller,
+        displayPrice: listing.display_price,
+        storage: { coverPath, backPath },
+      },
+      null,
+      2,
+    ),
+  );
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

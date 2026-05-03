@@ -22,7 +22,8 @@ const SUPABASE_SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const APP_URL = process.env.QA_APP_URL ?? "http://localhost:3000";
 // Public TCGdex CDN — Pikachu, Base Set, English (a clean, well-known card).
 const CARD_IMAGE_URL =
-  process.env.QA_OCR_CARD_URL ?? "https://assets.tcgdex.net/en/base/base1/58/high.webp";
+  process.env.QA_OCR_CARD_URL ??
+  "https://assets.tcgdex.net/en/base/base1/58/high.webp";
 
 if (!SUPABASE_URL || !SUPABASE_ANON || !SUPABASE_SR) {
   console.error("Missing env: SUPABASE_URL / ANON / SERVICE_ROLE required");
@@ -32,17 +33,26 @@ if (!SUPABASE_URL || !SUPABASE_ANON || !SUPABASE_SR) {
 const t0 = Date.now();
 const stamp = t0;
 const log = (label, extra = "") =>
-  console.log(`[${((Date.now() - t0) / 1000).toFixed(2)}s] ${label}${extra ? "  " + extra : ""}`);
+  console.log(
+    `[${((Date.now() - t0) / 1000).toFixed(2)}s] ${label}${extra ? "  " + extra : ""}`,
+  );
 
-const admin = createClient(SUPABASE_URL, SUPABASE_SR, { auth: { persistSession: false } });
-const anon = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+const admin = createClient(SUPABASE_URL, SUPABASE_SR, {
+  auth: { persistSession: false },
+});
+const anon = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: false },
+});
 
 let createdUserId = null;
 let storagePath = null;
 
 async function cleanup() {
   if (storagePath) {
-    await admin.storage.from("listing-images").remove([storagePath]).catch(() => {});
+    await admin.storage
+      .from("listing-images")
+      .remove([storagePath])
+      .catch(() => {});
   }
   if (createdUserId) {
     await admin.auth.admin.deleteUser(createdUserId).catch(() => {});
@@ -59,18 +69,23 @@ async function main() {
   // ─── 1. Create test user ──────────────────────────────────────────────────
   const email = `qa.ocr+${stamp}@pokemarket.local`;
   const password = "TestPassword!2026";
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { username: `qa_ocr_${String(stamp).slice(-6)}` },
-  });
+  const { data: created, error: createErr } = await admin.auth.admin.createUser(
+    {
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { username: `qa_ocr_${String(stamp).slice(-6)}` },
+    },
+  );
   if (createErr) throw createErr;
   createdUserId = created.user.id;
   log("user created", `id=${createdUserId}`);
 
   // ─── 2. Sign in (get access token + cookies) ─────────────────────────────
-  const { data: signin, error: siErr } = await anon.auth.signInWithPassword({ email, password });
+  const { data: signin, error: siErr } = await anon.auth.signInWithPassword({
+    email,
+    password,
+  });
   if (siErr) throw siErr;
   const accessToken = signin.session.access_token;
   const refreshToken = signin.session.refresh_token;
@@ -90,9 +105,14 @@ async function main() {
   });
   const { error: upErr } = await userClient.storage
     .from("listing-images")
-    .upload(storagePath, imgBytes, { contentType: "image/webp", upsert: false });
+    .upload(storagePath, imgBytes, {
+      contentType: "image/webp",
+      upsert: false,
+    });
   if (upErr) throw upErr;
-  const publicUrl = userClient.storage.from("listing-images").getPublicUrl(storagePath).data.publicUrl;
+  const publicUrl = userClient.storage
+    .from("listing-images")
+    .getPublicUrl(storagePath).data.publicUrl;
   log("uploaded to storage", publicUrl);
 
   // ─── 5. POST /api/ocr with auth cookies (the route uses createClient/server) ─
@@ -138,8 +158,10 @@ async function main() {
 
   // ─── 6. Validate response shape ──────────────────────────────────────────
   if (!body.parsed) throw new Error("missing parsed");
-  if (typeof body.parsed.name === "undefined") throw new Error("parsed.name missing key");
-  if (!Array.isArray(body.candidates)) throw new Error("candidates must be array");
+  if (typeof body.parsed.name === "undefined")
+    throw new Error("parsed.name missing key");
+  if (!Array.isArray(body.candidates))
+    throw new Error("candidates must be array");
 
   const ok = (label) => log(`OK ${label}`);
   ok(`parsed.name = ${JSON.stringify(body.parsed.name)}`);
@@ -148,9 +170,13 @@ async function main() {
   ok(`candidates.length = ${body.candidates.length}`);
   if (body.candidates.length > 0) {
     const top = body.candidates[0];
-    ok(`top match: ${top.name} (${top.set_name}) confidence=${top.confidence}%`);
+    ok(
+      `top match: ${top.name} (${top.set_name}) confidence=${top.confidence}%`,
+    );
   } else {
-    log("WARN no candidates returned — TCGdex catalog may be empty for this card");
+    log(
+      "WARN no candidates returned — TCGdex catalog may be empty for this card",
+    );
   }
 
   log("ALL CHECKS PASSED");

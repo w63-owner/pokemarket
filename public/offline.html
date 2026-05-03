@@ -5,9 +5,17 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Hors ligne — PokeMarket</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
       body {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
         background: #f8f9fa;
         color: #1a1a2e;
         display: flex;
@@ -46,13 +54,26 @@
         cursor: pointer;
         transition: background 200ms;
       }
-      button:hover { background: #c42d38; }
-      button:active { transform: translateY(1px); }
+      button:hover {
+        background: #c42d38;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
       @media (prefers-color-scheme: dark) {
-        body { background: #0f0f1a; color: #f1f3f5; }
-        p { color: #9ca3af; }
-        button { background: #ff4d5a; }
-        button:hover { background: #e63946; }
+        body {
+          background: #0f0f1a;
+          color: #f1f3f5;
+        }
+        p {
+          color: #9ca3af;
+        }
+        button {
+          background: #ff4d5a;
+        }
+        button:hover {
+          background: #e63946;
+        }
       }
     </style>
   </head>
@@ -60,7 +81,10 @@
     <div class="container">
       <div class="icon">📡</div>
       <h1>Vous êtes hors ligne</h1>
-      <p>Vérifiez votre connexion internet et réessayez. Vos données seront synchronisées dès que vous serez reconnecté.</p>
+      <p>
+        Vérifiez votre connexion internet et réessayez. Vos données seront
+        synchronisées dès que vous serez reconnecté.
+      </p>
       <button onclick="location.reload()">Recharger la page</button>
     </div>
   </body>
