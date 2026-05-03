@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListingById } from "@/lib/api/listings.server";
 import { getSellerReputation } from "@/lib/api/reviews";
+import { getAppUrl } from "@/lib/env";
 
 export const revalidate = 60;
 import { ImageCarousel } from "@/components/listing/image-carousel";
@@ -17,7 +18,7 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 
 type Props = { params: Promise<{ id: string }> };
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemarket.fr";
+const BASE_URL = getAppUrl();
 
 const CONDITION_TO_SCHEMA: Record<string, string> = {
   MINT: "https://schema.org/NewCondition",

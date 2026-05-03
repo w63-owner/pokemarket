@@ -166,18 +166,18 @@ Sur **Settings > Code security and analysis** :
 
 ## 3. Workflows GitHub Actions du repo
 
-| Workflow             | Fichier                                       | Trigger                                    | Job                                                  |
-| -------------------- | --------------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
-| CI principal         | `.github/workflows/main.yml`                  | PR + push `main`/`staging`                 | lint, type-check, vitest, format:check, build        |
-| E2E                  | `.github/workflows/e2e.yml`                   | PR uniquement                              | Supabase local + Playwright                          |
-| Migrations staging   | `.github/workflows/migrations-staging.yml`    | push `staging` (paths supabase/migrations) | `supabase db push` staging                           |
-| Migrations prod      | `.github/workflows/migrations-production.yml` | push `main` (paths supabase/migrations)    | `supabase db push` prod (avec gate)                  |
-| Deploy staging       | `.github/workflows/deploy-staging.yml`        | push `staging`                             | Smoke tests post-deploy contre staging               |
-| Deploy prod          | `.github/workflows/deploy-production.yml`     | push `main`                                | Sentry release + smoke tests post-deploy contre prod |
-| CodeQL               | `.github/workflows/codeql.yml`                | PR + push + schedule                       | Scan SAST                                            |
-| Gitleaks             | `.github/workflows/gitleaks.yml`              | PR + push                                  | Detection de secrets                                 |
-| Cron housekeeping    | `.github/workflows/cron-housekeeping.yml`     | toutes les 15 min                          | Ping `/api/cron/housekeeping` (existant)             |
-| Cron release-expired | `.github/workflows/cron-release-expired.yml`  | toutes les 5 min                           | Ping `/api/cron/release-expired` (existant)          |
+| Workflow           | Fichier                                       | Trigger                                    | Job                                                  |
+| ------------------ | --------------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| CI principal       | `.github/workflows/main.yml`                  | PR + push `main`/`staging`                 | lint, type-check, vitest, format:check, build        |
+| E2E                | `.github/workflows/e2e.yml`                   | PR uniquement                              | Supabase local + Playwright                          |
+| Migrations staging | `.github/workflows/migrations-staging.yml`    | push `staging` (paths supabase/migrations) | `supabase db push` staging                           |
+| Migrations prod    | `.github/workflows/migrations-production.yml` | push `main` (paths supabase/migrations)    | `supabase db push` prod (avec gate)                  |
+| Deploy staging     | `.github/workflows/deploy-staging.yml`        | push `staging`                             | Smoke tests post-deploy contre staging               |
+| Deploy prod        | `.github/workflows/deploy-production.yml`     | push `main`                                | Sentry release + smoke tests post-deploy contre prod |
+| CodeQL             | `.github/workflows/codeql.yml`                | PR + push + schedule                       | Scan SAST                                            |
+| Gitleaks           | `.github/workflows/gitleaks.yml`              | PR + push                                  | Detection de secrets                                 |
+
+> Les anciens workflows `cron-housekeeping.yml` et `cron-release-expired.yml` ont ete supprimes : depuis le passage Vercel Pro, les 3 crons (`housekeeping`, `release-expired`, `shipping-reminders`) sont definis directement dans [`vercel.json`](../vercel.json). Le secret repo `APP_URL` n'est donc plus utilise et peut etre retire de Settings > Secrets and variables > Actions.
 
 ---
 
@@ -249,20 +249,11 @@ A passer au peigne fin la semaine avant l'ouverture aux vrais utilisateurs.
 
 ### Vercel
 
-1. Upgrade le projet `pokemarket-prod` vers Pro (~20 USD/mois).
-2. Migre les 2 crons GHA vers `vercel.json` natifs :
-   ```json
-   {
-     "crons": [
-       { "path": "/api/cron/housekeeping", "schedule": "*/15 * * * *" },
-       { "path": "/api/cron/release-expired", "schedule": "*/5 * * * *" },
-       { "path": "/api/cron/shipping-reminders", "schedule": "0 9 * * *" }
-     ]
-   }
-   ```
-3. Supprime `.github/workflows/cron-housekeeping.yml` et `.github/workflows/cron-release-expired.yml`.
-4. Active la protection par mot de passe sur les Preview Deployments du projet `pokemarket-staging` si tu veux le rendre prive.
-5. Configure un domaine custom + HTTPS sur le projet prod.
+1. Upgrade le projet `pokemarket-prod` vers Pro (~20 USD/mois) — **fait**.
+2. Migration des 3 crons vers `vercel.json` natif — **fait** (cf. [`vercel.json`](../vercel.json), workflows GHA cron supprimes).
+3. Active la protection par mot de passe sur les Preview Deployments du projet `pokemarket-staging` si tu veux le rendre prive.
+4. Configure un domaine custom + HTTPS sur le projet prod (optionnel tant que tu utilises `pokemarket-seven.vercel.app`).
+5. Installe l'**integration Sentry Marketplace** sur le projet Vercel prod : Settings > Integrations > Browse Marketplace > Sentry. Indispensable pour l'upload automatique des sourcemaps -> stack traces lisibles dans Sentry.
 
 ### Supabase prod
 
@@ -315,3 +306,118 @@ Verifier que `SENTRY_AUTH_TOKEN` a bien le scope `project:releases` (pas seuleme
 ### Vercel deploie sur main alors que je veux qu'il deploie staging
 
 Les 2 projets Vercel (`pokemarket-prod` et `pokemarket-staging`) sont lies au meme repo mais ont chacun une `Production Branch` differente. Verifie que le projet staging a bien `Production Branch = staging` dans Settings > Git.
+
+---
+
+## 8. Bascule prod (operations dashboards)
+
+Liste exhaustive des operations a effectuer **dans les UIs externes** (rien de tout ca n'est dans le code) pour passer le projet "tout est prod, plus rien de dev". A faire dans cet ordre.
+
+```mermaid
+flowchart LR
+    Stripe["Stripe Dashboard<br/>Activate Live<br/>Connect Live<br/>Webhook Live"] --> VercelEnv
+    Resend["Resend<br/>verify domain OR<br/>onboarding@resend.dev"] --> VercelEnv
+    Supabase["Supabase prod<br/>Site URL<br/>Redirect URLs<br/>PITR optional"] --> Deploy
+    VercelEnv["Vercel prod env vars<br/>Live keys + Sentry DSN<br/>RESEND_FROM_EMAIL<br/>VAPID_SUBJECT<br/>CRON_SECRET fort"] --> Deploy
+    SentryDash["Sentry<br/>Vercel integration<br/>alert rules"] --> VercelEnv
+    Deploy["Push main<br/>(deploy prod)"] --> Smoke["Smoke tests + monitor"]
+```
+
+### 8.1 Stripe
+
+1. Sur le dashboard Stripe, bascule en mode **Live** (toggle en haut a droite).
+2. Stripe Connect : verifie que ton compte est active en Production (Settings > Connect settings > Production access). Si tu es encore en Test, complete les informations demandees par Stripe.
+3. Genere les cles **Live** (Developers > API keys) :
+   - `pk_live_*` -> `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` Vercel prod
+   - `sk_live_*` -> `STRIPE_SECRET_KEY` Vercel prod
+4. Cree un **webhook Live** (Developers > Webhooks > Add endpoint) :
+   - URL : `https://pokemarket-seven.vercel.app/api/webhooks/stripe`
+   - Events : `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_failed`
+   - Signing secret -> `STRIPE_WEBHOOK_SECRET` Vercel prod
+5. Active la **2FA** sur le compte Stripe.
+
+### 8.2 Vercel — env vars projet `pokemarket-prod`
+
+Settings > Environment Variables, scope **Production** uniquement :
+
+| Variable                             | Valeur                                               | Notes                                           |
+| ------------------------------------ | ---------------------------------------------------- | ----------------------------------------------- |
+| `NEXT_PUBLIC_APP_URL`                | `https://pokemarket-seven.vercel.app`                | Sans slash final                                |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...`                                        | depuis Stripe                                   |
+| `STRIPE_SECRET_KEY`                  | `sk_live_...`                                        | depuis Stripe                                   |
+| `STRIPE_WEBHOOK_SECRET`              | `whsec_...` du webhook **Live**                      |                                                 |
+| `NEXT_PUBLIC_SENTRY_DSN`             | DSN du projet Sentry prod                            |                                                 |
+| `RESEND_API_KEY`                     | cle Resend prod                                      |                                                 |
+| `RESEND_FROM_EMAIL`                  | `PokeMarket <noreply@<domaine-verifie>>`             | cf. 8.4                                         |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`       | regenere via `npx web-push generate-vapid-keys`      | **paire differente** de staging                 |
+| `VAPID_PRIVATE_KEY`                  | idem                                                 |                                                 |
+| `VAPID_SUBJECT`                      | `mailto:contact@<domaine>` ou ton email personnel    |                                                 |
+| `OPENAI_API_KEY`                     | cle prod (idealement projet OpenAI dedie avec quota) |                                                 |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN`  | base Upstash dediee prod                             |                                                 |
+| `SUPABASE_SERVICE_ROLE_KEY`          | `service_role` du projet Supabase prod               |                                                 |
+| `NEXT_PUBLIC_SUPABASE_URL` / `_KEY`  | projet Supabase prod                                 |                                                 |
+| `CRON_SECRET`                        | regenere : `openssl rand -hex 32`                    | utilise par Vercel Cron pour appeler nos routes |
+
+> Aucune valeur ne doit ressembler a `mon_super_secret_12345678` ni contenir `_test_` apres cette etape.
+
+### 8.3 Supabase prod
+
+1. Settings > Auth > URL Configuration :
+   - **Site URL** = `https://pokemarket-seven.vercel.app`
+   - **Redirect URLs** = retire toutes les entrees `localhost` et `127.0.0.1`. Garde uniquement les domaines staging + prod.
+2. Settings > Database > Network restrictions : optionnel, restreint l'acces direct DB a tes IPs admin.
+3. Settings > Database > Backups : envisage **PITR** (~100 USD/mois pour 7j de retention seconde-par-seconde) au moment du go-live public — la perte de quelques heures de transactions sous escrow devient irrattrapable sans PITR.
+4. Audit final RLS : toutes les tables `listings`, `transactions`, `profiles`, `offers`, `messages` doivent avoir RLS activee.
+5. Active la **2FA** sur le compte Supabase.
+
+### 8.4 Resend
+
+Deux chemins possibles, choisis l'un OU l'autre :
+
+**Chemin A (recommande pour le go-live public)** : verifie un domaine.
+
+1. Achete un domaine (Cloudflare Registrar, Namecheap, OVH...).
+2. Dans Resend > Domains > Add Domain, ajoute-le et copie les enregistrements DNS (SPF, DKIM, DMARC).
+3. Cree-les chez ton registrar, attends la verification.
+4. Mets a jour `RESEND_FROM_EMAIL` Vercel prod : `PokeMarket <noreply@tondomaine.tld>`.
+
+**Chemin B (temporaire, pre-launch)** : reste sur le sender de test Resend.
+
+1. `RESEND_FROM_EMAIL=PokeMarket <onboarding@resend.dev>` (valeur par defaut).
+2. **Limites** : 100 emails/jour max, et **les emails ne partent qu'a l'adresse rattachee a ton compte Resend**. Aucun utilisateur final ne recevra ses emails (welcome, offre recue, rappel d'expedition).
+3. A bascule sur le chemin A des que tu acquiers un domaine — les emails sont indispensables pour les vendeurs (rappel d'expedition, nouvelle offre).
+
+### 8.5 Sentry
+
+1. Dans le dashboard Sentry, projet `pokemarket-web` :
+   - Verifie `tracesSampleRate=0.1` en prod (deja fait dans `sentry.*.config.ts`).
+   - Cree des **Alert Rules** : nouveaux issues prod, error rate spike, slow transactions p95.
+   - Connecte une integration Slack ou Discord pour les alertes critiques.
+2. Sur Vercel projet prod : installe l'integration **Sentry Marketplace** (Settings > Integrations) -> upload automatique des sourcemaps a chaque deploy. Le workflow `deploy-production.yml` continue a tagger une release Sentry par-dessus.
+
+### 8.6 GitHub repo
+
+1. Settings > Secrets and variables > Actions : **retire** le secret `APP_URL` (plus utilise depuis la migration crons en 8.2).
+2. Garde `CRON_SECRET` en secret repo (utilise par les smoke tests).
+3. Active la **2FA** sur ton compte GitHub.
+
+### 8.7 Monitoring externe
+
+1. Configure UptimeRobot ou BetterStack pour pinger `https://pokemarket-seven.vercel.app/api/health` toutes les minutes.
+2. Alerte email/Slack si != 200 pendant 2 minutes consecutives.
+
+### 8.8 Validation finale
+
+Apres avoir applique 8.1 a 8.7 :
+
+```bash
+# 1. Push staging et verifier que le deploy + smoke tests passent.
+git push origin staging
+
+# 2. Tester un checkout Stripe en mode Live avec une vraie carte (rembourse-toi).
+#    Verifier que success_url pointe sur https://pokemarket-seven.vercel.app/...
+
+# 3. Verifier que Vercel Cron tourne (Dashboard projet > Cron > derniere execution < 15 min).
+
+# 4. Verifier qu'un email reel part bien (welcome a un nouveau compte).
+```

@@ -40,7 +40,7 @@ PokeMarket est une marketplace C2C (Customer to Customer) ultra-moderne dédiée
 ### 1. Cloner le repository
 
 ```bash
-git clone [https://github.com/votre-username/pokemarket.git](https://github.com/votre-username/pokemarket.git)
+git clone https://github.com/votre-username/pokemarket.git
 cd pokemarket
 npm install
 ```

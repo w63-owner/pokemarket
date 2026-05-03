@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemarket.fr";
+const BASE_URL = getAppUrl();
 const URLS_PER_SITEMAP = 5000;
 
 export async function generateSitemaps() {
