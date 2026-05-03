@@ -1,14 +1,32 @@
 import { Resend } from "resend";
+import * as Sentry from "@sentry/nextjs";
 import type { ReactElement } from "react";
 import WelcomeEmail from "@/emails/welcome";
 import NewOfferEmail from "@/emails/new-offer";
 import ShippingReminderEmail from "@/emails/shipping-reminder";
 
-const FROM_ADDRESS = "PokeMarket <noreply@pokemarket.app>";
+// Resend's free testing sender works without domain verification but is capped
+// at 100 emails/day and only delivers to the email address tied to the Resend
+// account. For a real production launch, verify a domain in Resend and set
+// RESEND_FROM_EMAIL to e.g. "PokeMarket <noreply@yourdomain.tld>".
+const FROM_ADDRESS =
+  process.env.RESEND_FROM_EMAIL ?? "PokeMarket <onboarding@resend.dev>";
+
+const isProd = process.env.NODE_ENV === "production";
 
 let _resend: Resend | null = null;
+let _missingKeyWarned = false;
 function getResend(): Resend | null {
-  if (!process.env.RESEND_API_KEY) return null;
+  if (!process.env.RESEND_API_KEY) {
+    if (isProd && !_missingKeyWarned) {
+      _missingKeyWarned = true;
+      Sentry.captureMessage(
+        "RESEND_API_KEY is not set in production: transactional emails are disabled",
+        "error",
+      );
+    }
+    return null;
+  }
   if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
   return _resend;
 }
@@ -32,6 +50,10 @@ export async function sendEmail(
     });
   } catch (err) {
     console.error("[sendEmail] Failed to send email:", err);
+    Sentry.captureException(err, {
+      tags: { component: "email" },
+      extra: { to, subject },
+    });
   }
 }
 

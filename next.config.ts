@@ -26,6 +26,15 @@ const nextConfig: NextConfig = {
       "frame-src 'self' https://js.stripe.com",
     ].join("; ");
 
+    // Enforce CSP only on the live production deployment (Vercel sets
+    // VERCEL_ENV=production for the prod project). Staging, previews and
+    // local dev keep Report-Only so a CSP regression doesn't take the
+    // marketplace down — violations still surface in browser devtools.
+    const cspHeaderKey =
+      process.env.VERCEL_ENV === "production"
+        ? "Content-Security-Policy"
+        : "Content-Security-Policy-Report-Only";
+
     return [
       {
         source: "/(.*)",
@@ -33,7 +42,7 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "DENY" },
-          { key: "Content-Security-Policy-Report-Only", value: csp },
+          { key: cspHeaderKey, value: csp },
         ],
       },
     ];

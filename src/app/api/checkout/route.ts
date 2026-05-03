@@ -8,6 +8,7 @@ import { calcPriceSeller, calcFeeAmount, calcTotalBuyer } from "@/lib/pricing";
 import { LIMITS } from "@/lib/constants";
 import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import { getShippingCost } from "@/lib/shipping";
+import { getAppUrl } from "@/lib/env";
 import type { CheckoutResponse } from "@/types/api";
 
 export async function POST(request: Request) {
@@ -204,10 +205,7 @@ export async function POST(request: Request) {
     // fall back to NEXT_PUBLIC_APP_URL when no Origin header is present
     // (e.g. server-to-server invocations during tests).
     const requestOrigin = request.headers.get("origin");
-    const appUrl =
-      requestOrigin?.trim().replace(/\/$/, "") ??
-      process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
-      "http://localhost:3000";
+    const appUrl = requestOrigin?.trim().replace(/\/$/, "") ?? getAppUrl();
 
     const stripeCustomerProps = buyerProfile?.stripe_customer_id
       ? {

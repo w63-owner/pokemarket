@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendShippingReminderEmail } from "@/lib/emails/send";
+import { getAppUrl } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SHIPPING_DELAY_DAYS = 3;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemarket.fr";
 
 function isAuthorized(request: Request): boolean {
   const auth = request.headers.get("authorization");
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
             listingTitle: tx.listing_title ?? "Votre carte",
             orderId: tx.id,
             daysSincePaid,
-            transactionUrl: `${APP_URL}/profile/transactions`,
+            transactionUrl: `${getAppUrl()}/profile/transactions`,
           });
           sent++;
         } catch (err) {

@@ -11,11 +11,13 @@ import {
   Text,
 } from "@react-email/components";
 
+import { getAppUrl } from "@/lib/env";
+
 interface WelcomeEmailProps {
   username: string;
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pokemarket.fr";
+const APP_URL = getAppUrl();
 
 export default function WelcomeEmail({
   username = "Dresseur",
