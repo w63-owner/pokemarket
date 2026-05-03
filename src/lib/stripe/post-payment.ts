@@ -35,8 +35,16 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * possible via the success page reconcile path or a future ledger-based
  * recovery cron. Tracked as a follow-up — see audit report.
  */
+export interface FinalizeStripeIds {
+  /** Stripe payment_intent ID, used later for refunds (stripe.refunds.create) */
+  payment_intent_id?: string | null;
+  /** Stripe charge ID, used to resolve dispute and refund webhooks back to a transaction */
+  charge_id?: string | null;
+}
+
 export async function finalizePaidTransaction(
   transactionId: string,
+  stripeIds: FinalizeStripeIds = {},
 ): Promise<"PAID" | "ALREADY_PROCESSED" | "NOT_FOUND"> {
   const admin = createAdminClient();
 
@@ -52,9 +60,17 @@ export async function finalizePaidTransaction(
   // Atomic transition guard — only one caller wins this race. The losing
   // callers (e.g. webhook + reconcile firing simultaneously) will receive
   // 0 rows and bail out without re-running any side-effects.
+  const transitionPatch: Record<string, unknown> = { status: "PAID" };
+  if (stripeIds.payment_intent_id) {
+    transitionPatch.stripe_payment_intent_id = stripeIds.payment_intent_id;
+  }
+  if (stripeIds.charge_id) {
+    transitionPatch.stripe_charge_id = stripeIds.charge_id;
+  }
+
   const { data: updated, error: txUpdateError } = await admin
     .from("transactions")
-    .update({ status: "PAID" })
+    .update(transitionPatch)
     .eq("id", transactionId)
     .eq("status", "PENDING_PAYMENT")
     .select("id");

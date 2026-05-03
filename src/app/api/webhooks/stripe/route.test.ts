@@ -21,6 +21,12 @@ vi.mock("@/lib/stripe/server", () => ({
     checkout: {
       sessions: { retrieve: vi.fn(async () => ({ payment_status: "paid" })) },
     },
+    paymentIntents: {
+      retrieve: vi.fn(async (id: string) => ({
+        id,
+        latest_charge: `ch_for_${id}`,
+      })),
+    },
   }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -30,7 +36,10 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -283,5 +292,253 @@ describe("webhooks/stripe — CHAOS", () => {
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
     const credit = wallet?.pending_balance ?? 0;
     expect([0, 100]).toContain(Math.round(credit));
+  });
+});
+
+describe("webhooks/stripe — Sprint 2 handlers", () => {
+  function paidScenario() {
+    const sc = basicScenario();
+    // Mark the transaction as PAID and attach a charge id so the new
+    // handlers can resolve it.
+    sc.transactions![0].status = "PAID";
+    sc.transactions![0].stripe_payment_intent_id = "pi_paid_1";
+    sc.transactions![0].stripe_charge_id = "ch_paid_1";
+    sc.transactions![0].refunded_amount = 0;
+    sc.wallets![0].pending_balance = 100; // simulating credited seller
+    sc.profiles!.push({
+      id: "seller-with-stripe",
+      username: "stripe-seller",
+      stripe_account_id: "acct_test_1",
+      kyc_status: "PENDING",
+    });
+    return sc;
+  }
+
+  it("account.updated → flips kyc_status from PENDING to VERIFIED", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_acct_1",
+      type: "account.updated",
+      data: {
+        object: {
+          id: "acct_test_1",
+          charges_enabled: true,
+          payouts_enabled: true,
+          requirements: { currently_due: [], disabled_reason: null },
+        },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    const profile = db.state.profiles.find(
+      (p) => p.stripe_account_id === "acct_test_1",
+    );
+    expect(profile?.kyc_status).toBe("VERIFIED");
+  });
+
+  it("account.updated → REQUIRED when requirements.currently_due is non-empty", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_acct_2",
+      type: "account.updated",
+      data: {
+        object: {
+          id: "acct_test_1",
+          charges_enabled: false,
+          payouts_enabled: false,
+          requirements: {
+            currently_due: ["external_account"],
+            disabled_reason: null,
+          },
+        },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+    await POST(makeReq());
+    const profile = db.state.profiles.find(
+      (p) => p.stripe_account_id === "acct_test_1",
+    );
+    expect(profile?.kyc_status).toBe("REQUIRED");
+  });
+
+  it("charge.refunded (full) → debits seller wallet, marks transaction REFUNDED", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_ref_1",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_paid_1",
+          amount_refunded: 10570, // == total_amount 105.70 in cents
+        },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+
+    const tx = db.state.transactions.find((t) => t.id === IDS.TX);
+    expect(tx?.status).toBe("REFUNDED");
+    expect(tx?.refunded_amount).toBeCloseTo(105.7, 2);
+
+    const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
+    // 100 EUR pending was the seller credit, fully clawed back
+    expect(wallet?.pending_balance ?? 0).toBeLessThanOrEqual(0.01);
+  });
+
+  it("charge.refunded (partial) → updates refunded_amount but not status", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_ref_2",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_paid_1",
+          amount_refunded: 5000, // 50 EUR partial
+        },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+    await POST(makeReq());
+
+    const tx = db.state.transactions.find((t) => t.id === IDS.TX);
+    expect(tx?.status).toBe("PAID"); // not flipped to REFUNDED
+    expect(tx?.refunded_amount).toBeCloseTo(50, 2);
+  });
+
+  it("charge.refunded for unknown charge_id → 200 no-op", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_ref_3",
+      type: "charge.refunded",
+      data: {
+        object: { id: "ch_does_not_exist", amount_refunded: 1000 },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+  });
+
+  it("charge.dispute.created → opens stripe_disputes row, locks pending_balance, transaction → DISPUTED", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_disp_1",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_test_1",
+          charge: "ch_paid_1",
+          amount: 10570,
+          currency: "eur",
+          reason: "fraudulent",
+          status: "needs_response",
+          evidence_details: {
+            due_by: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
+            submission_count: 0,
+          },
+        },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+
+    const dispute = db.state.stripe_disputes.find(
+      (d) => d.stripe_dispute_id === "dp_test_1",
+    );
+    expect(dispute).toBeDefined();
+    expect(dispute?.transaction_id).toBe(IDS.TX);
+
+    const tx = db.state.transactions.find((t) => t.id === IDS.TX);
+    expect(tx?.status).toBe("DISPUTED");
+
+    const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
+    expect(wallet?.pending_balance ?? 0).toBeLessThanOrEqual(0.01);
+  });
+
+  it("charge.dispute.closed (won) → restores pending_balance + transaction back to PAID", async () => {
+    // First open
+    stripeConstructEventImpl = () => ({
+      id: "evt_disp_open",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_won",
+          charge: "ch_paid_1",
+          amount: 10570,
+          currency: "eur",
+          reason: "general",
+          status: "needs_response",
+          evidence_details: { due_by: null, submission_count: 0 },
+        },
+      },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+    await POST(makeReq());
+
+    // Then close as won
+    stripeConstructEventImpl = () => ({
+      id: "evt_disp_close",
+      type: "charge.dispute.closed",
+      data: {
+        object: {
+          id: "dp_won",
+          charge: "ch_paid_1",
+          amount: 10570,
+          currency: "eur",
+          reason: "general",
+          status: "won",
+          evidence_details: { due_by: null, submission_count: 1 },
+        },
+      },
+    });
+    await POST(makeReq());
+
+    const tx = db.state.transactions.find((t) => t.id === IDS.TX);
+    expect(tx?.status).toBe("PAID");
+    const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
+    expect(wallet?.pending_balance ?? 0).toBeGreaterThan(99); // restored
+  });
+
+  it("payout.failed → restores available_balance + Sentry warning", async () => {
+    const sc = paidScenario();
+    sc.wallets![0].available_balance = 0; // simulating wallet zeroed by payout
+    sc.wallets![0].pending_balance = 0;
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_fail",
+      type: "payout.failed",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 8500,
+          metadata: { user_id: IDS.SELLER },
+          failure_code: "account_closed",
+        },
+      },
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+
+    const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
+    expect(wallet?.available_balance).toBeCloseTo(85, 2);
+  });
+
+  it("payout.paid without user_id metadata → 200 no-op (silent)", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_paid_nometa",
+      type: "payout.paid",
+      data: { object: { id: "po_paid_1", amount: 1000, metadata: {} } },
+    });
+    const db = createMockDb(paidScenario());
+    mockClient = db.client;
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
   });
 });

@@ -34,7 +34,7 @@
 type Row = Record<string, any>;
 
 interface Filter {
-  type: "eq" | "in" | "lt" | "gt";
+  type: "eq" | "neq" | "in" | "lt" | "gt";
   col: string;
   val: any;
 }
@@ -57,6 +57,8 @@ export interface MockDbState {
   messages: Row[];
   profiles: Row[];
   stripe_webhooks_processed: Row[];
+  stripe_disputes: Row[];
+  admin_audit_log: Row[];
   // simulated auth.users
   users: { id: string; email?: string }[];
 }
@@ -71,6 +73,8 @@ export function makeEmptyState(): MockDbState {
     messages: [],
     profiles: [],
     stripe_webhooks_processed: [],
+    stripe_disputes: [],
+    admin_audit_log: [],
     users: [],
   };
 }
@@ -110,6 +114,7 @@ function matches(row: Row, filters: Filter[]): boolean {
   for (const f of filters) {
     const v = resolveColumn(row, f.col);
     if (f.type === "eq" && v !== f.val) return false;
+    if (f.type === "neq" && v === f.val) return false;
     if (f.type === "in" && !f.val.includes(v)) return false;
     if (f.type === "lt" && !(v != null && (v as any) < f.val)) return false;
     if (f.type === "gt" && !(v != null && (v as any) > f.val)) return false;
@@ -195,6 +200,10 @@ export function createMockDb(
       },
       eq(col: string, val: any) {
         filters.push({ type: "eq", col, val });
+        return builder;
+      },
+      neq(col: string, val: any) {
+        filters.push({ type: "neq", col, val });
         return builder;
       },
       in(col: string, vals: any[]) {

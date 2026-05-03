@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
+import { deriveKycStatus } from "@/lib/stripe/kyc";
 import type { KycStatus } from "@/lib/constants";
 
 export async function GET() {
@@ -42,18 +43,7 @@ export async function GET() {
     const stripe = getStripe();
     const account = await stripe.accounts.retrieve(profile.stripe_account_id);
 
-    let kycStatus: KycStatus = "PENDING";
-
-    if (account.charges_enabled && account.payouts_enabled) {
-      kycStatus = "VERIFIED";
-    } else if (
-      account.requirements?.currently_due &&
-      account.requirements.currently_due.length > 0
-    ) {
-      kycStatus = "REQUIRED";
-    } else if (account.requirements?.disabled_reason) {
-      kycStatus = "REJECTED";
-    }
+    const kycStatus: KycStatus = deriveKycStatus(account);
 
     if (profile.kyc_status !== kycStatus) {
       await admin

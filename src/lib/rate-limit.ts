@@ -46,6 +46,13 @@ export const payoutRateLimit = new Ratelimit({
   analytics: true,
 });
 
+export const adminMutationRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(20, "1 m"),
+  prefix: "ratelimit:admin",
+  analytics: true,
+});
+
 export const defaultRateLimit = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(10, "1 m"),
