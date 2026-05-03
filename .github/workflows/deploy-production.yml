@@ -1,0 +1,114 @@
+name: Deploy - production (Sentry release + smoke)
+
+# Sur push `main`:
+#   1. Attend que le deploy Vercel soit live (probe /api/health)
+#   2. Cree une release Sentry et associe les commits
+#   3. Lance les smoke tests Playwright contre la prod
+#
+# Le job tourne dans l'environnement `production` (gate manuelle obligatoire
+# si tu as configure un required reviewer dans Settings > Environments).
+#
+# Pre-requis (cf. docs/CICD.md):
+#   - GitHub Environment `production` avec required reviewers et secrets:
+#       PROD_APP_URL
+#       SENTRY_AUTH_TOKEN
+#       SENTRY_ORG
+#       SENTRY_PROJECT
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  release-and-smoke:
+    name: Sentry release + smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ secrets.PROD_APP_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cache hit path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Wait for Vercel deployment to be live
+        env:
+          TARGET: ${{ secrets.PROD_APP_URL }}
+        run: |
+          if [ -z "$TARGET" ]; then
+            echo "::error::PROD_APP_URL secret is not set"
+            exit 1
+          fi
+          echo "Probing $TARGET/api/health for up to 8 minutes..."
+          for i in {1..96}; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$TARGET/api/health" || echo "000")
+            if [ "$CODE" = "200" ]; then
+              echo "Production deployment is live (200 OK)"
+              exit 0
+            fi
+            echo "Attempt $i/96: got HTTP $CODE, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Production deployment never returned 200 within 8 minutes"
+          exit 1
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${{ github.sha }}
+          set_commits: auto
+          ignore_missing: true
+          # Sourcemaps are uploaded by the Sentry Vercel integration
+          # during the build itself (see next.config.ts).
+          # Set sourcemaps: ./.next if you ever flip
+          # withSentryConfig({ sourcemaps: { disable: false } }).
+
+      - name: Run smoke tests against production
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PROD_APP_URL }}
+        run: npm run test:smoke
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-production-${{ github.run_id }}
+          path: playwright-report-smoke/
+          retention-days: 14

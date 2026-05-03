@@ -1,0 +1,41 @@
+name: Gitleaks
+
+# Detecte les fuites de secrets (Stripe keys, Supabase keys, etc.) dans le
+# diff des PRs et l'historique sur push. Utilise la config `.gitleaks.toml`.
+#
+# Note: GITLEAKS_LICENSE est uniquement requis pour les ORGANISATIONS payantes.
+# Pour un user personnel ou un repo public, le scan tourne sans license.
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+  schedule:
+    - cron: "0 7 * * 1"
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  scan:
+    name: Scan for leaked secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_CONFIG: .gitleaks.toml

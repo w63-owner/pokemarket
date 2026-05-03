@@ -44,3 +44,8 @@ git clone [https://github.com/votre-username/pokemarket.git](https://github.com/
 cd pokemarket
 npm install
 ```
+
+## 🤝 Contribuer
+
+- **Strategie de branches & flux release** : voir [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- **Setup CI/CD complet (Supabase, Vercel, GitHub Environments)** : voir [`docs/CICD.md`](docs/CICD.md)

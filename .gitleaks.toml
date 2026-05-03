@@ -1,0 +1,29 @@
+# Gitleaks configuration for PokeMarket.
+# Extends the default ruleset and whitelists known-safe placeholders.
+title = "PokeMarket gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlisted paths and known-safe placeholders"
+paths = [
+  '''(.*?)(jpg|jpeg|png|gif|svg|webp|ico|woff2?|ttf|eot)$''',
+  '''node_modules/''',
+  '''\.next/''',
+  '''playwright-report/''',
+  '''playwright-report-smoke/''',
+  '''coverage/''',
+  '''docs/CICD\.md''',
+  '''CONTRIBUTING\.md''',
+  '''\.env\.local\.example''',
+]
+regexes = [
+  # Public, non-secret placeholders shipped in .env.local.example and CI workflows.
+  '''pk_v1_your-publishable-key-here''',
+  '''sk_v1_your-secret-key-here''',
+  '''pk_test_placeholder''',
+  '''placeholder''',
+  '''your-project-id''',
+  '''https://placeholder\.supabase\.co''',
+]

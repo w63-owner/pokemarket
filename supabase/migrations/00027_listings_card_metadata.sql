@@ -3,6 +3,14 @@ ALTER TABLE listings
   ADD COLUMN card_language TEXT,
   ADD COLUMN card_rarity TEXT;
 
+-- Drop the previous version (from 00021) so we can change the RETURNS TABLE
+-- signature. CREATE OR REPLACE cannot change OUT parameters.
+DROP FUNCTION IF EXISTS public.search_listings_feed(
+  TEXT, TEXT, TEXT, TEXT, BOOLEAN,
+  NUMERIC, NUMERIC, NUMERIC, NUMERIC,
+  TEXT, TIMESTAMPTZ, UUID, NUMERIC, INTEGER, UUID
+);
+
 -- Update the search_listings_feed function to return the new columns
 CREATE OR REPLACE FUNCTION search_listings_feed(
   p_query TEXT DEFAULT NULL,

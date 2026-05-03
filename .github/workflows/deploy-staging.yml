@@ -1,0 +1,89 @@
+name: Deploy - staging (post-deploy smoke)
+
+# Vercel deploie automatiquement la branche `staging` sur le projet
+# pokemarket-staging des qu'un push arrive. Ce workflow tourne EN PARALLELE
+# du deploy Vercel : il attend que le /api/health renvoie 200 puis lance
+# les smoke tests Playwright.
+#
+# Pre-requis (cf. docs/CICD.md):
+#   - GitHub Environment `staging` avec secret STAGING_APP_URL
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ secrets.STAGING_APP_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cache hit path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Wait for deployment to be live
+        env:
+          TARGET: ${{ secrets.STAGING_APP_URL }}
+        run: |
+          if [ -z "$TARGET" ]; then
+            echo "::error::STAGING_APP_URL secret is not set"
+            exit 1
+          fi
+          echo "Probing $TARGET/api/health for up to 5 minutes..."
+          for i in {1..60}; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$TARGET/api/health" || echo "000")
+            if [ "$CODE" = "200" ]; then
+              echo "Deployment is live (200 OK)"
+              exit 0
+            fi
+            echo "Attempt $i/60: got HTTP $CODE, waiting 5s..."
+            sleep 5
+          done
+          echo "::error::Deployment never returned 200 within 5 minutes"
+          exit 1
+
+      - name: Run smoke tests
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_APP_URL }}
+        run: npm run test:smoke
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-staging-${{ github.run_id }}
+          path: playwright-report-smoke/
+          retention-days: 7

@@ -21,7 +21,7 @@ if (!SUPABASE_URL || !SUPABASE_SR || !SUPABASE_ANON) {
 }
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SR, { auth: { persistSession: false } });
-const anon = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
+const _anon = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: false } });
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -46,7 +46,7 @@ async function main() {
 
   // Sign in as seller to upload the cover image to their RLS folder.
   const sellerClient = createClient(SUPABASE_URL, SUPABASE_ANON);
-  const { data: sSi, error: sSiErr } = await sellerClient.auth.signInWithPassword({
+  const { error: sSiErr } = await sellerClient.auth.signInWithPassword({
     email: sellerEmail, password: PASSWORD,
   });
   if (sSiErr) throw sSiErr;

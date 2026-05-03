@@ -1,0 +1,118 @@
+name: E2E
+
+# Lance Playwright contre une stack Supabase locale (Docker) pour valider
+# les flux end-to-end avant merge.
+#
+# Note: les specs actuelles (e2e/) sont tolerantes vis-a-vis d'une DB vide
+# (test.skip si pas de listings). Ajoute un seed de test si tu veux des
+# specs deterministes (cf. supabase/seed.sql).
+
+on:
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: Playwright (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cache hit path)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: |
+          supabase start
+          # Wait for the API to be ready
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:54321/rest/v1/ -H "apikey: $(supabase status -o json | jq -r .ANON_KEY)" >/dev/null 2>&1; then
+              echo "Supabase API is up"
+              break
+            fi
+            echo "Waiting for Supabase API ($i/30)..."
+            sleep 2
+          done
+
+      - name: Export Supabase env vars
+        id: supabase-env
+        run: |
+          STATUS_JSON=$(supabase status -o json)
+          ANON=$(echo "$STATUS_JSON" | jq -r .ANON_KEY)
+          SERVICE=$(echo "$STATUS_JSON" | jq -r .SERVICE_ROLE_KEY)
+          API=$(echo "$STATUS_JSON" | jq -r .API_URL)
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE" >> "$GITHUB_ENV"
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-e2e-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-e2e-${{ hashFiles('package-lock.json') }}-
+
+      - name: Build Next.js
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
+          NEXT_PUBLIC_SENTRY_DSN: ""
+          SENTRY_AUTH_TOKEN: ""
+        run: npm run build
+
+      - name: Run Playwright tests
+        env:
+          CI: "true"
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
+          NEXT_PUBLIC_SENTRY_DSN: ""
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop || true
