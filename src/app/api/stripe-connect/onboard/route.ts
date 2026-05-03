@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { onboardRateLimit, applyRateLimit } from "@/lib/rate-limit";
+import { getAppUrl } from "@/lib/env";
 
 export async function GET() {
   try {
@@ -41,6 +42,13 @@ export async function GET() {
       // Controller properties replace the deprecated type:"express" enum.
       // "stripe" requirement_collection = Stripe hosts the onboarding UI.
       // "application" fees payer = platform is responsible for Stripe fees.
+      //
+      // Country defaults to "FR" but can be overridden per deployment via
+      // STRIPE_CONNECT_DEFAULT_COUNTRY (ISO 3166-1 alpha-2). For a multi-
+      // country marketplace, replace this with a value pulled from the user
+      // profile collected during signup.
+      const country =
+        process.env.STRIPE_CONNECT_DEFAULT_COUNTRY?.toUpperCase() ?? "FR";
       const account = await stripe.accounts.create({
         controller: {
           stripe_dashboard: { type: "express" },
@@ -52,7 +60,7 @@ export async function GET() {
           card_payments: { requested: true },
           transfers: { requested: true },
         },
-        country: "FR",
+        country,
         email: user.email,
         metadata: { user_id: user.id },
       });
@@ -76,7 +84,7 @@ export async function GET() {
       }
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = getAppUrl();
 
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,

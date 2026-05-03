@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe/server";
+import { getAppUrl } from "@/lib/env";
 import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
@@ -86,9 +87,7 @@ export async function POST() {
         .eq("id", user.id);
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
-      "http://localhost:3000";
+    const appUrl = getAppUrl();
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,

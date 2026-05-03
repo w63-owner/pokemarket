@@ -1,149 +1,77 @@
-"use client";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AdminUsersTable, type AdminUserRow } from "./users-table";
 
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  MoreHorizontal,
-  Search,
-  Eye,
-  Ban,
-  ShieldCheck,
-  UserX,
-  Mail,
-} from "lucide-react";
+export const dynamic = "force-dynamic";
 
-type MockUser = {
-  id: string;
-  username: string;
-  email: string;
-  role: "user" | "admin";
-  status: "active" | "suspended" | "banned";
-  listings_count: number;
-  transactions_count: number;
-  joined_at: string;
-};
+const PAGE_SIZE = 500;
 
-const mockUsers: MockUser[] = [
-  {
-    id: "1",
-    username: "ash_ketchum",
-    email: "ash@pokemon.com",
-    role: "user",
-    status: "active",
-    listings_count: 24,
-    transactions_count: 18,
-    joined_at: "15/01/2026",
-  },
-  {
-    id: "2",
-    username: "dark_collector",
-    email: "dark@mail.com",
-    role: "user",
-    status: "active",
-    listings_count: 142,
-    transactions_count: 89,
-    joined_at: "03/11/2025",
-  },
-  {
-    id: "3",
-    username: "scam_maybe",
-    email: "scam@fake.com",
-    role: "user",
-    status: "suspended",
-    listings_count: 3,
-    transactions_count: 1,
-    joined_at: "20/03/2026",
-  },
-  {
-    id: "4",
-    username: "misty_cerulean",
-    email: "misty@pokemon.com",
-    role: "user",
-    status: "active",
-    listings_count: 56,
-    transactions_count: 34,
-    joined_at: "28/12/2025",
-  },
-  {
-    id: "5",
-    username: "admin_poke",
-    email: "admin@pokemarket.fr",
-    role: "admin",
-    status: "active",
-    listings_count: 0,
-    transactions_count: 0,
-    joined_at: "01/09/2025",
-  },
-  {
-    id: "6",
-    username: "toxic_trader",
-    email: "toxic@mail.com",
-    role: "user",
-    status: "banned",
-    listings_count: 7,
-    transactions_count: 2,
-    joined_at: "10/02/2026",
-  },
-  {
-    id: "7",
-    username: "card_master",
-    email: "master@cards.fr",
-    role: "user",
-    status: "active",
-    listings_count: 89,
-    transactions_count: 67,
-    joined_at: "15/10/2025",
-  },
-  {
-    id: "8",
-    username: "brock_pewter",
-    email: "brock@pokemon.com",
-    role: "user",
-    status: "active",
-    listings_count: 12,
-    transactions_count: 8,
-    joined_at: "05/02/2026",
-  },
-];
+export default async function AdminUsersPage() {
+  let users: AdminUserRow[] = [];
 
-const statusConfig = {
-  active: { label: "Actif", variant: "secondary" as const },
-  suspended: { label: "Suspendu", variant: "destructive" as const },
-  banned: { label: "Banni", variant: "destructive" as const },
-};
+  try {
+    const admin = createAdminClient();
 
-export default function AdminUsersPage() {
-  const [search, setSearch] = useState("");
+    // Latest profiles. Cap at PAGE_SIZE for now — paginated server-side
+    // search comes later when this scales beyond a few hundred users.
+    const { data: profiles, error: profilesError } = await admin
+      .from("profiles")
+      .select("id, username, role, kyc_status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE);
 
-  const filtered = mockUsers.filter(
-    (u) =>
-      u.username.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()),
-  );
+    if (profilesError) throw profilesError;
+
+    const rows = profiles ?? [];
+
+    // Emails live in auth.users, only reachable via the admin auth API.
+    // listUsers is paginated (max 1000/page); for now we read the first page,
+    // which lines up with our PAGE_SIZE. If the user count grows past ~1k,
+    // switch to per-user `getUserById` lookups or a server-side join view.
+    const emailById = new Map<string, string>();
+    try {
+      const { data: authPage } = await admin.auth.admin.listUsers({
+        perPage: 1000,
+      });
+      for (const u of authPage?.users ?? []) {
+        if (u.email) emailById.set(u.id, u.email);
+      }
+    } catch {
+      // Auth admin API unavailable (placeholder envs at build time, etc.) —
+      // fall through with empty emails rather than 500-ing the page.
+    }
+
+    // Listing counts per seller via a single query, aggregated in memory.
+    const listingCountById = new Map<string, number>();
+    if (rows.length > 0) {
+      const ids = rows.map((p) => p.id);
+      const { data: listings } = await admin
+        .from("listings")
+        .select("seller_id")
+        .in("seller_id", ids);
+      for (const l of listings ?? []) {
+        listingCountById.set(
+          l.seller_id,
+          (listingCountById.get(l.seller_id) ?? 0) + 1,
+        );
+      }
+    }
+
+    users = rows.map((p) => ({
+      id: p.id,
+      username: p.username,
+      email: emailById.get(p.id) ?? "—",
+      role: (p.role === "admin" ? "admin" : "user") as "admin" | "user",
+      kyc_status: p.kyc_status,
+      listings_count: listingCountById.get(p.id) ?? 0,
+      joined_at: p.created_at
+        ? new Date(p.created_at).toLocaleDateString("fr-FR")
+        : "—",
+    }));
+  } catch (err) {
+    // Don't crash the admin shell if Supabase is briefly unreachable —
+    // surface an empty state instead.
+    console.error("AdminUsersPage: failed to load users", err);
+  }
 
   return (
     <div className="space-y-8">
@@ -152,130 +80,12 @@ export default function AdminUsersPage() {
           Gestion des utilisateurs
         </h1>
         <p className="text-muted-foreground text-sm">
-          Recherchez, consultez et modérez les comptes utilisateurs
+          Recherchez, consultez et moderez les comptes utilisateurs (limite a{" "}
+          {PAGE_SIZE} comptes les plus recents).
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Utilisateurs</CardTitle>
-              <CardDescription>
-                {filtered.length} utilisateur{filtered.length !== 1 ? "s" : ""}
-              </CardDescription>
-            </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-              <Input
-                placeholder="Rechercher par nom ou email…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Utilisateur</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Rôle</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-center">Annonces</TableHead>
-                <TableHead className="text-center">Transactions</TableHead>
-                <TableHead>Inscrit le</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((user) => {
-                const status = statusConfig[user.status];
-                return (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        @{user.username}
-                        {user.role === "admin" && (
-                          <ShieldCheck className="text-primary h-3.5 w-3.5" />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.email}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={user.role === "admin" ? "default" : "outline"}
-                      >
-                        {user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {user.listings_count}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {user.transactions_count}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.joined_at}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            />
-                          }
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Voir le profil
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Envoyer un email
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <UserX className="mr-2 h-4 w-4" />
-                            Suspendre
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive focus:text-destructive">
-                            <Ban className="mr-2 h-4 w-4" />
-                            Bannir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-muted-foreground h-24 text-center"
-                  >
-                    Aucun utilisateur trouvé.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <AdminUsersTable users={users} />
     </div>
   );
 }
