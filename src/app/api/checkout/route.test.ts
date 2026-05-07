@@ -47,10 +47,10 @@ beforeEach(() => {
   stripeRetrieve.mockClear();
 });
 
-function makeReq(body: any) {
+function makeReq(body: any, headers: HeadersInit = {}) {
   return new Request("http://localhost/api/checkout", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -168,6 +168,40 @@ describe("checkout — listing-status guards", () => {
     mockClient = createMockDb(sc).client;
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(400);
+  });
+});
+
+describe("checkout — redirect origin safety", () => {
+  it("ignores a forged Origin header when creating Stripe redirect URLs", async () => {
+    const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = "https://pokemarket.fr";
+
+    try {
+      const db = createMockDb(activeListingScenario());
+      mockClient = db.client;
+
+      const res = await POST(
+        makeReq(validBody, { origin: "https://evil.example" }),
+      );
+
+      expect(res.status).toBe(200);
+
+      const callArgs = stripeCreate.mock.calls[0][0];
+      const transactionId = db.state.transactions[0].id;
+
+      expect(callArgs.success_url).toBe(
+        `https://pokemarket.fr/orders/${transactionId}/success?session_id={CHECKOUT_SESSION_ID}`,
+      );
+      expect(callArgs.cancel_url).toBe(
+        `https://pokemarket.fr/listing/${LISTING_ID}?checkout=cancelled`,
+      );
+    } finally {
+      if (previousAppUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_APP_URL;
+      } else {
+        process.env.NEXT_PUBLIC_APP_URL = previousAppUrl;
+      }
+    }
   });
 });
 
