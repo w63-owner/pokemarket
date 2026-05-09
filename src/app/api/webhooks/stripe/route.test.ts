@@ -298,7 +298,9 @@ describe("webhooks/stripe — CHAOS", () => {
     stripeConstructEventImpl = () => ({
       id: "evt_no_meta",
       type: "checkout.session.completed",
-      data: { object: { id: "cs_no_meta", payment_status: "paid", metadata: {} } },
+      data: {
+        object: { id: "cs_no_meta", payment_status: "paid", metadata: {} },
+      },
     });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
@@ -311,7 +313,9 @@ describe("webhooks/stripe — CHAOS", () => {
     stripeConstructEventImpl = () => ({
       id: "evt_retry_after_failure",
       type: "checkout.session.completed",
-      data: { object: { id: "cs_retry", payment_status: "paid", metadata: {} } },
+      data: {
+        object: { id: "cs_retry", payment_status: "paid", metadata: {} },
+      },
     });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
