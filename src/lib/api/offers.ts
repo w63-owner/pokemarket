@@ -69,16 +69,26 @@ export async function acceptOffer(
     throw new Error("Cette offre ne peut plus être acceptée");
   }
 
-  const { error: listingError } = await supabase
+  const { data: reservedListing, error: listingError } = await supabase
     .from("listings")
     .update({
       status: "RESERVED",
       reserved_for: buyerId,
       reserved_price: amount,
     })
-    .eq("id", listingId);
+    .eq("id", listingId)
+    .eq("status", "ACTIVE")
+    .select("id");
 
   if (listingError) throw listingError;
+  if (!reservedListing || reservedListing.length === 0) {
+    await supabase
+      .from("offers")
+      .update({ status: "PENDING" })
+      .eq("id", offerId)
+      .eq("status", "ACCEPTED");
+    throw new Error("Cette annonce n'est plus disponible pour une offre");
+  }
 
   const { error: rejectError } = await supabase
     .from("offers")

@@ -42,24 +42,15 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { error: idempotencyError } = await admin
-    .from("stripe_webhooks_processed")
-    .insert({ stripe_event_id: event.id });
-
-  if (idempotencyError) {
-    if (idempotencyError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
-    console.error("Idempotency check failed:", idempotencyError);
-    return NextResponse.json(
-      { error: "Idempotency check failed" },
-      { status: 500 },
-    );
-  }
-
   try {
     switch (event.type) {
       case "checkout.session.completed":
+        await handleCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session,
+        );
+        break;
+
+      case "checkout.session.async_payment_succeeded":
         await handleCheckoutCompleted(
           event.data.object as Stripe.Checkout.Session,
         );
@@ -93,6 +84,21 @@ export async function POST(request: Request) {
     );
   }
 
+  const { error: idempotencyError } = await admin
+    .from("stripe_webhooks_processed")
+    .insert({ stripe_event_id: event.id });
+
+  if (idempotencyError) {
+    if (idempotencyError.code === "23505") {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    console.error("Idempotency check failed:", idempotencyError);
+    return NextResponse.json(
+      { error: "Idempotency check failed" },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({ received: true });
 }
 
@@ -104,6 +110,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   if (!transactionId || !listingId) {
     throw new Error("Missing transaction_id or listing_id in session metadata");
+  }
+
+  if (session.payment_status !== "paid") {
+    console.warn(
+      `Checkout session ${session.id} completed before payment was confirmed; waiting for async success`,
+    );
+    return;
   }
 
   const result = await finalizePaidTransaction(transactionId);

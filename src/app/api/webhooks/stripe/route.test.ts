@@ -8,6 +8,8 @@ let stripeConstructEventImpl: () => any = () => ({
   type: "checkout.session.completed",
   data: {
     object: {
+      id: "cs_test_1",
+      payment_status: "paid",
       metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
     },
   },
@@ -41,6 +43,17 @@ import { POST } from "./route";
 
 beforeEach(() => {
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  stripeConstructEventImpl = () => ({
+    id: "evt_1",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: "cs_test_1",
+        payment_status: "paid",
+        metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+      },
+    },
+  });
 });
 
 function makeReq(body = "{}", sig: string | null = "t=1,v1=test") {
@@ -98,6 +111,7 @@ describe("webhooks/stripe — QA happy path", () => {
       type: "checkout.session.expired",
       data: {
         object: {
+          id: "cs_expired",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -121,6 +135,7 @@ describe("webhooks/stripe — QA happy path", () => {
       type: "checkout.session.expired",
       data: {
         object: {
+          id: "cs_expired_offer",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -148,6 +163,7 @@ describe("webhooks/stripe — QA happy path", () => {
       type: "checkout.session.async_payment_failed",
       data: {
         object: {
+          id: "cs_async_failed",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -158,6 +174,51 @@ describe("webhooks/stripe — QA happy path", () => {
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
       "CANCELLED",
     );
+  });
+
+  it("checkout.session.async_payment_succeeded → finalizes transaction", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_async_success",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          id: "cs_async_success",
+          payment_status: "paid",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
+  it("checkout.session.completed with unpaid async payment waits for success event", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_async_pending",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_async_pending",
+          payment_status: "unpaid",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.stripe_webhooks_processed).toHaveLength(1);
   });
 
   it("unknown event type → 200 acknowledged but no-op", async () => {
@@ -184,6 +245,8 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_dup",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -235,12 +298,50 @@ describe("webhooks/stripe — CHAOS", () => {
     stripeConstructEventImpl = () => ({
       id: "evt_no_meta",
       type: "checkout.session.completed",
-      data: { object: { metadata: {} } },
+      data: {
+        object: { id: "cs_no_meta", payment_status: "paid", metadata: {} },
+      },
     });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
     const res = await POST(makeReq());
     expect(res.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+  });
+
+  it("does not suppress retry when first delivery fails before processing", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_retry_after_failure",
+      type: "checkout.session.completed",
+      data: {
+        object: { id: "cs_retry", payment_status: "paid", metadata: {} },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const failed = await POST(makeReq());
+    expect(failed.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+
+    stripeConstructEventImpl = () => ({
+      id: "evt_retry_after_failure",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_retry",
+          payment_status: "paid",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+
+    const retried = await POST(makeReq());
+    expect(retried.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+    expect(db.state.stripe_webhooks_processed).toHaveLength(1);
   });
 
   it("DB chaos during finalize → 500 returned, idempotency key NOT discarded (Stripe will redeliver)", async () => {
@@ -249,6 +350,8 @@ describe("webhooks/stripe — CHAOS", () => {
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_chaos",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
