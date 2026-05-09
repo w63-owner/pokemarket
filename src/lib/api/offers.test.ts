@@ -90,6 +90,33 @@ describe("acceptOffer — concurrency safety", () => {
     );
   });
 
+  it("does not accept an offer while the listing is locked by checkout", async () => {
+    const db = createMockDb({
+      offers: [
+        {
+          id: "o1",
+          status: "PENDING",
+          listing_id: "L1",
+          buyer_id: "B1",
+          conversation_id: "c1",
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+    });
+    mockClient = patchNeq(db.client);
+    withAuth(mockClient, "seller-1");
+
+    await expect(acceptOffer("o1", "L1", "B1", 25, "c1")).rejects.toThrow(
+      /plus disponible/,
+    );
+
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.offers[0].status).toBe("PENDING");
+    expect(
+      db.state.messages.filter((m) => m.message_type === "offer_accepted"),
+    ).toHaveLength(0);
+  });
+
   it("STRESS: seller double-clicks Accept — only one wins, no duplicate messages", async () => {
     const db = createMockDb(
       {
