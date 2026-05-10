@@ -1,6 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
+ * Canonical fallback weight class for legacy listings that predate the
+ * `delivery_weight_class` default.
+ */
+export const DEFAULT_SHIPPING_WEIGHT_CLASS = "S";
+
+/**
  * Default shipping cost used when no `shipping_matrix` row exists for the
  * (origin, destination, weight class) tuple. Kept low so the buyer still
  * sees a sane number, but ideally the matrix should always have a value.

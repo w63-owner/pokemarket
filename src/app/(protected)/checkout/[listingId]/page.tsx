@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListingById } from "@/lib/api/listings.server";
-import { getShippingCost } from "@/lib/shipping";
+import { DEFAULT_SHIPPING_WEIGHT_CLASS, getShippingCost } from "@/lib/shipping";
 import { CheckoutClient } from "./checkout-client";
 
 export const metadata: Metadata = {
@@ -50,7 +50,7 @@ export default async function CheckoutPage({ params }: Props) {
   const shippingCost = await getShippingCost(
     "FR",
     "FR",
-    listing.delivery_weight_class ?? "S",
+    listing.delivery_weight_class ?? DEFAULT_SHIPPING_WEIGHT_CLASS,
   );
 
   // Pre-fill the shipping form from the buyer's profile address (the one they
@@ -92,7 +92,8 @@ export default async function CheckoutPage({ params }: Props) {
         grading_company: listing.grading_company,
         grade_note: listing.grade_note,
         card_series: listing.card_series,
-        delivery_weight_class: listing.delivery_weight_class ?? "standard",
+        delivery_weight_class:
+          listing.delivery_weight_class ?? DEFAULT_SHIPPING_WEIGHT_CLASS,
       }}
       effectivePrice={effectivePrice}
       shippingCost={shippingCost}
