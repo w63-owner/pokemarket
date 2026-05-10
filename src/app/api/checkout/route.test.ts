@@ -15,11 +15,19 @@ const stripeCreate = vi.fn(async (params: any) => ({
   metadata: params.metadata,
 }));
 const stripeRetrieve = vi.fn(async () => ({ payment_status: "unpaid" }));
+const stripeExpire = vi.fn(async () => ({
+  id: "cs_expired",
+  status: "expired",
+}));
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
     checkout: {
-      sessions: { create: stripeCreate, retrieve: stripeRetrieve },
+      sessions: {
+        create: stripeCreate,
+        expire: stripeExpire,
+        retrieve: stripeRetrieve,
+      },
     },
   }),
 }));
@@ -41,16 +49,20 @@ vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { POST } from "./route";
 
+const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+
 beforeEach(() => {
   currentUser = { id: "buyer-1", email: "buyer@example.com" };
+  process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
   stripeCreate.mockClear();
+  stripeExpire.mockClear();
   stripeRetrieve.mockClear();
 });
 
-function makeReq(body: any) {
+function makeReq(body: any, headers: Record<string, string> = {}) {
   return new Request("http://localhost/api/checkout", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -67,7 +79,7 @@ function activeListingScenario() {
         cover_image_url: null,
         status: "ACTIVE",
         display_price: 50,
-        delivery_weight_class: "standard",
+        delivery_weight_class: "S",
       },
     ],
     profiles: [{ id: "buyer-1", stripe_customer_id: null }],
@@ -153,6 +165,44 @@ describe("checkout — listing-status guards", () => {
     expect(itemAmount).toBe(3000);
   });
 
+  it("uses the configured app URL for Stripe redirects, ignoring untrusted Origin", async () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://pokemarket.example";
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(
+      makeReq(validBody, { origin: "https://evil.example" }),
+    );
+
+    expect(res.status).toBe(200);
+    const callArgs = stripeCreate.mock.calls[0][0];
+    expect(callArgs.success_url).toMatch(
+      /^https:\/\/pokemarket\.example\/orders\//,
+    );
+    expect(callArgs.cancel_url).toBe(
+      `https://pokemarket.example/listing/${LISTING_ID}?checkout=cancelled`,
+    );
+  });
+
+  it("falls back to the canonical S weight class for legacy listings", async () => {
+    const sc = {
+      ...activeListingScenario(),
+      shipping_matrix: [
+        { dest_country: "FR", weight_class: "S", price: 2.5 },
+        { dest_country: "FR", weight_class: "standard", price: 99 },
+      ],
+    } as any;
+    sc.listings[0].delivery_weight_class = null;
+    mockClient = createMockDb(sc).client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(200);
+    const callArgs = stripeCreate.mock.calls[0][0];
+    const shippingAmount = callArgs.line_items[1].price_data.unit_amount;
+    expect(shippingAmount).toBe(250);
+  });
+
   it("LOCKED listing with paid stripe session → 400 (already paid)", async () => {
     stripeRetrieve.mockResolvedValueOnce({ payment_status: "paid" } as any);
     const sc = activeListingScenario();
@@ -223,17 +273,15 @@ describe("checkout — STRESS concurrent buyers", () => {
 });
 
 describe("checkout — CHAOS", () => {
-  it("Stripe session creation fails AFTER tx insert → 500 returned, cron will clean up", async () => {
+  it("Stripe session creation fails AFTER tx insert → releases listing and expires tx", async () => {
     stripeCreate.mockRejectedValueOnce(new Error("[chaos] Stripe down"));
     const db = createMockDb(activeListingScenario());
     mockClient = db.client;
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(500);
 
-    // Known limitation — the tx + LOCKED state persist until release-expired
-    // cron cleans them up (after CHECKOUT_LOCK_MINUTES). Verified separately
-    // in src/app/api/cron/release-expired/route.test.ts.
-    expect(db.state.listings[0].status).toBe("LOCKED");
-    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(db.state.transactions[0].status).toBe("EXPIRED");
+    expect(stripeExpire).not.toHaveBeenCalled();
   });
 });
