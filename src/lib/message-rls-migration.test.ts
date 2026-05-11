@@ -19,7 +19,9 @@ describe("message read-receipt RLS hardening migration", () => {
   });
 
   it("blocks direct API updates to message fields other than read_at", () => {
-    expect(migration).toContain("current_user NOT IN ('anon', 'authenticated')");
+    expect(migration).toContain(
+      "current_user NOT IN ('anon', 'authenticated')",
+    );
 
     for (const column of [
       "id",
