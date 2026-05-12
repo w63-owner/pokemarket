@@ -30,10 +30,10 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * ALREADY_PROCESSED, guaranteeing exactly-once execution under contention.
  *
  * Known limitation: if the winner crashes between the PAID transition and the
- * end of side-effects, partial state can result. Stripe webhook idempotency
- * (`stripe_webhooks_processed`) prevents auto-retry by us; recovery is
- * possible via the success page reconcile path or a future ledger-based
- * recovery cron. Tracked as a follow-up — see audit report.
+ * end of side-effects, partial state can result. Webhook idempotency is now
+ * recorded after successful handling so Stripe can retry failures before that
+ * transition; a future ledger-based recovery cron should repair post-transition
+ * partial side-effects.
  */
 export async function finalizePaidTransaction(
   transactionId: string,

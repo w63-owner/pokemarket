@@ -83,7 +83,7 @@ export async function POST(request: Request) {
         })
         .eq("id", offer.listing_id)
         .eq("reserved_for", user.id)
-        .in("status", ["RESERVED", "LOCKED"]);
+        .eq("status", "RESERVED");
 
       if (listingError) throw listingError;
     }

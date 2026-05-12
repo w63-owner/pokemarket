@@ -42,19 +42,22 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { error: idempotencyError } = await admin
+  const { data: processedEvent, error: idempotencyReadError } = await admin
     .from("stripe_webhooks_processed")
-    .insert({ stripe_event_id: event.id });
+    .select("stripe_event_id")
+    .eq("stripe_event_id", event.id)
+    .maybeSingle();
 
-  if (idempotencyError) {
-    if (idempotencyError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
-    console.error("Idempotency check failed:", idempotencyError);
+  if (idempotencyReadError) {
+    console.error("Idempotency check failed:", idempotencyReadError);
     return NextResponse.json(
       { error: "Idempotency check failed" },
       { status: 500 },
     );
+  }
+
+  if (processedEvent) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   try {
@@ -89,6 +92,18 @@ export async function POST(request: Request) {
     console.error(`Error processing ${event.type}:`, err);
     return NextResponse.json(
       { error: "Webhook handler failed" },
+      { status: 500 },
+    );
+  }
+
+  const { error: idempotencyInsertError } = await admin
+    .from("stripe_webhooks_processed")
+    .insert({ stripe_event_id: event.id });
+
+  if (idempotencyInsertError && idempotencyInsertError.code !== "23505") {
+    console.error("Idempotency record failed:", idempotencyInsertError);
+    return NextResponse.json(
+      { error: "Idempotency record failed" },
       { status: 500 },
     );
   }

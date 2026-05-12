@@ -30,6 +30,17 @@ describe("cron/release-expired — auth", () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it("rejects Bearer undefined when CRON_SECRET is missing", async () => {
+    delete process.env.CRON_SECRET;
+    mockClient = createMockDb({}).client;
+    const res = await GET(
+      new Request("http://localhost/api/cron/release-expired", {
+        headers: { authorization: "Bearer undefined" },
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
 });
 
 describe("cron/release-expired — QA", () => {
