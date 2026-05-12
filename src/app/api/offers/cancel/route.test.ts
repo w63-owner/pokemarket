@@ -104,6 +104,37 @@ describe("offers/cancel — QA", () => {
     expect(listing.reserved_price).toBeNull();
   });
 
+  it("cancels an ACCEPTED offer without unlocking an in-flight checkout", async () => {
+    const db = createMockDb({
+      offers: [
+        {
+          id: "o1",
+          status: "ACCEPTED",
+          buyer_id: "buyer-1",
+          listing_id: "L1",
+        },
+      ],
+      listings: [
+        {
+          id: "L1",
+          status: "LOCKED",
+          reserved_for: "buyer-1",
+          reserved_price: 50,
+        },
+      ],
+    });
+    mockClient = db.client;
+
+    const res = await POST(makeReq({ offer_id: "o1", conversation_id: "c1" }));
+
+    expect(res.status).toBe(200);
+    expect(db.state.offers[0].status).toBe("CANCELLED");
+    const listing = db.state.listings[0];
+    expect(listing.status).toBe("LOCKED");
+    expect(listing.reserved_for).toBe("buyer-1");
+    expect(listing.reserved_price).toBe(50);
+  });
+
   it("rejects cancel from a non-buyer (third party)", async () => {
     currentUser = { id: "stranger" };
     const db = createMockDb({
