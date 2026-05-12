@@ -1,0 +1,184 @@
+import { useEffect, useRef, useState } from "react";
+import { View } from "react-native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MotiView } from "moti";
+import { CheckCircle2, Home, ShoppingBag, Sparkles } from "lucide-react-native";
+import { formatPrice } from "@pokemarket/shared";
+
+import { fetchTransactionForBuyer } from "@/lib/api/checkout";
+import { Button, Skeleton, Text } from "@/components/ui";
+import { haptics } from "@/lib/haptics";
+
+const STATUS_COPY: Record<string, { title: string; description: string }> = {
+  PAID: {
+    title: "Commande confirmée !",
+    description:
+      "Votre paiement est en cours de validation. Le vendeur sera notifié et préparera l'envoi de votre carte.",
+  },
+  SHIPPED: {
+    title: "Commande expédiée",
+    description:
+      "Votre carte a été expédiée ! Vous recevrez bientôt votre colis.",
+  },
+  COMPLETED: {
+    title: "Vente terminée",
+    description: "Cette vente est terminée. Merci pour votre achat !",
+  },
+};
+
+const FRESH_STATUSES = new Set(["PAID", "PENDING_PAYMENT"]);
+
+function getStatusCopy(status: string) {
+  return (
+    STATUS_COPY[status] ?? {
+      title: "Détail de la commande",
+      description: `Statut actuel : ${status.toLowerCase().replace("_", " ")}.`,
+    }
+  );
+}
+
+/**
+ * Order success screen reached after PaymentSheet (Stripe) succeeds or
+ * MangoPay 3DS resolves. The webhook is what actually flips the
+ * transaction to PAID server-side, so we poll the transaction with a
+ * short interval until we observe the PAID status (or give up after 3
+ * polls and show "Paiement en cours de validation").
+ */
+export default function OrderSuccessScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [pollCount, setPollCount] = useState(0);
+
+  const { data: transaction, isLoading } = useQuery({
+    queryKey: ["transactions", "buyer", id],
+    queryFn: () => fetchTransactionForBuyer(id),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return 1500;
+      // Stop polling once we observe PAID — the webhook caught up.
+      if (data.status !== "PENDING_PAYMENT") return false;
+      // Webhook can lag a few seconds. We poll up to ~10 seconds, then
+      // optimistically render the success UI anyway (the buyer's payment
+      // was confirmed by Stripe client-side).
+      return pollCount > 6 ? false : 1500;
+    },
+  });
+
+  useEffect(() => {
+    if (transaction?.status === "PENDING_PAYMENT") {
+      const id = setTimeout(() => setPollCount((n) => n + 1), 1500);
+      return () => clearTimeout(id);
+    }
+  }, [transaction]);
+
+  // Trigger an Apple Pay-style success haptic exactly once when the success
+  // copy first becomes visible. We don't want to retrigger on each refetch.
+  const successFiredRef = useRef(false);
+  useEffect(() => {
+    if (successFiredRef.current) return;
+    if (transaction?.status && transaction.status !== "PENDING_PAYMENT") {
+      successFiredRef.current = true;
+      haptics.success();
+    } else if (transaction?.status === "PENDING_PAYMENT" && pollCount > 6) {
+      successFiredRef.current = true;
+      haptics.success();
+    }
+  }, [transaction, pollCount]);
+
+  if (isLoading || !transaction) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="gap-3 p-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-6 w-2/3 self-center" />
+          <Skeleton className="h-4 w-1/2 self-center" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Treat both PAID and the temporarily-still-PENDING_PAYMENT (waiting on
+  // webhook) the same in the UI so the buyer sees the success state
+  // without a confusing "pending" delay.
+  const rawStatus = transaction.status ?? "PENDING_PAYMENT";
+  const observedStatus = rawStatus === "PENDING_PAYMENT" ? "PAID" : rawStatus;
+  const isFresh = FRESH_STATUSES.has(observedStatus);
+  const copy = getStatusCopy(observedStatus);
+
+  return (
+    <SafeAreaView className="flex-1 bg-background">
+      <Stack.Screen options={{ headerShown: false }} />
+      <View className="flex-1 items-center justify-center px-6">
+        <MotiView
+          from={{ opacity: 0, scale: 0.8, translateY: 30 }}
+          animate={{ opacity: 1, scale: 1, translateY: 0 }}
+          transition={{ type: "spring", damping: 24, stiffness: 300 }}
+          className="w-full max-w-md items-center"
+        >
+          <MotiView
+            from={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 400,
+              damping: 15,
+              delay: 200,
+            }}
+            className="mb-6 items-center justify-center rounded-full bg-primary/10 p-5"
+          >
+            <View className="relative">
+              <CheckCircle2 size={64} color="#E63946" strokeWidth={1.5} />
+              {isFresh ? (
+                <MotiView
+                  from={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 500 }}
+                  className="absolute -right-1 -top-1"
+                >
+                  <Sparkles size={24} color="#eab308" />
+                </MotiView>
+              ) : null}
+            </View>
+          </MotiView>
+
+          <Text variant="h2" className="mb-2 text-center">
+            {copy.title}
+          </Text>
+
+          <Text variant="muted" className="mb-6 text-center">
+            {isFresh
+              ? `Votre paiement de ${formatPrice(transaction.total_amount)} est en cours de validation. Le vendeur sera notifié et préparera l'envoi de votre carte.`
+              : copy.description}
+          </Text>
+
+          {transaction.listing_title ? (
+            <View className="mb-6 w-full rounded-xl border border-border bg-muted/40 px-4 py-3">
+              <Text variant="caption">Article</Text>
+              <Text className="font-semibold">{transaction.listing_title}</Text>
+            </View>
+          ) : null}
+
+          <View className="w-full gap-3">
+            <Button
+              size="lg"
+              onPress={() => router.replace("/(tabs)/profile" as never)}
+              leftIcon={<ShoppingBag size={18} color="#fff" />}
+            >
+              Voir mes achats
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.replace("/(tabs)" as never)}
+              leftIcon={<Home size={18} color="#0f172a" />}
+            >
+              Retour à l&apos;accueil
+            </Button>
+          </View>
+        </MotiView>
+      </View>
+    </SafeAreaView>
+  );
+}

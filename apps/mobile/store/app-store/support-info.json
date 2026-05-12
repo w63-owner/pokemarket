@@ -1,0 +1,13 @@
+{
+  "$comment": "URLs publiques requises par App Store Connect / Play Console. Toutes pointent vers le site web de production.",
+  "supportUrl": "https://pokemarket.app/support",
+  "marketingUrl": "https://pokemarket.app",
+  "privacyUrl": "https://pokemarket.app/legal/privacy",
+  "termsUrl": "https://pokemarket.app/legal/cgu",
+  "copyright": "© 2026 PokeMarket SAS. Tous droits réservés.",
+  "primaryCategory": "SHOPPING",
+  "secondaryCategory": "LIFESTYLE",
+  "contentRating": "4+",
+  "primaryLocale": "fr-FR",
+  "supportedLocales": ["fr-FR", "en-US"]
+}

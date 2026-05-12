@@ -1,0 +1,9 @@
+Ce dossier accueillera :
+
+- feature-graphic-1024x500.png (Play Store)
+- icon-512x512.png (Play Store)
+- promo-video.mp4 (optionnel App Preview iOS, 15-30s)
+
+Les fichiers binaires sont volontairement exclus du repo (ou git-lfs).
+Stocker la version maître sur Drive partagé et copier ici uniquement
+les exports finaux.
