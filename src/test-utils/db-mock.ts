@@ -404,7 +404,10 @@ export function createMockDb(
           100;
 
         for (const offer of state.offers) {
-          if (offer.listing_id === tx.listing_id && offer.status === "PENDING") {
+          if (
+            offer.listing_id === tx.listing_id &&
+            offer.status === "PENDING"
+          ) {
             offer.status = "EXPIRED";
           }
         }
