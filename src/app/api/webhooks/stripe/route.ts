@@ -42,21 +42,6 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { error: idempotencyError } = await admin
-    .from("stripe_webhooks_processed")
-    .insert({ stripe_event_id: event.id });
-
-  if (idempotencyError) {
-    if (idempotencyError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
-    console.error("Idempotency check failed:", idempotencyError);
-    return NextResponse.json(
-      { error: "Idempotency check failed" },
-      { status: 500 },
-    );
-  }
-
   try {
     switch (event.type) {
       case "checkout.session.completed":
@@ -84,6 +69,11 @@ export async function POST(request: Request) {
       default:
         console.warn(`Unhandled event type: ${event.type}`);
     }
+
+    const duplicate = await recordWebhookProcessed(admin, event.id);
+    return NextResponse.json(
+      duplicate ? { received: true, duplicate: true } : { received: true },
+    );
   } catch (err) {
     Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
@@ -92,11 +82,22 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-
-  return NextResponse.json({ received: true });
 }
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function recordWebhookProcessed(
+  admin: AdminClient,
+  eventId: string,
+): Promise<boolean> {
+  const { error } = await admin
+    .from("stripe_webhooks_processed")
+    .insert({ stripe_event_id: eventId });
+
+  if (!error) return false;
+  if (error.code === "23505") return true;
+  throw error;
+}
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const transactionId = session.metadata?.transaction_id;

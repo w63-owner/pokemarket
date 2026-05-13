@@ -241,9 +241,10 @@ describe("webhooks/stripe — CHAOS", () => {
     mockClient = db.client;
     const res = await POST(makeReq());
     expect(res.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
   });
 
-  it("DB chaos during finalize → 500 returned, idempotency key NOT discarded (Stripe will redeliver)", async () => {
+  it("DB chaos during finalize → 500 returned before idempotency is recorded", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_chaos",
       type: "checkout.session.completed",

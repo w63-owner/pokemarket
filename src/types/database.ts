@@ -1106,6 +1106,10 @@ export type Database = {
           review_count: number;
         }[];
       };
+      finalize_paid_transaction: {
+        Args: { p_transaction_id: string };
+        Returns: "PAID" | "ALREADY_PROCESSED" | "NOT_FOUND";
+      };
       match_tcgdex_cards: {
         Args: { p_language?: string; p_local_id?: string; p_name: string };
         Returns: {

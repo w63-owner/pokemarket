@@ -123,14 +123,13 @@ describe("finalizePaidTransaction — QA edge cases", () => {
   it("handles transaction with shipping cost (sellerNet excludes shipping)", async () => {
     const scenario = basicScenario();
     scenario.transactions![0].total_amount = 116.2; // 100 item + 10 ship + ~6 fees
+    scenario.transactions![0].fee_amount = 6.2;
     scenario.transactions![0].shipping_cost = 10;
     const db = createMockDb(scenario);
     mockClient = db.client;
     await finalizePaidTransaction(IDS.TX);
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
-    // calcPriceSeller(116.2 - 10) = calcPriceSeller(106.2) = (106.2 - 0.7)/1.05 ≈ 100.476
-    expect(wallet?.pending_balance).toBeGreaterThan(99);
-    expect(wallet?.pending_balance).toBeLessThan(102);
+    expect(wallet?.pending_balance).toBeCloseTo(100, 2);
   });
 
   it("works even if no conversation exists (no system message)", async () => {
@@ -143,12 +142,21 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     expect(sentEmails).toHaveLength(2); // emails still sent
   });
 
-  it("works even if seller wallet does not exist (no crediting, no crash)", async () => {
+  it("rejects atomically if seller wallet does not exist", async () => {
     const scenario = basicScenario();
     scenario.wallets = [];
     const db = createMockDb(scenario);
     mockClient = db.client;
-    expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
+    await expect(finalizePaidTransaction(IDS.TX)).rejects.toMatchObject({
+      code: "P0002",
+    });
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
+    expect(db.state.messages).toHaveLength(0);
   });
 });
 
@@ -234,14 +242,7 @@ describe("finalizePaidTransaction — CHAOS failure injection", () => {
     expect(wallet?.pending_balance).toBeCloseTo(100, 2);
   });
 
-  it("network blips: SAFETY property — wallet is never double-credited", async () => {
-    // Under chaos a single PAID transaction may be PARTIALLY processed (we
-    // mark this as a known issue: see audit report — wallet credit / message
-    // insert / offer expiry / listing update don't all check `.error`). What
-    // we want to guarantee even under chaos:
-    //   1. The wallet is NEVER double-credited
-    //   2. The message is NEVER inserted twice
-    //   3. The listing is NEVER reverted from SOLD
+  it("network blips: safety property — critical DB writes are all-or-nothing", async () => {
     const db = createMockDb(basicScenario(), {
       errorRate: 0.3,
       serializeWrites: true,
@@ -259,8 +260,6 @@ describe("finalizePaidTransaction — CHAOS failure injection", () => {
     db.chaos.errorRate = 0;
 
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
-    // Either credited the right amount, or not credited at all (the bug)
-    // — but never double-credited.
     const credit = wallet?.pending_balance ?? 0;
     expect([0, 100]).toContain(Math.round(credit));
 
@@ -271,52 +270,41 @@ describe("finalizePaidTransaction — CHAOS failure injection", () => {
 
     const listing = db.state.listings.find((l) => l.id === IDS.LISTING);
     expect(["LOCKED", "SOLD"]).toContain(listing?.status);
+
+    const tx = db.state.transactions.find((t) => t.id === IDS.TX);
+    if (tx?.status === "PAID") {
+      expect(Math.round(credit)).toBe(100);
+      expect(listing?.status).toBe("SOLD");
+      expect(paymentMessages).toHaveLength(1);
+    } else {
+      expect(Math.round(credit)).toBe(0);
+      expect(listing?.status).toBe("LOCKED");
+      expect(paymentMessages).toHaveLength(0);
+    }
   });
 
-  it("KNOWN-LIMITATION: side-effect failure after PAID transition is NOT auto-recovered", async () => {
-    // We use an atomic-gate concurrency model to GUARANTEE no double-credit.
-    // The trade-off is that if the winner crashes after the PAID transition
-    // but before completing all side-effects, the transaction can end up in
-    // a partial state. Recovery requires manual replay or the buyer hitting
-    // the success page reconcile path.
-    //
-    // Tracked in audit report as a follow-up: introduce a recovery cron or
-    // wrap the entire flow in a Postgres RPC.
+  it("critical DB failure can be retried without leaving PAID without wallet credit", async () => {
     const db = createMockDb(basicScenario());
     mockClient = db.client;
 
-    const originalFrom = db.client.from.bind(db.client);
-    let walletWriteAttempts = 0;
-    db.client.from = (name: string) => {
-      const builder = originalFrom(name);
-      if (name === "wallets") {
-        const origUpdate = builder.update.bind(builder);
-        builder.update = (patch: any) => {
-          walletWriteAttempts++;
-          if (walletWriteAttempts === 1) {
-            throw new Error("[chaos] wallet write failed");
-          }
-          return origUpdate(patch);
-        };
-      }
-      return builder;
-    };
+    const [wallet] = db.state.wallets.splice(0, 1);
 
-    await expect(finalizePaidTransaction(IDS.TX)).rejects.toThrow();
+    await expect(finalizePaidTransaction(IDS.TX)).rejects.toMatchObject({
+      code: "P0002",
+    });
 
-    // Tx is PAID but wallet not credited — partial state
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
-      "PAID",
+      "PENDING_PAYMENT",
     );
-    expect(
-      db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
-    ).toBe(0);
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
+    expect(db.state.messages).toHaveLength(0);
 
-    // Retry: short-circuits because tx is already PAID. The orphan persists
-    // until manual recovery — but importantly, NO double-credit happens.
-    expect(await finalizePaidTransaction(IDS.TX)).toBe("ALREADY_PROCESSED");
+    db.state.wallets.push(wallet);
+    expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
     expect(
       db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
-    ).toBe(0);
+    ).toBeCloseTo(100, 2);
   });
 });
