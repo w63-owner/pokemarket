@@ -353,9 +353,120 @@ export function createMockDb(
     return builder;
   }
 
+  function restoreState(snapshot: MockDbState) {
+    for (const key of Object.keys(snapshot) as (keyof MockDbState)[]) {
+      (state as any)[key] = (snapshot as any)[key];
+    }
+  }
+
+  async function finalizePaidTransactionRpc(
+    transactionId: string,
+  ): Promise<"PAID" | "ALREADY_PROCESSED" | "NOT_FOUND"> {
+    return withSerializedWrites(!!chaos.serializeWrites, async () => {
+      const snapshot = structuredClone(state);
+
+      try {
+        const tx = state.transactions.find((t) => t.id === transactionId);
+        if (!tx) return "NOT_FOUND";
+        if (tx.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
+
+        const sellerNet =
+          Math.round(
+            (Number(tx.total_amount ?? 0) -
+              Number(tx.shipping_cost ?? 0) -
+              Number(tx.fee_amount ?? 0)) *
+              100,
+          ) / 100;
+
+        if (sellerNet <= 0) {
+          throw Object.assign(
+            new Error(
+              `INVALID_AMOUNT: seller_net is ${sellerNet} for transaction ${transactionId}`,
+            ),
+            { code: "P0001" },
+          );
+        }
+
+        const listing = state.listings.find((l) => l.id === tx.listing_id);
+        if (listing) listing.status = "SOLD";
+
+        const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
+        if (!wallet) {
+          throw Object.assign(
+            new Error(
+              `MISSING_WALLET: seller ${tx.seller_id} has no wallet for transaction ${transactionId}`,
+            ),
+            { code: "P0002" },
+          );
+        }
+        wallet.pending_balance =
+          Math.round((Number(wallet.pending_balance ?? 0) + sellerNet) * 100) /
+          100;
+
+        for (const offer of state.offers) {
+          if (offer.listing_id === tx.listing_id && offer.status === "PENDING") {
+            offer.status = "EXPIRED";
+          }
+        }
+
+        const conversation = state.conversations.find(
+          (c) =>
+            c.listing_id === tx.listing_id &&
+            c.buyer_id === tx.buyer_id &&
+            c.seller_id === tx.seller_id,
+        );
+
+        if (conversation) {
+          state.messages.push({
+            id: `messages_${state.messages.length + 1}_${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
+            created_at: new Date().toISOString(),
+            conversation_id: conversation.id,
+            sender_id: tx.buyer_id,
+            content:
+              "Paiement confirmé ! La commande est en attente d'expédition.",
+            message_type: "payment_completed",
+            metadata: { transaction_id: transactionId },
+          });
+        }
+
+        tx.status = "PAID";
+        return "PAID";
+      } catch (err) {
+        restoreState(snapshot);
+        throw err;
+      }
+    });
+  }
+
   const client = {
     from(name: string) {
       return table(name as keyof MockDbState);
+    },
+    async rpc(name: string, args: Record<string, any>) {
+      bump(`rpc.${name}`);
+      await maybeChaos(`rpc.${name}`);
+
+      try {
+        if (name === "finalize_paid_transaction") {
+          const data = await finalizePaidTransactionRpc(args.p_transaction_id);
+          return { data, error: null };
+        }
+      } catch (err: any) {
+        if (err && typeof err === "object" && "code" in err) {
+          return {
+            data: null,
+            error: { code: err.code, message: err.message },
+          };
+        }
+        throw err;
+      }
+
+      return {
+        data: null,
+        error: { code: "42883", message: `unknown rpc ${name}` },
+      };
     },
     auth: {
       admin: {

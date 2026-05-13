@@ -24,16 +24,10 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * Called from BOTH the Stripe webhook AND the success page reconcile path so
  * the user receives their confirmation regardless of which path lands first.
  *
- * Concurrency model: the side-effects (wallet credit, message insert) are
- * only run by the caller that successfully transitions PENDING_PAYMENT → PAID.
- * Any concurrent caller will see the row already PAID and short-circuit with
- * ALREADY_PROCESSED, guaranteeing exactly-once execution under contention.
- *
- * Known limitation: if the winner crashes between the PAID transition and the
- * end of side-effects, partial state can result. Stripe webhook idempotency
- * (`stripe_webhooks_processed`) prevents auto-retry by us; recovery is
- * possible via the success page reconcile path or a future ledger-based
- * recovery cron. Tracked as a follow-up — see audit report.
+ * Concurrency model: critical database side-effects run inside the
+ * `finalize_paid_transaction` RPC under a row lock. The single caller that
+ * transitions PENDING_PAYMENT -> PAID performs the DB writes; later callers get
+ * ALREADY_PROCESSED and skip best-effort notifications.
  */
 export async function finalizePaidTransaction(
   transactionId: string,
@@ -47,69 +41,20 @@ export async function finalizePaidTransaction(
     .single();
 
   if (txFetchError || !transaction) return "NOT_FOUND";
-  if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
 
-  // Atomic transition guard — only one caller wins this race. The losing
-  // callers (e.g. webhook + reconcile firing simultaneously) will receive
-  // 0 rows and bail out without re-running any side-effects.
-  const { data: updated, error: txUpdateError } = await admin
-    .from("transactions")
-    .update({ status: "PAID" })
-    .eq("id", transactionId)
-    .eq("status", "PENDING_PAYMENT")
-    .select("id");
-
-  if (txUpdateError) throw txUpdateError;
-  if (!updated || updated.length === 0) return "ALREADY_PROCESSED";
-
-  // ── From here on we are the EXCLUSIVE owner of this transaction's
-  //    side-effects. Every step throws on error so a failure surfaces to
-  //    the caller (webhook returns 500, success page surfaces an error).
-
-  const { error: listingUpdateError } = await admin
-    .from("listings")
-    .update({ status: "SOLD" })
-    .eq("id", transaction.listing_id);
-  if (listingUpdateError) throw listingUpdateError;
-
-  // NOTE: revalidatePath() is intentionally NOT called here. This function is
-  // invoked from BOTH the Stripe webhook (a route handler — safe) and the
-  // /orders/:id/success page (a Server Component render — `revalidatePath`
-  // throws there in Next 16). Each caller is responsible for its own cache
-  // invalidation: the webhook revalidates `/listing/:id` after this returns;
-  // the success page doesn't need to (the listing detail page reloads fresh on
-  // next navigation, and the buyer's own `/orders/:id` is the page being
-  // rendered).
-
-  const sellerNet = calcPriceSeller(
-    transaction.total_amount - (transaction.shipping_cost ?? 0),
+  // All critical DB side effects happen in one Postgres transaction. This
+  // avoids the old failure mode where the row was marked PAID before the seller
+  // wallet credit, then retries short-circuited forever.
+  const { data: result, error: finalizeError } = await admin.rpc(
+    "finalize_paid_transaction",
+    { p_transaction_id: transactionId },
   );
 
-  const { data: wallet, error: walletReadError } = await admin
-    .from("wallets")
-    .select("pending_balance")
-    .eq("user_id", transaction.seller_id)
-    .single();
-  if (walletReadError && walletReadError.code !== "PGRST116") {
-    throw walletReadError;
+  if (finalizeError) throw finalizeError;
+  if (result === "NOT_FOUND" || result === "ALREADY_PROCESSED") return result;
+  if (result !== "PAID") {
+    throw new Error(`Unexpected finalize_paid_transaction result: ${result}`);
   }
-
-  if (wallet) {
-    const newPending =
-      Math.round((Number(wallet.pending_balance) + sellerNet) * 100) / 100;
-    const { error: walletWriteError } = await admin
-      .from("wallets")
-      .update({ pending_balance: newPending })
-      .eq("user_id", transaction.seller_id);
-    if (walletWriteError) throw walletWriteError;
-  }
-
-  const { error: offerExpireError } = await admin
-    .from("offers")
-    .update({ status: "EXPIRED" })
-    .eq("listing_id", transaction.listing_id)
-    .eq("status", "PENDING");
-  if (offerExpireError) throw offerExpireError;
 
   const { data: conversation } = await admin
     .from("conversations")
@@ -118,17 +63,6 @@ export async function finalizePaidTransaction(
     .eq("buyer_id", transaction.buyer_id)
     .eq("seller_id", transaction.seller_id)
     .maybeSingle();
-
-  if (conversation) {
-    const { error: msgError } = await admin.from("messages").insert({
-      conversation_id: conversation.id,
-      sender_id: transaction.buyer_id,
-      content: "Paiement confirmé ! La commande est en attente d'expédition.",
-      message_type: "payment_completed",
-      metadata: { transaction_id: transactionId },
-    });
-    if (msgError) throw msgError;
-  }
 
   await sendTransactionEmails(
     admin,
