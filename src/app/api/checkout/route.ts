@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { checkoutSchema } from "@/lib/validations";
 import { calcPriceSeller, calcFeeAmount, calcTotalBuyer } from "@/lib/pricing";
-import { LIMITS } from "@/lib/constants";
+import { DEFAULT_WEIGHT_CLASS, LIMITS } from "@/lib/constants";
 import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import { getShippingCost } from "@/lib/shipping";
 import type { CheckoutResponse } from "@/types/api";
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
     const shippingCost = await getShippingCost(
       "FR",
       shipping_country,
-      listing.delivery_weight_class ?? "standard",
+      listing.delivery_weight_class ?? DEFAULT_WEIGHT_CLASS,
     );
 
     const priceSeller = calcPriceSeller(effectiveDisplayPrice);

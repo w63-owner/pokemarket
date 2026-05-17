@@ -56,6 +56,7 @@ export interface MockDbState {
   conversations: Row[];
   messages: Row[];
   profiles: Row[];
+  shipping_matrix: Row[];
   stripe_webhooks_processed: Row[];
   // simulated auth.users
   users: { id: string; email?: string }[];
@@ -70,6 +71,7 @@ export function makeEmptyState(): MockDbState {
     conversations: [],
     messages: [],
     profiles: [],
+    shipping_matrix: [],
     stripe_webhooks_processed: [],
     users: [],
   };

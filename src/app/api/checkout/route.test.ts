@@ -67,7 +67,7 @@ function activeListingScenario() {
         cover_image_url: null,
         status: "ACTIVE",
         display_price: 50,
-        delivery_weight_class: "standard",
+        delivery_weight_class: "S",
       },
     ],
     profiles: [{ id: "buyer-1", stripe_customer_id: null }],
@@ -151,6 +151,27 @@ describe("checkout — listing-status guards", () => {
     const callArgs = stripeCreate.mock.calls[0][0];
     const itemAmount = callArgs.line_items[0].price_data.unit_amount;
     expect(itemAmount).toBe(3000);
+  });
+
+  it("charges Stripe with the selected-country shipping quote and S fallback", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].delivery_weight_class = null as any;
+    const db = createMockDb({
+      ...sc,
+      shipping_matrix: [{ dest_country: "BE", weight_class: "S", price: 4.9 }],
+    });
+    mockClient = db.client;
+
+    const res = await POST(makeReq({ ...validBody, shipping_country: "BE" }));
+
+    expect(res.status).toBe(200);
+    expect(db.state.transactions[0].shipping_country).toBe("BE");
+    expect(db.state.transactions[0].shipping_cost).toBe(4.9);
+    expect(db.state.transactions[0].total_amount).toBe(54.9);
+
+    const callArgs = stripeCreate.mock.calls[0][0];
+    const shippingAmount = callArgs.line_items[1].price_data.unit_amount;
+    expect(shippingAmount).toBe(490);
   });
 
   it("LOCKED listing with paid stripe session → 400 (already paid)", async () => {

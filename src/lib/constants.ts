@@ -39,6 +39,8 @@ export const WEIGHT_CLASSES = ["XS", "S", "M", "L", "XL"] as const;
 
 export type WeightClass = (typeof WEIGHT_CLASSES)[number];
 
+export const DEFAULT_WEIGHT_CLASS: WeightClass = "S";
+
 export const WEIGHT_CLASS_LABELS: Record<WeightClass, string> = {
   XS: "Extra Small (1 carte sans protection)",
   S: "Small (1-2 cartes avec toploader)",
