@@ -52,7 +52,7 @@ describe("CheckoutClient", () => {
       />,
     );
 
-    expect(screen.getByText(/4,90/)).toBeDefined();
+    expect(screen.getByText("4,90 €")).toBeDefined();
     expect(screen.getByRole("button", { name: /Payer.*54,90/ })).toBeDefined();
   });
 });
