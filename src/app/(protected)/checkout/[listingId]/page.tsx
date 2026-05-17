@@ -3,6 +3,11 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListingById } from "@/lib/api/listings.server";
 import { getShippingCost } from "@/lib/shipping";
+import {
+  DEFAULT_WEIGHT_CLASS,
+  SHIPPING_COUNTRIES,
+  type ShippingCountry,
+} from "@/lib/constants";
 import { CheckoutClient } from "./checkout-client";
 
 export const metadata: Metadata = {
@@ -42,16 +47,18 @@ export default async function CheckoutPage({ params }: Props) {
       ? (listing.reserved_price ?? listing.display_price)
       : listing.display_price) ?? 0;
 
-  // Compute the actual shipping cost the same way `/api/checkout` does, so
-  // the order summary the buyer sees matches what Stripe ultimately charges.
-  // We default to FR — the client switches the country pre-payment, but the
-  // matrix today is mostly populated for FR anyway, and the route recomputes
-  // server-side using the buyer's chosen country before calling Stripe.
-  const shippingCost = await getShippingCost(
-    "FR",
-    "FR",
-    listing.delivery_weight_class ?? "S",
+  const deliveryWeightClass =
+    listing.delivery_weight_class ?? DEFAULT_WEIGHT_CLASS;
+  const shippingQuoteEntries = await Promise.all(
+    SHIPPING_COUNTRIES.map(async (country) => [
+      country,
+      await getShippingCost("FR", country, deliveryWeightClass),
+    ]),
   );
+  const shippingQuotes = Object.fromEntries(shippingQuoteEntries) as Record<
+    ShippingCountry,
+    number
+  >;
 
   // Pre-fill the shipping form from the buyer's profile address (the one they
   // edit at /profile/profile). The profile is the canonical source: returning
@@ -92,10 +99,10 @@ export default async function CheckoutPage({ params }: Props) {
         grading_company: listing.grading_company,
         grade_note: listing.grade_note,
         card_series: listing.card_series,
-        delivery_weight_class: listing.delivery_weight_class ?? "standard",
+        delivery_weight_class: deliveryWeightClass,
       }}
       effectivePrice={effectivePrice}
-      shippingCost={shippingCost}
+      shippingQuotes={shippingQuotes}
       defaultShipping={defaultShipping}
     />
   );

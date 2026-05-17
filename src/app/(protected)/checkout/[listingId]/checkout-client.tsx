@@ -45,7 +45,7 @@ interface CheckoutClientProps {
     delivery_weight_class: string;
   };
   effectivePrice: number;
-  shippingCost: number;
+  shippingQuotes: Record<ShippingCountry, number>;
   /**
    * Address copied from the buyer's most recent transaction so returning
    * customers don't have to retype the same shipping info on every checkout.
@@ -61,7 +61,7 @@ function isSupportedCountry(value: string): value is ShippingCountry {
 export function CheckoutClient({
   listing,
   effectivePrice,
-  shippingCost,
+  shippingQuotes,
   defaultShipping,
 }: CheckoutClientProps) {
   const [country, setCountry] = useState<ShippingCountry>(() =>
@@ -79,6 +79,7 @@ export function CheckoutClient({
 
   const [expiresAt] = useState(() => new Date(Date.now() + 30 * 60 * 1000));
 
+  const shippingCost = shippingQuotes[country];
   const total = calcTotalBuyer(effectivePrice, shippingCost);
 
   const isFormValid =
