@@ -162,9 +162,7 @@ describe("checkout — listing-status guards", () => {
     });
     mockClient = db.client;
 
-    const res = await POST(
-      makeReq({ ...validBody, shipping_country: "BE" }),
-    );
+    const res = await POST(makeReq({ ...validBody, shipping_country: "BE" }));
 
     expect(res.status).toBe(200);
     expect(db.state.transactions[0].shipping_country).toBe("BE");
