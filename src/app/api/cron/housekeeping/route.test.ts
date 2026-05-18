@@ -36,6 +36,19 @@ describe("cron/housekeeping — auth", () => {
     const res = await GET(authedReq());
     expect(res.status).toBe(200);
   });
+
+  it("rejects literal Bearer undefined when CRON_SECRET is not configured", async () => {
+    delete process.env.CRON_SECRET;
+    mockClient = createMockDb({}).client;
+
+    const res = await GET(
+      new Request("http://localhost/api/cron/housekeeping", {
+        headers: { authorization: "Bearer undefined" },
+      }),
+    );
+
+    expect(res.status).toBe(401);
+  });
 });
 
 describe("cron/housekeeping — QA happy path", () => {

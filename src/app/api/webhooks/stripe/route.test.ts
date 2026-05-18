@@ -142,6 +142,44 @@ describe("webhooks/stripe — QA happy path", () => {
     );
   });
 
+  it("checkout.session.expired with multiple ACCEPTED offers → listing stays RESERVED", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_3_multi",
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.offers!.push(
+      {
+        id: "offer-accepted-1",
+        listing_id: IDS.LISTING,
+        buyer_id: IDS.BUYER,
+        status: "ACCEPTED",
+        amount: 100,
+      },
+      {
+        id: "offer-accepted-2",
+        listing_id: IDS.LISTING,
+        buyer_id: "buyer-3",
+        status: "ACCEPTED",
+        amount: 101,
+      },
+    );
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "RESERVED",
+    );
+  });
+
   it("async_payment_failed → marks transaction CANCELLED", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_4",
@@ -243,7 +281,7 @@ describe("webhooks/stripe — CHAOS", () => {
     expect(res.status).toBe(500);
   });
 
-  it("DB chaos during finalize → 500 returned, idempotency key NOT discarded (Stripe will redeliver)", async () => {
+  it("DB failure during finalize → retry can still process the same Stripe event", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_chaos",
       type: "checkout.session.completed",
@@ -253,35 +291,48 @@ describe("webhooks/stripe — CHAOS", () => {
         },
       },
     });
-    const db = createMockDb(basicScenario(), { errorRate: 0.5 });
+    const db = createMockDb(basicScenario());
+    const originalFrom = db.client.from.bind(db.client);
+    let failedOnce = false;
+    db.client.from = (name: string) => {
+      const builder = originalFrom(name);
+      if (name === "transactions" && !failedOnce) {
+        const originalUpdate = builder.update.bind(builder);
+        builder.update = (patch: Record<string, unknown>) => {
+          const updatedBuilder = originalUpdate(patch);
+          if (patch.status === "PAID" && !failedOnce) {
+            failedOnce = true;
+            updatedBuilder.then = (
+              _onFulfilled: unknown,
+              onRejected?: (reason: unknown) => unknown,
+            ) => {
+              const error = new Error("[chaos] tx update failed");
+              return onRejected
+                ? Promise.resolve(onRejected(error))
+                : Promise.reject(error);
+            };
+          }
+          return updatedBuilder;
+        };
+      }
+      return builder;
+    };
     mockClient = db.client;
 
-    // Run a few times — first call may chaos out, second may succeed, etc.
-    let observed500 = false;
-    let observedFinalized = false;
-    for (let i = 0; i < 10; i++) {
-      try {
-        const res = await POST(makeReq());
-        if (res.status === 500) observed500 = true;
-      } catch {
-        observed500 = true;
-      }
-      if (
-        db.state.transactions.find((t) => t.id === IDS.TX)?.status === "PAID"
-      ) {
-        observedFinalized = true;
-        break;
-      }
-    }
+    const first = await POST(makeReq());
+    expect(first.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
 
-    // We should observe at least one 500 OR a successful finalize. Either is
-    // acceptable — the test verifies the system stays in a coherent state.
-    expect(observed500 || observedFinalized).toBe(true);
-
-    // Whatever happened, no double-credit
-    db.chaos.errorRate = 0;
+    const second = await POST(makeReq());
+    expect(second.status).toBe(200);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(1);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
-    const credit = wallet?.pending_balance ?? 0;
-    expect([0, 100]).toContain(Math.round(credit));
+    expect(wallet?.pending_balance).toBeCloseTo(100, 2);
   });
 });

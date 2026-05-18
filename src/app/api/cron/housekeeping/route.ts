@@ -10,8 +10,10 @@ export const dynamic = "force-dynamic";
 const ACCEPTED_OFFER_TTL_HOURS = 48;
 
 function isAuthorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
+  if (!secret || !auth) return false;
+  return auth === `Bearer ${secret}`;
 }
 
 export async function GET(request: Request) {
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
       // same buyer (we don't want to override a listing that was paid for
       // and is now SOLD/LOCKED while we ran).
       for (const offer of staleAccepted) {
-        const { data: freed } = await admin
+        const { data: freed, error: freeError } = await admin
           .from("listings")
           .update({
             status: "ACTIVE",
@@ -85,6 +87,7 @@ export async function GET(request: Request) {
           .eq("status", "RESERVED")
           .eq("reserved_for", offer.buyer_id)
           .select("id");
+        if (freeError) throw freeError;
         if (freed && freed.length > 0) listingsFreed++;
       }
     }
