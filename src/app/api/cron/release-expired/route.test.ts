@@ -30,6 +30,19 @@ describe("cron/release-expired — auth", () => {
     );
     expect(res.status).toBe(401);
   });
+
+  it("rejects literal Bearer undefined when CRON_SECRET is not configured", async () => {
+    delete process.env.CRON_SECRET;
+    mockClient = createMockDb({}).client;
+
+    const res = await GET(
+      new Request("http://localhost/api/cron/release-expired", {
+        headers: { authorization: "Bearer undefined" },
+      }),
+    );
+
+    expect(res.status).toBe(401);
+  });
 });
 
 describe("cron/release-expired — QA", () => {
@@ -113,6 +126,47 @@ describe("cron/release-expired — QA", () => {
     // tx is marked EXPIRED, but listing keeps SOLD (the eq("status","LOCKED")
     // guard means the update affected 0 rows)
     expect(db.state.transactions[0].status).toBe("EXPIRED");
+    expect(db.state.listings[0].status).toBe("SOLD");
+  });
+
+  it("does not overwrite a transaction paid after the expired read", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx1",
+          listing_id: "L1",
+          status: "PENDING_PAYMENT",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+      offers: [],
+    });
+    const originalFrom = db.client.from.bind(db.client);
+    let raced = false;
+    db.client.from = (name: string) => {
+      const builder = originalFrom(name);
+      if (name === "transactions" && !raced) {
+        const originalUpdate = builder.update.bind(builder);
+        builder.update = (patch: Record<string, unknown>) => {
+          if (patch.status === "EXPIRED" && !raced) {
+            raced = true;
+            db.state.transactions[0].status = "PAID";
+            db.state.listings[0].status = "SOLD";
+          }
+          return originalUpdate(patch);
+        };
+      }
+      return builder;
+    };
+    mockClient = db.client;
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.released).toBe(0);
+    expect(db.state.transactions[0].status).toBe("PAID");
     expect(db.state.listings[0].status).toBe("SOLD");
   });
 

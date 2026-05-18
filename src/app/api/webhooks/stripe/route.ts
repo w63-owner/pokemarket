@@ -42,21 +42,6 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { error: idempotencyError } = await admin
-    .from("stripe_webhooks_processed")
-    .insert({ stripe_event_id: event.id });
-
-  if (idempotencyError) {
-    if (idempotencyError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
-    console.error("Idempotency check failed:", idempotencyError);
-    return NextResponse.json(
-      { error: "Idempotency check failed" },
-      { status: 500 },
-    );
-  }
-
   try {
     switch (event.type) {
       case "checkout.session.completed":
@@ -84,6 +69,11 @@ export async function POST(request: Request) {
       default:
         console.warn(`Unhandled event type: ${event.type}`);
     }
+
+    const wasDuplicate = await markWebhookProcessed(admin, event.id);
+    if (wasDuplicate) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
   } catch (err) {
     Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
@@ -97,6 +87,21 @@ export async function POST(request: Request) {
 }
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function markWebhookProcessed(
+  admin: AdminClient,
+  eventId: string,
+): Promise<boolean> {
+  const { error: idempotencyError } = await admin
+    .from("stripe_webhooks_processed")
+    .insert({ stripe_event_id: eventId });
+
+  if (!idempotencyError) return false;
+  if (idempotencyError.code === "23505") return true;
+
+  console.error("Idempotency record failed:", idempotencyError);
+  throw idempotencyError;
+}
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const transactionId = session.metadata?.transaction_id;
@@ -131,36 +136,38 @@ async function handleCheckoutFailed(
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
-  const { data: transaction } = await admin
+  const { data: updated, error: txUpdateError } = await admin
     .from("transactions")
-    .select("status")
+    .update({ status: targetStatus })
     .eq("id", transactionId)
-    .single();
+    .eq("status", "PENDING_PAYMENT")
+    .select("id");
 
-  if (!transaction || transaction.status !== "PENDING_PAYMENT") {
+  if (txUpdateError) throw txUpdateError;
+
+  if (!updated || updated.length === 0) {
     console.warn(
       `Transaction ${transactionId} not in PENDING_PAYMENT, skipping`,
     );
     return;
   }
 
-  await admin
-    .from("transactions")
-    .update({ status: targetStatus })
-    .eq("id", transactionId);
-
-  const { data: acceptedOffer } = await admin
+  const { data: acceptedOffer, error: acceptedOfferError } = await admin
     .from("offers")
     .select("id")
     .eq("listing_id", listingId)
     .eq("status", "ACCEPTED")
+    .limit(1)
     .maybeSingle();
+
+  if (acceptedOfferError) throw acceptedOfferError;
 
   const newListingStatus = acceptedOffer ? "RESERVED" : "ACTIVE";
 
-  await admin
+  const { error: listingUpdateError } = await admin
     .from("listings")
     .update({ status: newListingStatus })
     .eq("id", listingId)
     .eq("status", "LOCKED");
+  if (listingUpdateError) throw listingUpdateError;
 }

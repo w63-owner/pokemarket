@@ -5,8 +5,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isAuthorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
+  if (!secret || !auth) return false;
+  return auth === `Bearer ${secret}`;
 }
 
 export async function GET(request: Request) {
@@ -29,33 +31,45 @@ export async function GET(request: Request) {
     }
 
     const transactionIds = expired.map((t) => t.id);
-    const listingIds = [...new Set(expired.map((t) => t.listing_id))];
 
-    const { error: txError } = await admin
+    const { data: releasedTransactions, error: txError } = await admin
       .from("transactions")
       .update({ status: "EXPIRED" })
-      .in("id", transactionIds);
+      .in("id", transactionIds)
+      .eq("status", "PENDING_PAYMENT")
+      .select("id, listing_id");
 
     if (txError) throw txError;
+    if (!releasedTransactions || releasedTransactions.length === 0) {
+      return NextResponse.json({ released: 0 });
+    }
+
+    const listingIds = [
+      ...new Set(releasedTransactions.map((t) => t.listing_id)),
+    ];
 
     for (const listingId of listingIds) {
-      const { data: acceptedOffer } = await admin
+      const { data: acceptedOffer, error: acceptedOfferError } = await admin
         .from("offers")
         .select("id")
         .eq("listing_id", listingId)
         .eq("status", "ACCEPTED")
+        .limit(1)
         .maybeSingle();
+
+      if (acceptedOfferError) throw acceptedOfferError;
 
       const newStatus = acceptedOffer ? "RESERVED" : "ACTIVE";
 
-      await admin
+      const { error: listingUpdateError } = await admin
         .from("listings")
         .update({ status: newStatus })
         .eq("id", listingId)
         .eq("status", "LOCKED");
+      if (listingUpdateError) throw listingUpdateError;
     }
 
-    return NextResponse.json({ released: expired.length });
+    return NextResponse.json({ released: releasedTransactions.length });
   } catch (err) {
     console.error("Cron release-expired error:", err);
     return NextResponse.json(

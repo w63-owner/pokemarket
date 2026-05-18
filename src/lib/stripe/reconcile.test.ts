@@ -4,7 +4,11 @@ import { createMockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
 // Track Stripe SDK behaviour
-let stripeRetrieveImpl: () => any = () => ({ payment_status: "paid" });
+let stripeRetrieveImpl: () => any = () => ({
+  id: "cs_test_1",
+  payment_status: "paid",
+  metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+});
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
@@ -32,7 +36,11 @@ vi.mock("@/lib/supabase/admin", () => ({
 import { reconcileCheckoutSession } from "./reconcile";
 
 beforeEach(() => {
-  stripeRetrieveImpl = () => ({ payment_status: "paid" });
+  stripeRetrieveImpl = () => ({
+    id: "cs_test_1",
+    payment_status: "paid",
+    metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+  });
 });
 
 describe("reconcileCheckoutSession — QA", () => {
@@ -47,7 +55,11 @@ describe("reconcileCheckoutSession — QA", () => {
   });
 
   it("UNPAID Stripe session → returns PENDING_PAYMENT, does NOT finalize", async () => {
-    stripeRetrieveImpl = () => ({ payment_status: "unpaid" });
+    stripeRetrieveImpl = () => ({
+      id: "cs_test_1",
+      payment_status: "unpaid",
+      metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+    });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
     const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
@@ -83,6 +95,40 @@ describe("reconcileCheckoutSession — QA", () => {
     mockClient = db.client;
     const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
     expect(result).toBe("ALREADY_PROCESSED");
+  });
+
+  it("paid Stripe session for another transaction → does NOT finalize", async () => {
+    stripeRetrieveImpl = () => ({
+      id: "cs_other",
+      payment_status: "paid",
+      metadata: { transaction_id: "tx-other", listing_id: "listing-other" },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_other");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("paid stored session with mismatched metadata → does NOT finalize", async () => {
+    stripeRetrieveImpl = () => ({
+      id: "cs_test_1",
+      payment_status: "paid",
+      metadata: { transaction_id: "tx-other", listing_id: IDS.LISTING },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
   });
 });
 
@@ -124,7 +170,11 @@ describe("reconcileCheckoutSession — CHAOS", () => {
     let attempt = 0;
     stripeRetrieveImpl = () => {
       attempt++;
-      return { payment_status: attempt < 2 ? "unpaid" : "paid" };
+      return {
+        id: "cs_test_1",
+        payment_status: attempt < 2 ? "unpaid" : "paid",
+        metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+      };
     };
     const db = createMockDb(basicScenario());
     mockClient = db.client;
