@@ -10,6 +10,8 @@ import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import { getShippingCost } from "@/lib/shipping";
 import type { CheckoutResponse } from "@/types/api";
 
+const DEFAULT_APP_ORIGIN = "http://localhost:3000";
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -198,16 +200,7 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .single();
 
-    // Derive the redirect base URL from the inbound request first so a buyer
-    // checking out from `localhost:3000` (or a Vercel preview deployment)
-    // doesn't get bounced to the production host on the success page. We only
-    // fall back to NEXT_PUBLIC_APP_URL when no Origin header is present
-    // (e.g. server-to-server invocations during tests).
-    const requestOrigin = request.headers.get("origin");
-    const appUrl =
-      requestOrigin?.trim().replace(/\/$/, "") ??
-      process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ??
-      "http://localhost:3000";
+    const appUrl = getCheckoutRedirectOrigin(request);
 
     const stripeCustomerProps = buyerProfile?.stripe_customer_id
       ? {
@@ -271,5 +264,65 @@ export async function POST(request: Request) {
       { error: "Erreur serveur inattendue" },
       { status: 500 },
     );
+  }
+}
+
+function getCheckoutRedirectOrigin(request: Request) {
+  const configuredOrigin =
+    toHttpOrigin(process.env.NEXT_PUBLIC_APP_URL) ?? DEFAULT_APP_ORIGIN;
+  const requestOrigin = toHttpOrigin(request.headers.get("origin"));
+
+  if (!requestOrigin) {
+    return configuredOrigin;
+  }
+
+  const allowedOrigins = new Set<string>([configuredOrigin]);
+  for (const vercelHost of [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+  ]) {
+    const vercelOrigin = toHttpOrigin(vercelHost);
+    if (vercelOrigin) {
+      allowedOrigins.add(vercelOrigin);
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production" && isLocalOrigin(requestOrigin)) {
+    allowedOrigins.add(requestOrigin);
+  }
+
+  return allowedOrigins.has(requestOrigin) ? requestOrigin : configuredOrigin;
+}
+
+function toHttpOrigin(value: string | null | undefined) {
+  const trimmed = value?.trim().replace(/\/$/, "");
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const withProtocol = /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const url = new URL(withProtocol);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function isLocalOrigin(origin: string) {
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
   }
 }
