@@ -4,13 +4,23 @@ import { createMockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
 // Track Stripe SDK behaviour
-let stripeRetrieveImpl: () => any = () => ({ payment_status: "paid" });
+let stripeRetrieveImpl: (sessionId: string) => any = () => ({
+  id: "cs_test_1",
+  payment_status: "paid",
+  amount_total: 10570,
+  currency: "eur",
+  metadata: { transaction_id: IDS.TX },
+});
+let retrievedSessionIds: string[] = [];
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
     checkout: {
       sessions: {
-        retrieve: vi.fn(async () => stripeRetrieveImpl()),
+        retrieve: vi.fn(async (sessionId: string) => {
+          retrievedSessionIds.push(sessionId);
+          return stripeRetrieveImpl(sessionId);
+        }),
       },
     },
   }),
@@ -32,7 +42,14 @@ vi.mock("@/lib/supabase/admin", () => ({
 import { reconcileCheckoutSession } from "./reconcile";
 
 beforeEach(() => {
-  stripeRetrieveImpl = () => ({ payment_status: "paid" });
+  stripeRetrieveImpl = () => ({
+    id: "cs_test_1",
+    payment_status: "paid",
+    amount_total: 10570,
+    currency: "eur",
+    metadata: { transaction_id: IDS.TX },
+  });
+  retrievedSessionIds = [];
 });
 
 describe("reconcileCheckoutSession — QA", () => {
@@ -47,7 +64,13 @@ describe("reconcileCheckoutSession — QA", () => {
   });
 
   it("UNPAID Stripe session → returns PENDING_PAYMENT, does NOT finalize", async () => {
-    stripeRetrieveImpl = () => ({ payment_status: "unpaid" });
+    stripeRetrieveImpl = () => ({
+      id: "cs_test_1",
+      payment_status: "unpaid",
+      amount_total: 10570,
+      currency: "eur",
+      metadata: { transaction_id: IDS.TX },
+    });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
     const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
@@ -83,6 +106,57 @@ describe("reconcileCheckoutSession — QA", () => {
     mockClient = db.client;
     const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
     expect(result).toBe("ALREADY_PROCESSED");
+  });
+
+  it("foreign session id → does NOT retrieve Stripe or finalize", async () => {
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_foreign");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(retrievedSessionIds).toEqual([]);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("paid Stripe session for another transaction → does NOT finalize", async () => {
+    stripeRetrieveImpl = () => ({
+      id: "cs_test_1",
+      payment_status: "paid",
+      amount_total: 10570,
+      currency: "eur",
+      metadata: { transaction_id: "tx-other" },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("paid Stripe session with mismatched amount → does NOT finalize", async () => {
+    stripeRetrieveImpl = () => ({
+      id: "cs_test_1",
+      payment_status: "paid",
+      amount_total: 500,
+      currency: "eur",
+      metadata: { transaction_id: IDS.TX },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
   });
 });
 
@@ -124,7 +198,13 @@ describe("reconcileCheckoutSession — CHAOS", () => {
     let attempt = 0;
     stripeRetrieveImpl = () => {
       attempt++;
-      return { payment_status: attempt < 2 ? "unpaid" : "paid" };
+      return {
+        id: "cs_test_1",
+        payment_status: attempt < 2 ? "unpaid" : "paid",
+        amount_total: 10570,
+        currency: "eur",
+        metadata: { transaction_id: IDS.TX },
+      };
     };
     const db = createMockDb(basicScenario());
     mockClient = db.client;
