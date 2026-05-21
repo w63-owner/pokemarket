@@ -243,7 +243,7 @@ describe("webhooks/stripe — CHAOS", () => {
     expect(res.status).toBe(500);
   });
 
-  it("DB chaos during finalize → 500 returned, idempotency key NOT discarded (Stripe will redeliver)", async () => {
+  it("DB chaos during finalize → 500 returned, idempotency key remains retryable", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_chaos",
       type: "checkout.session.completed",
@@ -253,35 +253,27 @@ describe("webhooks/stripe — CHAOS", () => {
         },
       },
     });
-    const db = createMockDb(basicScenario(), { errorRate: 0.5 });
+    const db = createMockDb(basicScenario(), { errorRate: 1 });
     mockClient = db.client;
 
-    // Run a few times — first call may chaos out, second may succeed, etc.
-    let observed500 = false;
-    let observedFinalized = false;
-    for (let i = 0; i < 10; i++) {
-      try {
-        const res = await POST(makeReq());
-        if (res.status === 500) observed500 = true;
-      } catch {
-        observed500 = true;
-      }
-      if (
-        db.state.transactions.find((t) => t.id === IDS.TX)?.status === "PAID"
-      ) {
-        observedFinalized = true;
-        break;
-      }
-    }
+    const failedRes = await POST(makeReq());
+    expect(failedRes.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
 
-    // We should observe at least one 500 OR a successful finalize. Either is
-    // acceptable — the test verifies the system stays in a coherent state.
-    expect(observed500 || observedFinalized).toBe(true);
+    db.chaos.errorRate = 0;
+    const retriedRes = await POST(makeReq());
+    expect(retriedRes.status).toBe(200);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(1);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
 
-    // Whatever happened, no double-credit
     db.chaos.errorRate = 0;
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
     const credit = wallet?.pending_balance ?? 0;
-    expect([0, 100]).toContain(Math.round(credit));
+    expect(Math.round(credit)).toBe(100);
   });
 });

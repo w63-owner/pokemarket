@@ -45,8 +45,8 @@ export default async function OrderSuccessPage({
 
   if (resolvedStatus === "PENDING_PAYMENT") {
     const stripeSessionId =
-      (typeof query.session_id === "string" ? query.session_id : null) ??
-      transaction.stripe_checkout_session_id;
+      transaction.stripe_checkout_session_id ??
+      (typeof query.session_id === "string" ? query.session_id : null);
 
     if (stripeSessionId) {
       const result = await reconcileCheckoutSession(
