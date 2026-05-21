@@ -19,9 +19,7 @@ export async function reconcileCheckoutSession(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select(
-      "id, listing_id, status, total_amount, stripe_checkout_session_id",
-    )
+    .select("id, listing_id, status, total_amount, stripe_checkout_session_id")
     .eq("id", transactionId)
     .single();
 
