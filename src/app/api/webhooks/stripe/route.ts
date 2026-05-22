@@ -42,24 +42,28 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const { error: idempotencyError } = await admin
+  const { data: processedEvent, error: processedReadError } = await admin
     .from("stripe_webhooks_processed")
-    .insert({ stripe_event_id: event.id });
+    .select("stripe_event_id")
+    .eq("stripe_event_id", event.id)
+    .maybeSingle();
 
-  if (idempotencyError) {
-    if (idempotencyError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
-    console.error("Idempotency check failed:", idempotencyError);
+  if (processedReadError) {
+    console.error("Idempotency check failed:", processedReadError);
     return NextResponse.json(
       { error: "Idempotency check failed" },
       { status: 500 },
     );
   }
 
+  if (processedEvent) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   try {
     switch (event.type) {
       case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
         await handleCheckoutCompleted(
           event.data.object as Stripe.Checkout.Session,
         );
@@ -93,6 +97,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const { error: idempotencyError } = await admin
+    .from("stripe_webhooks_processed")
+    .insert({ stripe_event_id: event.id });
+
+  if (idempotencyError && idempotencyError.code !== "23505") {
+    console.error("Idempotency record failed:", idempotencyError);
+    return NextResponse.json(
+      { error: "Idempotency record failed" },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({ received: true });
 }
 
@@ -104,6 +120,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   if (!transactionId || !listingId) {
     throw new Error("Missing transaction_id or listing_id in session metadata");
+  }
+
+  if (session.payment_status !== "paid") {
+    console.warn(
+      `Checkout session ${session.id ?? "(unknown)"} completed before payment settled`,
+    );
+    return;
   }
 
   const result = await finalizePaidTransaction(transactionId);

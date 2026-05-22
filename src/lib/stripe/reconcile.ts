@@ -18,17 +18,32 @@ export async function reconcileCheckoutSession(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, status, total_amount, stripe_checkout_session_id")
     .eq("id", transactionId)
     .single();
 
   if (!transaction) return "PENDING_PAYMENT";
   if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
 
+  if (
+    transaction.stripe_checkout_session_id &&
+    transaction.stripe_checkout_session_id !== stripeSessionId
+  ) {
+    return "PENDING_PAYMENT";
+  }
+
   // Confirm the buyer actually paid before triggering side-effects.
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
   if (session.payment_status !== "paid") return "PENDING_PAYMENT";
+  if (session.metadata?.transaction_id !== transactionId) {
+    return "PENDING_PAYMENT";
+  }
+
+  const expectedAmount = Math.round(Number(transaction.total_amount) * 100);
+  if (session.amount_total != null && session.amount_total !== expectedAmount) {
+    return "PENDING_PAYMENT";
+  }
 
   const result = await finalizePaidTransaction(transactionId);
   if (result === "PAID" || result === "ALREADY_PROCESSED") return result;
