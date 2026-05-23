@@ -32,75 +32,64 @@ import { fadeInUp } from "@/lib/motion";
 import { TransactionActions } from "@/components/messages";
 import { Badge, Avatar, Button, Card, Skeleton, Text } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { useThemeColor } from "@/lib/theme-colors";
 
-const STATUS_CONFIG: Record<
+type StatusVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline"
+  | "warning";
+
+const STATUS_META: Record<
   string,
   {
     label: string;
-    variant: "default" | "secondary" | "destructive" | "outline" | "warning";
+    variant: StatusVariant;
     Icon: React.ComponentType<{ size: number; color: string }>;
-    color: string;
   }
 > = {
   PENDING_PAYMENT: {
     label: "En attente de paiement",
     variant: "outline",
     Icon: Receipt,
-    color: "#64748b",
   },
   PAID: {
     label: "Payée — En attente d'expédition",
     variant: "default",
     Icon: Package,
-    color: "#fff",
   },
-  SHIPPED: {
-    label: "Expédiée",
-    variant: "secondary",
-    Icon: Truck,
-    color: "#0f172a",
-  },
-  COMPLETED: {
-    label: "Finalisée",
-    variant: "default",
-    Icon: CheckCircle2,
-    color: "#fff",
-  },
-  CANCELLED: {
-    label: "Annulée",
-    variant: "destructive",
-    Icon: Package,
-    color: "#fff",
-  },
-  EXPIRED: {
-    label: "Expirée",
-    variant: "destructive",
-    Icon: Package,
-    color: "#fff",
-  },
-  REFUNDED: {
-    label: "Remboursée",
-    variant: "outline",
-    Icon: Package,
-    color: "#64748b",
-  },
-  DISPUTED: {
-    label: "Litige en cours",
-    variant: "destructive",
-    Icon: Package,
-    color: "#fff",
-  },
+  SHIPPED: { label: "Expédiée", variant: "secondary", Icon: Truck },
+  COMPLETED: { label: "Finalisée", variant: "default", Icon: CheckCircle2 },
+  CANCELLED: { label: "Annulée", variant: "destructive", Icon: Package },
+  EXPIRED: { label: "Expirée", variant: "destructive", Icon: Package },
+  REFUNDED: { label: "Remboursée", variant: "outline", Icon: Package },
+  DISPUTED: { label: "Litige en cours", variant: "destructive", Icon: Package },
 };
 
-function getStatusConfig(status: string) {
-  return (
-    STATUS_CONFIG[status] ?? {
-      label: status,
-      variant: "outline" as const,
-      Icon: Package,
-      color: "#64748b",
-    }
-  );
+function useStatusConfig(status: string) {
+  const primaryFg = useThemeColor("primaryForeground");
+  const destructiveFg = useThemeColor("destructiveForeground");
+  const foreground = useThemeColor("foreground");
+  const mutedFg = useThemeColor("mutedForeground");
+
+  const meta =
+    STATUS_META[status] ??
+    ({ label: status, variant: "outline", Icon: Package } as const);
+
+  // Map variant → icon color so the foreground inside the Badge always
+  // contrasts with its background (primary/destructive variants use a
+  // filled background, the others render against the surface).
+  const iconColor =
+    meta.variant === "default"
+      ? primaryFg
+      : meta.variant === "destructive"
+        ? destructiveFg
+        : meta.variant === "outline"
+          ? mutedFg
+          : foreground;
+
+  return { ...meta, color: iconColor };
 }
 
 function formatLongDate(iso: string | null | undefined): string {
@@ -115,6 +104,10 @@ function formatLongDate(iso: string | null | undefined): string {
 export default function PurchaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const mutedForeground = useThemeColor("mutedForeground");
+  const foreground = useThemeColor("foreground");
+  const primaryForeground = useThemeColor("primaryForeground");
+  const warning = useThemeColor("warning");
 
   const { data: purchase, isLoading } = usePurchaseDetail(id);
 
@@ -146,6 +139,11 @@ export default function PurchaseDetailScreen() {
     return null;
   }, [purchase, conversationQuery.data]);
 
+  // Hooks must run unconditionally, so compute the status config before
+  // the early returns even when `purchase` is null. The placeholder is
+  // discarded the moment we render the not-found branch.
+  const statusConfig = useStatusConfig(purchase?.status ?? "PENDING_PAYMENT");
+
   if (isLoading) return <PurchaseDetailSkeleton />;
 
   if (!purchase) {
@@ -154,7 +152,7 @@ export default function PurchaseDetailScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <MobileHeader title="Commande" fallbackHref="/transactions" />
         <View className="flex-1 items-center justify-center px-6">
-          <Receipt size={40} color="#94a3b8" />
+          <Receipt size={40} color={mutedForeground} />
           <Text variant="h3" className="mt-4 text-center">
             Commande introuvable
           </Text>
@@ -169,7 +167,6 @@ export default function PurchaseDetailScreen() {
     );
   }
 
-  const statusConfig = getStatusConfig(purchase.status ?? "PENDING_PAYMENT");
   const StatusIcon = statusConfig.Icon;
   const showActions =
     user &&
@@ -231,7 +228,7 @@ export default function PurchaseDetailScreen() {
               onPress={() =>
                 router.push(`/orders/${purchase.id}/success` as never)
               }
-              leftIcon={<Sparkles size={16} color="#ca8a04" />}
+              leftIcon={<Sparkles size={16} color={warning} />}
             >
               Animation de confirmation
             </Button>
@@ -239,7 +236,7 @@ export default function PurchaseDetailScreen() {
 
           <Card className="gap-3">
             <View className="flex-row items-center gap-2">
-              <Package size={16} color="#0f172a" />
+              <Package size={16} color={foreground} />
               <Text className="text-sm font-semibold">Article</Text>
             </View>
             <View className="flex-row gap-3">
@@ -253,7 +250,7 @@ export default function PurchaseDetailScreen() {
                   />
                 ) : (
                   <View className="h-full w-full items-center justify-center">
-                    <Package size={20} color="#94a3b8" />
+                    <Package size={20} color={mutedForeground} />
                   </View>
                 )}
               </View>
@@ -289,7 +286,7 @@ export default function PurchaseDetailScreen() {
 
           <Card className="gap-3">
             <View className="flex-row items-center gap-2">
-              <UserIcon size={16} color="#0f172a" />
+              <UserIcon size={16} color={foreground} />
               <Text className="text-sm font-semibold">Vendeur</Text>
             </View>
             <Pressable
@@ -307,13 +304,13 @@ export default function PurchaseDetailScreen() {
               <Text className="text-sm font-medium">
                 @{purchase.seller?.username ?? "vendeur"}
               </Text>
-              <ChevronRight size={16} color="#94a3b8" />
+              <ChevronRight size={16} color={mutedForeground} />
             </Pressable>
           </Card>
 
           <Card className="gap-3">
             <View className="flex-row items-center gap-2">
-              <ShoppingBag size={16} color="#0f172a" />
+              <ShoppingBag size={16} color={foreground} />
               <Text className="text-sm font-semibold">Paiement</Text>
             </View>
             <View className="gap-2">
@@ -334,12 +331,12 @@ export default function PurchaseDetailScreen() {
           {purchase.tracking_number ? (
             <Card className="gap-3">
               <View className="flex-row items-center gap-2">
-                <Truck size={16} color="#0f172a" />
+                <Truck size={16} color={foreground} />
                 <Text className="text-sm font-semibold">Suivi</Text>
               </View>
               <View className="gap-2">
                 <View className="flex-row items-center gap-2">
-                  <Hash size={14} color="#64748b" />
+                  <Hash size={14} color={mutedForeground} />
                   <Text className="font-mono text-sm" selectable>
                     {purchase.tracking_number}
                   </Text>
@@ -355,7 +352,7 @@ export default function PurchaseDetailScreen() {
                     }
                     className="flex-row items-center gap-1.5 self-start rounded-md bg-primary px-3 py-1.5"
                   >
-                    <ExternalLink size={12} color="#fff" />
+                    <ExternalLink size={12} color={primaryForeground} />
                     <Text className="text-xs font-medium text-primary-foreground">
                       Suivre le colis
                     </Text>
@@ -376,7 +373,7 @@ export default function PurchaseDetailScreen() {
                 variant="outline"
                 size="lg"
                 onPress={() => router.push(conversationLink as never)}
-                leftIcon={<MessageCircle size={18} color="#0f172a" />}
+                leftIcon={<MessageCircle size={18} color={foreground} />}
               >
                 Messages avec le vendeur
               </Button>
@@ -385,7 +382,7 @@ export default function PurchaseDetailScreen() {
               variant="ghost"
               size="lg"
               onPress={() => router.replace("/(tabs)" as never)}
-              leftIcon={<Home size={18} color="#0f172a" />}
+              leftIcon={<Home size={18} color={foreground} />}
             >
               Retour au marché
             </Button>

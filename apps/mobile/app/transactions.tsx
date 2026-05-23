@@ -88,6 +88,7 @@ export default function TransactionsScreen() {
 
   const foreground = useThemeColor("foreground");
   const muted = useThemeColor("mutedForeground");
+  const primary = useThemeColor("primary");
 
   return (
     <View className="flex-1 bg-background">
@@ -177,7 +178,7 @@ export default function TransactionsScreen() {
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={onRefresh}
-                  tintColor="#E63946"
+                  tintColor={primary}
                 />
               }
               onEndReached={() => {
@@ -193,7 +194,7 @@ export default function TransactionsScreen() {
               ListFooterComponent={
                 activeQuery.isFetchingNextPage ? (
                   <View className="py-4">
-                    <ActivityIndicator color="#E63946" />
+                    <ActivityIndicator color={primary} />
                   </View>
                 ) : null
               }
@@ -214,7 +215,12 @@ function TransactionRow({
   type: TabKey;
   index: number;
 }) {
+  const mutedForeground = useThemeColor("mutedForeground");
   const status = getStatusConfig(tx.status ?? "PENDING_PAYMENT");
+  // Sales keep their existing dedicated screen (with shipping CTAs etc.);
+  // purchases route to the generic order detail page so non-PAID statuses
+  // (PENDING_PAYMENT, SHIPPED, COMPLETED, CANCELLED, …) get a real screen
+  // instead of crashing the success-only one.
   const href =
     type === "sales" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}`;
 
@@ -241,7 +247,7 @@ function TransactionRow({
             />
           ) : (
             <View className="h-full w-full items-center justify-center">
-              <Receipt size={20} color="#94a3b8" />
+              <Receipt size={20} color={mutedForeground} />
             </View>
           )}
         </View>
@@ -266,7 +272,7 @@ function TransactionRow({
           <Text className="text-sm font-semibold">
             {formatPrice(tx.total_amount)}
           </Text>
-          <ChevronRight size={16} color="#94a3b8" />
+          <ChevronRight size={16} color={mutedForeground} />
         </View>
       </Pressable>
     </MotiView>

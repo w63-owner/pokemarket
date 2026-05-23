@@ -28,6 +28,13 @@ export const queryKeys = {
     detail: (id: string) => ["conversations", "detail", id] as const,
     messages: (id: string) => ["conversations", "messages", id] as const,
     unreadCount: () => ["conversations", "unreadCount"] as const,
+    // Mobile-only: caches 1-hour signed URLs minted by Supabase Storage
+    // for image messages stored in the private `message_attachments`
+    // bucket. The web rendering pipeline uses public CDN URLs and does
+    // not need this key, so it lives in `conversations` rather than as
+    // a top-level scope.
+    messageAttachment: (storagePath: string) =>
+      ["conversations", "messageAttachment", storagePath] as const,
   },
   offers: {
     all: ["offers"] as const,
@@ -62,6 +69,12 @@ export const queryKeys = {
     purchases: () => ["transactions", "purchases"] as const,
     sales: () => ["transactions", "sales"] as const,
     detail: (id: string) => ["transactions", "detail", id] as const,
+    // Mobile reads purchases through a buyer-RLS-scoped projection that
+    // differs from the seller view used by `detail`. Keeping two distinct
+    // cache buckets prevents an unintended cross-contamination of the
+    // sales-side cache when the same id is opened from both surfaces.
+    purchaseDetail: (id: string) =>
+      ["transactions", "purchaseDetail", id] as const,
     byListing: (listingId: string) =>
       ["transactions", "byListing", listingId] as const,
   },

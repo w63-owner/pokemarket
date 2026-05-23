@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
+import { MotiView } from "moti";
 import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -32,6 +33,7 @@ import {
   getBiometryCapability,
   isBiometryEnabled,
 } from "@/lib/biometry";
+import { tapScale } from "@/lib/motion";
 import { useEffectiveTheme, useThemeStore } from "@/lib/stores/theme";
 import { useThemeColor } from "@/lib/theme-colors";
 
@@ -265,15 +267,25 @@ function MenuRow({
   return (
     <Pressable
       onPress={onPress}
-      className={`flex-row items-center justify-between px-4 py-3.5 active:bg-muted ${
-        isLast ? "" : "border-b border-border"
-      }`}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      className={isLast ? "" : "border-b border-border"}
     >
-      <View className="flex-row items-center gap-3">
-        {icon}
-        <Text>{label}</Text>
-      </View>
-      <ChevronRight size={18} color={chevronColor} />
+      {({ pressed }) => (
+        <MotiView
+          animate={tapScale.animate(pressed)}
+          transition={tapScale.transition}
+          className={`flex-row items-center justify-between px-4 py-3.5 ${
+            pressed ? "bg-muted" : ""
+          }`}
+        >
+          <View className="flex-row items-center gap-3">
+            {icon}
+            <Text>{label}</Text>
+          </View>
+          <ChevronRight size={18} color={chevronColor} />
+        </MotiView>
+      )}
     </Pressable>
   );
 }

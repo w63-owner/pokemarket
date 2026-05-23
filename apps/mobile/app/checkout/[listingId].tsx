@@ -13,6 +13,7 @@ import { ChevronLeft, CreditCard, ShieldCheck } from "lucide-react-native";
 import {
   calcTotalBuyer,
   formatPrice,
+  LIMITS,
   SHIPPING_COUNTRIES,
   type ShippingCountry,
 } from "@pokemarket/shared";
@@ -76,7 +77,18 @@ export default function CheckoutScreen() {
     enabled: !!listing,
   });
 
-  const expiresAt = useMemo(() => new Date(Date.now() + 30 * 60 * 1000), []);
+  // The countdown is informational before the buyer taps "Pay" (the
+  // server-side reservation lock only exists after `/api/checkout`
+  // creates a PENDING_PAYMENT transaction). We mirror the exact lock
+  // duration the server will impose via `LIMITS.CHECKOUT_LOCK_MINUTES`
+  // (used by `apps/web/src/app/api/checkout/route.ts` to compute
+  // `transactions.expiration_date`) so the buyer never sees a longer
+  // window on screen than they actually get. Parity with the web
+  // checkout-client which does the same.
+  const expiresAt = useMemo(
+    () => new Date(Date.now() + LIMITS.CHECKOUT_LOCK_MINUTES * 60 * 1000),
+    [],
+  );
 
   const { startPayment, isProcessing } = usePayment();
 
