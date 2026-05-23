@@ -26,6 +26,7 @@ import { ApiError } from "@/lib/api/client";
 import { runOcrScan } from "@/lib/api/ocr";
 import type { UploadedListingImage } from "@/lib/api/listings";
 import { useThemeColor } from "@/lib/theme-colors";
+import { duration } from "@/lib/motion";
 
 type OcrState = {
   isLoading: boolean;
@@ -269,7 +270,7 @@ export default function SellScreen() {
                 from={{ opacity: 0, translateY: 12 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ type: "timing", duration: 250 }}
+                transition={{ type: "timing", duration: duration.normal }}
                 className="mt-6 gap-3"
               >
                 <Button
@@ -297,7 +298,7 @@ export default function SellScreen() {
                 from={{ opacity: 0, translateY: 12 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ type: "timing", duration: 250 }}
+                transition={{ type: "timing", duration: duration.normal }}
                 className="mt-6"
               >
                 <OcrResults
@@ -334,7 +335,7 @@ export default function SellScreen() {
               key={`form-${ocr.selectedCardKey ?? "manual"}`}
               from={{ opacity: 0, translateY: 16 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: "timing", duration: 350 }}
+              transition={{ type: "timing", duration: duration.normal }}
               className="mt-8"
             >
               <View className="mb-4 flex-row items-center gap-2">

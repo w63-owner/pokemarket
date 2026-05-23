@@ -173,6 +173,11 @@ function ScanPhase({
   const [cardHeight, setCardHeight] = useState(0);
 
   useEffect(() => {
+    // Custom: splash-specific timings — these are deliberately authored
+    // to mirror the PWA `splash-screen.tsx` exactly (250 ms card pop-in,
+    // 300 ms dismiss). Keeping them outside the motion preset vocabulary
+    // documents that the splash is its own choreographed sequence and
+    // not a regular UI transition.
     enter.value = withTiming(1, {
       duration: 250,
       easing: Easing.out(Easing.cubic),
@@ -392,6 +397,10 @@ function LogoPhase({
   const taglineOpacity = useSharedValue(0);
 
   useEffect(() => {
+    // Custom: spring 400/12/1 mirrors the web `splash-screen.tsx` logo
+    // entrance verbatim (slightly more bouncy than `spring.bouncy` 400/10
+    // — a damping of 12 keeps the wordmark just short of overshoot,
+    // matching the framer-motion spring of the PWA splash 1:1).
     logoOpacity.value = withTiming(1, {
       duration: reduceMotion ? 120 : 220,
       easing: Easing.out(Easing.cubic),

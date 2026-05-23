@@ -12,7 +12,7 @@ import {
   useFavoriteListingIds,
   useToggleFavorite,
 } from "@/hooks/use-favorites";
-import { fadeInUp, useReducedMotionSafe } from "@/lib/motion";
+import { fadeInUp, staggerDelay, useReducedMotionSafe } from "@/lib/motion";
 import { useTabBarScrollHandler } from "@/hooks/use-scroll-direction";
 import { useThemeColor } from "@/lib/theme-colors";
 
@@ -179,18 +179,30 @@ export function FeedGrid({
       onEndReachedThreshold={0.6}
       onScroll={onScroll}
       scrollEventThrottle={16}
-      renderItem={({ item }: ListRenderItemInfo<FeedItem>) => (
+      renderItem={({ item, index }: ListRenderItemInfo<FeedItem>) => (
         <View
           style={{
             flex: 1,
             paddingHorizontal: ITEM_GUTTER / 2,
           }}
         >
-          <ListingCard
-            item={item}
-            isFavorite={favIds.includes(item.id)}
-            onToggleFavorite={(id) => toggleFavorite.mutate(id)}
-          />
+          {/* Stagger entrance — caps at 10 items so deep scroll
+              positions don't pay an animation cost. Reduce Motion
+              collapses `from` onto `animate` to mount instantly. */}
+          <MotiView
+            from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
+            animate={fadeInUp.animate}
+            transition={{
+              ...(fadeInUp.transition as object),
+              delay: staggerDelay(index, 50, 10),
+            }}
+          >
+            <ListingCard
+              item={item}
+              isFavorite={favIds.includes(item.id)}
+              onToggleFavorite={(id) => toggleFavorite.mutate(id)}
+            />
+          </MotiView>
         </View>
       )}
     />

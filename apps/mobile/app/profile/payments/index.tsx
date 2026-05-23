@@ -26,6 +26,10 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { fadeInUp, staggerDelay } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
+// Custom: swipe-to-delete needs a slightly tighter spring than
+// `spring.snappy` (400/30) so the row settles back fast under flick
+// gestures without overshoot — 380/28 keeps the snap-back crisp while
+// matching the system-wide spring vocabulary in feel.
 const SWIPE_SPRING = { damping: 28, stiffness: 380 };
 const SWIPE_MAX_SHIFT = 56;
 const DELETE_THRESHOLD = -36;

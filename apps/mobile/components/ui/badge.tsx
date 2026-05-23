@@ -12,6 +12,11 @@ const badgeVariants = cva("self-start rounded-full px-2.5 py-1", {
       warning: "bg-amber-100",
       destructive: "bg-red-100",
       outline: "border border-border bg-transparent",
+      // `ghost` and `link` mirror the web counterparts: no background, no
+      // border. `link` additionally drops horizontal padding so it sits
+      // inline like a hyperlink instead of a chip.
+      ghost: "bg-transparent",
+      link: "self-start bg-transparent px-0 py-0",
     },
   },
   defaultVariants: { variant: "default" },
@@ -26,6 +31,8 @@ const badgeTextVariants = cva("text-xs font-medium", {
       warning: "text-amber-800",
       destructive: "text-red-800",
       outline: "text-foreground",
+      ghost: "text-muted-foreground",
+      link: "text-primary underline",
     },
   },
   defaultVariants: { variant: "default" },

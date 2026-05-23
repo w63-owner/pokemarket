@@ -20,7 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { X, ZoomIn } from "lucide-react-native";
 
-import { spring } from "@/lib/motion";
+import { duration, spring } from "@/lib/motion";
 import { haptic } from "@/lib/haptics";
 import { Text } from "@/components/ui";
 
@@ -132,7 +132,7 @@ function DotPill({ active }: { active: boolean }) {
   // Sync shared values with the prop on every render — Reanimated
   // diffs the assignment internally so this is cheap.
   width.value = withSpring(active ? 20 : 6, spring.gentle);
-  opacity.value = withTiming(active ? 1 : 0.6, { duration: 200 });
+  opacity.value = withTiming(active ? 1 : 0.6, { duration: duration.fast });
 
   const style = useAnimatedStyle(() => ({
     width: width.value,

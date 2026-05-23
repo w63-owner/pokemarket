@@ -1,6 +1,7 @@
 import { Modal, Pressable, View, type ModalProps } from "react-native";
 import { MotiView } from "moti";
 import { cn } from "@/lib/cn";
+import { duration, fadeInScale, useReducedMotionSafe } from "@/lib/motion";
 import { Text } from "./text";
 
 type DialogProps = {
@@ -10,6 +11,7 @@ type DialogProps = {
 } & Omit<ModalProps, "visible" | "onRequestClose" | "transparent">;
 
 export function Dialog({ open, onOpenChange, children, ...rest }: DialogProps) {
+  const reduceMotion = useReducedMotionSafe();
   return (
     <Modal
       visible={open}
@@ -24,9 +26,9 @@ export function Dialog({ open, onOpenChange, children, ...rest }: DialogProps) {
       >
         <Pressable onPress={(e) => e.stopPropagation()} className="w-full">
           <MotiView
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "timing", duration: 180 }}
+            from={reduceMotion ? fadeInScale.animate : fadeInScale.from}
+            animate={fadeInScale.animate}
+            transition={{ type: "timing", duration: duration.fast }}
             className="w-full rounded-2xl bg-card p-6"
           >
             {children}

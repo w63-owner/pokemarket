@@ -12,7 +12,11 @@ import Animated, {
 import { Clock, AlertTriangle } from "lucide-react-native";
 import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { spring, useReducedMotionSafe } from "@/lib/motion";
+import {
+  duration as motionDuration,
+  spring,
+  useReducedMotionSafe,
+} from "@/lib/motion";
 import { haptic } from "@/lib/haptics";
 
 type CountdownTimerProps = {
@@ -43,6 +47,10 @@ function useUrgentPulseStyle(active: boolean, reduceMotion: boolean) {
 
   useEffect(() => {
     if (active && !reduceMotion) {
+      // Custom: 700 ms half-cycle (≈1.4 s loop) tuned for the iOS
+      // `animate-pulse` cadence — intentionally slower than
+      // `duration.dramatic` (800 ms one-shot) to read as an ambient
+      // urgency cue rather than a discrete tap-style animation.
       opacity.value = withRepeat(
         withTiming(0.4, { duration: 700, easing: Easing.inOut(Easing.ease) }),
         -1,
@@ -50,7 +58,7 @@ function useUrgentPulseStyle(active: boolean, reduceMotion: boolean) {
       );
     } else {
       cancelAnimation(opacity);
-      opacity.value = withTiming(1, { duration: 200 });
+      opacity.value = withTiming(1, { duration: motionDuration.fast });
     }
 
     return () => {

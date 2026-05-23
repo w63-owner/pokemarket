@@ -17,6 +17,7 @@ import { Text } from "@/components/ui/text";
 import { useUnreadCount } from "@/hooks/use-conversations";
 import { useThemeColor } from "@/lib/theme-colors";
 import { useEffectiveTheme } from "@/lib/stores/theme";
+import { duration, spring } from "@/lib/motion";
 
 type IconProps = { size?: number; color?: string; strokeWidth?: number };
 
@@ -111,7 +112,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                 <MotiView
                   from={{ opacity: 0, scaleX: 0.4 }}
                   animate={{ opacity: 1, scaleX: 1 }}
-                  transition={{ type: "timing", duration: 220 }}
+                  transition={{ type: "timing", duration: duration.fast }}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -126,7 +127,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
               <MotiView
                 animate={{ scale: isFocused ? 1 : 0.94 }}
-                transition={{ type: "spring", damping: 18, stiffness: 220 }}
+                transition={spring.snappy}
                 style={{ position: "relative" }}
               >
                 <Icon

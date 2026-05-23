@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react-native";
 import { Text } from "./text";
 import { useThemeColors, type ThemeColorName } from "@/lib/theme-colors";
+import { duration } from "@/lib/motion";
 
 type ToastType = "success" | "error" | "info";
 
@@ -80,7 +81,7 @@ export function ToastViewport() {
               from={{ opacity: 0, translateY: -20 }}
               animate={{ opacity: 1, translateY: 0 }}
               exit={{ opacity: 0, translateY: -20 }}
-              transition={{ type: "timing", duration: 200 }}
+              transition={{ type: "timing", duration: duration.fast }}
               className="mb-2 flex-row items-start gap-3 rounded-xl border border-border bg-card p-3 shadow"
             >
               <Icon size={20} color={colors[TOAST_TOKEN[item.type]]} />

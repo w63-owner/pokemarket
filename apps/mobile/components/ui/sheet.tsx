@@ -21,6 +21,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { cn } from "@/lib/cn";
+import { duration, spring } from "@/lib/motion";
 
 type Props = {
   open: boolean;
@@ -52,7 +53,15 @@ function parseSnap(snap?: string): number | null {
 
 const DISMISS_DISTANCE = 120;
 const DISMISS_VELOCITY = 800;
-const SPRING_CONFIG = { damping: 22, stiffness: 220, mass: 0.7 };
+// Reanimated rejects the Moti `{ type: "spring", ... }` tag — strip it and
+// reuse spring.gentle's numeric values for the open/snap-back animations,
+// which gives a slightly bouncy but settled drawer feel iso with the rest
+// of the system.
+const SPRING_CONFIG = {
+  damping: spring.gentle.damping,
+  stiffness: spring.gentle.stiffness,
+  mass: spring.gentle.mass,
+};
 
 export function Sheet({
   open,
@@ -100,7 +109,7 @@ export function Sheet({
       ) {
         translateY.value = withTiming(
           offscreenY,
-          { duration: 220 },
+          { duration: duration.fast },
           (finished) => {
             if (finished) runOnJS(close)();
           },

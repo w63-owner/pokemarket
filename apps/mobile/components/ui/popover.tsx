@@ -1,6 +1,7 @@
-import { Modal, Pressable, View } from "react-native";
+import { Modal, Pressable } from "react-native";
 import { MotiView } from "moti";
 import { cn } from "@/lib/cn";
+import { duration, fadeInScale, useReducedMotionSafe } from "@/lib/motion";
 
 type Props = {
   open: boolean;
@@ -14,6 +15,7 @@ type Props = {
  * This Popover is a centered floating bubble — use sparingly (small menus).
  */
 export function Popover({ open, onOpenChange, children, className }: Props) {
+  const reduceMotion = useReducedMotionSafe();
   return (
     <Modal
       visible={open}
@@ -30,9 +32,9 @@ export function Popover({ open, onOpenChange, children, className }: Props) {
           className="absolute right-4 top-20"
         >
           <MotiView
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "timing", duration: 120 }}
+            from={reduceMotion ? fadeInScale.animate : fadeInScale.from}
+            animate={fadeInScale.animate}
+            transition={{ type: "timing", duration: duration.instant }}
             className={cn(
               "rounded-xl border border-border bg-card p-2 shadow-lg",
               className,
