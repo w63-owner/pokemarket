@@ -80,6 +80,10 @@ export const queryKeys = {
     sets: () => ["tcgdex", "sets"] as const,
     cards: (query: string) => ["tcgdex", "cards", query] as const,
   },
+  notifications: {
+    all: ["notifications"] as const,
+    preferences: () => ["notifications", "preferences"] as const,
+  },
   priceHistory: (
     cardKey: string,
     condition: string,

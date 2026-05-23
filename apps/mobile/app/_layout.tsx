@@ -10,11 +10,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SplashScreen from "expo-splash-screen";
 import Animated from "react-native-reanimated";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "nativewind";
 
 import { initSentry, Sentry } from "@/lib/sentry";
 import { env } from "@/lib/env";
 import { ToastViewport } from "@/components/ui/toast";
+import { AnimatedSplash } from "@/components/splash/animated-splash";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useAppFonts } from "@/lib/fonts";
 
@@ -109,9 +111,16 @@ function RootLayout() {
             publishableKey={env.STRIPE_PUBLISHABLE_KEY ?? ""}
             merchantIdentifier="merchant.app.pokemarket"
           >
-            <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
-            <Stack screenOptions={{ headerShown: false }} />
-            <ToastViewport />
+            <BottomSheetModalProvider>
+              <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
+              <Stack screenOptions={{ headerShown: false }} />
+              <ToastViewport />
+              {/* Mounted last so it floats above the navigator + every
+                  modal until it self-dismisses (one-shot per install
+                  via AsyncStorage flag). Costs nothing past first paint
+                  thanks to its internal `phase === "done"` short-circuit. */}
+              <AnimatedSplash />
+            </BottomSheetModalProvider>
           </StripeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

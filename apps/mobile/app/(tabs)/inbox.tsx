@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
 import { usePresence } from "@/hooks/use-presence";
 import { useRealtime } from "@/hooks/use-realtime";
+import { useTabBarScrollHandler } from "@/hooks/use-scroll-direction";
 import {
   ConversationListItem,
   ConversationListItemSkeleton,
@@ -71,6 +72,7 @@ export default function InboxScreen() {
   });
 
   const onlineIds = usePresence(user?.id);
+  const onScroll = useTabBarScrollHandler();
 
   const renderItem = useCallback(
     ({ item, index }: { item: ConversationPreview; index: number }) => (
@@ -133,6 +135,8 @@ export default function InboxScreen() {
               tintColor={primary}
             />
           }
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         />
       )}
     </SafeAreaView>

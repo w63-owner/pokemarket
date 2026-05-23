@@ -98,7 +98,7 @@ export function AdvancedFiltersSheet({
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      snapPoints={["90%"]}
+      snapPoints={["75%", "92%"]}
       footer={footerEl}
     >
       <View className="flex-row items-center justify-between pb-2">

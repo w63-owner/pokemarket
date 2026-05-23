@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Pressable, ScrollView } from "react-native";
+import { Pressable } from "react-native";
 import { ChevronDown, Check } from "lucide-react-native";
-import { Sheet } from "./sheet";
+import { Sheet, SheetScrollView } from "./sheet";
 import { Text } from "./text";
 import { cn } from "@/lib/cn";
 import { useThemeColor } from "@/lib/theme-colors";
@@ -49,8 +49,8 @@ export function Select({
         <ChevronDown size={16} color={mutedForeground} />
       </Pressable>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <ScrollView style={{ maxHeight: 380 }}>
+      <Sheet open={open} onOpenChange={setOpen} snapPoints={["50%", "75%"]}>
+        <SheetScrollView>
           {options.map((opt) => {
             const isActive = opt.value === value;
             return (
@@ -69,7 +69,7 @@ export function Select({
               </Pressable>
             );
           })}
-        </ScrollView>
+        </SheetScrollView>
       </Sheet>
     </>
   );

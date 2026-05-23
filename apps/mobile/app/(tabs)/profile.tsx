@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { router } from "expo-router";
+import Animated from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Bell,
@@ -24,6 +25,7 @@ import {
 import { Avatar, Card, Skeleton, Switch, Text, toast } from "@/components/ui";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "@/hooks/use-profile";
+import { useTabBarScrollHandler } from "@/hooks/use-scroll-direction";
 import {
   disableBiometry,
   enableBiometryForCurrentSession,
@@ -54,6 +56,7 @@ const legalItems = [
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { data: profile, isLoading } = useMyProfile();
+  const onScroll = useTabBarScrollHandler();
 
   const effectiveTheme = useEffectiveTheme();
   const setThemePreference = useThemeStore((s) => s.setPreference);
@@ -105,7 +108,11 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <Animated.ScrollView
+        contentContainerStyle={{ padding: 16, gap: 16 }}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         <Card>
           {isLoading ? (
             <View className="flex-row items-center gap-3">
@@ -229,7 +236,7 @@ export default function ProfileScreen() {
         <Text variant="caption" className="text-center">
           {`© ${new Date().getFullYear()} PokeMarket. Tous droits réservés.`}
         </Text>
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }

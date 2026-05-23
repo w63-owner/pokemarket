@@ -1,212 +1,195 @@
-import type { ComponentProps } from "react";
-import { useEffect } from "react";
 import {
-  Modal,
-  Pressable,
-  ScrollView,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type ComponentProps,
+} from "react";
+import { Platform, useWindowDimensions, View } from "react-native";
 import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-} from "react-native-gesture-handler";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
+  BottomSheetBackdrop,
+  BottomSheetFlatList,
+  BottomSheetFooter,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  BottomSheetView,
+  type BottomSheetBackdropProps,
+  type BottomSheetFooterProps,
+  type BottomSheetModalProps,
+} from "@gorhom/bottom-sheet";
+import type { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
 import { cn } from "@/lib/cn";
-import { duration, spring } from "@/lib/motion";
+import { useThemeColor } from "@/lib/theme-colors";
+
+/**
+ * Mobile Sheet primitive — wraps `@gorhom/bottom-sheet`'s `BottomSheetModal`
+ * to keep the same `<Sheet open onOpenChange children />` API the rest of
+ * the codebase already consumes (no call site changes required).
+ *
+ * Design choices:
+ *   • `BottomSheetModal` is portal-rendered above the navigation Stack
+ *     when the root `<BottomSheetModalProvider>` is mounted (see
+ *     `apps/mobile/app/_layout.tsx`).
+ *   • Drag-to-dismiss is native (`enablePanDownToClose`) — we no longer
+ *     reimplement the gesture ourselves.
+ *   • The backdrop fade is animated by the lib (interpolated to the
+ *     sheet's vertical position) and dismisses on press.
+ *   • By default we use `enableDynamicSizing` so the sheet hugs its
+ *     content (capped at 90% of the screen) — callers with scrollable
+ *     bodies should pass explicit `snapPoints` and use `SheetScrollView`
+ *     / `SheetFlatList` so vertical gestures are forwarded to the lib.
+ *   • Keyboard behavior is tuned for forms (interactive resize on iOS,
+ *     `adjustResize` on Android) so the input stays visible when the
+ *     keyboard opens (offer-bar, address-autocomplete, sell forms).
+ */
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
-  side?: "bottom" | "top";
   className?: string;
   /**
-   * Optional sticky footer rendered outside the scrollable content area.
-   * Useful for action buttons (e.g. Reset / Apply) that must stay visible
-   * even when the sheet body is scrollable.
+   * Optional sticky footer rendered outside the scrollable area. Useful
+   * for action buttons (Reset / Apply) that must stay visible even when
+   * the sheet body is scrollable.
    */
   footer?: React.ReactNode;
   /**
-   * Snap points expressed as percentage strings (e.g. `"90%"`). Only the
-   * first value is used; the sheet then has that fixed height. If omitted
-   * the sheet hugs its content (capped at 92% of the screen).
+   * Snap points expressed either as percentage strings (e.g. `"75%"`)
+   * or absolute pixel numbers. When omitted, the sheet uses dynamic
+   * sizing (hugs content, capped at 90% screen).
    */
-  snapPoints?: string[];
-};
-
-function parseSnap(snap?: string): number | null {
-  if (!snap) return null;
-  const m = /^(\d+(?:\.\d+)?)%$/.exec(snap);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : null;
-}
-
-const DISMISS_DISTANCE = 120;
-const DISMISS_VELOCITY = 800;
-// Reanimated rejects the Moti `{ type: "spring", ... }` tag — strip it and
-// reuse spring.gentle's numeric values for the open/snap-back animations,
-// which gives a slightly bouncy but settled drawer feel iso with the rest
-// of the system.
-const SPRING_CONFIG = {
-  damping: spring.gentle.damping,
-  stiffness: spring.gentle.stiffness,
-  mass: spring.gentle.mass,
+  snapPoints?: (string | number)[];
 };
 
 export function Sheet({
   open,
   onOpenChange,
   children,
-  side = "bottom",
   className,
   footer,
   snapPoints,
 }: Props) {
-  const insets = useSafeAreaInsets();
+  const ref = useRef<BottomSheetModal>(null);
   const { height: windowH } = useWindowDimensions();
-  const snapPercent = parseSnap(snapPoints?.[0]);
-  const sheetHeight =
-    snapPercent != null ? (windowH * snapPercent) / 100 : null;
-  // Distance we have to translate the sheet down to take it fully off-screen.
-  // Using window height as a safe fallback when no snap is given.
-  const offscreenY = (sheetHeight ?? windowH) + insets.bottom + 80;
+  const cardBg = useThemeColor("card");
+  const handleColor = useThemeColor("mutedForeground");
 
-  const translateY = useSharedValue(offscreenY);
-  const startY = useSharedValue(0);
-
+  // Present / dismiss in sync with the `open` prop. Imperative API rather
+  // than declarative because the lib has no `visible` prop.
   useEffect(() => {
-    if (open) {
-      // Snap to off-screen first so the next spring animates from below.
-      translateY.value = offscreenY;
-      translateY.value = withSpring(0, SPRING_CONFIG);
-    }
-  }, [open, offscreenY, translateY]);
+    if (open) ref.current?.present();
+    else ref.current?.dismiss();
+  }, [open]);
 
-  const close = () => onOpenChange(false);
+  const handleChange = useCallback(
+    (index: number) => {
+      if (index === -1) onOpenChange(false);
+    },
+    [onOpenChange],
+  );
 
-  const pan = Gesture.Pan()
-    .activeOffsetY([-14, 14])
-    .onStart(() => {
-      startY.value = translateY.value;
-    })
-    .onUpdate((e) => {
-      translateY.value = Math.max(0, startY.value + e.translationY);
-    })
-    .onEnd((e) => {
-      if (
-        translateY.value > DISMISS_DISTANCE ||
-        e.velocityY > DISMISS_VELOCITY
-      ) {
-        translateY.value = withTiming(
-          offscreenY,
-          { duration: duration.fast },
-          (finished) => {
-            if (finished) runOnJS(close)();
-          },
-        );
-      } else {
-        translateY.value = withSpring(0, SPRING_CONFIG);
-      }
-    });
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        opacity={0.5}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+        pressBehavior="close"
+      />
+    ),
+    [],
+  );
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  const renderFooter = useCallback(
+    (props: BottomSheetFooterProps) =>
+      footer ? (
+        <BottomSheetFooter
+          {...props}
+          bottomInset={0}
+          style={{ backgroundColor: cardBg }}
+        >
+          <View className="border-t border-border bg-card px-4 pb-6 pt-3">
+            {footer}
+          </View>
+        </BottomSheetFooter>
+      ) : null,
+    [footer, cardBg],
+  );
 
-  // The "top" variant is a simpler dropdown — no drag-to-dismiss for now.
-  if (side === "top") {
-    return (
-      <Modal
-        visible={open}
-        transparent
-        animationType="slide"
-        onRequestClose={close}
-      >
-        <Pressable onPress={close} className="flex-1 justify-start bg-black/50">
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <View
-              style={{ paddingTop: insets.top + 16, paddingBottom: 16 }}
-              className={cn(
-                "rounded-b-3xl border-b border-border bg-card px-4",
-                className,
-              )}
-            >
-              {children}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    );
-  }
+  // Resolve the union to the precise types the lib expects — string snap
+  // points must be widened to a tuple of strings, numeric ones to numbers.
+  const resolvedSnapPoints = useMemo(
+    () => (snapPoints && snapPoints.length > 0 ? snapPoints : undefined),
+    [snapPoints],
+  );
+
+  const enableDynamicSizing = !resolvedSnapPoints;
 
   return (
-    <Modal
-      visible={open}
-      transparent
-      animationType="none"
-      onRequestClose={close}
-      statusBarTranslucent
+    <BottomSheetModal
+      ref={ref}
+      onChange={handleChange}
+      snapPoints={resolvedSnapPoints as BottomSheetModalProps["snapPoints"]}
+      enableDynamicSizing={enableDynamicSizing}
+      maxDynamicContentSize={windowH * 0.9}
+      enablePanDownToClose
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
+      backdropComponent={renderBackdrop}
+      footerComponent={footer ? renderFooter : undefined}
+      backgroundStyle={{ backgroundColor: cardBg }}
+      handleIndicatorStyle={{ backgroundColor: handleColor, opacity: 0.5 }}
+      // The `topInset` keeps the sheet just below the system status bar
+      // on Android when expanded to a tall snap point.
+      topInset={Platform.OS === "android" ? 8 : 0}
     >
-      {/* GestureHandlerRootView must be INSIDE Modal — on Android the Modal
-          opens a separate native window that isn't reachable from the app
-          root's gesture handler. Without this, Gesture.Pan() never fires. */}
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Pressable onPress={close} className="flex-1 justify-end bg-black/50">
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <GestureDetector gesture={pan}>
-              <Animated.View
-                style={[
-                  {
-                    paddingBottom: insets.bottom + 16,
-                    paddingTop: 8,
-                    maxHeight: windowH * 0.92,
-                    ...(sheetHeight != null ? { height: sheetHeight } : null),
-                  },
-                  animatedStyle,
-                ]}
-                className={cn(
-                  "rounded-t-3xl border-t border-border bg-card px-4",
-                  className,
-                )}
-              >
-                <View className="mb-3 h-1.5 w-12 self-center rounded-full bg-muted" />
-                <View className="flex-1">{children}</View>
-                {footer ? (
-                  <View className="border-t border-border bg-card pt-3">
-                    {footer}
-                  </View>
-                ) : null}
-              </Animated.View>
-            </GestureDetector>
-          </Pressable>
-        </Pressable>
-      </GestureHandlerRootView>
-    </Modal>
+      <BottomSheetView
+        style={{
+          // Top padding only — `BottomSheetFooter` floats above content,
+          // and consumers that scroll should add their own bottom padding
+          // (≈ footer height) to clear it. Non-scrollable sheets get the
+          // default 16dp gap before the safe-area handle.
+          paddingBottom: footer ? 0 : 16,
+        }}
+        className={cn("flex-1 px-4 pt-2", className)}
+      >
+        {children}
+      </BottomSheetView>
+    </BottomSheetModal>
   );
 }
 
-type SheetScrollViewProps = ComponentProps<typeof ScrollView>;
+/**
+ * `BottomSheetScrollView` re-export — required for scrollable content
+ * inside a Sheet so the lib can route vertical gestures correctly. Drop
+ * this in place of `ScrollView` whenever a Sheet body scrolls.
+ */
+type SheetScrollViewProps = ComponentProps<typeof BottomSheetScrollView>;
 
-export function SheetScrollView({
-  className,
-  contentContainerStyle,
-  ...props
-}: SheetScrollViewProps) {
+export const SheetScrollView = forwardRef<
+  React.ComponentRef<typeof BottomSheetScrollView>,
+  SheetScrollViewProps
+>(function SheetScrollView({ className, ...props }, ref) {
   return (
-    <ScrollView
-      {...props}
-      className={cn(className)}
-      contentContainerStyle={contentContainerStyle}
-    />
+    <BottomSheetScrollView ref={ref} {...props} className={cn(className)} />
   );
+});
+
+/**
+ * `BottomSheetFlatList` re-export with the same rationale as
+ * `SheetScrollView`. Use for long lists (e.g. address suggestions).
+ */
+type SheetFlatListProps<TItem> = ComponentProps<
+  typeof BottomSheetFlatList<TItem>
+>;
+
+export function SheetFlatList<TItem>(props: SheetFlatListProps<TItem>) {
+  return <BottomSheetFlatList<TItem> {...props} />;
 }
+
+// Re-export the imperative API for advanced consumers (rare).
+export type { BottomSheetMethods as SheetMethods };
