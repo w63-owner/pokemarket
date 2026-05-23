@@ -4,6 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
+    "eas-build-pre-install": "node -e \"const {execSync}=require('child_process');console.log('node:',process.version);console.log('cwd:',process.cwd());try{console.log('npm:',execSync('npm --version').toString().trim())}catch(e){console.log('npm check failed:',e.message)}\"",
     "dev": "expo start --dev-client",
     "start": "expo start",
     "android": "expo start --android",
@@ -18,7 +19,9 @@
     "build:production": "eas build --profile production --platform all",
     "submit:ios": "eas submit --platform ios --profile production",
     "submit:android": "eas submit --platform android --profile production",
-    "update": "eas update"
+    "update": "eas update",
+    "update:preview": "eas update --branch preview --message",
+    "update:production": "eas update --branch production --message"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -48,6 +51,7 @@
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~3.0.9",
     "expo-system-ui": "~5.0.10",
+    "expo-updates": "~29.0.17",
     "expo-web-browser": "~14.2.0",
     "lucide-react-native": "^1.14.0",
     "moti": "^0.30.0",
@@ -56,6 +60,7 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.72.0",
     "react-native": "0.81.5",
+    "react-native-confetti-cannon": "^1.5.2",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-reanimated": "~4.1.0",
     "react-native-safe-area-context": "5.4.0",
