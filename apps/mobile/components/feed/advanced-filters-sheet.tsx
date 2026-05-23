@@ -98,7 +98,7 @@ export function AdvancedFiltersSheet({
     <Sheet
       open={open}
       onOpenChange={onOpenChange}
-      snapPoints={["75%", "92%"]}
+      snapPoints={["92%"]}
       footer={footerEl}
     >
       <View className="flex-row items-center justify-between pb-2">
@@ -126,7 +126,7 @@ export function AdvancedFiltersSheet({
           />
         </View>
 
-        <View className="mt-4 gap-1.5">
+        <View className="mt-3 gap-1.5">
           <Label>Série / Extension</Label>
           <Input
             placeholder="Ex: Flammes Obsidiennes…"
@@ -135,7 +135,7 @@ export function AdvancedFiltersSheet({
           />
         </View>
 
-        <View className="mt-4 gap-1.5">
+        <View className="mt-3 gap-1.5">
           <Label>N° de carte</Label>
           <Input
             placeholder="Ex: 25/165"
@@ -146,7 +146,7 @@ export function AdvancedFiltersSheet({
           />
         </View>
 
-        <View className="mt-4 gap-1.5">
+        <View className="mt-3 gap-1.5">
           <Label>Rareté</Label>
           <Select
             value={filters.rarity ?? ""}
@@ -156,7 +156,7 @@ export function AdvancedFiltersSheet({
           />
         </View>
 
-        <View className="mt-4 gap-1.5">
+        <View className="mt-3 gap-1.5">
           <Label>État</Label>
           <Select
             value={filters.condition ?? ""}
@@ -166,7 +166,7 @@ export function AdvancedFiltersSheet({
           />
         </View>
 
-        <View className="mt-4 gap-3">
+        <View className="mt-3 gap-3">
           <View className="flex-row items-center justify-between">
             <Label>Carte gradée</Label>
             <Switch
@@ -228,7 +228,7 @@ export function AdvancedFiltersSheet({
           </AnimatePresence>
         </View>
 
-        <View className="mt-4 gap-1.5">
+        <View className="mt-3 gap-1.5">
           <Label>Prix (€)</Label>
           <View className="flex-row items-center gap-2">
             <View className="flex-1">

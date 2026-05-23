@@ -10,7 +10,13 @@ import { FeedGrid } from "@/components/feed/feed-grid";
 import { SavedSearchesList } from "@/components/favorites/saved-searches-list";
 import { FollowedSellersList } from "@/components/favorites/followed-sellers-list";
 import { AuthRequired, EmptyState } from "@/components/shared";
-import { Tabs, TabsList, TabsTrigger, Text } from "@/components/ui";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Text,
+} from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type TabKey = "listings" | "sellers" | "saved-searches";
@@ -31,35 +37,42 @@ export default function FavoritesScreen() {
 
   const hasNoListings = !isLoading && !isError && favorites.length === 0;
 
-  if (!authLoading && !user) {
+  // Never render the favorites content while we don't have a confirmed
+  // authenticated user — otherwise the grid/tabs would flash for a frame
+  // before the AuthRequired empty state appears.
+  if (!user) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
         <View className="border-b border-border bg-background px-4 pb-1 pt-2">
           <Text variant="h2">Favoris</Text>
         </View>
-        <View className="flex-1 items-center justify-center">
-          <AuthRequired
-            icon={<Heart size={28} color={primary} />}
-            title="Connecte-toi pour voir tes favoris"
-            description="Sauvegarde des cartes, suis des vendeurs et crée des alertes de recherche."
-          />
-        </View>
+        {authLoading ? null : (
+          <View className="flex-1 items-center justify-center">
+            <AuthRequired
+              icon={<Heart size={28} color={primary} />}
+              title="Connecte-toi pour voir tes favoris"
+              description="Sauvegarde des cartes, suis des vendeurs et crée des alertes de recherche."
+            />
+          </View>
+        )}
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="border-b border-border bg-background px-4 pb-1 pt-2">
-        <Text variant="h2" className="mb-3">
-          Favoris
-        </Text>
+      <Tabs
+        value={tab}
+        onValueChange={(next) => setTab(next as TabKey)}
+        variant="line"
+        swipeable
+        fill
+      >
+        <View className="border-b border-border bg-background px-4 pb-1 pt-2">
+          <Text variant="h2" className="mb-3">
+            Favoris
+          </Text>
 
-        <Tabs
-          value={tab}
-          onValueChange={(next) => setTab(next as TabKey)}
-          variant="line"
-        >
           <TabsList>
             <TabsTrigger value="listings">Annonces</TabsTrigger>
             <TabsTrigger value="sellers">Vendeurs</TabsTrigger>
@@ -67,12 +80,10 @@ export default function FavoritesScreen() {
               {totalNew > 0 ? `Recherches (${totalNew})` : "Recherches"}
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </View>
+        </View>
 
-      <View className="flex-1">
-        {tab === "listings" ? (
-          hasNoListings ? (
+        <TabsContent value="listings">
+          {hasNoListings ? (
             <View className="flex-1 items-center justify-center">
               <EmptyState
                 icon={<Heart size={28} color={primary} />}
@@ -100,13 +111,17 @@ export default function FavoritesScreen() {
                   : undefined
               }
             />
-          )
-        ) : tab === "sellers" ? (
+          )}
+        </TabsContent>
+
+        <TabsContent value="sellers">
           <FollowedSellersList />
-        ) : (
+        </TabsContent>
+
+        <TabsContent value="saved-searches">
           <SavedSearchesList />
-        )}
-      </View>
+        </TabsContent>
+      </Tabs>
     </SafeAreaView>
   );
 }

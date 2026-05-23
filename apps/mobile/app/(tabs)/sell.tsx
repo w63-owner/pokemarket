@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View, KeyboardAvoidingView, Platform } from "react-native";
+import { ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowRight, ScanLine, Sparkles } from "lucide-react-native";
@@ -253,10 +254,7 @@ export default function SellScreen() {
         </Text>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
           keyboardShouldPersistTaps="handled"

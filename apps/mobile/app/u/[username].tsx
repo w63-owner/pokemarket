@@ -1,4 +1,4 @@
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -39,22 +39,18 @@ export default function PublicProfileScreen() {
         </View>
       ) : (
         <>
-          <ScrollView
-            contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
-          >
-            <View className="gap-4">
-              <SellerReputationBadge
-                avgRating={profile.avg_rating ?? 0}
-                reviewCount={profile.review_count}
-              />
+          <View className="bg-background px-4 pb-3 pt-4">
+            <SellerReputationBadge
+              avgRating={profile.avg_rating ?? 0}
+              reviewCount={profile.review_count}
+            />
+          </View>
 
-              <ProfileTabs
-                profile={profile}
-                listings={listings}
-                reviews={reviews}
-              />
-            </View>
-          </ScrollView>
+          <ProfileTabs
+            profile={profile}
+            listings={listings}
+            reviews={reviews}
+          />
 
           {!isOwnProfile && user ? (
             <FloatingFollowBar sellerId={profile.id} />

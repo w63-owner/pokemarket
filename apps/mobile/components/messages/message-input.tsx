@@ -5,6 +5,7 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { ImagePlus, Send } from "lucide-react-native";
 import { MotiView } from "moti";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useKeyboardState } from "react-native-keyboard-controller";
 import { LIMITS } from "@pokemarket/shared";
 import { cn } from "@/lib/cn";
 import { spring } from "@/lib/motion";
@@ -46,6 +47,17 @@ export function MessageInput({
   const [value, setValue] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const insets = useSafeAreaInsets();
+  // When the keyboard is open the system nav bar / home indicator sits
+  // behind it, so we collapse the safe-area padding to keep the input
+  // flush with the keyboard (otherwise the parent `KeyboardAvoidingView`
+  // adds the full keyboard height *and* we reserve `insets.bottom` here,
+  // producing a visible empty strip below the input).
+  const { isVisible: isKeyboardVisible } = useKeyboardState();
+  const bottomPadding = isKeyboardVisible
+    ? 6
+    : insets.bottom > 0
+      ? insets.bottom
+      : 8;
 
   const trimmed = value.trim();
   const canSend = trimmed.length > 0 && !disabled && !isUploading;
@@ -96,7 +108,7 @@ export function MessageInput({
   return (
     <View
       className="border-t border-border bg-background"
-      style={{ paddingBottom: insets.bottom > 0 ? insets.bottom : 8 }}
+      style={{ paddingBottom: bottomPadding }}
     >
       <View className="flex-row items-end gap-2 px-3 py-2">
         <Pressable

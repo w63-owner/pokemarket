@@ -5,11 +5,11 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SplashScreen from "expo-splash-screen";
-import Animated from "react-native-reanimated";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "nativewind";
 
@@ -19,39 +19,15 @@ import { ToastViewport } from "@/components/ui/toast";
 import { AnimatedSplash } from "@/components/splash/animated-splash";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useAppFonts } from "@/lib/fonts";
-
-// #region agent log
-try {
-  const g: any = globalThis as any;
-  if (typeof g.__agentLog === "function") {
-    g.__agentLog({
-      location: "app/_layout.tsx:moduleEval",
-      message: "ROOT_LAYOUT_MODULE_EVAL",
-      hypothesisId: "H4,H5",
-      data: {
-        animatedTypeof: typeof Animated,
-        animatedKeys: Animated
-          ? Object.keys(Animated as object).slice(0, 30)
-          : null,
-        createAnimatedComponentType: typeof (Animated as any)
-          ?.createAnimatedComponent,
-        hasReactNativeWorklets: (() => {
-          try {
-            return !!require("react-native-worklets");
-          } catch (e: any) {
-            return "ERROR: " + e?.message;
-          }
-        })(),
-      },
-    });
-  }
-} catch {
-  /* noop */
-}
-// #endregion
+import { initAuth } from "@/hooks/use-auth";
 
 initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Kick off Supabase session restoration as early as possible so that by the
+// time the user lands on (or navigates to) an auth-gated tab the cached
+// auth state is already resolved — no flash of protected content.
+initAuth();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,22 +40,6 @@ const queryClient = new QueryClient({
 });
 
 function RootLayout() {
-  // #region agent log
-  try {
-    const g: any = globalThis as any;
-    if (typeof g.__agentLog === "function") {
-      g.__agentLog({
-        location: "app/_layout.tsx:RootLayout",
-        message: "ROOT_LAYOUT_RENDER",
-        hypothesisId: "all",
-        data: {},
-      });
-    }
-  } catch {
-    /* noop */
-  }
-  // #endregion
-
   const [fontsLoaded, fontError] = useAppFonts();
 
   // Coordinate splash hiding with font loading so the first paint
@@ -105,25 +65,35 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <StripeProvider
-            publishableKey={env.STRIPE_PUBLISHABLE_KEY ?? ""}
-            merchantIdentifier="merchant.app.pokemarket"
-          >
-            <BottomSheetModalProvider>
-              <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
-              <Stack screenOptions={{ headerShown: false }} />
-              <ToastViewport />
-              {/* Mounted last so it floats above the navigator + every
-                  modal until it self-dismisses (one-shot per install
-                  via AsyncStorage flag). Costs nothing past first paint
-                  thanks to its internal `phase === "done"` short-circuit. */}
-              <AnimatedSplash />
-            </BottomSheetModalProvider>
-          </StripeProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      {/* `KeyboardProvider` wires the native keyboard module that powers
+          `KeyboardAvoidingView` / `KeyboardAwareScrollView` from
+          `react-native-keyboard-controller`. Required for Android edge-to-edge
+          (the legacy `react-native` `KeyboardAvoidingView` is a no-op when
+          `behavior` isn't set, which left every form input hidden behind
+          the keyboard on Android — see app.json `edgeToEdgeEnabled: true`). */}
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <StripeProvider
+              publishableKey={env.STRIPE_PUBLISHABLE_KEY ?? ""}
+              merchantIdentifier="merchant.app.pokemarket"
+            >
+              <BottomSheetModalProvider>
+                <StatusBar
+                  style={effectiveTheme === "dark" ? "light" : "dark"}
+                />
+                <Stack screenOptions={{ headerShown: false }} />
+                <ToastViewport />
+                {/* Mounted last so it floats above the navigator + every
+                    modal until it self-dismisses (one-shot per install
+                    via AsyncStorage flag). Costs nothing past first paint
+                    thanks to its internal `phase === "done"` short-circuit. */}
+                <AnimatedSplash />
+              </BottomSheetModalProvider>
+            </StripeProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

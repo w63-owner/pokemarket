@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import type { ViewStyle } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -31,6 +32,7 @@ type TabsContextValue = {
   onValueChange: (next: string) => void;
   variant: "default" | "line";
   swipeable?: boolean;
+  fill?: boolean;
   registerLayout: (value: string, layout: TabLayout) => void;
   layouts: Record<string, TabLayout>;
 };
@@ -52,6 +54,7 @@ export function Tabs({
   className,
   variant = "default",
   swipeable,
+  fill,
 }: {
   value: string;
   onValueChange: (next: string) => void;
@@ -59,11 +62,18 @@ export function Tabs({
   className?: string;
   variant?: "default" | "line";
   swipeable?: boolean;
+  /**
+   * When `true` together with `swipeable`, the pager and each panel fill
+   * the parent's height. Required when a panel hosts a virtualized list
+   * (FlatList / FlashList) that needs a bounded height to render.
+   */
+  fill?: boolean;
 }) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const tabOrderRef = useRef<string[]>([]);
   const [layouts, setLayouts] = useState<Record<string, TabLayout>>({});
+  const [pagerHeight, setPagerHeight] = useState(0);
 
   const registerLayout = useCallback((tabValue: string, layout: TabLayout) => {
     setLayouts((prev) => {
@@ -98,10 +108,19 @@ export function Tabs({
       onValueChange: handleValueChange,
       variant,
       swipeable,
+      fill,
       registerLayout,
       layouts,
     }),
-    [value, handleValueChange, variant, swipeable, registerLayout, layouts],
+    [
+      value,
+      handleValueChange,
+      variant,
+      swipeable,
+      fill,
+      registerLayout,
+      layouts,
+    ],
   );
 
   if (swipeable) {
@@ -118,9 +137,16 @@ export function Tabs({
       }
     });
 
+    // In fill mode we need a bounded height for each page so that
+    // virtualized lists inside them know how tall to render. We measure
+    // the pager's own layout height and forward it to every page.
+    const pageStyle: ViewStyle = fill
+      ? { width, height: pagerHeight }
+      : { width };
+
     return (
       <TabsContext.Provider value={contextValue}>
-        <View className={cn("flex-col", className)}>
+        <View className={cn("flex-col", fill && "flex-1", className)}>
           {listChildren}
           <ScrollView
             ref={scrollRef}
@@ -128,6 +154,17 @@ export function Tabs({
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             decelerationRate="fast"
+            style={fill ? { flex: 1 } : undefined}
+            onLayout={
+              fill
+                ? (e) => {
+                    const h = e.nativeEvent.layout.height;
+                    setPagerHeight((prev) =>
+                      Math.abs(prev - h) < 0.5 ? prev : h,
+                    );
+                  }
+                : undefined
+            }
             onMomentumScrollEnd={(e) => {
               const idx = Math.round(e.nativeEvent.contentOffset.x / width);
               const newValue = tabOrderRef.current[idx];
@@ -139,7 +176,7 @@ export function Tabs({
             {contentChildren.map((child) => (
               <View
                 key={(child.props as { value: string }).value}
-                style={{ width }}
+                style={pageStyle}
               >
                 {child}
               </View>
@@ -295,7 +332,10 @@ export function TabsContent({
   // In swipeable mode all panels are always mounted side-by-side inside
   // the horizontal pager — no AnimatePresence cross-fade, no null.
   if (ctx.swipeable) {
-    return <View className="mt-3">{children}</View>;
+    // In fill mode the panel must take the full pager height (no top
+    // margin) so its child list can flex into it; otherwise we keep the
+    // legacy `mt-3` spacing used by the scroll-based ProfileTabs layout.
+    return <View className={ctx.fill ? "flex-1" : "mt-3"}>{children}</View>;
   }
 
   return (

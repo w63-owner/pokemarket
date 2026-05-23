@@ -2,7 +2,12 @@ import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { MotiView } from "moti";
 import { Users } from "lucide-react-native";
-import { countryCodeToFlag, regionDisplayName } from "@pokemarket/shared";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  countryCodeToFlag,
+  queryKeys,
+  regionDisplayName,
+} from "@pokemarket/shared";
 
 import { useFollowedSellers } from "@/hooks/use-followed-sellers";
 import { EmptyState } from "@/components/shared";
@@ -10,6 +15,8 @@ import { Avatar, Text } from "@/components/ui";
 import { FollowButton } from "@/components/profile/follow-button";
 import { fadeInUp, staggerDelay } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
+import { haptic } from "@/lib/haptics";
+import { fetchPublicProfile } from "@/lib/api/profile";
 import type { FavoriteSellerRow } from "@/lib/api/favorites";
 
 export function FollowedSellersList() {
@@ -58,9 +65,30 @@ export function FollowedSellersList() {
 }
 
 function SellerRow({ row, index }: { row: FavoriteSellerRow; index: number }) {
+  const qc = useQueryClient();
   const cc = row.profiles.country_code;
   const flag = cc ? countryCodeToFlag(cc) : "";
   const region = cc ? regionDisplayName(cc, "fr") : "";
+  const username = row.profiles.username;
+
+  // Fires the profile request the instant the finger touches the card,
+  // so by the time the navigation animation lands the data is usually
+  // already in the React Query cache and the screen renders without a
+  // skeleton flash.
+  const prefetchProfile = () => {
+    if (!username) return;
+    qc.prefetchQuery({
+      queryKey: queryKeys.profile.public(username),
+      queryFn: () => fetchPublicProfile(username),
+      staleTime: 30_000,
+    });
+  };
+
+  const openProfile = () => {
+    if (!username) return;
+    haptic("tap");
+    router.push(`/u/${username}` as never);
+  };
 
   return (
     <MotiView
@@ -70,34 +98,32 @@ function SellerRow({ row, index }: { row: FavoriteSellerRow; index: number }) {
         ...(fadeInUp.transition as object),
         delay: staggerDelay(index, 45, 10),
       }}
-      className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3"
     >
-      <Avatar
-        uri={row.profiles.avatar_url}
-        fallback={row.profiles.username?.charAt(0) ?? "?"}
-        size={48}
-      />
-      <View className="min-w-0 flex-1 gap-1">
-        <Text className="text-base font-semibold" numberOfLines={1}>
-          @{row.profiles.username}
-        </Text>
-        {region ? (
-          <Text variant="muted" className="text-xs" numberOfLines={1}>
-            {flag} {region}
+      <Pressable
+        onPressIn={prefetchProfile}
+        onPress={openProfile}
+        android_ripple={{ borderless: false }}
+        className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3 active:opacity-80"
+      >
+        <Avatar
+          uri={row.profiles.avatar_url}
+          fallback={username?.charAt(0) ?? "?"}
+          size={48}
+        />
+        <View className="min-w-0 flex-1 gap-1">
+          <Text className="text-base font-semibold" numberOfLines={1}>
+            @{username}
           </Text>
-        ) : null}
-      </View>
-      <View className="flex-shrink-0 items-end gap-2">
-        <FollowButton sellerId={row.seller_id} compact />
-        <Pressable
-          onPress={() => router.push(`/u/${row.profiles.username}` as never)}
-          hitSlop={8}
-        >
-          <Text variant="caption" className="text-[11px] text-primary">
-            Voir le profil
-          </Text>
-        </Pressable>
-      </View>
+          {region ? (
+            <Text variant="muted" className="text-xs" numberOfLines={1}>
+              {flag} {region}
+            </Text>
+          ) : null}
+        </View>
+        <View className="flex-shrink-0">
+          <FollowButton sellerId={row.seller_id} compact />
+        </View>
+      </Pressable>
     </MotiView>
   );
 }

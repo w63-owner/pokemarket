@@ -85,19 +85,24 @@ export default function InboxScreen() {
     [user?.id, onlineIds],
   );
 
-  if (!authLoading && !user) {
+  // Never render the conversations list while we don't have a confirmed
+  // authenticated user — otherwise the inbox header/skeletons would flash
+  // for a frame before the AuthRequired empty state appears.
+  if (!user) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
         <View className="flex-row items-center justify-between border-b border-border bg-background px-4 py-3">
           <Text variant="h2">Messages</Text>
         </View>
-        <View className="flex-1 items-center justify-center">
-          <AuthRequired
-            icon={<MessageCircle size={28} color={primary} />}
-            title="Connecte-toi pour accéder à la messagerie"
-            description="Discute avec les vendeurs et acheteurs depuis ton compte."
-          />
-        </View>
+        {authLoading ? null : (
+          <View className="flex-1 items-center justify-center">
+            <AuthRequired
+              icon={<MessageCircle size={28} color={primary} />}
+              title="Connecte-toi pour accéder à la messagerie"
+              description="Discute avec les vendeurs et acheteurs depuis ton compte."
+            />
+          </View>
+        )}
       </SafeAreaView>
     );
   }

@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import {
   KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+  useKeyboardState,
+} from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { ChevronLeft, CreditCard, ShieldCheck } from "lucide-react-native";
 import {
   calcTotalBuyer,
@@ -53,6 +54,14 @@ export default function CheckoutScreen() {
   const [postcode, setPostcode] = useState("");
   const [hasHydrated, setHasHydrated] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
+
+  // Collapse the bottom safe-area when the keyboard is open: with edge-to-edge
+  // enabled the home indicator / nav bar is occluded by the keyboard, so
+  // reserving `insets.bottom` here would leave a visible empty strip
+  // between the Pay button and the keyboard top.
+  const insets = useSafeAreaInsets();
+  const { isVisible: isKeyboardVisible } = useKeyboardState();
+  const payBarBottomPadding = isKeyboardVisible ? 0 : insets.bottom;
 
   // Hydrate the form once when the profile arrives. Guarded so the user's
   // edits aren't overwritten by a late-arriving profile fetch.
@@ -183,11 +192,13 @@ export default function CheckoutScreen() {
         </View>
       </SafeAreaView>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-        className="flex-1"
-      >
+      {/* `KeyboardAvoidingView` from `react-native-keyboard-controller`
+          handles both iOS and Android edge-to-edge correctly — the legacy
+          RN component is a no-op on Android when `behavior` isn't set.
+          No `keyboardVerticalOffset`: the lib computes the KAV's window
+          position itself, so any non-zero offset becomes a visible gap
+          between the keyboard top and the bottom of the content. */}
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 20 }}
           keyboardShouldPersistTaps="handled"
@@ -239,22 +250,20 @@ export default function CheckoutScreen() {
           </View>
         </ScrollView>
 
-        <SafeAreaView
-          edges={["bottom"]}
-          className="border-t border-border bg-card"
+        <View
+          className="border-t border-border bg-card px-4 pt-3"
+          style={{ paddingBottom: payBarBottomPadding + 12 }}
         >
-          <View className="px-4 py-3">
-            <Button
-              size="lg"
-              onPress={handlePay}
-              disabled={!isFormValid || isExpired}
-              loading={isProcessing}
-              leftIcon={<CreditCard size={20} color="#fff" />}
-            >
-              {`Payer ${formatPrice(total)}`}
-            </Button>
-          </View>
-        </SafeAreaView>
+          <Button
+            size="lg"
+            onPress={handlePay}
+            disabled={!isFormValid || isExpired}
+            loading={isProcessing}
+            leftIcon={<CreditCard size={20} color="#fff" />}
+          >
+            {`Payer ${formatPrice(total)}`}
+          </Button>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );

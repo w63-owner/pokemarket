@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, Stack } from "expo-router";
 import {
   COUNTRY_LABELS,
@@ -104,11 +105,7 @@ function EditProfileForm({ profile }: { profile: Profile }) {
   ]);
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 24 }}
         keyboardShouldPersistTaps="handled"

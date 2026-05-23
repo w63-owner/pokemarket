@@ -108,19 +108,24 @@ export default function ProfileScreen() {
     }
   };
 
-  if (!authLoading && !user) {
+  // Never render the profile content while we don't have a confirmed
+  // authenticated user — otherwise the profile card / menu rows would
+  // flash for a frame before the AuthRequired empty state appears.
+  if (!user) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
         <View className="border-b border-border bg-background px-4 pb-3 pt-2">
           <Text variant="h2">Profil</Text>
         </View>
-        <View className="flex-1 items-center justify-center">
-          <AuthRequired
-            icon={<UserIcon size={28} color={primary} />}
-            title="Connecte-toi pour accéder à tes informations"
-            description="Retrouve ton profil, tes annonces, ton portefeuille et tes paramètres."
-          />
-        </View>
+        {authLoading ? null : (
+          <View className="flex-1 items-center justify-center">
+            <AuthRequired
+              icon={<UserIcon size={28} color={primary} />}
+              title="Connecte-toi pour accéder à tes informations"
+              description="Retrouve ton profil, tes annonces, ton portefeuille et tes paramètres."
+            />
+          </View>
+        )}
       </SafeAreaView>
     );
   }

@@ -72,6 +72,15 @@ export function Sheet({
   snapPoints,
 }: Props) {
   const ref = useRef<BottomSheetModal>(null);
+  // Tracks whether the modal is currently presented (mounted + visible).
+  // `@gorhom/bottom-sheet` v5 has a footgun: calling `dismiss()` while
+  // its internal `statusRef` is INITIAL (which happens after the lib
+  // self-unmounts on pan-close, AND on first mount) silently corrupts
+  // the status to DISMISSING — every future `handlePortalRender` is
+  // then short-circuited, so the modal mounts but renders nothing.
+  // We mirror the lib's mount state via `onChange`/`onDismiss` and only
+  // forward dismissals when the sheet is actually presented.
+  const isPresentedRef = useRef(false);
   const { height: windowH } = useWindowDimensions();
   const cardBg = useThemeColor("card");
   const handleColor = useThemeColor("mutedForeground");
@@ -79,12 +88,24 @@ export function Sheet({
   // Present / dismiss in sync with the `open` prop. Imperative API rather
   // than declarative because the lib has no `visible` prop.
   useEffect(() => {
-    if (open) ref.current?.present();
-    else ref.current?.dismiss();
+    if (open) {
+      isPresentedRef.current = true;
+      ref.current?.present();
+    } else if (isPresentedRef.current) {
+      // Only dismiss when the sheet is currently presented. If the lib
+      // already self-dismissed (pan-down / backdrop), its status is back
+      // to INITIAL and calling dismiss() again corrupts it to DISMISSING.
+      isPresentedRef.current = false;
+      ref.current?.dismiss();
+    }
   }, [open]);
 
   const handleChange = useCallback(
     (index: number) => {
+      // Mirror the lib's mount state so the dismiss-guard in useEffect
+      // can tell whether we're already unmounted (index === -1 happens
+      // when the user drags-down or taps the backdrop).
+      isPresentedRef.current = index >= 0;
       if (index === -1) onOpenChange(false);
     },
     [onOpenChange],
@@ -132,6 +153,10 @@ export function Sheet({
     <BottomSheetModal
       ref={ref}
       onChange={handleChange}
+      onDismiss={() => {
+        // The lib reset its status to INITIAL via unmount(). Stay in sync.
+        isPresentedRef.current = false;
+      }}
       snapPoints={resolvedSnapPoints as BottomSheetModalProps["snapPoints"]}
       enableDynamicSizing={enableDynamicSizing}
       maxDynamicContentSize={windowH * 0.9}

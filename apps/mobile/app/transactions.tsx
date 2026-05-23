@@ -22,6 +22,7 @@ import {
   Badge,
   Skeleton,
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
   Text,
@@ -32,6 +33,8 @@ import { fadeInUp, staggerDelay } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type TabKey = "purchases" | "sales";
+
+type TransactionsInfiniteQuery = ReturnType<typeof usePurchases>;
 
 const STATUS_CONFIG: Record<
   string,
@@ -62,33 +65,7 @@ export default function TransactionsScreen() {
   const purchasesQuery = usePurchases({ enabled: true });
   const salesQuery = useSales({ enabled: true });
 
-  const activeQuery = tab === "purchases" ? purchasesQuery : salesQuery;
-  const items = useMemo(
-    () => activeQuery.data?.pages.flatMap((p) => p.data) ?? [],
-    [activeQuery.data],
-  );
-
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await activeQuery.refetch();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [activeQuery]);
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: TransactionWithDetails; index: number }) => (
-      <TransactionRow transaction={item} type={tab} index={index} />
-    ),
-    [tab],
-  );
-
   const foreground = useThemeColor("foreground");
-  const muted = useThemeColor("mutedForeground");
-  const primary = useThemeColor("primary");
 
   return (
     <View className="flex-1 bg-background">
@@ -97,12 +74,14 @@ export default function TransactionsScreen() {
       <MobileHeader title="Mes transactions" fallbackHref="/(tabs)/profile" />
 
       <SafeAreaView edges={["bottom"]} className="flex-1">
-        <View className="px-4 pt-4">
-          <Tabs
-            value={tab}
-            onValueChange={(v) => setTab(v as TabKey)}
-            variant="line"
-          >
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as TabKey)}
+          variant="line"
+          swipeable
+          fill
+        >
+          <View className="bg-background px-4 pt-4">
             <TabsList>
               <TabsTrigger value="purchases">
                 <View className="flex-row items-center gap-1.5">
@@ -117,92 +96,150 @@ export default function TransactionsScreen() {
                 </View>
               </TabsTrigger>
             </TabsList>
-          </Tabs>
-        </View>
+          </View>
 
-        <View className="flex-1 px-4 pt-3">
-          {activeQuery.isLoading ? (
-            <ListSkeleton />
-          ) : activeQuery.isError ? (
-            <ErrorState
-              variant="card"
-              title="Impossible de charger les transactions"
-              description={
-                activeQuery.error instanceof Error
-                  ? activeQuery.error.message
-                  : "Réessayez dans un instant."
-              }
-              action={{
-                label: "Réessayer",
-                onPress: () => void activeQuery.refetch(),
-              }}
-            />
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={
-                tab === "purchases" ? (
-                  <ShoppingBag size={28} color={muted} />
-                ) : (
-                  <Store size={28} color={muted} />
-                )
-              }
-              title={
-                tab === "purchases"
-                  ? "Aucun achat pour le moment"
-                  : "Aucune vente pour le moment"
-              }
-              description={
-                tab === "purchases"
-                  ? "Vos achats apparaîtront ici une fois un paiement effectué."
-                  : "Vos ventes apparaîtront ici dès qu'un acheteur passera commande."
-              }
-              action={
-                tab === "purchases"
-                  ? {
-                      label: "Explorer le marché",
-                      onPress: () => router.push("/(tabs)" as never),
-                    }
-                  : {
-                      label: "Vendre une carte",
-                      onPress: () => router.push("/(tabs)/sell" as never),
-                    }
-              }
-            />
-          ) : (
-            <FlashList
-              data={items}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              contentContainerStyle={{ paddingBottom: 24 }}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={primary}
-                />
-              }
-              onEndReached={() => {
-                if (
-                  activeQuery.hasNextPage &&
-                  !activeQuery.isFetchingNextPage
-                ) {
-                  activeQuery.fetchNextPage();
-                }
-              }}
-              onEndReachedThreshold={0.4}
-              ItemSeparatorComponent={() => <View className="h-2" />}
-              ListFooterComponent={
-                activeQuery.isFetchingNextPage ? (
-                  <View className="py-4">
-                    <ActivityIndicator color={primary} />
-                  </View>
-                ) : null
-              }
-            />
-          )}
-        </View>
+          <TabsContent value="purchases">
+            <TransactionsPanel query={purchasesQuery} type="purchases" />
+          </TabsContent>
+
+          <TabsContent value="sales">
+            <TransactionsPanel query={salesQuery} type="sales" />
+          </TabsContent>
+        </Tabs>
       </SafeAreaView>
     </View>
+  );
+}
+
+function TransactionsPanel({
+  query,
+  type,
+}: {
+  query: TransactionsInfiniteQuery;
+  type: TabKey;
+}) {
+  const items = useMemo(
+    () => query.data?.pages.flatMap((p) => p.data) ?? [],
+    [query.data],
+  );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await query.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [query]);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: TransactionWithDetails; index: number }) => (
+      <TransactionRow transaction={item} type={type} index={index} />
+    ),
+    [type],
+  );
+
+  const muted = useThemeColor("mutedForeground");
+  const primary = useThemeColor("primary");
+
+  if (query.isLoading) {
+    return (
+      <View className="flex-1 px-4 pt-3">
+        <ListSkeleton />
+      </View>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <View className="flex-1 px-4 pt-3">
+        <ErrorState
+          variant="card"
+          title="Impossible de charger les transactions"
+          description={
+            query.error instanceof Error
+              ? query.error.message
+              : "Réessayez dans un instant."
+          }
+          action={{
+            label: "Réessayer",
+            onPress: () => void query.refetch(),
+          }}
+        />
+      </View>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <View className="flex-1 px-4 pt-3">
+        <EmptyState
+          icon={
+            type === "purchases" ? (
+              <ShoppingBag size={28} color={muted} />
+            ) : (
+              <Store size={28} color={muted} />
+            )
+          }
+          title={
+            type === "purchases"
+              ? "Aucun achat pour le moment"
+              : "Aucune vente pour le moment"
+          }
+          description={
+            type === "purchases"
+              ? "Vos achats apparaîtront ici une fois un paiement effectué."
+              : "Vos ventes apparaîtront ici dès qu'un acheteur passera commande."
+          }
+          action={
+            type === "purchases"
+              ? {
+                  label: "Explorer le marché",
+                  onPress: () => router.push("/(tabs)" as never),
+                }
+              : {
+                  label: "Vendre une carte",
+                  onPress: () => router.push("/(tabs)/sell" as never),
+                }
+          }
+        />
+      </View>
+    );
+  }
+
+  return (
+    <FlashList
+      data={items}
+      keyExtractor={(item) => item.id}
+      renderItem={renderItem}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 24,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={primary}
+        />
+      }
+      onEndReached={() => {
+        if (query.hasNextPage && !query.isFetchingNextPage) {
+          query.fetchNextPage();
+        }
+      }}
+      onEndReachedThreshold={0.4}
+      ItemSeparatorComponent={() => <View className="h-2" />}
+      ListFooterComponent={
+        query.isFetchingNextPage ? (
+          <View className="py-4">
+            <ActivityIndicator color={primary} />
+          </View>
+        ) : null
+      }
+    />
   );
 }
 

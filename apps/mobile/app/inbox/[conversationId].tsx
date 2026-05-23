@@ -8,19 +8,14 @@ import {
 } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   View,
-  type LayoutChangeEvent,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertCircle } from "lucide-react-native";
 import {
   useInfiniteQuery,
@@ -120,19 +115,8 @@ export default function ConversationThreadScreen() {
   const conversationId = params.conversationId;
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
 
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
-  // Distance between the top of the screen and the top of the
-  // KeyboardAvoidingView (= MobileHeader + ListingContextBar +
-  // OfferBar/TxActions). Measured at runtime via `onLayout` so the
-  // KAV stays aligned with the visible top of the chat area on iOS
-  // even when the offer bar swaps with the transaction bar.
-  const [headerStackHeight, setHeaderStackHeight] = useState(0);
-
-  const handleHeaderStackLayout = useCallback((e: LayoutChangeEvent) => {
-    setHeaderStackHeight(e.nativeEvent.layout.height);
-  }, []);
 
   const unreadIdsRef = useRef<Set<string>>(new Set());
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -571,13 +555,6 @@ export default function ConversationThreadScreen() {
 
   const conversation = convQuery.data;
 
-  // Bottom safe-area is taken care of by `MessageInput`; the iOS
-  // `KeyboardAvoidingView` only needs to know how much vertical space
-  // sits above it (status bar inset + custom header + listing bar +
-  // offer/tx bar) to align its bottom edge with the top of the keyboard.
-  const keyboardOffset =
-    Platform.OS === "ios" ? insets.top + headerStackHeight : 0;
-
   return (
     <SafeAreaView
       className="flex-1 bg-background"
@@ -585,7 +562,7 @@ export default function ConversationThreadScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View onLayout={handleHeaderStackLayout}>
+      <View>
         <MobileHeader
           variant="bare"
           fallbackHref="/(tabs)/inbox"
@@ -616,11 +593,11 @@ export default function ConversationThreadScreen() {
         )}
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={keyboardOffset}
-        style={{ flex: 1 }}
-      >
+      {/* `react-native-keyboard-controller`'s KAV measures its own window
+          position via `onLayout`, so we don't need a manual offset — any
+          non-zero value would appear as a visible gap between the keyboard
+          top and the MessageInput on Android. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <View className="flex-1">
           {messagesQuery.isLoading ? (
             <MessagesSkeleton />

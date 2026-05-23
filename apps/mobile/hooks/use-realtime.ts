@@ -53,6 +53,17 @@ export function useRealtime<T extends TableName>({
   const callbacksRef = useRef({ onInsert, onUpdate, onDelete });
   const channelRef = useRef<RealtimeChannel | null>(null);
   const isForegroundRef = useRef(AppState.currentState === "active");
+  // Per-instance suffix so that two simultaneously mounted hook instances
+  // sharing the same logical `channelName` (e.g. during a stack transition
+  // where Expo Router mounts a new screen before unmounting the previous
+  // one) never collide on Supabase's channel topic cache, which throws
+  // `cannot add postgres_changes callbacks ... after subscribe()` if a
+  // second `.on()` is attached to a channel already in the JOINING state.
+  const instanceIdRef = useRef<string>("");
+  if (!instanceIdRef.current) {
+    instanceIdRef.current = Math.random().toString(36).slice(2, 10);
+  }
+  const effectiveChannelName = `${channelName}:${instanceIdRef.current}`;
 
   useEffect(() => {
     callbacksRef.current = { onInsert, onUpdate, onDelete };
@@ -80,7 +91,7 @@ export function useRealtime<T extends TableName>({
       if (filter) channelConfig.filter = filter;
 
       const channel = supabase
-        .channel(channelName)
+        .channel(effectiveChannelName)
         .on(
           "postgres_changes" as never,
           channelConfig,
@@ -133,7 +144,7 @@ export function useRealtime<T extends TableName>({
       sub.remove();
       unsubscribe();
     };
-  }, [channelName, table, filter, event, enabled]);
+  }, [effectiveChannelName, table, filter, event, enabled]);
 
   return channelRef;
 }

@@ -1,11 +1,6 @@
 import { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertTriangle, Trash2 } from "lucide-react-native";
@@ -133,10 +128,7 @@ export default function EditListingScreen() {
         fallbackHref={`/listing/${listing.id}`}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
           keyboardShouldPersistTaps="handled"

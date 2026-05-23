@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Calendar, Info, MapPin, PackageOpen, Star } from "lucide-react-native";
@@ -33,43 +33,67 @@ type Props = {
   reviews: ReviewWithReviewer[];
 };
 
+// Bottom padding so panel content can scroll past the FloatingFollowBar
+// without being clipped on profiles where it is rendered.
+const PANEL_CONTENT_STYLE = {
+  padding: 16,
+  paddingBottom: 96,
+} as const;
+
 export function ProfileTabs({ profile, listings, reviews }: Props) {
   const [tab, setTab] = useState("listings");
   const muted = useThemeColor("mutedForeground");
 
   return (
-    <Tabs value={tab} onValueChange={setTab} variant="line" swipeable>
-      <TabsList>
-        <TabsTrigger value="listings">
-          <View className="flex-row items-center gap-1.5">
-            <PackageOpen size={14} color={muted} />
-            <Text className="text-sm font-medium">Annonces</Text>
-          </View>
-        </TabsTrigger>
-        <TabsTrigger value="reviews">
-          <View className="flex-row items-center gap-1.5">
-            <Star size={14} color={muted} />
-            <Text className="text-sm font-medium">Avis</Text>
-          </View>
-        </TabsTrigger>
-        <TabsTrigger value="about">
-          <View className="flex-row items-center gap-1.5">
-            <Info size={14} color={muted} />
-            <Text className="text-sm font-medium">À propos</Text>
-          </View>
-        </TabsTrigger>
-      </TabsList>
+    <Tabs value={tab} onValueChange={setTab} variant="line" swipeable fill>
+      <View className="bg-background">
+        <TabsList>
+          <TabsTrigger value="listings">
+            <View className="flex-row items-center gap-1.5">
+              <PackageOpen size={14} color={muted} />
+              <Text className="text-sm font-medium">Annonces</Text>
+            </View>
+          </TabsTrigger>
+          <TabsTrigger value="reviews">
+            <View className="flex-row items-center gap-1.5">
+              <Star size={14} color={muted} />
+              <Text className="text-sm font-medium">Avis</Text>
+            </View>
+          </TabsTrigger>
+          <TabsTrigger value="about">
+            <View className="flex-row items-center gap-1.5">
+              <Info size={14} color={muted} />
+              <Text className="text-sm font-medium">À propos</Text>
+            </View>
+          </TabsTrigger>
+        </TabsList>
+      </View>
 
       <TabsContent value="listings">
-        <ListingsTab listings={listings} />
+        <ScrollView
+          contentContainerStyle={PANEL_CONTENT_STYLE}
+          showsVerticalScrollIndicator={false}
+        >
+          <ListingsTab listings={listings} />
+        </ScrollView>
       </TabsContent>
 
       <TabsContent value="reviews">
-        <ReviewsTab reviews={reviews} />
+        <ScrollView
+          contentContainerStyle={PANEL_CONTENT_STYLE}
+          showsVerticalScrollIndicator={false}
+        >
+          <ReviewsTab reviews={reviews} />
+        </ScrollView>
       </TabsContent>
 
       <TabsContent value="about">
-        <AboutTab profile={profile} />
+        <ScrollView
+          contentContainerStyle={PANEL_CONTENT_STYLE}
+          showsVerticalScrollIndicator={false}
+        >
+          <AboutTab profile={profile} />
+        </ScrollView>
       </TabsContent>
     </Tabs>
   );
