@@ -92,6 +92,23 @@ export async function POST(request: Request) {
         );
         break;
 
+      // ── Mobile PaymentIntent flow ───────────────────────────────────────
+      // The mobile app uses Stripe PaymentSheet (PaymentIntents directly),
+      // not Checkout Sessions. checkout.session.* events are never fired for
+      // this flow, so we must handle payment_intent.succeeded here.
+      case "payment_intent.succeeded":
+        await handlePaymentIntentSucceeded(
+          event.data.object as Stripe.PaymentIntent,
+        );
+        break;
+
+      case "payment_intent.payment_failed":
+        await handlePaymentIntentFailed(
+          event.data.object as Stripe.PaymentIntent,
+          admin,
+        );
+        break;
+
       // ── Connect account lifecycle ───────────────────────────────────────
       // Fired whenever a connected account's KYC state changes. We rely on
       // this push instead of polling /api/stripe-connect/status from the
@@ -254,4 +271,69 @@ async function handleCheckoutFailed(
     .update({ status: newListingStatus })
     .eq("id", listingId)
     .eq("status", "LOCKED");
+}
+
+/**
+ * Fired when a Stripe PaymentIntent (mobile PaymentSheet flow) succeeds.
+ * The PaymentIntent carries `metadata.transaction_id` set by /api/checkout.
+ * We extract the charge id from `latest_charge` and delegate to the same
+ * `finalizePaidTransaction` used by the web Checkout Session path so all
+ * post-payment side-effects run exactly once.
+ */
+async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
+  const transactionId = intent.metadata?.transaction_id;
+  const listingId = intent.metadata?.listing_id;
+
+  if (!transactionId) {
+    // Not a PokeMarket checkout PaymentIntent — ignore silently.
+    console.warn(
+      "[webhook] payment_intent.succeeded: missing transaction_id in metadata, skipping",
+    );
+    return;
+  }
+
+  const chargeId =
+    typeof intent.latest_charge === "string"
+      ? intent.latest_charge
+      : (intent.latest_charge?.id ?? null);
+
+  const result = await finalizePaidTransaction(transactionId, {
+    paymentIntentId: intent.id,
+    chargeId,
+  });
+
+  if (result === "NOT_FOUND") {
+    throw new Error(
+      `[webhook] payment_intent.succeeded: transaction ${transactionId} not found`,
+    );
+  }
+
+  if (result === "PAID" && listingId) {
+    revalidatePath(`/listing/${listingId}`);
+  }
+}
+
+/**
+ * Fired when a Stripe PaymentIntent (mobile PaymentSheet flow) fails
+ * after being created. We release the listing lock so other buyers can
+ * purchase it, mirroring the web checkout.session.expired behaviour.
+ */
+async function handlePaymentIntentFailed(
+  intent: Stripe.PaymentIntent,
+  admin: AdminClient,
+) {
+  const transactionId = intent.metadata?.transaction_id;
+  const listingId = intent.metadata?.listing_id;
+
+  if (!transactionId || !listingId) return;
+
+  await handleCheckoutFailed(
+    // Construct a minimal session-like object reusing the existing helper.
+    // We only need `metadata` — the helper ignores all other Session fields.
+    {
+      metadata: { transaction_id: transactionId, listing_id: listingId },
+    } as unknown as Stripe.Checkout.Session,
+    admin,
+    "CANCELLED",
+  );
 }
