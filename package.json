@@ -49,5 +49,5 @@
     "react-dom": "19.1.0",
     "react-test-renderer": "19.1.0"
   },
-  "packageManager": "npm"
+  "packageManager": "npm@11.12.0"
 }
