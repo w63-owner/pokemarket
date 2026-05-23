@@ -1,0 +1,4 @@
+-- Seed data is designed to be run after migrations, with real auth users.
+-- For local development, create users via Supabase Dashboard or auth API first,
+-- then this seed populates test listings and data.
+-- This file is intentionally kept minimal as profiles/wallets are auto-created by triggers.

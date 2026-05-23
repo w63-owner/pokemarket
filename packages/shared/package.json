@@ -1,0 +1,33 @@
+{
+  "name": "@pokemarket/shared",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./validations": "./src/validations/index.ts",
+    "./constants": "./src/constants/index.ts",
+    "./query-keys": "./src/query-keys/index.ts",
+    "./api-contracts": "./src/api-contracts/index.ts",
+    "./mangopay": "./src/lib/mangopay/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.99.0"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.99.3",
+    "@types/node": "^20",
+    "typescript": "^5",
+    "vitest": "^4.1.0"
+  }
+}
