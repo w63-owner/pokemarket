@@ -1,11 +1,12 @@
-import { ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, Share, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Heart, ChevronLeft, Share2 } from "lucide-react-native";
-import { Pressable } from "react-native";
+import { BlurView } from "expo-blur";
+import { Heart, Share2 } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { formatPrice, formatRelativeDate } from "@pokemarket/shared";
-import { useListing } from "@/hooks/use-listings";
+
+import { useListing, useSellerReputation } from "@/hooks/use-listings";
 import {
   useFavoriteListingIds,
   useToggleFavorite,
@@ -15,13 +16,20 @@ import { fetchOrCreateConversation } from "@/lib/api/conversations";
 import { ImageCarousel } from "@/components/listing/image-carousel";
 import { SellerBlock } from "@/components/listing/seller-block";
 import { ListingActions } from "@/components/listing/listing-actions";
+import { PriceHistoryChart } from "@/components/listing/price-history-chart";
+import { ReportDialog } from "@/components/listing/report-dialog";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { Badge, Skeleton, Text, toast } from "@/components/ui";
+import { useEffectiveTheme } from "@/lib/stores/theme";
+import { haptic } from "@/lib/haptics";
+import { env } from "@/lib/env";
 
 export default function ListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: listing, isLoading } = useListing(id);
   const { user } = useAuth();
   const { data: favIds = [] } = useFavoriteListingIds();
+  const { data: reputation } = useSellerReputation(listing?.seller_id);
   const toggleFavorite = useToggleFavorite();
   const isFavorite = favIds.includes(id);
 
@@ -32,6 +40,22 @@ export default function ListingScreen() {
     },
     onError: () => toast.error("Impossible d'ouvrir la conversation"),
   });
+
+  const handleShare = async () => {
+    if (!listing) return;
+    const base = env.API_URL.replace(/\/$/, "");
+    const url = `${base}/listing/${listing.id}`;
+    const priceLabel = formatPrice(listing.display_price ?? 0);
+    try {
+      await Share.share({
+        title: listing.title,
+        message: `${listing.title} — ${priceLabel} sur PokeMarket : ${url}`,
+        url,
+      });
+    } catch {
+      // User cancelled or platform error – nothing to surface.
+    }
+  };
 
   if (isLoading || !listing) {
     return (
@@ -51,49 +75,48 @@ export default function ListingScreen() {
     Boolean,
   ) as string[];
 
+  const isOwner = !!user && user.id === listing.seller_id;
+  const sellerRating =
+    reputation && reputation.reviewCount > 0 ? reputation.avgRating : null;
+  const sellerReviewCount = reputation?.reviewCount ?? 0;
+
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="relative">
           <ImageCarousel images={images} />
-          <SafeAreaView
-            className="absolute inset-x-0 top-0"
-            edges={["top"]}
-            pointerEvents="box-none"
-          >
-            <View className="flex-row items-center justify-between px-4 pt-2">
-              <Pressable
-                onPress={() => {
-                  if (router.canGoBack()) router.back();
-                  else router.replace("/(tabs)");
-                }}
-                hitSlop={8}
-                className="h-10 w-10 items-center justify-center rounded-full bg-white/90"
-              >
-                <ChevronLeft size={22} color="#0f172a" />
-              </Pressable>
+          <MobileHeader
+            variant="transparent"
+            fallbackHref="/(tabs)"
+            rightAction={
               <View className="flex-row gap-2">
-                <Pressable
-                  onPress={() => toggleFavorite.mutate(id)}
-                  hitSlop={8}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-white/90"
+                <OverlayIconButton
+                  onPress={() => {
+                    haptic("tap");
+                    if (!user) {
+                      router.push("/(auth)/login");
+                      return;
+                    }
+                    toggleFavorite.mutate(id);
+                  }}
+                  accessibilityLabel="Ajouter aux favoris"
                 >
                   <Heart
                     size={20}
                     color="#E63946"
                     fill={isFavorite ? "#E63946" : "transparent"}
                   />
-                </Pressable>
-                <Pressable
-                  hitSlop={8}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-white/90"
+                </OverlayIconButton>
+                <OverlayIconButton
+                  onPress={handleShare}
+                  accessibilityLabel="Partager"
                 >
-                  <Share2 size={18} color="#0f172a" />
-                </Pressable>
+                  <Share2 size={18} color="#ffffff" />
+                </OverlayIconButton>
               </View>
-            </View>
-          </SafeAreaView>
+            }
+          />
         </View>
 
         <View className="gap-4 p-4">
@@ -132,6 +155,8 @@ export default function ListingScreen() {
           <SellerBlock
             username={listing.seller.username ?? "vendeur"}
             avatarUrl={listing.seller.avatar_url}
+            rating={sellerRating}
+            reviewCount={sellerReviewCount}
           />
 
           {listing.condition ? (
@@ -158,8 +183,79 @@ export default function ListingScreen() {
               ) : null}
             </View>
           ) : null}
+
+          {listing.card_ref_id ? (
+            <PriceHistoryChart
+              cardKey={listing.card_ref_id}
+              condition={listing.condition}
+              language={listing.card_language}
+              isGraded={listing.is_graded ?? false}
+            />
+          ) : null}
+
+          {!isOwner ? (
+            <View className="mt-2 flex-row justify-end">
+              <ReportDialog listingId={listing.id} />
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * Glassy circular icon button used by the listing-detail header. Mirrors
+ * the back-button overlay variant so all three CTAs (back / favorite /
+ * share) share the same visual language over the cover photo.
+ */
+function OverlayIconButton({
+  children,
+  onPress,
+  accessibilityLabel,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  accessibilityLabel?: string;
+}) {
+  const theme = useEffectiveTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      {Platform.OS === "ios" ? (
+        <BlurView
+          intensity={30}
+          tint={theme === "dark" ? "dark" : "light"}
+          style={{
+            height: 40,
+            width: 40,
+            borderRadius: 999,
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            backgroundColor: "rgba(0,0,0,0.30)",
+          }}
+        >
+          {children}
+        </BlurView>
+      ) : (
+        <View
+          style={{
+            height: 40,
+            width: 40,
+            borderRadius: 999,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.40)",
+          }}
+        >
+          {children}
+        </View>
+      )}
+    </Pressable>
   );
 }

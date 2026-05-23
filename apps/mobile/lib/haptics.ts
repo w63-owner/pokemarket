@@ -9,31 +9,54 @@ function safe<T>(fn: () => Promise<T>): void {
   fn().catch(() => {});
 }
 
+export type HapticIntent =
+  | "tap"
+  | "select"
+  | "confirm"
+  | "success"
+  | "warning"
+  | "error";
+
+/**
+ * Central intent API (Sprint 10):
+ *   tap — light press (buttons, carousel page)
+ *   select — toggles, tabs, switches
+ *   confirm — pay, accept/reject offer
+ *   success / warning / error — notification-style outcomes
+ */
+export function haptic(intent: HapticIntent): void {
+  switch (intent) {
+    case "tap":
+      return safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light));
+    case "select":
+      return safe(() => Haptics.selectionAsync());
+    case "confirm":
+      return safe(() =>
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
+      );
+    case "success":
+      return safe(() =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+      );
+    case "warning":
+      return safe(() =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
+      );
+    case "error":
+      return safe(() =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+      );
+  }
+}
+
+/** Low-level presets — thin aliases on `haptic` for legacy call sites. */
 export const haptics = {
-  /** Subtle pop — favorites, like, send message, button press confirm. */
-  light: () =>
-    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
-  /** Medium tap — primary CTA confirmation, navigation reveal. */
-  medium: () =>
-    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
-  /** Heavy thump — high-stakes confirmation (payment, ship, dispute). */
+  light: () => haptic("tap"),
+  medium: () => haptic("confirm"),
   heavy: () =>
     safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)),
-  /** Double-tap "success" pattern (Apple Pay-style). */
-  success: () =>
-    safe(() =>
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
-    ),
-  /** Sharp warning rhythm — toasts on retryable failure. */
-  warning: () =>
-    safe(() =>
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
-    ),
-  /** Buzz on hard failure (payment declined, etc.). */
-  error: () =>
-    safe(() =>
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
-    ),
-  /** Wheel-style detent during slider/picker interactions. */
-  selection: () => safe(() => Haptics.selectionAsync()),
+  success: () => haptic("success"),
+  warning: () => haptic("warning"),
+  error: () => haptic("error"),
+  selection: () => haptic("select"),
 };

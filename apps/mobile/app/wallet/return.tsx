@@ -10,6 +10,7 @@ import { queryKeys, type KycStatus } from "@pokemarket/shared";
 import { fetchStripeConnectStatus } from "@/lib/api/wallet";
 import { stripeConnectStatusKey } from "@/hooks/use-wallet";
 import { Button, Text } from "@/components/ui";
+import { spring } from "@/lib/motion";
 
 type Phase = "checking" | "success" | "error";
 
@@ -66,7 +67,7 @@ export default function WalletReturnScreen() {
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", damping: 20, stiffness: 280 }}
+          transition={spring.gentle}
           className="w-full max-w-sm items-center"
         >
           {phase === "checking" && (
@@ -86,11 +87,7 @@ export default function WalletReturnScreen() {
               <MotiView
                 from={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 400,
-                  damping: 14,
-                }}
+                transition={spring.bouncy}
                 className="rounded-full bg-emerald-100 p-4"
               >
                 <CheckCircle2 size={48} color="#16a34a" strokeWidth={1.8} />

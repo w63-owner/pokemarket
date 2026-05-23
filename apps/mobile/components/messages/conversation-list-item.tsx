@@ -8,6 +8,12 @@ import {
 } from "@pokemarket/shared";
 import { Skeleton, Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import {
+  duration,
+  fadeInUp,
+  staggerDelay,
+  useReducedMotionSafe,
+} from "@/lib/motion";
 
 function formatMessagePreview(
   message: ConversationPreview["last_message"],
@@ -58,12 +64,17 @@ export function ConversationListItem({
   const { other_user, listing, last_message, unread_count } = conversation;
   const hasUnread = unread_count > 0;
   const preview = formatMessagePreview(last_message, currentUserId);
+  const reduceMotion = useReducedMotionSafe();
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 6 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 220, delay: index * 25 }}
+      from={reduceMotion ? fadeInUp.animate : { opacity: 0, translateY: 6 }}
+      animate={fadeInUp.animate}
+      transition={{
+        type: "timing",
+        duration: duration.fast,
+        delay: staggerDelay(index, 25, 10),
+      }}
     >
       <Pressable
         onPress={() => router.push(`/inbox/${conversation.id}`)}

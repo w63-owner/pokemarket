@@ -8,6 +8,7 @@ import { MotiView } from "moti";
 
 import { supabase } from "@/lib/supabase";
 import { Text, toast } from "@/components/ui";
+import { duration } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 const AVATAR_BUCKET = "avatars";
@@ -153,6 +154,7 @@ export function AvatarUploader({
           <MotiView
             from={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            transition={{ type: "timing", duration: duration.fast }}
             className="absolute inset-0 items-center justify-center bg-black/50"
           >
             <Loader2 size={28} color="#fff" />

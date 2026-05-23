@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   COUNTRY_LABELS,
   type Profile,
@@ -13,10 +12,10 @@ import {
   Input,
   Label,
   Skeleton,
-  SmartBackButton,
   Text,
   Textarea,
 } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { useMyProfile, useUpdateProfile } from "@/hooks/use-profile";
 import { AvatarUploader } from "@/components/profile/avatar-uploader";
 import {
@@ -217,12 +216,10 @@ export default function EditProfileScreen() {
   const { data: profile, isLoading } = useMyProfile();
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center gap-3 border-b border-border bg-card px-2 py-3">
-        <SmartBackButton fallbackHref="/(tabs)/profile" />
-        <Text className="text-base font-semibold">Éditer mon profil</Text>
-      </View>
+
+      <MobileHeader title="Éditer mon profil" fallbackHref="/(tabs)/profile" />
 
       {isLoading ? (
         <FormSkeleton />
@@ -235,6 +232,6 @@ export default function EditProfileScreen() {
       ) : (
         <EditProfileForm key={profile.id} profile={profile} />
       )}
-    </SafeAreaView>
+    </View>
   );
 }

@@ -38,7 +38,7 @@ export function ProfileTabs({ profile, listings, reviews }: Props) {
   const muted = useThemeColor("mutedForeground");
 
   return (
-    <Tabs value={tab} onValueChange={setTab}>
+    <Tabs value={tab} onValueChange={setTab} variant="line" swipeable>
       <TabsList>
         <TabsTrigger value="listings">
           <View className="flex-row items-center gap-1.5">

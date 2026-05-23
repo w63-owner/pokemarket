@@ -5,7 +5,7 @@ import {
   fetchFavoriteListings,
   toggleFavoriteListing,
 } from "@/lib/api/favorites";
-import { haptics } from "@/lib/haptics";
+import { haptic } from "@/lib/haptics";
 
 export function useFavoriteListingIds() {
   return useQuery({
@@ -37,7 +37,7 @@ export function useToggleFavorite() {
       );
       // Fire haptic on the optimistic flip so it feels instant — even if the
       // backend rejects we've already given the tap feedback.
-      haptics.light();
+      haptic("tap");
       return { previous };
     },
     onError: (_err, _listingId, ctx) => {

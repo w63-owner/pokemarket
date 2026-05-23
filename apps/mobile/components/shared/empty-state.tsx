@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { MotiView } from "moti";
 import { Button, Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { fadeInUp, useReducedMotionSafe } from "@/lib/motion";
 
 type EmptyStateProps = {
   icon?: React.ReactNode;
@@ -21,11 +22,12 @@ export function EmptyState({
   action,
   className,
 }: EmptyStateProps) {
+  const reduceMotion = useReducedMotionSafe();
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 6 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 280 }}
+      from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
+      animate={fadeInUp.animate}
+      transition={fadeInUp.transition}
       className={cn("items-center justify-center gap-3 px-6 py-16", className)}
     >
       {icon ? (

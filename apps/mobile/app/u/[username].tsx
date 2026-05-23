@@ -1,11 +1,11 @@
 import { ScrollView, View } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/hooks/use-auth";
 import { usePublicProfile, useSellerReviews } from "@/hooks/use-profile";
 import { useSellerListings } from "@/hooks/use-listings";
-import { Skeleton, SmartBackButton, Text } from "@/components/ui";
+import { Skeleton } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { SellerReputationBadge } from "@/components/shared";
 import { ProfileTabs } from "@/components/profile/profile-tabs";
 import { ShareProfileButton } from "@/components/profile/share-profile-button";
@@ -21,19 +21,15 @@ export default function PublicProfileScreen() {
   const isOwnProfile = !!user && user.id === profile?.id;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center justify-between border-b border-border bg-card px-2 py-3">
-        <View className="flex-row items-center gap-3">
-          <SmartBackButton />
-          <Text className="text-base font-semibold">@{username}</Text>
-        </View>
-        {profile ? (
-          <View className="mr-2">
-            <ShareProfileButton username={profile.username} />
-          </View>
-        ) : null}
-      </View>
+
+      <MobileHeader
+        title={`@${username}`}
+        rightAction={
+          profile ? <ShareProfileButton username={profile.username} /> : null
+        }
+      />
 
       {isLoading || !profile ? (
         <View className="gap-3 p-4">
@@ -65,6 +61,6 @@ export default function PublicProfileScreen() {
           ) : null}
         </>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

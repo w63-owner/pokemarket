@@ -24,6 +24,9 @@ function CornerBracket({ position }: { position: Position }) {
       animate={{ opacity: 1 }}
       transition={{
         type: "timing",
+        // Custom: 1200ms breathing loop tuned for the camera bracket pulse —
+        // intentionally longer than `duration.dramatic` (800ms) to feel calm
+        // & idle. Documented exception to the "no hardcoded duration" rule.
         duration: 1200,
         loop: true,
       }}

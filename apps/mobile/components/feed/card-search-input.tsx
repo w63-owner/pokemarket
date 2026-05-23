@@ -3,6 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { Search, X } from "lucide-react-native";
 
 import { Input } from "@/components/ui";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
   value: string;
@@ -27,10 +28,11 @@ export const CardSearchInput = forwardRef<TextInput, Props>(
     },
     ref,
   ) {
+    const mutedForeground = useThemeColor("mutedForeground");
     return (
       <View className="relative flex-1">
         <View className="absolute bottom-0 left-3 top-0 z-10 justify-center">
-          <Search size={18} color="#94a3b8" />
+          <Search size={18} color={mutedForeground} />
         </View>
         <Input
           ref={ref}
@@ -54,7 +56,7 @@ export const CardSearchInput = forwardRef<TextInput, Props>(
             hitSlop={8}
             className="absolute bottom-0 right-3 top-0 z-10 justify-center"
           >
-            <X size={16} color="#64748b" />
+            <X size={16} color={mutedForeground} />
           </Pressable>
         ) : null}
       </View>

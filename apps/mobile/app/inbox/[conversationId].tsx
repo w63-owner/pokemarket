@@ -11,12 +11,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ChevronLeft, AlertCircle } from "lucide-react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { AlertCircle } from "lucide-react-native";
 import {
   useInfiniteQuery,
   useMutation,
@@ -31,11 +36,13 @@ import {
   fetchConversationDetail,
   fetchMessages,
   markMessagesAsRead,
+  sendImageMessage,
   sendMessage,
   type MessagesPage,
 } from "@/lib/api/conversations";
 import { fetchActiveOffer } from "@/lib/api/offers";
 import { fetchTransactionByListing } from "@/lib/api/transactions";
+import { haptic } from "@/lib/haptics";
 import {
   ListingContextBar,
   MessageBubble,
@@ -44,6 +51,7 @@ import {
   SystemMessage,
   TransactionActions,
 } from "@/components/messages";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import { Skeleton, Text, toast } from "@/components/ui";
 
 const SYSTEM_TYPES = new Set([
@@ -112,8 +120,19 @@ export default function ConversationThreadScreen() {
   const conversationId = params.conversationId;
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+  // Distance between the top of the screen and the top of the
+  // KeyboardAvoidingView (= MobileHeader + ListingContextBar +
+  // OfferBar/TxActions). Measured at runtime via `onLayout` so the
+  // KAV stays aligned with the visible top of the chat area on iOS
+  // even when the offer bar swaps with the transaction bar.
+  const [headerStackHeight, setHeaderStackHeight] = useState(0);
+
+  const handleHeaderStackLayout = useCallback((e: LayoutChangeEvent) => {
+    setHeaderStackHeight(e.nativeEvent.layout.height);
+  }, []);
 
   const unreadIdsRef = useRef<Set<string>>(new Set());
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -180,6 +199,7 @@ export default function ConversationThreadScreen() {
       return { tempId };
     },
     onSuccess: (data, _vars, ctx) => {
+      haptic("success");
       setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
       queryClient.setQueryData<{
         pages: MessagesPage[];
@@ -202,10 +222,75 @@ export default function ConversationThreadScreen() {
       });
     },
     onError: (_err, _vars, ctx) => {
+      haptic("error");
       setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
       toast.error("Échec de l'envoi du message");
     },
   });
+
+  // ── Send image ─────────────────────────────────────────────────────────
+  // Image attachments live in the private `message_attachments` bucket
+  // (RLS scoped to conversation participants). The mutation uploads the
+  // base64 payload then inserts a `message_type: "image"` row whose
+  // `content` holds the storage path — `MessageBubble` mints a signed
+  // URL on demand to render it.
+  const sendImageMutation = useMutation({
+    mutationFn: (payload: { base64: string; contentType: "image/jpeg" }) =>
+      sendImageMessage(conversationId, payload),
+    onMutate: () => {
+      const tempId = `temp-img-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}`;
+      const tempMsg: Message = {
+        id: tempId,
+        conversation_id: conversationId,
+        sender_id: user!.id,
+        content: "",
+        message_type: "image",
+        offer_id: null,
+        metadata: null,
+        read_at: null,
+        created_at: new Date().toISOString(),
+      };
+      setPendingMessages((prev) => [tempMsg, ...prev]);
+      return { tempId };
+    },
+    onSuccess: (data, _vars, ctx) => {
+      haptic("success");
+      setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
+      queryClient.setQueryData<{
+        pages: MessagesPage[];
+        pageParams: unknown[];
+      }>(queryKeys.conversations.messages(conversationId), (old) => {
+        if (!old) return old;
+        const exists = old.pages.some((p) =>
+          p.messages.some((m) => m.id === data.id),
+        );
+        if (exists) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page, i) =>
+            i === 0 ? { ...page, messages: [data, ...page.messages] } : page,
+          ),
+        };
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.list(),
+      });
+    },
+    onError: (_err, _vars, ctx) => {
+      haptic("error");
+      setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
+      toast.error("Échec de l'envoi de l'image");
+    },
+  });
+
+  const handleSendImage = useCallback(
+    async (payload: { base64: string; contentType: "image/jpeg" }) => {
+      await sendImageMutation.mutateAsync(payload);
+    },
+    [sendImageMutation],
+  );
 
   // ── Realtime: new messages ────────────────────────────────────────────
   const handleRealtimeInsert = useCallback(
@@ -486,6 +571,13 @@ export default function ConversationThreadScreen() {
 
   const conversation = convQuery.data;
 
+  // Bottom safe-area is taken care of by `MessageInput`; the iOS
+  // `KeyboardAvoidingView` only needs to know how much vertical space
+  // sits above it (status bar inset + custom header + listing bar +
+  // offer/tx bar) to align its bottom edge with the top of the keyboard.
+  const keyboardOffset =
+    Platform.OS === "ios" ? insets.top + headerStackHeight : 0;
+
   return (
     <SafeAreaView
       className="flex-1 bg-background"
@@ -493,53 +585,40 @@ export default function ConversationThreadScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-2 border-b border-border bg-background px-2 py-2">
-        <Pressable
-          onPress={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace("/(tabs)/inbox");
-          }}
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full"
-        >
-          <ChevronLeft size={22} color="#0f172a" />
-        </Pressable>
-        <View className="flex-1 items-center">
-          <Pressable
-            onPress={() =>
-              router.push(`/u/${conversation.other_user.username}`)
-            }
-          >
-            <Text className="text-sm font-semibold">
-              {conversation.other_user.username}
-            </Text>
-          </Pressable>
-        </View>
-        <View className="size-9" />
+      <View onLayout={handleHeaderStackLayout}>
+        <MobileHeader
+          variant="bare"
+          fallbackHref="/(tabs)/inbox"
+          centerTitle
+          title={conversation.other_user.username}
+          onTitlePress={() =>
+            router.push(`/u/${conversation.other_user.username}`)
+          }
+        />
+
+        <ListingContextBar listing={conversation.listing} />
+
+        {transactionQuery.data ? (
+          <TransactionActions
+            transaction={transactionQuery.data}
+            conversationId={conversationId}
+            listingId={conversation.listing_id}
+            currentUserId={user.id}
+            sellerId={conversation.seller_id}
+            buyerId={conversation.buyer_id}
+          />
+        ) : (
+          <OfferBar
+            conversation={conversation}
+            activeOffer={activeOfferQuery.data ?? null}
+            currentUser={user}
+          />
+        )}
       </View>
-
-      <ListingContextBar listing={conversation.listing} />
-
-      {transactionQuery.data ? (
-        <TransactionActions
-          transaction={transactionQuery.data}
-          conversationId={conversationId}
-          listingId={conversation.listing_id}
-          currentUserId={user.id}
-          sellerId={conversation.seller_id}
-          buyerId={conversation.buyer_id}
-        />
-      ) : (
-        <OfferBar
-          conversation={conversation}
-          activeOffer={activeOfferQuery.data ?? null}
-          currentUser={user}
-        />
-      )}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        keyboardVerticalOffset={keyboardOffset}
         style={{ flex: 1 }}
       >
         <View className="flex-1">
@@ -567,6 +646,22 @@ export default function ConversationThreadScreen() {
                 }
               }}
               onEndReachedThreshold={0.5}
+              refreshControl={
+                // The list is rendered upside-down via `scaleY(-1)`, so the
+                // pull arrow visually sits at the *top* of the chat (newest
+                // messages) and triggers a full refetch — useful when realtime
+                // missed an event or the user backgrounded the app for a long
+                // time. Older messages still load via `onEndReached` (which
+                // points at the visual top in inverted mode).
+                <RefreshControl
+                  refreshing={messagesQuery.isRefetching}
+                  onRefresh={() => messagesQuery.refetch()}
+                  tintColor="#E63946"
+                  // Counter-rotate the spinner so it spins the right way
+                  // inside the inverted FlashList.
+                  style={{ transform: [{ scaleY: -1 }] }}
+                />
+              }
               ListFooterComponent={
                 messagesQuery.isFetchingNextPage ? (
                   <View className="py-4">
@@ -578,7 +673,11 @@ export default function ConversationThreadScreen() {
           )}
         </View>
 
-        <MessageInput onSend={handleSend} disabled={sendMutation.isPending} />
+        <MessageInput
+          onSend={handleSend}
+          onSendImage={handleSendImage}
+          disabled={sendMutation.isPending}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://*.sentry.io",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' blob: data: https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.sentry.io",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io",
       "font-src 'self' https://fonts.gstatic.com",
       "frame-src 'self' https://js.stripe.com",
     ].join("; ");

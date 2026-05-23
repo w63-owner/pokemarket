@@ -26,6 +26,7 @@ import {
   useShipOrder,
 } from "@/hooks/use-transactions";
 import type { DisputeReason } from "@/lib/api/transactions";
+import { spring } from "@/lib/motion";
 
 type TransactionActionsProps = {
   transaction: Transaction;
@@ -386,7 +387,7 @@ function StarPicker({
           >
             <MotiView
               animate={{ scale: active ? 1.05 : 1 }}
-              transition={{ type: "spring", damping: 14, stiffness: 280 }}
+              transition={spring.bouncy}
             >
               <Star
                 size={32}

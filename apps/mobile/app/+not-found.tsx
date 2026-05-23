@@ -31,12 +31,20 @@ export default function NotFoundScreen() {
   return (
     <View className="flex-1 items-center justify-center gap-3 bg-background p-6">
       <Text variant="h2">Route introuvable</Text>
-      <Text variant="muted" className="text-center">
-        Pathname: {pathname}
-      </Text>
-      <Text variant="muted" className="text-center">
-        Segments: {JSON.stringify(segments)}
-      </Text>
+      {__DEV__ ? (
+        <>
+          <Text variant="muted" className="text-center">
+            Pathname: {pathname}
+          </Text>
+          <Text variant="muted" className="text-center">
+            Segments: {JSON.stringify(segments)}
+          </Text>
+        </>
+      ) : (
+        <Text variant="muted" className="text-center">
+          Cette page n&apos;existe pas ou a été déplacée.
+        </Text>
+      )}
       <Link href="/" className="text-primary">
         Retour à l&apos;accueil
       </Link>

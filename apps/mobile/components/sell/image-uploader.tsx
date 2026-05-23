@@ -13,6 +13,7 @@ import { Camera, FolderOpen, Trash2 } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
+import { duration } from "@/lib/motion";
 import {
   removeListingImage,
   uploadListingImage,
@@ -132,7 +133,7 @@ function ImageSlot({
               from={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ type: "timing", duration: 180 }}
+              transition={{ type: "timing", duration: duration.fast }}
               style={{ flex: 1, position: "relative" }}
             >
               <Image

@@ -1,6 +1,6 @@
+import { CARD_SEARCH_MIN_LENGTH, parseCardQuery } from "@pokemarket/shared";
 import { supabase } from "@/lib/supabase";
 
-const MIN_QUERY_LENGTH = 2;
 const PREFERRED_LANGUAGE = "fr";
 
 export type CardSuggestion = {
@@ -16,23 +16,9 @@ export type CardSuggestion = {
   image_url: string | null;
 };
 
-/**
- * Parse a free-form query like "Dracaufeu 11/25" into a name + optional
- * trailing card number. Mirrors the PWA implementation so autocomplete
- * behaves identically across platforms.
- */
-export function parseCardQuery(raw: string): {
-  name: string;
-  localId?: string;
-} {
-  const trimmed = raw.trim();
-  if (!trimmed) return { name: "" };
-  const match = trimmed.match(/^(.*?)\s+(\d+)(?:\s*\/\s*\d+)?\s*$/);
-  if (match && match[1].trim().length >= MIN_QUERY_LENGTH) {
-    return { name: match[1].trim(), localId: match[2] };
-  }
-  return { name: trimmed };
-}
+// Re-export the shared helpers so existing `from "@/lib/api/tcgdex"` imports
+// keep working without touching the call sites.
+export { CARD_SEARCH_MIN_LENGTH, parseCardQuery };
 
 function buildTcgdexImageUrl(
   setId: string | null,
@@ -48,7 +34,7 @@ export async function fetchCardSuggestions(
   query: string,
 ): Promise<CardSuggestion[]> {
   const { name, localId } = parseCardQuery(query);
-  if (name.length < MIN_QUERY_LENGTH) return [];
+  if (name.length < CARD_SEARCH_MIN_LENGTH) return [];
 
   const { data, error } = await supabase.rpc("match_tcgdex_cards", {
     p_name: name,
@@ -87,5 +73,3 @@ export async function fetchCardSuggestions(
   }
   return results;
 }
-
-export const CARD_SEARCH_MIN_LENGTH = MIN_QUERY_LENGTH;

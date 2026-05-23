@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { duration } from "@/lib/motion";
 
 const sellFormSchema = z
   .object({
@@ -330,7 +331,7 @@ export function SellForm({
             from={{ opacity: 0, translateY: 6 }}
             animate={{ opacity: 1, translateY: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 180 }}
+            transition={{ type: "timing", duration: duration.fast }}
             className="gap-4"
           >
             <View className="gap-1.5">
@@ -379,7 +380,7 @@ export function SellForm({
             from={{ opacity: 0, translateY: 6 }}
             animate={{ opacity: 1, translateY: 0 }}
             exit={{ opacity: 0 }}
-            transition={{ type: "timing", duration: 180 }}
+            transition={{ type: "timing", duration: duration.fast }}
             className="gap-1.5"
           >
             <Label>État de la carte</Label>

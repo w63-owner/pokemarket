@@ -11,124 +11,35 @@ export async function createOffer(
   amount: number,
   conversationId: string,
 ): Promise<Offer> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
-
-  const { data: offer, error: offerError } = await supabase
-    .from("offers")
-    .insert({
-      listing_id: listingId,
-      buyer_id: user.id,
-      offer_amount: amount,
-      status: "PENDING",
-      conversation_id: conversationId,
-    })
-    .select()
-    .single();
-
-  if (offerError) throw new Error(offerError.message);
-
-  const { error: msgError } = await supabase.from("messages").insert({
+  const result = await api.post<{ offer: Offer }>("/api/offers/create", {
+    listing_id: listingId,
+    amount,
     conversation_id: conversationId,
-    sender_id: user.id,
-    content: `Offre de ${amount.toFixed(2)} €`,
-    message_type: "offer",
-    offer_id: (offer as Offer).id,
   });
-
-  if (msgError) throw new Error(msgError.message);
-
-  return offer as Offer;
+  return result.offer;
 }
 
 export async function acceptOffer(
   offerId: string,
-  listingId: string,
-  buyerId: string,
-  amount: number,
+  _listingId: string,
+  _buyerId: string,
+  _amount: number,
   conversationId: string,
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  const { data: updated, error: offerError } = await supabase
-    .from("offers")
-    .update({ status: "ACCEPTED" })
-    .eq("id", offerId)
-    .eq("status", "PENDING")
-    .select("id");
-
-  if (offerError) throw new Error(offerError.message);
-  if (!updated || updated.length === 0) {
-    throw new Error("Cette offre ne peut plus être acceptée");
-  }
-
-  const { error: listingError } = await supabase
-    .from("listings")
-    .update({
-      status: "RESERVED",
-      reserved_for: buyerId,
-      reserved_price: amount,
-    })
-    .eq("id", listingId);
-
-  if (listingError) throw new Error(listingError.message);
-
-  const { error: rejectError } = await supabase
-    .from("offers")
-    .update({ status: "REJECTED" })
-    .eq("listing_id", listingId)
-    .eq("status", "PENDING")
-    .neq("id", offerId);
-
-  if (rejectError) throw new Error(rejectError.message);
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: `Offre de ${amount.toFixed(2)} € acceptée`,
-    message_type: "offer_accepted",
+  await api.post("/api/offers/accept", {
     offer_id: offerId,
+    conversation_id: conversationId,
   });
-
-  if (msgError) throw new Error(msgError.message);
 }
 
 export async function rejectOffer(
   offerId: string,
   conversationId: string,
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  const { data: updated, error: offerError } = await supabase
-    .from("offers")
-    .update({ status: "REJECTED" })
-    .eq("id", offerId)
-    .eq("status", "PENDING")
-    .select("id");
-
-  if (offerError) throw new Error(offerError.message);
-  if (!updated || updated.length === 0) {
-    throw new Error("Cette offre ne peut plus être déclinée");
-  }
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Offre déclinée",
-    message_type: "offer_rejected",
+  await api.post("/api/offers/reject", {
     offer_id: offerId,
+    conversation_id: conversationId,
   });
-
-  if (msgError) throw new Error(msgError.message);
 }
 
 /**

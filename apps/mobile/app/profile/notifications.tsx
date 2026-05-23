@@ -1,33 +1,129 @@
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { Stack } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import {
   Bell,
   BellOff,
+  Heart,
   MessageSquare,
+  Search,
   ShoppingBag,
   ShoppingCart,
 } from "lucide-react-native";
+import { queryKeys } from "@pokemarket/shared";
 
 import {
-  Card,
-  Skeleton,
-  SmartBackButton,
-  Switch,
-  Text,
-  toast,
-} from "@/components/ui";
+  fetchNotificationPreferences,
+  upsertNotificationPreference,
+  type NotificationPrefCategory,
+} from "@/lib/api/notification-preferences";
 import { registerPushToken, unregisterPushToken } from "@/lib/notifications";
+import { Card, Skeleton, Switch, Text, toast } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { useAuth } from "@/hooks/use-auth";
 
 type Status = "loading" | "granted" | "denied" | "undetermined" | "unsupported";
 
-export default function NotificationsScreen() {
-  const [status, setStatus] = useState<Status>("loading");
-  const [toggling, setToggling] = useState(false);
+const CATEGORY_ORDER: NotificationPrefCategory[] = [
+  "messages",
+  "offers",
+  "commerce",
+  "saved_searches",
+  "following",
+];
 
-  const refresh = useCallback(async () => {
+const CATEGORY_META: Record<
+  NotificationPrefCategory,
+  { label: string; description: string; Icon: typeof MessageSquare }
+> = {
+  messages: {
+    label: "Nouveaux messages",
+    description: "Quand un acheteur ou vendeur vous écrit.",
+    Icon: MessageSquare,
+  },
+  offers: {
+    label: "Offres reçues",
+    description: "Quand quelqu'un fait ou accepte une offre sur vos annonces.",
+    Icon: ShoppingCart,
+  },
+  commerce: {
+    label: "Achats / ventes",
+    description: "Paiements, expéditions, litiges et confirmations.",
+    Icon: ShoppingBag,
+  },
+  saved_searches: {
+    label: "Recherches sauvegardées",
+    description: "Quand de nouvelles cartes correspondent à vos alertes.",
+    Icon: Search,
+  },
+  following: {
+    label: "Vendeurs suivis",
+    description: "Quand un vendeur que vous suivez publie une annonce.",
+    Icon: Heart,
+  },
+};
+
+const DEFAULT_CATEGORY_STATE = (): Record<
+  NotificationPrefCategory,
+  boolean
+> => ({
+  commerce: true,
+  messages: true,
+  offers: true,
+  saved_searches: true,
+  following: true,
+});
+
+export default function NotificationsScreen() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [status, setStatus] = useState<Status>("loading");
+  const [togglingPush, setTogglingPush] = useState(false);
+
+  const {
+    data: categoryPrefs,
+    isLoading: loadingPrefs,
+    error: prefsError,
+  } = useQuery({
+    queryKey: queryKeys.notifications.preferences(),
+    queryFn: fetchNotificationPreferences,
+    enabled: !!user,
+  });
+
+  const prefMutation = useMutation({
+    mutationFn: ({
+      category,
+      enabled,
+    }: {
+      category: NotificationPrefCategory;
+      enabled: boolean;
+    }) => upsertNotificationPreference({ category, enabled }),
+    onMutate: async ({ category, enabled }) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.notifications.preferences(),
+      });
+      queryClient.setQueryData<Record<NotificationPrefCategory, boolean>>(
+        queryKeys.notifications.preferences(),
+        (old) => {
+          const prev = old ?? DEFAULT_CATEGORY_STATE();
+          return { ...prev, [category]: enabled };
+        },
+      );
+    },
+    onError: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.preferences(),
+      });
+      toast.error(
+        "Sauvegarde impossible",
+        "Réessayez dans un instant après reconnexion.",
+      );
+    },
+  });
+
+  const refreshPermissions = useCallback(async () => {
     try {
       const { status: perm } = await Notifications.getPermissionsAsync();
       if (perm === "granted") setStatus("granted");
@@ -39,11 +135,11 @@ export default function NotificationsScreen() {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    refreshPermissions();
+  }, [refreshPermissions]);
 
-  const handleToggle = useCallback(async (next: boolean) => {
-    setToggling(true);
+  const handlePushToggle = useCallback(async (next: boolean) => {
+    setTogglingPush(true);
     try {
       if (next) {
         const result = await registerPushToken();
@@ -70,23 +166,34 @@ export default function NotificationsScreen() {
         toast.success("Notifications désactivées");
       }
     } finally {
-      setToggling(false);
+      setTogglingPush(false);
     }
   }, []);
 
+  const displayPrefs = categoryPrefs ?? DEFAULT_CATEGORY_STATE();
+
+  const onCategoryToggle = useCallback(
+    (category: NotificationPrefCategory, next: boolean) => {
+      prefMutation.mutate({ category, enabled: next });
+    },
+    [prefMutation],
+  );
+
+  const showSkeleton =
+    status === "loading" ||
+    (status === "granted" && !!user && loadingPrefs && !prefsError);
+
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center gap-3 px-4 pb-2 pt-2">
-        <SmartBackButton fallbackHref="/(tabs)/profile" />
-        <Text variant="h3">Notifications</Text>
-      </View>
+
+      <MobileHeader title="Notifications" fallbackHref="/(tabs)/profile" />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-        {status === "loading" ? (
+        {showSkeleton ? (
           <View className="gap-3">
             <Skeleton className="h-24 rounded-2xl" />
-            <Skeleton className="h-16 rounded-2xl" />
+            <Skeleton className="h-44 rounded-2xl" />
           </View>
         ) : (
           <>
@@ -111,13 +218,24 @@ export default function NotificationsScreen() {
                 </View>
                 <Switch
                   checked={status === "granted"}
-                  onCheckedChange={handleToggle}
+                  onCheckedChange={handlePushToggle}
                   disabled={
-                    toggling || status === "denied" || status === "unsupported"
+                    togglingPush ||
+                    status === "denied" ||
+                    status === "unsupported"
                   }
                 />
               </View>
             </Card>
+
+            {prefsError ? (
+              <Card>
+                <Text className="text-sm text-destructive">
+                  Impossible de charger vos préférences. Elles sont réappliquées
+                  automatiquement à la prochaine connexion.
+                </Text>
+              </Card>
+            ) : null}
 
             {status === "denied" ? (
               <Card>
@@ -144,26 +262,49 @@ export default function NotificationsScreen() {
                 Vous serez notifié pour
               </Text>
               <Card>
-                <Category
-                  icon={<MessageSquare size={18} color="#475569" />}
-                  label="Nouveaux messages"
-                  description="Quand un acheteur ou vendeur vous écrit."
-                  enabled={status === "granted"}
-                />
-                <View className="my-2 h-px bg-border" />
-                <Category
-                  icon={<ShoppingCart size={18} color="#475569" />}
-                  label="Offres reçues"
-                  description="Quand quelqu'un fait une offre sur vos annonces."
-                  enabled={status === "granted"}
-                />
-                <View className="my-2 h-px bg-border" />
-                <Category
-                  icon={<ShoppingBag size={18} color="#475569" />}
-                  label="Achats / ventes"
-                  description="Paiements, expéditions, litiges et confirmations."
-                  enabled={status === "granted"}
-                />
+                {CATEGORY_ORDER.map((key, idx) => {
+                  const meta = CATEGORY_META[key];
+                  const Icon = meta.Icon;
+
+                  return (
+                    <View key={key}>
+                      {idx > 0 ? (
+                        <View className="my-2 h-px bg-border" />
+                      ) : null}
+                      <View
+                        className="flex-row items-center gap-4"
+                        style={{
+                          opacity: status === "granted" ? 1 : 0.5,
+                        }}
+                      >
+                        <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
+                          <Icon size={18} color="#475569" />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="font-medium">{meta.label}</Text>
+                          <Text variant="muted" className="text-xs">
+                            {meta.description}
+                          </Text>
+                        </View>
+                        <Switch
+                          checked={
+                            status === "granted" ? displayPrefs[key] : false
+                          }
+                          disabled={
+                            status !== "granted" ||
+                            loadingPrefs ||
+                            prefMutation.isPending ||
+                            !user
+                          }
+                          onCheckedChange={(next) => {
+                            if (status !== "granted" || !user) return;
+                            onCategoryToggle(key, next);
+                          }}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
               </Card>
             </View>
 
@@ -176,33 +317,6 @@ export default function NotificationsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function Category({
-  icon,
-  label,
-  description,
-  enabled,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  enabled: boolean;
-}) {
-  return (
-    <View
-      className="flex-row items-start gap-3"
-      style={{ opacity: enabled ? 1 : 0.5 }}
-    >
-      <View className="mt-0.5">{icon}</View>
-      <View className="flex-1">
-        <Text className="font-medium">{label}</Text>
-        <Text variant="muted" className="text-xs">
-          {description}
-        </Text>
-      </View>
     </View>
   );
 }

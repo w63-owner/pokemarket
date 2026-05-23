@@ -3,6 +3,7 @@ import { SlidersHorizontal, X } from "lucide-react-native";
 import type { FeedFilters as FeedFiltersType } from "@pokemarket/shared";
 
 import { Badge, Text } from "@/components/ui";
+import { useThemeColor } from "@/lib/theme-colors";
 import { CardSearchInput } from "./card-search-input";
 import { AdvancedFiltersSheet } from "./advanced-filters-sheet";
 import type { CardSuggestion } from "@/lib/api/tcgdex";
@@ -37,6 +38,8 @@ export function FeedFilters({
   sheetOpen,
   onSheetOpenChange,
 }: Props) {
+  const foreground = useThemeColor("foreground");
+  const mutedForeground = useThemeColor("mutedForeground");
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
@@ -60,7 +63,7 @@ export function FeedFilters({
           }
           className="relative h-12 w-12 items-center justify-center rounded-xl border border-border bg-background"
         >
-          <SlidersHorizontal size={18} color="#0f172a" />
+          <SlidersHorizontal size={18} color={foreground} />
           {activeCount > 0 ? (
             <View
               className="absolute -right-1 -top-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1"
@@ -89,7 +92,7 @@ export function FeedFilters({
             accessibilityRole="button"
             accessibilityLabel="Réinitialiser les filtres"
           >
-            <X size={12} color="#64748b" />
+            <X size={12} color={mutedForeground} />
             <Text variant="caption">Réinitialiser</Text>
           </Pressable>
         </View>

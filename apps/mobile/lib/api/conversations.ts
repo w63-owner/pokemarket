@@ -4,6 +4,24 @@ import {
   type Message,
 } from "@pokemarket/shared";
 import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api/client";
+
+const MESSAGE_ATTACHMENTS_BUCKET = "message_attachments";
+
+/**
+ * Decode a base64 string to an `ArrayBuffer`. React Native lacks both
+ * `File` and a reliable `fetch(uri).blob()` on `file://` URIs, so we
+ * mirror the same helper used by `lib/api/listings.ts` to upload to
+ * Supabase Storage. Relies on `globalThis.atob` polyfilled by
+ * `react-native-url-polyfill/auto`.
+ */
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = globalThis.atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
 
 export interface ConversationDetail {
   id: string;
@@ -224,22 +242,96 @@ export async function sendMessage(
     throw new Error("Message trop long");
   }
 
+  const result = await api.post<{ message: Message }>("/api/messages/send", {
+    conversation_id: conversationId,
+    content: trimmed,
+  });
+  return result.message;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Image messages
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Upload an already-compressed JPEG (provided as base64) into the private
+ * `message_attachments` bucket under `{conversationId}/{filename}.jpg`,
+ * then insert a `message_type: "image"` row whose `content` stores the
+ * storage path so the bubble renderer can later mint a signed URL.
+ *
+ * The bucket is private (RLS scoped to conversation participants), so we
+ * never persist a public URL — only the storage path. Returns the inserted
+ * message so the caller can patch its optimistic placeholder.
+ */
+export async function sendImageMessage(
+  conversationId: string,
+  payload: {
+    base64: string;
+    contentType: "image/jpeg" | "image/webp" | "image/png";
+  },
+): Promise<Message> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
+
+  const ext =
+    payload.contentType === "image/webp"
+      ? "webp"
+      : payload.contentType === "image/png"
+        ? "png"
+        : "jpg";
+  const fileName = `${conversationId}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}.${ext}`;
+
+  const buffer = base64ToArrayBuffer(payload.base64);
+
+  const { error: uploadError } = await supabase.storage
+    .from(MESSAGE_ATTACHMENTS_BUCKET)
+    .upload(fileName, buffer, {
+      contentType: payload.contentType,
+      cacheControl: "31536000",
+      upsert: false,
+    });
+
+  if (uploadError) throw new Error(uploadError.message);
 
   const { data, error } = await supabase
     .from("messages")
     .insert({
       conversation_id: conversationId,
       sender_id: user.id,
-      content: trimmed,
-      message_type: "text",
+      content: fileName,
+      message_type: "image",
     })
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    await supabase.storage
+      .from(MESSAGE_ATTACHMENTS_BUCKET)
+      .remove([fileName])
+      .catch(() => {});
+    throw new Error(error.message);
+  }
+
   return data as Message;
+}
+
+/**
+ * Mint a 1-hour signed URL for an attachment. Used by `MessageBubble` (via
+ * a React Query) to render image messages stored in the private bucket.
+ * Falls back to `null` rather than throwing so a missing/expired file
+ * just renders a placeholder instead of crashing the thread.
+ */
+export async function getMessageAttachmentSignedUrl(
+  storagePath: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from(MESSAGE_ATTACHMENTS_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60);
+
+  if (error) return null;
+  return data?.signedUrl ?? null;
 }

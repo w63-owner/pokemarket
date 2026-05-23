@@ -3,7 +3,7 @@
     "name": "PokeMarket",
     "slug": "pokemarket",
     "scheme": "pokemarket",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,6 @@
     },
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "1",
       "bundleIdentifier": "app.pokemarket.mobile",
       "associatedDomains": ["applinks:pokemarket.app"],
       "config": {
@@ -29,7 +28,6 @@
     },
     "android": {
       "package": "app.pokemarket.mobile",
-      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#E63946"
@@ -40,7 +38,8 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
       ],
       "intentFilters": [
         {
@@ -79,7 +78,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#E63946"
         }
       ],
@@ -90,25 +89,29 @@
           "enableGooglePay": true
         }
       ],
-      [
-        "@sentry/react-native/expo",
-        {
-          "url": "https://sentry.io/",
-          "note": "organization & project come from SENTRY_ORG / SENTRY_PROJECT env vars at build time; auth token from SENTRY_AUTH_TOKEN (EAS secret)."
-        }
-      ],
       "@sentry/react-native",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/bc712b10-f420-40d2-885f-335f0511ceac",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "eas": {
-        "projectId": "TODO_SET_AFTER_EAS_INIT"
-      }
+        "projectId": "bc712b10-f420-40d2-885f-335f0511ceac"
+      },
+      "router": {}
     },
-    "owner": "TODO_SET_EAS_OWNER"
+    "owner": "antonin40"
   }
 }

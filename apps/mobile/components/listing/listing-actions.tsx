@@ -1,8 +1,11 @@
 import { router } from "expo-router";
+import { View } from "react-native";
+import { MotiView } from "moti";
 import type { Listing } from "@pokemarket/shared";
 import { formatPrice } from "@pokemarket/shared";
+
 import { Badge, Button } from "@/components/ui";
-import { View } from "react-native";
+import { spring } from "@/lib/motion";
 
 type Props = {
   listing: Listing;
@@ -11,13 +14,48 @@ type Props = {
 };
 
 /**
- * Buyer-side state machine mirroring apps/web/src/components/listing/listing-actions.tsx.
+ * Buyer-side CTA stack mirroring `apps/web/src/components/listing/listing-actions.tsx`.
+ *
+ * The whole block is wrapped in a Moti `translateY` spring so the
+ * primary CTA(s) feel like they "rise" into place once the image
+ * carousel finishes its initial paint — same intent as the web sticky
+ * CTA entrance animation (`spring.gentle`, `delay 100`).
  */
 export function ListingActions({ listing, viewerId, onContact }: Props) {
   const isOwner = !!viewerId && viewerId === listing.seller_id;
   const status = listing.status;
   const reservedFor = listing.reserved_for;
 
+  return (
+    <MotiView
+      from={{ opacity: 0, translateY: 100 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ ...spring.gentle, delay: 100 }}
+    >
+      {renderInner({
+        listing,
+        viewerId,
+        onContact,
+        isOwner,
+        status,
+        reservedFor,
+      })}
+    </MotiView>
+  );
+}
+
+function renderInner({
+  listing,
+  viewerId,
+  onContact,
+  isOwner,
+  status,
+  reservedFor,
+}: Props & {
+  isOwner: boolean;
+  status: Listing["status"];
+  reservedFor: Listing["reserved_for"];
+}) {
   if (isOwner) {
     return (
       <View className="flex-row gap-2">

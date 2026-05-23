@@ -15,6 +15,18 @@ import { api } from "./client";
 const TRANSACTION_SELECT =
   "*, listing:listings(id, title, cover_image_url), buyer:profiles!transactions_buyer_id_fkey(id, username), seller:profiles!transactions_seller_id_fkey(id, username)";
 
+/** Purchases list includes reservations still awaiting webhook confirmation. */
+const BUYER_LIST_STATUSES = [
+  "PENDING_PAYMENT",
+  "PAID",
+  "SHIPPED",
+  "COMPLETED",
+  "DISPUTED",
+  "CANCELLED",
+  "REFUNDED",
+  "EXPIRED",
+] as const;
+
 const VISIBLE_STATUSES = [
   "PAID",
   "SHIPPED",
@@ -68,7 +80,7 @@ export async function fetchMyPurchases({
     .from("transactions")
     .select(TRANSACTION_SELECT)
     .eq("buyer_id", user.id)
-    .in("status", [...VISIBLE_STATUSES])
+    .in("status", [...BUYER_LIST_STATUSES])
     .order("created_at", { ascending: false })
     .range(from, to);
 
@@ -128,6 +140,21 @@ export type SaleDetail = TransactionWithDetails & {
   buyer: Pick<Profile, "id" | "username" | "avatar_url">;
 };
 
+export type PurchaseDetail = TransactionWithDetails & {
+  listing: Pick<
+    Listing,
+    | "id"
+    | "title"
+    | "cover_image_url"
+    | "condition"
+    | "is_graded"
+    | "grade_note"
+    | "grading_company"
+    | "display_price"
+  >;
+  seller: Pick<Profile, "id" | "username" | "avatar_url">;
+};
+
 /**
  * Sale-side detail (only the seller can read). RLS enforces ownership.
  * Mirrors `apps/web/src/lib/api/transactions-history.ts:fetchSaleDetail`.
@@ -151,6 +178,27 @@ export async function fetchSaleDetail(
 
   if (error) throw error;
   return (data as unknown as SaleDetail | null) ?? null;
+}
+
+export async function fetchPurchaseDetail(
+  purchaseId: string,
+): Promise<PurchaseDetail | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .select(
+      "*, listing:listings(id, title, cover_image_url, condition, is_graded, grade_note, grading_company, display_price), buyer:profiles!transactions_buyer_id_fkey(id, username), seller:profiles!transactions_seller_id_fkey(id, username, avatar_url)",
+    )
+    .eq("id", purchaseId)
+    .eq("buyer_id", user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as unknown as PurchaseDetail | null) ?? null;
 }
 
 /** ──────────────────────────────────────────────────────────────────────

@@ -1,3 +1,42 @@
+// #region agent log
+(function installAgentLogger() {
+  var endpoint = "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a";
+  function send(payload) {
+    try {
+      payload.sessionId = "ccb655";
+      payload.timestamp = Date.now();
+      fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "ccb655" },
+        body: JSON.stringify(payload),
+      }).catch(function () {});
+    } catch (_e) {}
+  }
+  globalThis.__agentLog = send;
+  send({ location: "polyfills.js:top", message: "POLYFILL_TOP_REACHED", hypothesisId: "all", data: { hermes: !!globalThis.HermesInternal } });
+  var origHandler = globalThis.ErrorUtils && globalThis.ErrorUtils.getGlobalHandler && globalThis.ErrorUtils.getGlobalHandler();
+  if (globalThis.ErrorUtils && globalThis.ErrorUtils.setGlobalHandler) {
+    globalThis.ErrorUtils.setGlobalHandler(function (error, isFatal) {
+      try {
+        send({
+          location: "ErrorUtils.globalHandler",
+          message: "GLOBAL_JS_ERROR",
+          hypothesisId: "all",
+          data: {
+            isFatal: !!isFatal,
+            name: error && error.name,
+            errMessage: error && error.message,
+            stack: error && error.stack && String(error.stack).slice(0, 3000),
+            componentStack: error && error.componentStack && String(error.componentStack).slice(0, 3000),
+          },
+        });
+      } catch (_e) {}
+      if (origHandler) origHandler(error, isFatal);
+    });
+  }
+})();
+// #endregion
+
 // Bundle-level polyfill, injected via metro.config.js's
 // `serializer.getPolyfills`. This file is concatenated into the very top of
 // the JS bundle, BEFORE module registration (`__d(...)`) and BEFORE

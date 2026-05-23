@@ -1,9 +1,19 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { View } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  cancelAnimation,
+} from "react-native-reanimated";
 import { Clock, AlertTriangle } from "lucide-react-native";
 import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { spring, useReducedMotionSafe } from "@/lib/motion";
+import { haptic } from "@/lib/haptics";
 
 type CountdownTimerProps = {
   expiresAt: Date;
@@ -11,11 +21,44 @@ type CountdownTimerProps = {
   className?: string;
 };
 
+const URGENT_THRESHOLD_MIN = 5;
+
+const AnimatedClock = Animated.createAnimatedComponent(Clock);
+
 function getTimeLeft(expiresAt: Date) {
   const diff = Math.max(0, expiresAt.getTime() - Date.now());
   const minutes = Math.floor(diff / 60_000);
   const seconds = Math.floor((diff % 60_000) / 1000);
   return { minutes, seconds, total: diff };
+}
+
+/**
+ * Reanimated pulse on the Clock icon (mirrors `animate-pulse` on the web).
+ * Animates `opacity` 1 → 0.4 → 1 in a 1.4s loop while `active` is true,
+ * gently snapping back to 1 when the urgent state ends. Respects the
+ * "Reduce Motion" accessibility flag to comply with iOS guidelines.
+ */
+function useUrgentPulseStyle(active: boolean, reduceMotion: boolean) {
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (active && !reduceMotion) {
+      opacity.value = withRepeat(
+        withTiming(0.4, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true,
+      );
+    } else {
+      cancelAnimation(opacity);
+      opacity.value = withTiming(1, { duration: 200 });
+    }
+
+    return () => {
+      cancelAnimation(opacity);
+    };
+  }, [active, opacity, reduceMotion]);
+
+  return useAnimatedStyle(() => ({ opacity: opacity.value }));
 }
 
 export function CountdownTimer({
@@ -25,6 +68,8 @@ export function CountdownTimer({
 }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(expiresAt));
   const [expired, setExpired] = useState(false);
+  const reduceMotion = useReducedMotionSafe();
+  const urgentWarnedRef = useRef(false);
 
   const tick = useCallback(() => {
     const t = getTimeLeft(expiresAt);
@@ -40,7 +85,22 @@ export function CountdownTimer({
     return () => clearInterval(id);
   }, [tick]);
 
-  const isUrgent = timeLeft.total > 0 && timeLeft.minutes < 5;
+  const isUrgent =
+    timeLeft.total > 0 && timeLeft.minutes < URGENT_THRESHOLD_MIN;
+
+  useEffect(() => {
+    if (expired) {
+      urgentWarnedRef.current = false;
+      return;
+    }
+    if (isUrgent && !reduceMotion && !urgentWarnedRef.current) {
+      urgentWarnedRef.current = true;
+      haptic("warning");
+    }
+    if (!isUrgent) urgentWarnedRef.current = false;
+  }, [expired, isUrgent, reduceMotion]);
+
+  const pulseStyle = useUrgentPulseStyle(isUrgent, reduceMotion);
 
   return (
     <AnimatePresence>
@@ -49,6 +109,7 @@ export function CountdownTimer({
           key="expired"
           from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
+          transition={spring.gentle}
           className={cn(
             "flex-row items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3",
             className,
@@ -69,6 +130,7 @@ export function CountdownTimer({
           key="active"
           from={{ opacity: 0, translateY: -10 }}
           animate={{ opacity: 1, translateY: 0 }}
+          transition={spring.gentle}
           className={cn(
             "flex-row items-center gap-3 rounded-xl border px-4 py-3",
             isUrgent
@@ -77,7 +139,11 @@ export function CountdownTimer({
             className,
           )}
         >
-          <Clock size={20} color={isUrgent ? "#dc2626" : "#64748b"} />
+          <AnimatedClock
+            size={20}
+            color={isUrgent ? "#dc2626" : "#64748b"}
+            style={pulseStyle}
+          />
           <View className="flex-1">
             <Text variant="caption">Temps restant pour finaliser</Text>
             <Text

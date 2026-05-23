@@ -5,7 +5,11 @@ import type {
   Listing,
   ListingWithSeller,
 } from "@pokemarket/shared";
-import { listingCreateSchema } from "@pokemarket/shared";
+import {
+  getSellerReputation,
+  listingCreateSchema,
+  type SellerReputation,
+} from "@pokemarket/shared";
 import { supabase } from "@/lib/supabase";
 
 type RpcArgs = Database["public"]["Functions"]["search_listings_feed"]["Args"];
@@ -98,6 +102,18 @@ export async function fetchListing(id: string): Promise<ListingWithSeller> {
 
   if (error) throw new Error(error.message);
   return data as unknown as ListingWithSeller;
+}
+
+/**
+ * Pull the rating + review count for a seller through the shared
+ * `get_seller_reputation` RPC. Wraps the helper from
+ * `@pokemarket/shared/lib/reputation` to keep call-sites in the
+ * mobile feature folders free of any direct RPC import.
+ */
+export async function fetchSellerReputation(
+  sellerId: string,
+): Promise<SellerReputation> {
+  return getSellerReputation(supabase, sellerId);
 }
 
 export async function fetchMyListings(): Promise<Listing[]> {

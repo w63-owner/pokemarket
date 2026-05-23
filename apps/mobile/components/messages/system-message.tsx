@@ -11,6 +11,7 @@ import {
 } from "lucide-react-native";
 import type { Message } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
+import { fadeInScale, spring, useReducedMotionSafe } from "@/lib/motion";
 import { TrackingCard } from "./tracking-card";
 
 type IconComponent = React.ComponentType<{ size: number; color: string }>;
@@ -62,6 +63,8 @@ interface SystemMessageProps {
 }
 
 export function SystemMessage({ message }: SystemMessageProps) {
+  const reduceMotion = useReducedMotionSafe();
+
   if (message.message_type === "order_shipped") {
     return <TrackingCard message={message} />;
   }
@@ -75,9 +78,9 @@ export function SystemMessage({ message }: SystemMessageProps) {
 
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      from={reduceMotion ? fadeInScale.animate : fadeInScale.from}
+      animate={fadeInScale.animate}
+      transition={spring.snappy}
       style={{ alignSelf: "center", paddingVertical: 4 }}
     >
       <View className="flex-row items-center gap-1.5 self-center rounded-full bg-muted/70 px-3 py-1.5">

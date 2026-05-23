@@ -1,6 +1,11 @@
 import { useCallback, useState } from "react";
 import type { FeedFilters } from "@pokemarket/shared";
 
+// Re-export the shared helper so existing call sites (`import { useFeedFilters,
+// countActiveFilters } from "@/hooks/use-feed-filters"`) keep working without
+// having to switch every import to `@pokemarket/shared`.
+export { countActiveFilters } from "@pokemarket/shared";
+
 export function useFeedFilters(initial: FeedFilters = {}) {
   const [filters, setFilters] = useState<FeedFilters>(initial);
 
@@ -30,23 +35,4 @@ export function useFeedFilters(initial: FeedFilters = {}) {
   const reset = useCallback(() => setFilters({}), []);
 
   return { filters, setFilters, update, reset };
-}
-
-/**
- * Counts the user-applied filters (excludes default sort).
- * Mirrors the PWA helper so the badge in the UI matches across platforms.
- */
-export function countActiveFilters(filters: FeedFilters): number {
-  let count = 0;
-  if (filters.q) count++;
-  if (filters.set) count++;
-  if (filters.rarity) count++;
-  if (filters.condition) count++;
-  if (filters.is_graded) count++;
-  if (filters.price_min !== undefined) count++;
-  if (filters.price_max !== undefined) count++;
-  if (filters.card_number) count++;
-  if (filters.series) count++;
-  if (filters.sort && filters.sort !== "date_desc") count++;
-  return count;
 }

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { ShieldCheck } from "lucide-react-native";
 import {
   initPaymentSheet,
@@ -13,13 +12,8 @@ import { Platform } from "react-native";
 
 import { createSetupIntent } from "@/lib/api/payment-methods";
 import { env } from "@/lib/env";
-import {
-  Button,
-  Skeleton,
-  SmartBackButton,
-  Text,
-  toast,
-} from "@/components/ui";
+import { Button, Skeleton, Text, toast } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
 
 /**
  * Add a new card. Mobile uses Stripe PaymentSheet in SetupIntent mode (no
@@ -103,13 +97,13 @@ export default function NewPaymentMethodScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-3 border-b border-border bg-card px-2 py-3">
-        <SmartBackButton fallbackHref="/profile/payments" />
-        <Text className="text-base font-semibold">Ajouter une carte</Text>
-      </View>
+      <MobileHeader
+        title="Ajouter une carte"
+        fallbackHref="/profile/payments"
+      />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }}>
         <Text variant="muted">
@@ -163,6 +157,6 @@ export default function NewPaymentMethodScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

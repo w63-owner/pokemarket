@@ -7,6 +7,7 @@ export type PaymentMethod = {
   last4: string;
   exp_month: number | null;
   exp_year: number | null;
+  is_default?: boolean;
 };
 
 export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
@@ -29,4 +30,20 @@ export async function createSetupIntent(): Promise<{
   return api.post<{ client_secret: string; customer_id: string }>(
     "/api/stripe/payment-methods",
   );
+}
+
+export async function setDefaultPaymentMethod(
+  paymentMethodId: string,
+): Promise<void> {
+  await api.patch<{ ok: boolean }>("/api/stripe/payment-methods", {
+    payment_method_id: paymentMethodId,
+  });
+}
+
+export async function deletePaymentMethod(
+  paymentMethodId: string,
+): Promise<void> {
+  await api.delete<{ ok: boolean }>("/api/stripe/payment-methods", {
+    searchParams: { id: paymentMethodId },
+  });
 }

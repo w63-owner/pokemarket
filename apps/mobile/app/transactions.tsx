@@ -20,14 +20,15 @@ import {
 import { usePurchases, useSales } from "@/hooks/use-transactions";
 import {
   Badge,
-  Button,
   Skeleton,
-  SmartBackButton,
   Tabs,
   TabsList,
   TabsTrigger,
   Text,
 } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { EmptyState, ErrorState } from "@/components/shared";
+import { fadeInUp, staggerDelay } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type TabKey = "purchases" | "sales";
@@ -86,71 +87,121 @@ export default function TransactionsScreen() {
   );
 
   const foreground = useThemeColor("foreground");
+  const muted = useThemeColor("mutedForeground");
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-3 border-b border-border bg-card px-2 py-3">
-        <SmartBackButton fallbackHref="/(tabs)/profile" />
-        <Text className="text-base font-semibold">Mes transactions</Text>
-      </View>
+      <MobileHeader title="Mes transactions" fallbackHref="/(tabs)/profile" />
 
-      <View className="px-4 pt-4">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-          <TabsList>
-            <TabsTrigger value="purchases">
-              <View className="flex-row items-center gap-1.5">
-                <ShoppingBag size={14} color={foreground} />
-                <Text className="text-sm font-medium">Mes achats</Text>
-              </View>
-            </TabsTrigger>
-            <TabsTrigger value="sales">
-              <View className="flex-row items-center gap-1.5">
-                <Store size={14} color={foreground} />
-                <Text className="text-sm font-medium">Mes ventes</Text>
-              </View>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </View>
-
-      <View className="flex-1 px-4 pt-3">
-        {activeQuery.isLoading ? (
-          <ListSkeleton />
-        ) : items.length === 0 ? (
-          <EmptyState type={tab} />
-        ) : (
-          <FlashList
-            data={items}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={{ paddingBottom: 24 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#E63946"
-              />
-            }
-            onEndReached={() => {
-              if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage) {
-                activeQuery.fetchNextPage();
-              }
-            }}
-            onEndReachedThreshold={0.4}
-            ItemSeparatorComponent={() => <View className="h-2" />}
-            ListFooterComponent={
-              activeQuery.isFetchingNextPage ? (
-                <View className="py-4">
-                  <ActivityIndicator color="#E63946" />
+      <SafeAreaView edges={["bottom"]} className="flex-1">
+        <View className="px-4 pt-4">
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as TabKey)}
+            variant="line"
+          >
+            <TabsList>
+              <TabsTrigger value="purchases">
+                <View className="flex-row items-center gap-1.5">
+                  <ShoppingBag size={14} color={foreground} />
+                  <Text className="text-sm font-medium">Mes achats</Text>
                 </View>
-              ) : null
-            }
-          />
-        )}
-      </View>
-    </SafeAreaView>
+              </TabsTrigger>
+              <TabsTrigger value="sales">
+                <View className="flex-row items-center gap-1.5">
+                  <Store size={14} color={foreground} />
+                  <Text className="text-sm font-medium">Mes ventes</Text>
+                </View>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </View>
+
+        <View className="flex-1 px-4 pt-3">
+          {activeQuery.isLoading ? (
+            <ListSkeleton />
+          ) : activeQuery.isError ? (
+            <ErrorState
+              variant="card"
+              title="Impossible de charger les transactions"
+              description={
+                activeQuery.error instanceof Error
+                  ? activeQuery.error.message
+                  : "Réessayez dans un instant."
+              }
+              action={{
+                label: "Réessayer",
+                onPress: () => void activeQuery.refetch(),
+              }}
+            />
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={
+                tab === "purchases" ? (
+                  <ShoppingBag size={28} color={muted} />
+                ) : (
+                  <Store size={28} color={muted} />
+                )
+              }
+              title={
+                tab === "purchases"
+                  ? "Aucun achat pour le moment"
+                  : "Aucune vente pour le moment"
+              }
+              description={
+                tab === "purchases"
+                  ? "Vos achats apparaîtront ici une fois un paiement effectué."
+                  : "Vos ventes apparaîtront ici dès qu'un acheteur passera commande."
+              }
+              action={
+                tab === "purchases"
+                  ? {
+                      label: "Explorer le marché",
+                      onPress: () => router.push("/(tabs)" as never),
+                    }
+                  : {
+                      label: "Vendre une carte",
+                      onPress: () => router.push("/(tabs)/sell" as never),
+                    }
+              }
+            />
+          ) : (
+            <FlashList
+              data={items}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#E63946"
+                />
+              }
+              onEndReached={() => {
+                if (
+                  activeQuery.hasNextPage &&
+                  !activeQuery.isFetchingNextPage
+                ) {
+                  activeQuery.fetchNextPage();
+                }
+              }}
+              onEndReachedThreshold={0.4}
+              ItemSeparatorComponent={() => <View className="h-2" />}
+              ListFooterComponent={
+                activeQuery.isFetchingNextPage ? (
+                  <View className="py-4">
+                    <ActivityIndicator color="#E63946" />
+                  </View>
+                ) : null
+              }
+            />
+          )}
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -165,13 +216,16 @@ function TransactionRow({
 }) {
   const status = getStatusConfig(tx.status ?? "PENDING_PAYMENT");
   const href =
-    type === "sales" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}/success`;
+    type === "sales" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}`;
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 6 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ delay: Math.min(index * 30, 300) }}
+      from={fadeInUp.from}
+      animate={fadeInUp.animate}
+      transition={{
+        ...(fadeInUp.transition as object),
+        delay: staggerDelay(index, 30, 10),
+      }}
     >
       <Pressable
         onPress={() => router.push(href as never)}
@@ -225,35 +279,6 @@ function ListSkeleton() {
       {Array.from({ length: 5 }).map((_, i) => (
         <Skeleton key={i} className="h-20 rounded-2xl" />
       ))}
-    </View>
-  );
-}
-
-function EmptyState({ type }: { type: TabKey }) {
-  const Icon = type === "purchases" ? ShoppingBag : Store;
-  const cta =
-    type === "purchases"
-      ? { label: "Explorer le marché", href: "/(tabs)" }
-      : { label: "Vendre une carte", href: "/(tabs)/sell" };
-
-  return (
-    <View className="flex-1 items-center justify-center gap-3 px-6 py-12">
-      <View className="rounded-full bg-muted p-4">
-        <Icon size={28} color="#64748b" />
-      </View>
-      <Text variant="h4">
-        {type === "purchases"
-          ? "Aucun achat pour le moment"
-          : "Aucune vente pour le moment"}
-      </Text>
-      <Text variant="muted" className="text-center">
-        {type === "purchases"
-          ? "Vos achats apparaîtront ici une fois un paiement effectué."
-          : "Vos ventes apparaîtront ici dès qu'un acheteur passera commande."}
-      </Text>
-      <Button className="mt-2" onPress={() => router.push(cta.href as never)}>
-        {cta.label}
-      </Button>
     </View>
   );
 }

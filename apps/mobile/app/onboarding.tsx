@@ -14,7 +14,8 @@ import { MotiView } from "moti";
 import { Camera, ShieldCheck, Wallet as WalletIcon } from "lucide-react-native";
 
 import { Button, Text } from "@/components/ui";
-import { haptics } from "@/lib/haptics";
+import { haptic } from "@/lib/haptics";
+import { duration } from "@/lib/motion";
 
 export const ONBOARDING_DONE_KEY = "pokemarket.onboarding.done";
 
@@ -62,7 +63,7 @@ export default function OnboardingScreen() {
       const next = Math.round(x / width);
       if (next !== index) {
         setIndex(next);
-        haptics.selection();
+        haptic("select");
       }
     },
     [index],
@@ -73,14 +74,14 @@ export default function OnboardingScreen() {
       scrollRef.current?.scrollTo({ x: width * (index + 1), animated: true });
       return;
     }
-    haptics.success();
+    haptic("success");
     await markOnboardingDone();
-    router.replace("/(auth)/login");
+    router.replace("/(tabs)");
   }, [index]);
 
   const skip = useCallback(async () => {
     await markOnboardingDone();
-    router.replace("/(auth)/login");
+    router.replace("/(tabs)");
   }, []);
 
   return (
@@ -118,7 +119,7 @@ export default function OnboardingScreen() {
                   opacity: i === index ? 1 : 0.4,
                   scale: i === index ? 1 : 0.9,
                 }}
-                transition={{ type: "timing", duration: 250 }}
+                transition={{ type: "timing", duration: duration.normal }}
                 className="mb-10 h-32 w-32 items-center justify-center rounded-full"
                 style={{ backgroundColor: `${slide.accent}1A` }}
               >
@@ -144,7 +145,7 @@ export default function OnboardingScreen() {
                 width: i === index ? 24 : 8,
                 opacity: i === index ? 1 : 0.4,
               }}
-              transition={{ type: "timing", duration: 200 }}
+              transition={{ type: "timing", duration: duration.fast }}
               className="h-2 rounded-full bg-primary"
             />
           ))}

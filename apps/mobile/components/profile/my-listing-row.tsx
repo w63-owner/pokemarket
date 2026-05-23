@@ -10,6 +10,7 @@ import {
 } from "@pokemarket/shared";
 
 import { Badge, Text } from "@/components/ui";
+import { fadeInUp, staggerDelay, useReducedMotionSafe } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type StatusVariant = "default" | "secondary" | "destructive" | "outline";
@@ -38,12 +39,16 @@ export function MyListingRow({ listing, index }: Props) {
   const status = getStatusConfig(listing.status ?? "ACTIVE");
   const canEdit = listing.status === "ACTIVE" || listing.status === "DRAFT";
   const muted = useThemeColor("mutedForeground");
+  const reduceMotion = useReducedMotionSafe();
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 6 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ delay: Math.min(index * 30, 300) }}
+      from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
+      animate={fadeInUp.animate}
+      transition={{
+        ...(fadeInUp.transition as object),
+        delay: staggerDelay(index, 30, 10),
+      }}
     >
       <Pressable
         onPress={() =>

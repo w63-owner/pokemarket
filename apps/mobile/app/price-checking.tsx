@@ -1,24 +1,23 @@
 import { View } from "react-native";
 import { Stack } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { TrendingUp } from "lucide-react-native";
-import { SmartBackButton, Text } from "@/components/ui";
+import { Text } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { useThemeColor } from "@/lib/theme-colors";
 
 /**
  * Price checking screen — placeholder, to be expanded in a later sprint
  * with the price history chart (victory-native).
  */
 export default function PriceCheckingScreen() {
+  const brand = useThemeColor("brand");
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center gap-3 border-b border-border px-4 py-3">
-        <SmartBackButton />
-        <Text variant="h4">Cote des cartes</Text>
-      </View>
+      <MobileHeader title="Cote des cartes" fallbackHref="/(tabs)/profile" />
       <View className="flex-1 items-center justify-center gap-3 px-8">
         <View className="h-16 w-16 items-center justify-center rounded-full bg-muted">
-          <TrendingUp size={28} color="#E63946" />
+          <TrendingUp size={28} color={brand} />
         </View>
         <Text variant="h4">Bientôt disponible</Text>
         <Text variant="muted" className="text-center">
@@ -26,6 +25,6 @@ export default function PriceCheckingScreen() {
           l&apos;instant, tu peux la consulter sur pokemarket.app.
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

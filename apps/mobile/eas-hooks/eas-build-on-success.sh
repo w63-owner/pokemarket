@@ -4,7 +4,7 @@
 # What it does:
 #   1. Bundles the JS for the build target (iOS / Android)
 #   2. Uploads the bundle + sourcemap to Sentry via @sentry/react-native
-#   3. Tags the release as `<bundleId>@<version>+<runtimeVersion>` to
+#   3. Tags the release as `<bundleId>@<version>+<buildNumber>` to
 #      match what apps/mobile/lib/sentry.ts publishes at runtime.
 #
 # Skipped unless EAS_BUILD_PROFILE == "production".
@@ -12,7 +12,7 @@
 # Requires the following EAS secrets (`eas secret:create`):
 #   - SENTRY_AUTH_TOKEN  (auth token with project:write)
 #   - SENTRY_ORG
-#   - SENTRY_PROJECT     (typically "pokemarket-mobile")
+#   - SENTRY_PROJECT     (must match app.json plugin, e.g. "react-native")
 set -euo pipefail
 
 if [ "${EAS_BUILD_PROFILE:-}" != "production" ]; then

@@ -1,10 +1,11 @@
-import { ScrollView, View } from "react-native";
+import { useState } from "react";
+import { Pressable, View } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
+import { Bookmark } from "lucide-react-native";
 import {
   CARD_CONDITIONS,
   CONDITION_LABELS,
   RARITY_OPTIONS,
-  SORT_OPTIONS,
   type FeedFilters,
 } from "@pokemarket/shared";
 
@@ -13,11 +14,15 @@ import {
   Input,
   Label,
   Select,
-  Separator,
   Sheet,
+  SheetScrollView,
   Switch,
   Text,
 } from "@/components/ui";
+import { useAuth } from "@/hooks/use-auth";
+import { useThemeColor } from "@/lib/theme-colors";
+import { duration } from "@/lib/motion";
+import { SaveSearchDialog } from "./save-search-dialog";
 
 type Props = {
   open: boolean;
@@ -38,11 +43,6 @@ const CONDITION_SELECT_OPTIONS = [
   ...CARD_CONDITIONS.map((c) => ({ value: c, label: CONDITION_LABELS[c] })),
 ];
 
-const SORT_SELECT_OPTIONS = SORT_OPTIONS.map((o) => ({
-  value: o.value,
-  label: o.label,
-}));
-
 function parseNumberInput(raw: string): number | undefined {
   if (!raw) return undefined;
   const normalized = raw.replace(",", ".");
@@ -58,8 +58,49 @@ export function AdvancedFiltersSheet({
   onReset,
   activeCount,
 }: Props) {
+  const { isAuthenticated } = useAuth();
+  const primary = useThemeColor("primary");
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
+  const footerEl = (
+    <>
+      {isAuthenticated && activeCount > 0 ? (
+        <Pressable
+          onPress={() => setSaveDialogOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Sauvegarder cette recherche"
+          className="mb-3 flex-row items-center justify-center gap-1.5 self-center px-3 py-1.5"
+        >
+          <Bookmark size={14} color={primary} />
+          <Text className="text-sm font-medium text-primary">
+            Sauvegarder cette recherche
+          </Text>
+        </Pressable>
+      ) : null}
+      <View className="flex-row gap-2">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onPress={() => {
+            onReset();
+          }}
+        >
+          Réinitialiser
+        </Button>
+        <Button className="flex-1" onPress={() => onOpenChange(false)}>
+          Voir les résultats
+        </Button>
+      </View>
+    </>
+  );
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} className="max-h-[88%]">
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      snapPoints={["90%"]}
+      footer={footerEl}
+    >
       <View className="flex-row items-center justify-between pb-2">
         <Text variant="h3">Filtres avancés</Text>
         {activeCount > 0 ? (
@@ -69,25 +110,13 @@ export function AdvancedFiltersSheet({
         ) : null}
       </View>
 
-      <ScrollView
+      {/* paddingBottom offsets the sticky footer so the last row isn't
+          hidden behind it (footer ≈ button 44 + paddingTop 8 + paddingBottom 24 = 76dp). */}
+      <SheetScrollView
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        style={{ maxHeight: 560 }}
-        contentContainerStyle={{ paddingBottom: 12 }}
+        contentContainerStyle={{ paddingBottom: 76 }}
       >
-        <View className="gap-1.5">
-          <Label>Tri</Label>
-          <Select
-            value={filters.sort ?? "date_desc"}
-            onValueChange={(val) =>
-              onChange({ sort: !val || val === "date_desc" ? undefined : val })
-            }
-            options={SORT_SELECT_OPTIONS}
-          />
-        </View>
-
-        <Separator className="my-4" />
-
         <View className="gap-1.5">
           <Label>Bloc</Label>
           <Input
@@ -160,7 +189,7 @@ export function AdvancedFiltersSheet({
                 from={{ opacity: 0, translateY: -4 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 exit={{ opacity: 0, translateY: -4 }}
-                transition={{ type: "timing", duration: 180 }}
+                transition={{ type: "timing", duration: duration.fast }}
               >
                 <View className="flex-row gap-2">
                   <View className="flex-1 gap-1">
@@ -233,22 +262,13 @@ export function AdvancedFiltersSheet({
             </View>
           </View>
         </View>
-      </ScrollView>
+      </SheetScrollView>
 
-      <View className="mt-4 flex-row gap-2">
-        <Button
-          variant="outline"
-          className="flex-1"
-          onPress={() => {
-            onReset();
-          }}
-        >
-          Réinitialiser
-        </Button>
-        <Button className="flex-1" onPress={() => onOpenChange(false)}>
-          Voir les résultats
-        </Button>
-      </View>
+      <SaveSearchDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        filters={filters}
+      />
     </Sheet>
   );
 }

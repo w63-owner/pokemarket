@@ -12,6 +12,35 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     Sentry.captureException(error);
+    // #region agent log
+    try {
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "f9fd1f",
+          },
+          body: JSON.stringify({
+            sessionId: "f9fd1f",
+            hypothesisId: "A",
+            location: "global-error.tsx:14",
+            message: "GlobalError boundary triggered",
+            data: {
+              name: error?.name,
+              message: error?.message,
+              digest: error?.digest,
+              stack: error?.stack?.split("\n").slice(0, 8),
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+    } catch {
+      /* noop */
+    }
+    // #endregion
   }, [error]);
 
   return (

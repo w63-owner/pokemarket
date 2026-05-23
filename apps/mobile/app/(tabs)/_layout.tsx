@@ -15,9 +15,8 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 
 import { Text } from "@/components/ui/text";
 import { useUnreadCount } from "@/hooks/use-conversations";
-
-const PRIMARY = "#E63946";
-const MUTED = "#94a3b8";
+import { useThemeColor } from "@/lib/theme-colors";
+import { useEffectiveTheme } from "@/lib/stores/theme";
 
 type IconProps = { size?: number; color?: string; strokeWidth?: number };
 
@@ -38,18 +37,26 @@ const TABS: TabConfig[] = [
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { data: unreadCount = 0 } = useUnreadCount();
+  const scheme = useEffectiveTheme();
+  const PRIMARY = useThemeColor("primary");
+  const MUTED = useThemeColor("mutedForeground");
+  const cardColor = useThemeColor("card");
+  const borderColor = useThemeColor("border");
+
+  const isDark = scheme === "dark";
+  const opaqueBg = cardColor;
+  const blurredBg = isDark
+    ? "rgba(26, 26, 46, 0.82)"
+    : "rgba(255, 255, 255, 0.82)";
 
   return (
     <BlurView
       intensity={Platform.OS === "ios" ? 60 : 0}
-      tint="light"
+      tint={isDark ? "dark" : "light"}
       style={{
-        backgroundColor:
-          Platform.OS === "ios"
-            ? "rgba(255, 255, 255, 0.82)"
-            : "rgba(255, 255, 255, 1)",
+        backgroundColor: Platform.OS === "ios" ? blurredBg : opaqueBg,
         borderTopWidth: 0.5,
-        borderTopColor: "rgb(226 232 240)",
+        borderTopColor: borderColor,
         paddingBottom: insets.bottom,
       }}
     >

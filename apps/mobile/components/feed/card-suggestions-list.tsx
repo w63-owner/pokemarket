@@ -5,6 +5,7 @@ import { ImageIcon, Search } from "lucide-react-native";
 import { queryKeys } from "@pokemarket/shared";
 
 import { Skeleton, Text } from "@/components/ui";
+import { useThemeColor } from "@/lib/theme-colors";
 import {
   CARD_SEARCH_MIN_LENGTH,
   fetchCardSuggestions,
@@ -21,6 +22,7 @@ export function CardSuggestionsList({ query, onSelect }: Props) {
   const trimmed = query.trim();
   const parsed = parseCardQuery(trimmed);
   const enabled = parsed.name.length >= CARD_SEARCH_MIN_LENGTH;
+  const mutedForeground = useThemeColor("mutedForeground");
 
   const { data: suggestions = [], isFetching } = useQuery({
     queryKey: queryKeys.tcgdex.cards(trimmed),
@@ -52,7 +54,7 @@ export function CardSuggestionsList({ query, onSelect }: Props) {
   if (!enabled) {
     return (
       <View className="flex-1 items-center justify-center px-6 py-12">
-        <Search size={24} color="#94a3b8" />
+        <Search size={24} color={mutedForeground} />
         <Text variant="muted" className="mt-2 text-center">
           Tape un nom de carte, série ou bloc (ex: Dracaufeu 11/25)
         </Text>
@@ -63,7 +65,7 @@ export function CardSuggestionsList({ query, onSelect }: Props) {
   if (suggestions.length === 0) {
     return (
       <View className="flex-1 items-center justify-center px-6 py-12">
-        <Search size={22} color="#94a3b8" />
+        <Search size={22} color={mutedForeground} />
         <Text variant="muted" className="mt-2 text-center">
           Aucune carte pour{" "}
           <Text className="font-medium text-foreground">
@@ -110,7 +112,7 @@ export function CardSuggestionsList({ query, onSelect }: Props) {
                 />
               ) : (
                 <View className="h-full w-full items-center justify-center">
-                  <ImageIcon size={16} color="#94a3b8" />
+                  <ImageIcon size={16} color={mutedForeground} />
                 </View>
               )}
             </View>

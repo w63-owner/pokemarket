@@ -1,15 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MotiView } from "moti";
+import ConfettiCannon from "react-native-confetti-cannon";
 import { CheckCircle2, Home, ShoppingBag, Sparkles } from "lucide-react-native";
 import { formatPrice } from "@pokemarket/shared";
 
 import { fetchTransactionForBuyer } from "@/lib/api/checkout";
 import { Button, Skeleton, Text } from "@/components/ui";
-import { haptics } from "@/lib/haptics";
+import { haptic } from "@/lib/haptics";
+import { spring, useReducedMotionSafe } from "@/lib/motion";
+
+// Brand-tinted palette for the confetti burst — mirrors the web
+// `canvas-confetti` colours used on the success page.
+const CONFETTI_COLORS = [
+  "#E63946", // brand red
+  "#F4A261", // brand accent (orange)
+  "#FFD166", // warm yellow
+  "#06D6A0", // success green
+  "#118AB2", // brand secondary blue
+];
 
 const STATUS_COPY: Record<string, { title: string; description: string }> = {
   PAID: {
@@ -49,6 +61,9 @@ function getStatusCopy(status: string) {
 export default function OrderSuccessScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [pollCount, setPollCount] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
+  const reduceMotion = useReducedMotionSafe();
+  const [confettiVisible, setConfettiVisible] = useState(false);
 
   const { data: transaction, isLoading } = useQuery({
     queryKey: ["transactions", "buyer", id],
@@ -74,17 +89,20 @@ export default function OrderSuccessScreen() {
 
   // Trigger an Apple Pay-style success haptic exactly once when the success
   // copy first becomes visible. We don't want to retrigger on each refetch.
+  // The same flag also gates the confetti cannon so a buyer who briefly
+  // navigates back to this screen doesn't get a second burst.
   const successFiredRef = useRef(false);
   useEffect(() => {
     if (successFiredRef.current) return;
-    if (transaction?.status && transaction.status !== "PENDING_PAYMENT") {
+    const shouldFire =
+      (transaction?.status && transaction.status !== "PENDING_PAYMENT") ||
+      (transaction?.status === "PENDING_PAYMENT" && pollCount > 6);
+    if (shouldFire) {
       successFiredRef.current = true;
-      haptics.success();
-    } else if (transaction?.status === "PENDING_PAYMENT" && pollCount > 6) {
-      successFiredRef.current = true;
-      haptics.success();
+      haptic("success");
+      if (!reduceMotion) setConfettiVisible(true);
     }
-  }, [transaction, pollCount]);
+  }, [transaction, pollCount, reduceMotion]);
 
   if (isLoading || !transaction) {
     return (
@@ -110,22 +128,31 @@ export default function OrderSuccessScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
+      {confettiVisible ? (
+        // Top-centre cannon firing downward — frames the hero check icon.
+        // `fadeOut` lets the particles dim into the background instead of
+        // hard-clipping; `autoStart` triggers the burst as soon as the
+        // node mounts (right after we set `confettiVisible = true`).
+        <ConfettiCannon
+          count={140}
+          origin={{ x: screenWidth / 2, y: -20 }}
+          explosionSpeed={420}
+          fallSpeed={2600}
+          fadeOut
+          colors={CONFETTI_COLORS}
+        />
+      ) : null}
       <View className="flex-1 items-center justify-center px-6">
         <MotiView
           from={{ opacity: 0, scale: 0.8, translateY: 30 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
-          transition={{ type: "spring", damping: 24, stiffness: 300 }}
+          transition={spring.gentle}
           className="w-full max-w-md items-center"
         >
           <MotiView
             from={{ scale: 0 }}
             animate={{ scale: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 400,
-              damping: 15,
-              delay: 200,
-            }}
+            transition={{ ...spring.bouncy, delay: 200 }}
             className="mb-6 items-center justify-center rounded-full bg-primary/10 p-5"
           >
             <View className="relative">

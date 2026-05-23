@@ -129,7 +129,7 @@ export function AddressAutocomplete({
         ) : null}
       </Pressable>
 
-      <Sheet open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={setOpen} snapPoints={["70%", "92%"]}>
         <SearchSheetBody
           onPick={(picked) => {
             onChange(picked);

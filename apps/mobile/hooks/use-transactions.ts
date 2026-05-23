@@ -11,6 +11,7 @@ import {
   createDispute,
   fetchMyPurchases,
   fetchMySales,
+  fetchPurchaseDetail,
   fetchSaleDetail,
   shipOrder,
   type DisputeReason,
@@ -54,6 +55,14 @@ export function useSaleDetail(saleId: string | undefined) {
   });
 }
 
+export function usePurchaseDetail(purchaseId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.transactions.purchaseDetail(purchaseId ?? ""),
+    queryFn: () => fetchPurchaseDetail(purchaseId!),
+    enabled: !!purchaseId,
+  });
+}
+
 /** Invalidate every cached view that depends on a transaction status. */
 function invalidateTransactionCaches(args: {
   queryClient: ReturnType<typeof useQueryClient>;
@@ -65,6 +74,9 @@ function invalidateTransactionCaches(args: {
 
   queryClient.invalidateQueries({
     queryKey: queryKeys.transactions.detail(transactionId),
+  });
+  queryClient.invalidateQueries({
+    queryKey: queryKeys.transactions.purchaseDetail(transactionId),
   });
   queryClient.invalidateQueries({
     queryKey: queryKeys.transactions.purchases(),

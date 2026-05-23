@@ -11,7 +11,7 @@ import {
   type ProfileUpdateInput,
 } from "@/lib/api/profile";
 import { toast } from "@/components/ui";
-import { haptics } from "@/lib/haptics";
+import { haptic } from "@/lib/haptics";
 
 export function useMyProfile() {
   return useQuery({
@@ -88,7 +88,7 @@ export function useToggleFollow(sellerId: string) {
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData<boolean>(key);
       qc.setQueryData(key, nextFollowing);
-      haptics.light();
+      haptic("tap");
       return { previous };
     },
     onError: (err, _next, ctx) => {

@@ -49,7 +49,7 @@ cd apps/mobile
 
 eas secret:create --scope project --name SENTRY_AUTH_TOKEN --value "<token>"
 eas secret:create --scope project --name SENTRY_ORG --value "pokemarket"
-eas secret:create --scope project --name SENTRY_PROJECT --value "pokemarket-mobile"
+eas secret:create --scope project --name SENTRY_PROJECT --value "react-native"
 
 # 2. EAS Submit — credentials Apple + Android
 #    iOS : créer une "App Store Connect API key" depuis App Store Connect ->
@@ -65,9 +65,7 @@ eas secret:create --scope project --name SENTRY_PROJECT --value "pokemarket-mobi
 # 3. GitHub Actions — environnement "mobile-production"
 # Settings -> Environments -> mobile-production -> Add secret
 gh secret set EXPO_TOKEN --env mobile-production --body "<expo-access-token>"
-gh secret set SENTRY_AUTH_TOKEN --env mobile-production --body "<token>"
-gh secret set SENTRY_ORG --env mobile-production --body "pokemarket"
-gh secret set SENTRY_PROJECT --env mobile-production --body "pokemarket-mobile"
+# SENTRY_* : uniquement sur EAS (voir ci-dessus), pas besoin sur GitHub pour eas build
 ```
 
 ### Initialisation EAS (à faire une fois)
@@ -319,14 +317,24 @@ suivent (ou au prochain cold-start). Limite : pas de changement
 
 ## 7. Source maps Sentry
 
+> **Build EAS qui échoue sur `Auth token is required` ?**  
+> Le plugin Gradle Sentry s'exécute **sur les serveurs EAS**, pas sur
+> GitHub Actions. Il faut créer `SENTRY_AUTH_TOKEN` comme **secret EAS**
+> (`eas secret:create` ci-dessus). Les variables `SENTRY_*` passées dans
+> le workflow GitHub **ne sont pas** transmises au builder cloud.
+
 Le hook `eas-hooks/eas-build-on-success.sh` upload automatiquement les
-source maps **uniquement pour le profil `production`**.
+source maps **uniquement pour le profil `production`** (en complément de
+l'upload Gradle natif, qui requiert aussi `SENTRY_AUTH_TOKEN` sur EAS).
+
+Les profils `development` et `preview` définissent
+`SENTRY_DISABLE_AUTO_UPLOAD=true` pour permettre des builds sans token.
 
 Vérifier après un build :
 
 1. Aller sur https://sentry.io/organizations/pokemarket/releases/
 2. La release doit apparaître sous le format
-   `app.pokemarket.mobile@1.0.0+1.0.0`.
+   `app.pokemarket.mobile@1.0.0+1` (version + buildNumber/versionCode).
 3. Tab **Files** : doit lister `index.android.bundle` ou `main.jsbundle`
    - `.map`.
 
@@ -374,7 +382,7 @@ ceux qui l'ont, mais nouveaux téléchargements bloqués).
 | Apple Developer | App Store Connect API key (.p8)  | `secrets/asc-api-key.p8` (gitignored) + EAS secret                                 | 1 an                                |
 | Apple Developer | App-specific password            | EAS secret `APPLE_APP_SPECIFIC_PASSWORD`                                           | sur compromission                   |
 | Google Play     | Service account JSON             | `secrets/play-store-service-account.json` (gitignored) + EAS secret                | 1 an                                |
-| Sentry          | Auth token (project:write)       | EAS secret `SENTRY_AUTH_TOKEN` + GH secret                                         | 6 mois                              |
+| Sentry          | Auth token (project:write)       | EAS secret `SENTRY_AUTH_TOKEN`                                                     | 6 mois                              |
 | Expo            | Access token                     | GH secret `EXPO_TOKEN`                                                             | 1 an                                |
 | Stripe          | Publishable + restricted RN keys | `apps/mobile/.env` (gitignored) + EAS env via `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | sur compromission                   |
 | Supabase        | Anon key                         | `apps/mobile/.env` (publique, OK dans le bundle)                                   | jamais (rotation casse les clients) |
@@ -396,7 +404,7 @@ secrets/
 - App Store Connect : https://appstoreconnect.apple.com/
 - Play Console : https://play.google.com/console
 - Expo dashboard : https://expo.dev/accounts/pokemarket/projects/pokemarket
-- Sentry mobile : https://sentry.io/organizations/pokemarket/projects/pokemarket-mobile/
+- Sentry mobile : https://sentry.io/organizations/pokemarket/projects/react-native/
 - Stripe dashboard : https://dashboard.stripe.com/
 
 ### Personnes responsables

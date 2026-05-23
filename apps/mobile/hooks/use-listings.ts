@@ -7,6 +7,7 @@ import {
   fetchMyListings,
   fetchOwnedListing,
   fetchSellerListings,
+  fetchSellerReputation,
   updateListing,
   type CreateListingInput,
   type UpdateListingInput,
@@ -18,6 +19,15 @@ export function useListing(id: string) {
     queryKey: queryKeys.listings.detail(id),
     queryFn: () => fetchListing(id),
     enabled: !!id,
+  });
+}
+
+export function useSellerReputation(sellerId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.sellers.reputation(sellerId ?? ""),
+    queryFn: () => fetchSellerReputation(sellerId as string),
+    enabled: !!sellerId,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

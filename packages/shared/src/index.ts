@@ -9,6 +9,7 @@ export * from "./lib/shipping";
 export * from "./lib/utils";
 export * from "./lib/country";
 export * from "./lib/reputation";
+export * from "./lib/feed-filters";
 export * from "./content/legal";
 
 // Mangopay types live on a subpath (@pokemarket/shared/mangopay) to avoid

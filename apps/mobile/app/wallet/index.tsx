@@ -24,20 +24,16 @@ import {
 import { formatPrice, type KycStatus } from "@pokemarket/shared";
 
 import { ApiError } from "@/lib/api/client";
+import { fadeInUp, useReducedMotionSafe } from "@/lib/motion";
 import {
   useRequestPayout,
   useStripeConnectOnboarding,
   useWalletData,
 } from "@/hooks/use-wallet";
-import {
-  Badge,
-  Button,
-  Card,
-  Skeleton,
-  SmartBackButton,
-  Text,
-  toast,
-} from "@/components/ui";
+import { Badge, Button, Card, Skeleton, Text, toast } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { ErrorState } from "@/components/shared";
+import { haptic } from "@/lib/haptics";
 
 type KycVariant = "default" | "secondary" | "destructive" | "outline";
 
@@ -114,6 +110,7 @@ export default function WalletScreen() {
         router.push("/wallet/return");
       }
     } catch (err) {
+      haptic("error");
       toast.error(
         "Impossible de démarrer la vérification",
         err instanceof Error ? err.message : undefined,
@@ -124,11 +121,13 @@ export default function WalletScreen() {
   const handlePayout = useCallback(async () => {
     try {
       const result = await payoutMutation.mutateAsync();
+      haptic("success");
       toast.success(
         `Virement de ${formatPrice(result.payout_amount)} demandé`,
         "Les fonds arriveront sous 1 à 3 jours ouvrés.",
       );
     } catch (err) {
+      haptic("error");
       const message =
         err instanceof ApiError
           ? err.message
@@ -147,158 +146,176 @@ export default function WalletScreen() {
   const availableBalance = wallet?.available_balance ?? 0;
   const canPayout =
     isVerified && availableBalance > 0 && !payoutMutation.isPending;
+  const reduceMotion = useReducedMotionSafe();
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-3 border-b border-border bg-card px-2 py-3">
-        <SmartBackButton fallbackHref="/(tabs)/profile" />
-        <View className="flex-row items-center gap-2">
-          <View className="rounded-full bg-primary/10 p-2">
-            <WalletIcon size={18} color="#E63946" />
-          </View>
-          <View>
-            <Text className="text-base font-semibold">Mon portefeuille</Text>
-            <Text variant="caption">Revenus &amp; virements</Text>
-          </View>
-        </View>
-      </View>
+      <MobileHeader
+        title="Mon portefeuille"
+        subtitle="Revenus & virements"
+        fallbackHref="/(tabs)/profile"
+      />
 
-      <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#E63946"
-          />
-        }
-      >
-        {isLoading ? (
-          <WalletSkeleton />
-        ) : (
-          <MotiView
-            from={{ opacity: 0, translateY: 12 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "timing", duration: 280 }}
-            style={{ gap: 16 }}
-          >
-            <View className="flex-row gap-3">
-              <BalanceCard
-                label="Solde disponible"
-                amount={availableBalance}
-                accentClassName="text-emerald-600"
-              />
-              <BalanceCard
-                label="En attente"
-                amount={wallet?.pending_balance ?? 0}
-                accentClassName="text-amber-600"
-                hint="Libéré à la confirmation de réception"
-              />
-            </View>
-
-            <Card>
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-3">
-                  <ShieldCheck size={20} color="#64748b" />
-                  <View>
-                    <Text className="text-sm font-medium">
-                      Vérification KYC
-                    </Text>
-                    <Text variant="caption">Stripe Connect</Text>
-                  </View>
-                </View>
-                <KycBadge status={kycStatus} />
+      <SafeAreaView edges={["bottom"]} className="flex-1">
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 16 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#E63946"
+            />
+          }
+        >
+          {isLoading ? (
+            <WalletSkeleton />
+          ) : balanceQuery.isError && wallet == null ? (
+            <ErrorState
+              variant="card"
+              title="Solde inaccessible"
+              description={
+                balanceQuery.error instanceof Error
+                  ? balanceQuery.error.message
+                  : "Réessayez dans un instant."
+              }
+              action={{
+                label: "Réessayer",
+                onPress: () => void refetchAll(),
+              }}
+            />
+          ) : (
+            <MotiView
+              from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
+              animate={fadeInUp.animate}
+              transition={fadeInUp.transition}
+              style={{ gap: 16 }}
+            >
+              <View className="flex-row gap-3">
+                <BalanceCard
+                  label="Solde disponible"
+                  amount={availableBalance}
+                  accentClassName="text-emerald-600"
+                />
+                <BalanceCard
+                  label="En attente"
+                  amount={wallet?.pending_balance ?? 0}
+                  accentClassName="text-amber-600"
+                  hint="Libéré à la confirmation de réception"
+                />
               </View>
-            </Card>
 
-            {(kycStatus === "UNVERIFIED" ||
-              kycStatus === "PENDING" ||
-              kycStatus === "REQUIRED" ||
-              kycStatus === "REJECTED") && (
+              <Card>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-3">
+                    <ShieldCheck size={20} color="#64748b" />
+                    <View>
+                      <Text className="text-sm font-medium">
+                        Vérification KYC
+                      </Text>
+                      <Text variant="caption">Stripe Connect</Text>
+                    </View>
+                  </View>
+                  <KycBadge status={kycStatus} />
+                </View>
+              </Card>
+
+              {(kycStatus === "UNVERIFIED" ||
+                kycStatus === "PENDING" ||
+                kycStatus === "REQUIRED" ||
+                kycStatus === "REJECTED") && (
+                <MotiView
+                  from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
+                  animate={fadeInUp.animate}
+                  transition={{
+                    ...(fadeInUp.transition as object),
+                    delay: 80,
+                  }}
+                >
+                  <Button
+                    size="lg"
+                    loading={onboardMutation.isPending}
+                    onPress={handleOnboard}
+                    leftIcon={
+                      onboardMutation.isPending ? null : (
+                        <ExternalLink size={18} color="#fff" />
+                      )
+                    }
+                  >
+                    {kycStatus === "UNVERIFIED"
+                      ? "Compléter mon identité (KYC)"
+                      : "Reprendre la vérification"}
+                  </Button>
+                </MotiView>
+              )}
+
               <MotiView
-                from={{ opacity: 0, translateY: 8 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ delay: 80 }}
+                from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
+                animate={fadeInUp.animate}
+                transition={{
+                  ...(fadeInUp.transition as object),
+                  delay: 120,
+                }}
               >
                 <Button
+                  variant="outline"
                   size="lg"
-                  loading={onboardMutation.isPending}
-                  onPress={handleOnboard}
+                  disabled={!canPayout}
+                  loading={payoutMutation.isPending}
+                  onPress={() => {
+                    Alert.alert(
+                      "Demander un virement",
+                      `Vous allez recevoir ${formatPrice(availableBalance)} sur votre compte bancaire sous 1 à 3 jours ouvrés.`,
+                      [
+                        { text: "Annuler", style: "cancel" },
+                        {
+                          text: "Confirmer",
+                          style: "default",
+                          onPress: handlePayout,
+                        },
+                      ],
+                    );
+                  }}
                   leftIcon={
-                    onboardMutation.isPending ? null : (
-                      <ExternalLink size={18} color="#fff" />
+                    payoutMutation.isPending ? null : (
+                      <ArrowUpRight size={18} color="#0f172a" />
                     )
                   }
                 >
-                  {kycStatus === "UNVERIFIED"
-                    ? "Compléter mon identité (KYC)"
-                    : "Reprendre la vérification"}
+                  {availableBalance > 0
+                    ? `Virer ${formatPrice(availableBalance)}`
+                    : "Demander un virement"}
                 </Button>
+                {!isVerified && (
+                  <Text variant="caption" className="mt-2 text-center">
+                    Complétez la vérification KYC pour demander un virement
+                  </Text>
+                )}
+                {isVerified && availableBalance === 0 && (
+                  <Text variant="caption" className="mt-2 text-center">
+                    Aucun solde disponible pour le moment
+                  </Text>
+                )}
               </MotiView>
-            )}
 
-            <MotiView
-              from={{ opacity: 0, translateY: 8 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: 120 }}
-            >
-              <Button
-                variant="outline"
-                size="lg"
-                disabled={!canPayout}
-                loading={payoutMutation.isPending}
-                onPress={() => {
-                  Alert.alert(
-                    "Demander un virement",
-                    `Vous allez recevoir ${formatPrice(availableBalance)} sur votre compte bancaire sous 1 à 3 jours ouvrés.`,
-                    [
-                      { text: "Annuler", style: "cancel" },
-                      {
-                        text: "Confirmer",
-                        style: "default",
-                        onPress: handlePayout,
-                      },
-                    ],
-                  );
-                }}
-                leftIcon={
-                  payoutMutation.isPending ? null : (
-                    <ArrowUpRight size={18} color="#0f172a" />
-                  )
-                }
+              <Pressable
+                onPress={() => router.push("/transactions")}
+                className="mt-2 flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
               >
-                {availableBalance > 0
-                  ? `Virer ${formatPrice(availableBalance)}`
-                  : "Demander un virement"}
-              </Button>
-              {!isVerified && (
-                <Text variant="caption" className="mt-2 text-center">
-                  Complétez la vérification KYC pour demander un virement
-                </Text>
-              )}
-              {isVerified && availableBalance === 0 && (
-                <Text variant="caption" className="mt-2 text-center">
-                  Aucun solde disponible pour le moment
-                </Text>
-              )}
+                <View className="flex-row items-center gap-3">
+                  <Receipt size={18} color="#0f172a" />
+                  <Text className="font-medium">
+                    Historique des transactions
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94a3b8" />
+              </Pressable>
             </MotiView>
-
-            <Pressable
-              onPress={() => router.push("/transactions")}
-              className="mt-2 flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
-            >
-              <View className="flex-row items-center gap-3">
-                <Receipt size={18} color="#0f172a" />
-                <Text className="font-medium">Historique des transactions</Text>
-              </View>
-              <ChevronRight size={18} color="#94a3b8" />
-            </Pressable>
-          </MotiView>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 

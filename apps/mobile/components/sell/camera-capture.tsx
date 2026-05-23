@@ -14,6 +14,7 @@ import { Aperture, SwitchCamera, X } from "lucide-react-native";
 import { CameraOverlay, getOverlayCropRatios } from "./camera-overlay";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
+import { duration } from "@/lib/motion";
 
 export type CapturedImage = {
   uri: string;
@@ -218,7 +219,7 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
               from={{ opacity: 0, translateY: 8 }}
               animate={{ opacity: 1, translateY: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ type: "timing", duration: 200 }}
+              transition={{ type: "timing", duration: duration.fast }}
               style={{
                 position: "absolute",
                 left: 16,

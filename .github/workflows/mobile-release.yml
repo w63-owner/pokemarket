@@ -7,11 +7,11 @@ name: Mobile - EAS build & submit
 #
 # Required GitHub secrets (Settings -> Environments -> mobile-production):
 #   EXPO_TOKEN                 (from https://expo.dev/accounts/<owner>/settings/access-tokens)
-#   SENTRY_AUTH_TOKEN          (project:write scope)
-#   SENTRY_ORG
-#   SENTRY_PROJECT             (e.g. "pokemarket-mobile")
 #
 # Required EAS secrets (created with `eas secret:create` once per project):
+#   SENTRY_AUTH_TOKEN           (required for production native builds — NOT forwarded from GH Actions)
+#   SENTRY_ORG                  (optional if set in eas.json production env)
+#   SENTRY_PROJECT              (optional if set in eas.json production env)
 #   APPLE_APP_SPECIFIC_PASSWORD (used by `eas submit --platform ios`)
 #   GOOGLE_SERVICE_ACCOUNT      (used by `eas submit --platform android`)
 #
@@ -80,13 +80,12 @@ jobs:
           echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
           echo "Resolved profile: $PROFILE"
 
+      # SENTRY_* in this job env are NOT sent to EAS cloud builders — configure
+      # them as EAS project secrets (`eas secret:create`) for production builds.
       - name: Trigger EAS build (iOS + Android)
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: |
           eas build \
             --profile "${{ steps.profile.outputs.profile }}" \

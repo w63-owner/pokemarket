@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/cn";
+import { duration, fadeInUp, staggerDelay } from "@/lib/motion";
 
 const MANUAL_VALUE = "__manual__";
 
@@ -102,7 +103,7 @@ function CandidateCard({
             <MotiView
               from={{ width: "0%" }}
               animate={{ width: `${candidate.confidence}%` }}
-              transition={{ type: "timing", duration: 500 }}
+              transition={{ type: "timing", duration: duration.slow }}
               className={cn(
                 "h-full rounded-full",
                 confidenceColor(candidate.confidence),
@@ -181,9 +182,13 @@ export function OcrResults({ candidates, isLoading, onSelect }: Props) {
           onPress={() => handleChange(candidate.card_key)}
         >
           <MotiView
-            from={{ opacity: 0, translateY: 8 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: "timing", duration: 200, delay: i * 50 }}
+            from={fadeInUp.from}
+            animate={fadeInUp.animate}
+            transition={{
+              type: "timing",
+              duration: duration.fast,
+              delay: staggerDelay(i, 50, 10),
+            }}
           >
             <CandidateCard
               candidate={candidate}
@@ -195,12 +200,12 @@ export function OcrResults({ candidates, isLoading, onSelect }: Props) {
 
       <Pressable onPress={() => handleChange(MANUAL_VALUE)}>
         <MotiView
-          from={{ opacity: 0, translateY: 8 }}
-          animate={{ opacity: 1, translateY: 0 }}
+          from={fadeInUp.from}
+          animate={fadeInUp.animate}
           transition={{
             type: "timing",
-            duration: 200,
-            delay: candidates.length * 50,
+            duration: duration.fast,
+            delay: staggerDelay(candidates.length, 50, 10),
           }}
           className={cn(
             "flex-row items-center gap-3 rounded-2xl border border-dashed p-3",

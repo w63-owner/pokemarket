@@ -8,7 +8,6 @@ import { MotiView } from "moti";
 import {
   Ban,
   Check,
-  ChevronLeft,
   Clock,
   CreditCard,
   Inbox,
@@ -45,6 +44,10 @@ import {
   Text,
   toast,
 } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { EmptyState, ErrorState } from "@/components/shared";
+import { duration, fadeInUp, staggerDelay } from "@/lib/motion";
+import { haptic } from "@/lib/haptics";
 
 type StatusKey = "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
 
@@ -178,28 +181,40 @@ function ReceivedOfferCard({
         offer.conversation_id!,
       ),
     onSuccess: () => {
+      haptic("success");
       toast.success("Offre acceptée !");
       invalidate();
     },
-    onError: () => toast.error("Impossible d'accepter l'offre"),
+    onError: () => {
+      haptic("error");
+      toast.error("Impossible d'accepter l'offre");
+    },
   });
 
   const rejectMut = useMutation({
     mutationFn: () => rejectOffer(offer.id, offer.conversation_id!),
     onSuccess: () => {
+      haptic("success");
       toast.success("Offre refusée");
       invalidate();
     },
-    onError: () => toast.error("Impossible de refuser l'offre"),
+    onError: () => {
+      haptic("error");
+      toast.error("Impossible de refuser l'offre");
+    },
   });
 
   const isMutating = acceptMut.isPending || rejectMut.isPending;
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 6 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 220, delay: index * 25 }}
+      from={fadeInUp.from}
+      animate={fadeInUp.animate}
+      transition={{
+        type: "timing",
+        duration: duration.fast,
+        delay: staggerDelay(index, 25, 10),
+      }}
     >
       <View className="flex-row gap-3 rounded-2xl border border-border bg-card p-3">
         <CardThumbnail
@@ -238,7 +253,10 @@ function ReceivedOfferCard({
             <View className="mt-2 flex-row gap-2">
               <Button
                 size="sm"
-                onPress={() => acceptMut.mutate()}
+                onPress={() => {
+                  haptic("confirm");
+                  acceptMut.mutate();
+                }}
                 disabled={isMutating}
                 loading={acceptMut.isPending}
                 leftIcon={<Check size={14} color="#fff" />}
@@ -248,7 +266,10 @@ function ReceivedOfferCard({
               <Button
                 size="sm"
                 variant="destructive"
-                onPress={() => rejectMut.mutate()}
+                onPress={() => {
+                  haptic("confirm");
+                  rejectMut.mutate();
+                }}
                 disabled={isMutating}
                 loading={rejectMut.isPending}
                 leftIcon={<X size={14} color="#fff" />}
@@ -275,18 +296,26 @@ function SentOfferCard({
   const cancelMut = useMutation({
     mutationFn: () => cancelOffer(offer.id, offer.conversation_id!),
     onSuccess: () => {
+      haptic("success");
       toast.success("Offre annulée");
       queryClient.invalidateQueries({ queryKey: queryKeys.offers.sent() });
       queryClient.invalidateQueries({ queryKey: queryKeys.offers.received() });
     },
-    onError: () => toast.error("Impossible d'annuler l'offre"),
+    onError: () => {
+      haptic("error");
+      toast.error("Impossible d'annuler l'offre");
+    },
   });
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 6 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 220, delay: index * 25 }}
+      from={fadeInUp.from}
+      animate={fadeInUp.animate}
+      transition={{
+        type: "timing",
+        duration: duration.fast,
+        delay: staggerDelay(index, 25, 10),
+      }}
     >
       <View className="flex-row gap-3 rounded-2xl border border-border bg-card p-3">
         <CardThumbnail
@@ -326,7 +355,10 @@ function SentOfferCard({
               <Button
                 size="sm"
                 variant="outline"
-                onPress={() => cancelMut.mutate()}
+                onPress={() => {
+                  haptic("confirm");
+                  cancelMut.mutate();
+                }}
                 disabled={cancelMut.isPending}
                 loading={cancelMut.isPending}
                 leftIcon={<X size={14} color="#0f172a" />}
@@ -341,7 +373,10 @@ function SentOfferCard({
               <Button
                 size="sm"
                 variant="outline"
-                onPress={() => cancelMut.mutate()}
+                onPress={() => {
+                  haptic("confirm");
+                  cancelMut.mutate();
+                }}
                 disabled={cancelMut.isPending}
                 loading={cancelMut.isPending}
               >
@@ -411,162 +446,137 @@ export default function OffersScreen() {
     sent?.filter((o) => o.status === "PENDING").length ?? 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-2 border-b border-border bg-background px-2 py-2">
-        <Pressable
-          onPress={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace("/(tabs)/inbox");
-          }}
-          hitSlop={8}
-          className="h-9 w-9 items-center justify-center rounded-full"
-        >
-          <ChevronLeft size={22} color="#0f172a" />
-        </Pressable>
-        <Text variant="h3" className="flex-1">
-          Mes offres
-        </Text>
-      </View>
+      <MobileHeader title="Mes offres" fallbackHref="/(tabs)/inbox" />
 
-      <View className="px-4 pt-4">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-          <TabsList>
-            <TabsTrigger value="received">
-              <View className="flex-row items-center gap-1.5">
-                <Inbox size={14} color="#0f172a" />
-                <Text className="text-sm font-medium">Reçues</Text>
-                {pendingReceivedCount > 0 ? (
-                  <View className="ml-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
-                    <Text className="text-[10px] font-bold text-primary-foreground">
-                      {pendingReceivedCount}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            </TabsTrigger>
-            <TabsTrigger value="sent">
-              <View className="flex-row items-center gap-1.5">
-                <Send size={14} color="#0f172a" />
-                <Text className="text-sm font-medium">Envoyées</Text>
-                {pendingSentCount > 0 ? (
-                  <View className="ml-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
-                    <Text className="text-[10px] font-bold text-primary-foreground">
-                      {pendingSentCount}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            </TabsTrigger>
-          </TabsList>
+      <SafeAreaView edges={["bottom"]} className="flex-1">
+        <View className="px-4 pt-4">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <TabsList>
+              <TabsTrigger value="received">
+                <View className="flex-row items-center gap-1.5">
+                  <Inbox size={14} color="#0f172a" />
+                  <Text className="text-sm font-medium">Reçues</Text>
+                  {pendingReceivedCount > 0 ? (
+                    <View className="ml-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
+                      <Text className="text-[10px] font-bold text-primary-foreground">
+                        {pendingReceivedCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </TabsTrigger>
+              <TabsTrigger value="sent">
+                <View className="flex-row items-center gap-1.5">
+                  <Send size={14} color="#0f172a" />
+                  <Text className="text-sm font-medium">Envoyées</Text>
+                  {pendingSentCount > 0 ? (
+                    <View className="ml-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
+                      <Text className="text-[10px] font-bold text-primary-foreground">
+                        {pendingSentCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="received">
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 32, gap: 12 }}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refReceived}
-                  onRefresh={refetchReceived}
-                  tintColor="#E63946"
-                />
-              }
-            >
-              {loadingReceived ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <OfferCardSkeleton key={i} />
-                ))
-              ) : errorReceived ? (
-                <EmptyBlock
-                  title="Erreur de chargement"
-                  description="Impossible de charger vos offres reçues."
-                  ctaLabel="Réessayer"
-                  onCta={invalidateOffers}
-                />
-              ) : received && received.length > 0 ? (
-                received.map((offer, i) => (
-                  <ReceivedOfferCard key={offer.id} offer={offer} index={i} />
-                ))
-              ) : (
-                <EmptyBlock
-                  title="Aucune offre reçue"
-                  description="Les offres faites sur vos annonces apparaîtront ici."
-                />
-              )}
-            </ScrollView>
-          </TabsContent>
+            <TabsContent value="received">
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 32, gap: 12 }}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refReceived}
+                    onRefresh={refetchReceived}
+                    tintColor="#E63946"
+                  />
+                }
+              >
+                {loadingReceived ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <OfferCardSkeleton key={i} />
+                  ))
+                ) : errorReceived ? (
+                  <ErrorState
+                    variant="card"
+                    title="Impossible de charger vos offres reçues"
+                    description={
+                      errorReceived instanceof Error
+                        ? errorReceived.message
+                        : "Réessayez dans un instant."
+                    }
+                    action={{
+                      label: "Réessayer",
+                      onPress: () => void refetchReceived(),
+                    }}
+                  />
+                ) : received && received.length > 0 ? (
+                  received.map((offer, i) => (
+                    <ReceivedOfferCard key={offer.id} offer={offer} index={i} />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon={<Tag size={22} color="#94a3b8" />}
+                    title="Aucune offre reçue"
+                    description="Les offres faites sur vos annonces apparaîtront ici."
+                  />
+                )}
+              </ScrollView>
+            </TabsContent>
 
-          <TabsContent value="sent">
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 32, gap: 12 }}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refSent}
-                  onRefresh={refetchSent}
-                  tintColor="#E63946"
-                />
-              }
-            >
-              {loadingSent ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <OfferCardSkeleton key={i} />
-                ))
-              ) : errorSent ? (
-                <EmptyBlock
-                  title="Erreur de chargement"
-                  description="Impossible de charger vos offres envoyées."
-                  ctaLabel="Réessayer"
-                  onCta={invalidateOffers}
-                />
-              ) : sent && sent.length > 0 ? (
-                sent.map((offer, i) => (
-                  <SentOfferCard key={offer.id} offer={offer} index={i} />
-                ))
-              ) : (
-                <EmptyBlock
-                  title="Aucune offre envoyée"
-                  description="Parcourez les annonces et faites des offres aux vendeurs !"
-                  ctaLabel="Explorer le marché"
-                  onCta={() => router.push("/(tabs)")}
-                />
-              )}
-            </ScrollView>
-          </TabsContent>
-        </Tabs>
-      </View>
-    </SafeAreaView>
-  );
-}
-
-function EmptyBlock({
-  title,
-  description,
-  ctaLabel,
-  onCta,
-}: {
-  title: string;
-  description: string;
-  ctaLabel?: string;
-  onCta?: () => void;
-}) {
-  return (
-    <View className="items-center gap-2 py-16">
-      <View className="size-12 items-center justify-center rounded-full bg-muted">
-        <Tag size={20} color="#94a3b8" />
-      </View>
-      <Text variant="h4" className="text-center">
-        {title}
-      </Text>
-      <Text variant="muted" className="text-center">
-        {description}
-      </Text>
-      {ctaLabel && onCta ? (
-        <Button onPress={onCta} className="mt-2">
-          {ctaLabel}
-        </Button>
-      ) : null}
+            <TabsContent value="sent">
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 32, gap: 12 }}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refSent}
+                    onRefresh={refetchSent}
+                    tintColor="#E63946"
+                  />
+                }
+              >
+                {loadingSent ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <OfferCardSkeleton key={i} />
+                  ))
+                ) : errorSent ? (
+                  <ErrorState
+                    variant="card"
+                    title="Impossible de charger vos offres envoyées"
+                    description={
+                      errorSent instanceof Error
+                        ? errorSent.message
+                        : "Réessayez dans un instant."
+                    }
+                    action={{
+                      label: "Réessayer",
+                      onPress: () => void refetchSent(),
+                    }}
+                  />
+                ) : sent && sent.length > 0 ? (
+                  sent.map((offer, i) => (
+                    <SentOfferCard key={offer.id} offer={offer} index={i} />
+                  ))
+                ) : (
+                  <EmptyState
+                    icon={<Tag size={22} color="#94a3b8" />}
+                    title="Aucune offre envoyée"
+                    description="Parcourez les annonces et faites des offres aux vendeurs !"
+                    action={{
+                      label: "Explorer le marché",
+                      onPress: () => router.push("/(tabs)"),
+                    }}
+                  />
+                )}
+              </ScrollView>
+            </TabsContent>
+          </Tabs>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }

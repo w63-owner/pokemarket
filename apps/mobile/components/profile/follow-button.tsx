@@ -2,17 +2,26 @@ import { useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { Heart, UserPlus } from "lucide-react-native";
 import { MotiView, useAnimationState } from "moti";
+import { router } from "expo-router";
+import { useAuth } from "@/hooks/use-auth";
 import { useSellerFollowStatus, useToggleFollow } from "@/hooks/use-profile";
 import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { spring } from "@/lib/motion";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
   sellerId: string;
+  /** Dense layout for list rows (favorites → vendeurs suivis). */
+  compact?: boolean;
 };
 
-export function FollowButton({ sellerId }: Props) {
+export function FollowButton({ sellerId, compact }: Props) {
+  const { user } = useAuth();
   const { data: isFollowing = false } = useSellerFollowStatus(sellerId);
   const toggle = useToggleFollow(sellerId);
+  const primary = useThemeColor("primary");
+  const primaryForeground = useThemeColor("primaryForeground");
 
   // `useAnimationState` is a Moti primitive that re-runs the transition
   // each time the active state name changes — perfect for a tap-scale.
@@ -27,28 +36,47 @@ export function FollowButton({ sellerId }: Props) {
 
   return (
     <Pressable
-      onPress={() => toggle.mutate(!isFollowing)}
+      onPress={() => {
+        if (!user) {
+          router.push("/(auth)/login");
+          return;
+        }
+        toggle.mutate(!isFollowing);
+      }}
       onPressIn={() => pressState.transitionTo("pressed")}
       onPressOut={() => pressState.transitionTo("rest")}
       disabled={toggle.isPending}
     >
       <MotiView
         state={pressState}
-        transition={{ type: "timing", duration: 90 }}
+        transition={spring.snappy}
         className={cn(
-          "h-12 flex-row items-center justify-center gap-2 rounded-full px-5",
+          "flex-row items-center justify-center gap-2",
+          compact ? "h-9 rounded-xl px-3" : "h-12 rounded-full px-5",
           isFollowing ? "border border-border bg-card" : "bg-primary",
         )}
       >
         {isFollowing ? (
           <>
-            <Heart size={18} color="#E63946" fill="#E63946" />
-            <Text className="text-sm font-semibold text-foreground">Suivi</Text>
+            <Heart size={compact ? 15 : 18} color={primary} fill={primary} />
+            <Text
+              className={cn(
+                "font-semibold text-foreground",
+                compact ? "text-xs" : "text-sm",
+              )}
+            >
+              Suivi
+            </Text>
           </>
         ) : (
           <>
-            <UserPlus size={18} color="#fff" />
-            <Text className="text-sm font-semibold text-primary-foreground">
+            <UserPlus size={compact ? 15 : 18} color={primaryForeground} />
+            <Text
+              className={cn(
+                "font-semibold text-primary-foreground",
+                compact ? "text-xs" : "text-sm",
+              )}
+            >
               Suivre
             </Text>
           </>

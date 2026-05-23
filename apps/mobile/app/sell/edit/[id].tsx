@@ -28,9 +28,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SmartBackButton } from "@/components/ui/smart-back-button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { MobileHeader } from "@/components/layout/mobile-header";
 import type { UploadedListingImage } from "@/lib/api/listings";
 
 export default function EditListingScreen() {
@@ -125,14 +125,13 @@ export default function EditListingScreen() {
   const defaults = buildFormDefaults(listing);
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center gap-3 border-b border-border px-3 py-2">
-        <SmartBackButton fallbackHref={`/listing/${listing.id}`} />
-        <Text variant="h4" className="flex-1">
-          Modifier l&apos;annonce
-        </Text>
-      </View>
+
+      <MobileHeader
+        title="Modifier l’annonce"
+        fallbackHref={`/listing/${listing.id}`}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -209,7 +208,7 @@ export default function EditListingScreen() {
           </Button>
         </DialogFooter>
       </Dialog>
-    </SafeAreaView>
+    </View>
   );
 }
 

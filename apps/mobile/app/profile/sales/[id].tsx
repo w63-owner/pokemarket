@@ -25,15 +25,11 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useSaleDetail } from "@/hooks/use-transactions";
 import { supabase } from "@/lib/supabase";
+import { fadeInUp } from "@/lib/motion";
 import { TransactionActions } from "@/components/messages";
-import {
-  Badge,
-  Card,
-  Separator,
-  Skeleton,
-  SmartBackButton,
-  Text,
-} from "@/components/ui";
+import { Badge, Card, Separator, Skeleton, Text } from "@/components/ui";
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { ErrorState } from "@/components/shared";
 
 const STATUS_CONFIG: Record<
   string,
@@ -112,7 +108,7 @@ export default function SaleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
 
-  const { data: sale, isLoading } = useSaleDetail(id);
+  const { data: sale, isLoading, isError, error, refetch } = useSaleDetail(id);
 
   // Resolve the conversation associated with the sale (listing + buyer +
   // seller is unique). Required so that ship/dispute/confirm actions can
@@ -143,6 +139,28 @@ export default function SaleDetailScreen() {
     if (sale?.listing?.id) return `/listing/${sale.listing.id}`;
     return null;
   }, [sale, conversationQuery.data]);
+
+  if (!isLoading && isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <MobileHeader title="Erreur" fallbackHref="/transactions" />
+        <View className="flex-1 justify-center px-4">
+          <ErrorState
+            variant="card"
+            title="Vente inaccessible"
+            description={
+              error instanceof Error ? error.message : "Réessayez plus tard."
+            }
+            action={{
+              label: "Réessayer",
+              onPress: () => void refetch(),
+            }}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isLoading) return <SaleDetailSkeleton />;
 
@@ -178,19 +196,16 @@ export default function SaleDetailScreen() {
     !!sale.shipping_address_line || !!sale.shipping_address_city;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-3 border-b border-border bg-card px-2 py-3">
-        <SmartBackButton fallbackHref="/transactions" />
-        <Text className="text-base font-semibold">Détail de la vente</Text>
-      </View>
+      <MobileHeader title="Détail de la vente" fallbackHref="/transactions" />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         <MotiView
-          from={{ opacity: 0, translateY: 10 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "timing", duration: 280 }}
+          from={fadeInUp.from}
+          animate={fadeInUp.animate}
+          transition={fadeInUp.transition}
           style={{ gap: 16 }}
         >
           <View>
@@ -408,7 +423,7 @@ export default function SaleDetailScreen() {
           ) : null}
         </MotiView>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -443,12 +458,9 @@ function Row({
 
 function SaleDetailSkeleton() {
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <View className="flex-row items-center gap-3 border-b border-border bg-card px-2 py-3">
-        <View className="h-9 w-9 rounded-full bg-muted" />
-        <Skeleton className="h-5 w-40" />
-      </View>
+      <MobileHeader title="Détail de la vente" fallbackHref="/transactions" />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
         <Skeleton className="h-7 w-32 rounded-full" />
         <Skeleton className="h-32 rounded-2xl" />
@@ -456,6 +468,6 @@ function SaleDetailSkeleton() {
         <Skeleton className="h-20 rounded-2xl" />
         <Skeleton className="h-28 rounded-2xl" />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

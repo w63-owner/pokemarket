@@ -4,7 +4,11 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "node": "22.19.0"
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -17,10 +21,12 @@
       },
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app"
+        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "ios": {
         "simulator": false,
@@ -32,10 +38,12 @@
       },
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app"
+        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "channel": "production",
       "ios": {
@@ -47,42 +55,18 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pokemarket.app"
-      },
-      "hooks": {
-        "onSuccess": "./eas-hooks/eas-build-on-success.sh"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "TODO_APP_STORE_CONNECT_APP_ID",
-        "appleId": "TODO_APPLE_ID_EMAIL",
-        "appleTeamId": "TODO_APPLE_TEAM_ID",
-        "ascApiKeyPath": "../../secrets/asc-api-key.p8",
-        "ascApiKeyId": "TODO_ASC_API_KEY_ID",
-        "ascApiKeyIssuerId": "TODO_ASC_API_KEY_ISSUER_ID"
+        "ascAppId": "TODO_APP_STORE_CONNECT_ID"
       },
       "android": {
         "serviceAccountKeyPath": "../../secrets/play-store-service-account.json",
-        "track": "internal",
-        "releaseStatus": "draft",
-        "changesNotSentForReview": false
+        "track": "internal"
       }
-    },
-    "production-prod-track": {
-      "extends": "production",
-      "android": {
-        "track": "production",
-        "rollout": 0.1,
-        "releaseStatus": "inProgress"
-      }
-    }
-  },
-  "metadata": {
-    "production": {
-      "$comment": "Used by `eas metadata:push --profile production`. Reads apps/mobile/store.config.json relative to the project root.",
-      "configPath": "./store.config.json"
     }
   }
 }

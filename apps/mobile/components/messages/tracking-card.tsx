@@ -3,6 +3,7 @@ import { MotiView } from "moti";
 import { ExternalLink, Hash, Package } from "lucide-react-native";
 import type { Message } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
+import { fadeInScale, spring, useReducedMotionSafe } from "@/lib/motion";
 
 function normalizeUrl(url: string): string {
   const trimmed = url.trim();
@@ -38,11 +39,13 @@ export function TrackingCard({ message }: TrackingCardProps) {
       })
     : null;
 
+  const reduceMotion = useReducedMotionSafe();
+
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.95, translateY: 4 }}
-      animate={{ opacity: 1, scale: 1, translateY: 0 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      from={reduceMotion ? fadeInScale.animate : fadeInScale.from}
+      animate={fadeInScale.animate}
+      transition={spring.snappy}
       style={{ alignSelf: "center", paddingVertical: 6 }}
     >
       <View className="w-72 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50">
