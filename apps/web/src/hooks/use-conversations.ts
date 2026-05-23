@@ -21,6 +21,29 @@ export function useConversations() {
 
 export function useUnreadCount() {
   const { user } = useAuth();
+
+  return useQuery({
+    queryKey: queryKeys.conversations.unreadCount(),
+    queryFn: fetchUnreadCount,
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+    enabled: !!user,
+  });
+}
+
+/**
+ * Subscribes to realtime INSERTs on `messages` and invalidates the unread
+ * count query when a new message arrives from someone else.
+ *
+ * MUST be mounted at most once per browser tab. The Supabase realtime client
+ * deduplicates channels by topic, so a second mount with the same channel
+ * name throws "cannot add postgres_changes callbacks after subscribe()" — that
+ * uncaught throw crashes the React root and triggers global-error.tsx.
+ * Mount it from the top-level `Providers` component, never from leaf UI
+ * (Header / TabBar both render `useUnreadCount` and would collide otherwise).
+ */
+export function useUnreadCountSubscription() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const handleChange = useCallback(
@@ -41,14 +64,6 @@ export function useUnreadCount() {
     table: "messages",
     event: "INSERT",
     onInsert: handleChange,
-    enabled: !!user,
-  });
-
-  return useQuery({
-    queryKey: queryKeys.conversations.unreadCount(),
-    queryFn: fetchUnreadCount,
-    staleTime: 15_000,
-    refetchInterval: 60_000,
     enabled: !!user,
   });
 }
