@@ -1,25 +1,31 @@
-import { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Link, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema } from "@pokemarket/shared";
 import type { z } from "zod";
+import { Fingerprint } from "lucide-react-native";
 import { Button, Input, Label, Text } from "@/components/ui";
 import { toast } from "@/components/ui/toast";
 import { supabase } from "@/lib/supabase";
+import {
+  getBiometryCapability,
+  isBiometryEnabled,
+  unlockWithBiometry,
+} from "@/lib/biometry";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type FormValues = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState("Biométrie");
+  const [biometricBusy, setBiometricBusy] = useState(false);
+  const foreground = useThemeColor("foreground");
   const {
     control,
     handleSubmit,
@@ -28,6 +34,40 @@ export default function LoginScreen() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([isBiometryEnabled(), getBiometryCapability()]).then(
+      ([enabled, capability]) => {
+        if (cancelled) return;
+        setBiometricLabel(capability.label);
+        setBiometricAvailable(
+          enabled && capability.hasHardware && capability.isEnrolled,
+        );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleBiometricUnlock = async () => {
+    setBiometricBusy(true);
+    const result = await unlockWithBiometry();
+    setBiometricBusy(false);
+    if (result.ok) {
+      router.replace("/(tabs)");
+      return;
+    }
+    if (result.reason === "biometry-failed") {
+      // User cancelled the system prompt — silent.
+      return;
+    }
+    if (result.reason === "refresh-failed") {
+      toast.error("Reconnexion requise", result.message);
+      setBiometricAvailable(false);
+    }
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitting(true);
@@ -42,10 +82,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        className="flex-1"
-      >
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, padding: 24 }}
           keyboardShouldPersistTaps="handled"
@@ -120,6 +157,19 @@ export default function LoginScreen() {
             <Button onPress={onSubmit} loading={submitting}>
               Se connecter
             </Button>
+
+            {biometricAvailable ? (
+              <Pressable
+                onPress={handleBiometricUnlock}
+                disabled={biometricBusy}
+                className="flex-row items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 active:opacity-80"
+              >
+                <Fingerprint size={18} color={foreground} />
+                <Text className="font-semibold">
+                  Se connecter avec {biometricLabel}
+                </Text>
+              </Pressable>
+            ) : null}
 
             <View className="flex-row items-center justify-center gap-1">
               <Text variant="muted">Pas encore de compte ?</Text>

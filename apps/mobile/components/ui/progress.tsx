@@ -4,6 +4,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { cn } from "@/lib/cn";
+import { duration } from "@/lib/motion";
 
 export function Progress({
   value,
@@ -15,7 +16,7 @@ export function Progress({
 }) {
   const fillStyle = useAnimatedStyle(() => ({
     width: withTiming(`${Math.max(0, Math.min(100, value))}%`, {
-      duration: 300,
+      duration: duration.normal,
     }),
   }));
 

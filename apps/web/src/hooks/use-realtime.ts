@@ -55,6 +55,42 @@ export function useRealtime<T extends TableName>({
   useEffect(() => {
     if (!enabled) return;
 
+    // #region agent log
+    try {
+      const w = window as unknown as { __rtCounters?: Record<string, number> };
+      w.__rtCounters = w.__rtCounters || {};
+      w.__rtCounters[channelName] = (w.__rtCounters[channelName] || 0) + 1;
+      fetch(
+        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "f9fd1f",
+          },
+          body: JSON.stringify({
+            sessionId: "f9fd1f",
+            hypothesisId: "A",
+            location: "use-realtime.ts:56",
+            message: "useRealtime effect run",
+            data: {
+              channelName,
+              subscribeCallId: w.__rtCounters[channelName],
+              table,
+              event,
+              enabled,
+              hasFilter: Boolean(filter),
+              stack: new Error("trace").stack?.split("\n").slice(1, 6),
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+    } catch {
+      /* noop */
+    }
+    // #endregion
+
     const supabase = createClient();
 
     const channelConfig: {

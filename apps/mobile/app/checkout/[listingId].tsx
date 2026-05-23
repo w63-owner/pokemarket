@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  useKeyboardState,
+} from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { CreditCard, ShieldCheck } from "lucide-react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { ChevronLeft, CreditCard, ShieldCheck } from "lucide-react-native";
 import {
   calcTotalBuyer,
   formatPrice,
@@ -14,16 +21,13 @@ import {
 
 import { useAuth } from "@/hooks/use-auth";
 import { useListing } from "@/hooks/use-listings";
-import { supabase } from "@/lib/supabase";
 import { fetchShippingCost } from "@/lib/api/shipping";
 import { fetchMyProfile } from "@/lib/api/profile";
 import { usePayment } from "@/lib/payments";
 import { Button, Skeleton, Text, toast } from "@/components/ui";
-import { MobileHeader } from "@/components/layout/mobile-header";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
 import { AddressForm } from "@/components/checkout/address-form";
-import { haptic } from "@/lib/haptics";
 
 function isSupportedCountry(value: string | null): value is ShippingCountry {
   return (
@@ -51,6 +55,14 @@ export default function CheckoutScreen() {
   const [hasHydrated, setHasHydrated] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
 
+  // Collapse the bottom safe-area when the keyboard is open: with edge-to-edge
+  // enabled the home indicator / nav bar is occluded by the keyboard, so
+  // reserving `insets.bottom` here would leave a visible empty strip
+  // between the Pay button and the keyboard top.
+  const insets = useSafeAreaInsets();
+  const { isVisible: isKeyboardVisible } = useKeyboardState();
+  const payBarBottomPadding = isKeyboardVisible ? 0 : insets.bottom;
+
   // Hydrate the form once when the profile arrives. Guarded so the user's
   // edits aren't overwritten by a late-arriving profile fetch.
   useEffect(() => {
@@ -74,11 +86,14 @@ export default function CheckoutScreen() {
     enabled: !!listing,
   });
 
-  // The reservation lock is created server-side when the buyer hits "Pay"
-  // (`/api/checkout` writes `transactions.expiration_date = now +
-  // LIMITS.CHECKOUT_LOCK_MINUTES`). Before that, no reservation exists,
-  // so the countdown is informational — but we still source the duration
-  // from the same shared constant the API uses to keep the UI honest.
+  // The countdown is informational before the buyer taps "Pay" (the
+  // server-side reservation lock only exists after `/api/checkout`
+  // creates a PENDING_PAYMENT transaction). We mirror the exact lock
+  // duration the server will impose via `LIMITS.CHECKOUT_LOCK_MINUTES`
+  // (used by `apps/web/src/app/api/checkout/route.ts` to compute
+  // `transactions.expiration_date`) so the buyer never sees a longer
+  // window on screen than they actually get. Parity with the web
+  // checkout-client which does the same.
   const expiresAt = useMemo(
     () => new Date(Date.now() + LIMITS.CHECKOUT_LOCK_MINUTES * 60 * 1000),
     [],
@@ -135,7 +150,6 @@ export default function CheckoutScreen() {
     if (!isFormValid || isProcessing || isExpired) return;
     if (!listing) return;
 
-    haptic("confirm");
     const result = await startPayment({
       listing_id: listing.id,
       shipping_country: country,
@@ -149,21 +163,12 @@ export default function CheckoutScreen() {
       return;
     }
     if (result.status === "cancelled") {
+      // The user cancelled inside PaymentSheet — keep them on the checkout
+      // screen so they can retry without losing their address. The backend
+      // already created a PENDING_PAYMENT transaction; the cron job will
+      // expire it after CHECKOUT_LOCK_MINUTES.
       return;
     }
-
-    // Session expired mid-checkout: sign out and redirect to login so the
-    // user can re-authenticate and try again with a fresh token.
-    if (
-      result.error === "Session expirée. Veuillez vous reconnecter." ||
-      result.error === "Non authentifié"
-    ) {
-      await supabase.auth.signOut();
-      router.replace("/(auth)/login" as never);
-      return;
-    }
-
-    haptic("error");
     toast.error("Paiement impossible", result.error);
   }
 
@@ -171,13 +176,29 @@ export default function CheckoutScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <MobileHeader title="Paiement" fallbackHref={`/listing/${listing.id}`} />
+      <SafeAreaView edges={["top"]} className="border-b border-border bg-card">
+        <View className="flex-row items-center gap-3 px-4 py-3">
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace(`/listing/${listing.id}` as never);
+            }}
+            hitSlop={8}
+            className="h-9 w-9 items-center justify-center rounded-full"
+          >
+            <ChevronLeft size={22} color="#0f172a" />
+          </Pressable>
+          <Text className="text-lg font-semibold">Paiement</Text>
+        </View>
+      </SafeAreaView>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-        className="flex-1"
-      >
+      {/* `KeyboardAvoidingView` from `react-native-keyboard-controller`
+          handles both iOS and Android edge-to-edge correctly — the legacy
+          RN component is a no-op on Android when `behavior` isn't set.
+          No `keyboardVerticalOffset`: the lib computes the KAV's window
+          position itself, so any non-zero offset becomes a visible gap
+          between the keyboard top and the bottom of the content. */}
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 20 }}
           keyboardShouldPersistTaps="handled"
@@ -229,22 +250,20 @@ export default function CheckoutScreen() {
           </View>
         </ScrollView>
 
-        <SafeAreaView
-          edges={["bottom"]}
-          className="border-t border-border bg-card"
+        <View
+          className="border-t border-border bg-card px-4 pt-3"
+          style={{ paddingBottom: payBarBottomPadding + 12 }}
         >
-          <View className="px-4 py-3">
-            <Button
-              size="lg"
-              onPress={handlePay}
-              disabled={!isFormValid || isExpired}
-              loading={isProcessing}
-              leftIcon={<CreditCard size={20} color="#fff" />}
-            >
-              {`Payer ${formatPrice(total)}`}
-            </Button>
-          </View>
-        </SafeAreaView>
+          <Button
+            size="lg"
+            onPress={handlePay}
+            disabled={!isFormValid || isExpired}
+            loading={isProcessing}
+            leftIcon={<CreditCard size={20} color="#fff" />}
+          >
+            {`Payer ${formatPrice(total)}`}
+          </Button>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );

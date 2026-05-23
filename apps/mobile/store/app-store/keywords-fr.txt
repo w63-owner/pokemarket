@@ -1,0 +1,1 @@
+pokemon,cartes,tcg,vente,achat,collection,marketplace,psa,gradée,booster,échange,vinted

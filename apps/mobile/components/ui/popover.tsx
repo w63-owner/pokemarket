@@ -1,6 +1,6 @@
-import { Modal, Pressable, View } from "react-native";
-import { MotiView } from "moti";
+import { View } from "react-native";
 import { cn } from "@/lib/cn";
+import { Sheet } from "./sheet";
 
 type Props = {
   open: boolean;
@@ -10,38 +10,20 @@ type Props = {
 };
 
 /**
- * Mobile popovers should generally be Sheets (bottom sheet) for better UX.
- * This Popover is a centered floating bubble — use sparingly (small menus).
+ * On mobile, popovers are surfaced as bottom sheets — the native
+ * iOS/Android action-sheet pattern. This is a deliberate divergence
+ * from the web `<Popover>` which anchors to its trigger; on phones the
+ * spatial anchor hurts more than it helps because the trigger is often
+ * partially obscured by the keyboard or stuck near the top of the
+ * screen, far from the user's thumb.
+ *
+ * The API matches the previous floating-bubble Popover so call sites
+ * (most importantly `DropdownMenu`) don't need to change.
  */
 export function Popover({ open, onOpenChange, children, className }: Props) {
   return (
-    <Modal
-      visible={open}
-      transparent
-      animationType="none"
-      onRequestClose={() => onOpenChange(false)}
-    >
-      <Pressable
-        onPress={() => onOpenChange(false)}
-        className="flex-1 bg-black/30"
-      >
-        <Pressable
-          onPress={(e) => e.stopPropagation()}
-          className="absolute right-4 top-20"
-        >
-          <MotiView
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "timing", duration: 120 }}
-            className={cn(
-              "rounded-xl border border-border bg-card p-2 shadow-lg",
-              className,
-            )}
-          >
-            {children}
-          </MotiView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <View className={cn("py-2", className)}>{children}</View>
+    </Sheet>
   );
 }

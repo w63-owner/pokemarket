@@ -1,13 +1,10 @@
-"use client";
-
 import { useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query-keys";
-import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { queryKeys, type Database } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtime } from "@/hooks/use-realtime";
-import type { Database } from "@/types/database";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
@@ -46,7 +43,7 @@ export function useUnreadCountSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const handleChange = useCallback(
+  const handleInsert = useCallback(
     (payload: RealtimePostgresChangesPayload<MessageRow>) => {
       const row = (payload.new ?? payload.old) as MessageRow | undefined;
       if (!row) return;
@@ -63,7 +60,7 @@ export function useUnreadCountSubscription() {
     channelName: `unread-badge-${user?.id ?? "anon"}`,
     table: "messages",
     event: "INSERT",
-    onInsert: handleChange,
+    onInsert: handleInsert,
     enabled: !!user,
   });
 }

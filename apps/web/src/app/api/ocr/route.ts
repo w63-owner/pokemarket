@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRequestUser } from "@/lib/auth/api";
 import { ocrRequestSchema, ocrParsedSchema } from "@/lib/validations";
 import { ocrRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import type { OcrCandidate, OcrParsed, OcrResponse } from "@/types/api";
@@ -132,13 +132,9 @@ function computeConfidence(
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user } = await getRequestUser(request);
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: "Authentification requise. Veuillez vous connecter." },
         { status: 401 },

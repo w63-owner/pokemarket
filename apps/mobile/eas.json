@@ -4,7 +4,11 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "node": "22.19.0"
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -17,10 +21,12 @@
       },
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app"
+        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "ios": {
         "simulator": false,
@@ -32,10 +38,12 @@
       },
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app"
+        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "channel": "production",
       "ios": {

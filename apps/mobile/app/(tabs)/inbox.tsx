@@ -14,18 +14,22 @@ import {
 } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
+import { usePresence } from "@/hooks/use-presence";
 import { useRealtime } from "@/hooks/use-realtime";
 import {
   ConversationListItem,
   ConversationListItemSkeleton,
 } from "@/components/messages";
+import { AuthRequired } from "@/components/shared";
 import { Button, Text } from "@/components/ui";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function InboxScreen() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
+  const primary = useThemeColor("primary");
   const {
     data: conversations,
     isLoading,
@@ -67,16 +71,41 @@ export default function InboxScreen() {
     enabled: !!user,
   });
 
+  const onlineIds = usePresence(user?.id);
+
   const renderItem = useCallback(
     ({ item, index }: { item: ConversationPreview; index: number }) => (
       <ConversationListItem
         conversation={item}
         currentUserId={user?.id ?? ""}
         index={index}
+        isOnline={onlineIds.has(item.other_user.id)}
       />
     ),
-    [user?.id],
+    [user?.id, onlineIds],
   );
+
+  // Never render the conversations list while we don't have a confirmed
+  // authenticated user — otherwise the inbox header/skeletons would flash
+  // for a frame before the AuthRequired empty state appears.
+  if (!user) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <View className="flex-row items-center justify-between border-b border-border bg-background px-4 py-3">
+          <Text variant="h2">Messages</Text>
+        </View>
+        {authLoading ? null : (
+          <View className="flex-1 items-center justify-center">
+            <AuthRequired
+              icon={<MessageCircle size={28} color={primary} />}
+              title="Connecte-toi pour accéder à la messagerie"
+              description="Discute avec les vendeurs et acheteurs depuis ton compte."
+            />
+          </View>
+        )}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -86,7 +115,7 @@ export default function InboxScreen() {
           variant="ghost"
           size="sm"
           onPress={() => router.push("/offers")}
-          leftIcon={<Tag size={16} color="#E63946" />}
+          leftIcon={<Tag size={16} color={primary} />}
         >
           Offres
         </Button>
@@ -116,7 +145,6 @@ export default function InboxScreen() {
         <FlashList
           data={conversations}
           renderItem={renderItem}
-          estimatedItemSize={78}
           keyExtractor={(item) => item.id}
           ItemSeparatorComponent={() => (
             <View className="h-[0.5px] bg-border" />
@@ -125,7 +153,7 @@ export default function InboxScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor="#E63946"
+              tintColor={primary}
             />
           }
         />
@@ -145,10 +173,11 @@ function EmptyState({
   ctaLabel: string;
   onCta: () => void;
 }) {
+  const mutedForeground = useThemeColor("mutedForeground");
   return (
     <View className="flex-1 items-center justify-center gap-3 px-8">
       <View className="size-14 items-center justify-center rounded-full bg-muted">
-        <MessageCircle size={26} color="#94a3b8" />
+        <MessageCircle size={26} color={mutedForeground} />
       </View>
       <Text variant="h4" className="text-center">
         {title}

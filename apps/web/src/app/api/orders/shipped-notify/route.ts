@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createElement } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRequestUser } from "@/lib/auth/api";
 import { sendEmail } from "@/lib/emails/send";
 import { sendPushNotification } from "@/lib/push/send";
 import OrderShippedEmail from "@/emails/order-shipped";
@@ -11,10 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getRequestUser(request);
 
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

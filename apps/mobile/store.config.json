@@ -1,0 +1,66 @@
+{
+  "$schema": "https://raw.githubusercontent.com/expo/eas-cli/main/packages/eas-cli/schema/metadata-0.json",
+  "configVersion": 0,
+  "apple": {
+    "info": {
+      "fr-FR": {
+        "title": "PokeMarket",
+        "subtitle": { "$load": "./store/app-store/subtitle-fr.txt" },
+        "description": { "$load": "./store/app-store/description-fr.md" },
+        "keywords": { "$load": "./store/app-store/keywords-fr.txt" },
+        "releaseNotes": { "$load": "./store/release-notes/1.0.0-fr.txt" },
+        "promoText": { "$load": "./store/app-store/promotional-text-fr.txt" },
+        "marketingUrl": "https://pokemarket.app",
+        "supportUrl": "https://pokemarket.app/support",
+        "privacyPolicyUrl": "https://pokemarket.app/legal/privacy"
+      },
+      "en-US": {
+        "title": "PokeMarket",
+        "subtitle": { "$load": "./store/app-store/subtitle-en.txt" },
+        "description": { "$load": "./store/app-store/description-en.md" },
+        "keywords": { "$load": "./store/app-store/keywords-en.txt" },
+        "releaseNotes": { "$load": "./store/release-notes/1.0.0-en.txt" },
+        "promoText": { "$load": "./store/app-store/promotional-text-en.txt" },
+        "marketingUrl": "https://pokemarket.app",
+        "supportUrl": "https://pokemarket.app/support",
+        "privacyPolicyUrl": "https://pokemarket.app/legal/privacy"
+      }
+    },
+    "categories": ["SHOPPING", "LIFESTYLE"],
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingAndContests": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "kidsAgeBand": null,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE",
+      "seventeenPlus": false,
+      "unrestrictedWebAccess": false
+    },
+    "copyright": "© 2026 PokeMarket SAS",
+    "review": {
+      "firstName": "TODO_REVIEWER_FIRST_NAME",
+      "lastName": "TODO_REVIEWER_LAST_NAME",
+      "email": "review@pokemarket.app",
+      "phone": "+33 6 00 00 00 00",
+      "demoUsername": "reviewer@pokemarket.app",
+      "demoPassword": "ReviewerPass2026!",
+      "notes": { "$load": "./store/reviewer/notes-en.md" }
+    },
+    "release": {
+      "automaticRelease": false,
+      "phasedRelease": true
+    }
+  }
+}

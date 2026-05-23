@@ -38,7 +38,8 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO"
       ],
       "intentFilters": [
         {
@@ -87,16 +88,30 @@
           "merchantIdentifier": "merchant.app.pokemarket",
           "enableGooglePay": true
         }
-      ]
+      ],
+      "@sentry/react-native",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/bc712b10-f420-40d2-885f-335f0511ceac",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "eas": {
-        "projectId": "TODO_SET_AFTER_EAS_INIT"
-      }
+        "projectId": "bc712b10-f420-40d2-885f-335f0511ceac"
+      },
+      "router": {}
     },
-    "owner": "TODO_SET_EAS_OWNER"
+    "owner": "antonin40"
   }
 }

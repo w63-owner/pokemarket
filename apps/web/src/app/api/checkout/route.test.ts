@@ -15,12 +15,30 @@ const stripeCreate = vi.fn(async (params: any) => ({
   metadata: params.metadata,
 }));
 const stripeRetrieve = vi.fn(async () => ({ payment_status: "unpaid" }));
+const piRetrieve = vi.fn(async () => ({ status: "requires_confirmation" }));
+const piCreate = vi.fn(async (params: any) => ({
+  id: `pi_test_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+  client_secret: `pi_test_secret_${Math.random().toString(36).slice(2)}`,
+  metadata: params.metadata,
+}));
+const customerCreate = vi.fn(async (params: any) => ({
+  id: `cus_test_${Date.now()}`,
+  email: params.email,
+  name: params.name,
+}));
+const ephemeralKeyCreate = vi.fn(async () => ({
+  id: "ek_test_123",
+  secret: "ek_secret_xyz",
+}));
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
     checkout: {
       sessions: { create: stripeCreate, retrieve: stripeRetrieve },
     },
+    paymentIntents: { create: piCreate, retrieve: piRetrieve },
+    customers: { create: customerCreate },
+    ephemeralKeys: { create: ephemeralKeyCreate },
   }),
 }));
 vi.mock("@/lib/supabase/server", () => ({
@@ -45,10 +63,18 @@ beforeEach(() => {
   currentUser = { id: "buyer-1", email: "buyer@example.com" };
   stripeCreate.mockClear();
   stripeRetrieve.mockClear();
+  piCreate.mockClear();
+  piRetrieve.mockClear();
+  customerCreate.mockClear();
+  ephemeralKeyCreate.mockClear();
 });
 
-function makeReq(body: any) {
-  return new Request("http://localhost/api/checkout", {
+function makeReq(body: any, options: { client?: "mobile" | "web" } = {}) {
+  const url =
+    options.client === "mobile"
+      ? "http://localhost/api/checkout?client=mobile"
+      : "http://localhost/api/checkout";
+  return new Request(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -235,5 +261,68 @@ describe("checkout — CHAOS", () => {
     // in src/app/api/cron/release-expired/route.test.ts.
     expect(db.state.listings[0].status).toBe("LOCKED");
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+  });
+});
+
+describe("checkout — mobile (?client=mobile)", () => {
+  it("returns a Stripe PaymentIntent payload, not the legacy Checkout Session URL", async () => {
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json).toMatchObject({
+      provider: "stripe",
+      mode: "payment_intent",
+    });
+    expect(json.client_secret).toBeTruthy();
+    expect(json.payment_intent_id).toBeTruthy();
+    expect(json.ephemeral_key).toBeTruthy();
+    expect(json.customer_id).toBeTruthy();
+    expect(json.transaction_id).toBeTruthy();
+
+    // Hosted Checkout Sessions API was NOT touched — mobile bypasses it.
+    expect(stripeCreate).not.toHaveBeenCalled();
+    // PaymentIntent was created exactly once with our metadata.
+    expect(piCreate).toHaveBeenCalledTimes(1);
+    const piArgs = piCreate.mock.calls[0][0];
+    expect(piArgs.metadata.transaction_id).toBeTruthy();
+    expect(piArgs.metadata.listing_id).toBe(LISTING_ID);
+    expect(piArgs.metadata.source).toBe("mobile");
+
+    // Listing was locked exactly once and the transaction is PENDING_PAYMENT
+    // until the webhook fires.
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.transactions).toHaveLength(1);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+  });
+
+  it("creates a fresh Stripe customer + saves it on the profile", async () => {
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    expect(db.state.profiles[0].stripe_customer_id).toBeNull();
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(res.status).toBe(200);
+
+    expect(customerCreate).toHaveBeenCalledTimes(1);
+    expect(db.state.profiles[0].stripe_customer_id).toMatch(/^cus_test_/);
+  });
+
+  it("rolls back LOCKED + transaction when PaymentIntent creation fails", async () => {
+    piCreate.mockRejectedValueOnce(new Error("[chaos] PI down"));
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(res.status).toBe(500);
+
+    // Mobile path explicitly rolls back so the buyer can retry without
+    // being told the listing is "verrouillée".
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(db.state.transactions[0].status).toBe("EXPIRED");
   });
 });

@@ -1,0 +1,11 @@
+🎉 Première version publique de PokeMarket !
+
+• Achat & vente de cartes Pokémon en toute sécurité
+• Scan IA en 30 secondes pour publier vos annonces
+• Apple Pay / Google Pay au checkout
+• Paiement sous séquestre + médiation des litiges
+• Messagerie temps réel avec les vendeurs
+• Notifications push sur vos recherches sauvegardées
+• Connexion biométrique (Face ID / Touch ID / empreinte)
+
+Merci à tous les beta testeurs ❤️ Bonne collection !

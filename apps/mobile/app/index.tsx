@@ -1,39 +1,38 @@
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 import { Redirect } from "expo-router";
-import { supabase } from "@/lib/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import { ONBOARDING_DONE_KEY } from "./onboarding";
+import { useThemeColor } from "@/lib/theme-colors";
 
 export default function Index() {
   const [loading, setLoading] = useState(true);
-  const [authed, setAuthed] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const primary = useThemeColor("primary");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthed(!!data.session);
-      setLoading(false);
-    });
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setAuthed(!!session);
-      },
-    );
-
-    return () => subscription.subscription.unsubscribe();
+    AsyncStorage.getItem(ONBOARDING_DONE_KEY)
+      .then((value) => {
+        setOnboardingDone(value === "1");
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#E63946" />
-        <Text className="mt-3 text-muted-foreground">Chargement...</Text>
+        <ActivityIndicator size="large" color={primary} />
       </View>
     );
   }
 
-  return authed ? (
+  return onboardingDone ? (
     <Redirect href="/(tabs)" />
   ) : (
-    <Redirect href="/(auth)/login" />
+    <Redirect href="/onboarding" />
   );
 }

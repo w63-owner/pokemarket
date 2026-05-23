@@ -1,3 +1,135 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Design tokens — mirror of `apps/web/src/app/globals.css`.
+ *
+ * Values are stored as space-separated RGB triplets (e.g. `230 57 70`,
+ * NOT `rgb(230 57 70)`) so NativeWind can compose them with the
+ * `<alpha-value>` placeholder declared in `tailwind.config.js`:
+ *
+ *   colors.primary = "rgb(var(--color-primary) / <alpha-value>)"
+ *   → `bg-primary/50` resolves at runtime to `rgb(230 57 70 / 0.5)`.
+ *
+ * HEX equivalents are kept in `lib/theme-colors.ts` (typed read replica
+ * used by lucide icons / RN props that can't accept utility classes).
+ * Both files MUST stay in sync — bumping a token here without
+ * propagating it there is a bug.
+ */
+
+@layer base {
+  :root {
+    /* surfaces */
+    --color-background: 255 255 255; /* #ffffff */
+    --color-foreground: 26 26 46; /* #1a1a2e */
+    --color-card: 255 255 255; /* #ffffff */
+    --color-card-foreground: 26 26 46; /* #1a1a2e */
+    --color-popover: 255 255 255; /* #ffffff */
+    --color-popover-foreground: 26 26 46; /* #1a1a2e */
+
+    /* brand */
+    --color-primary: 230 57 70; /* #e63946 */
+    --color-primary-foreground: 255 255 255; /* #ffffff */
+    --color-brand: 230 57 70; /* #e63946 */
+    --color-brand-foreground: 255 255 255; /* #ffffff */
+    --color-brand-secondary: 29 53 87; /* #1d3557 */
+    --color-brand-accent: 244 162 97; /* #f4a261 */
+
+    /* neutral scale */
+    --color-secondary: 241 243 245; /* #f1f3f5 */
+    --color-secondary-foreground: 29 53 87; /* #1d3557 */
+    --color-muted: 248 249 250; /* #f8f9fa */
+    --color-muted-foreground: 107 114 128; /* #6b7280 */
+    --color-accent: 241 243 245; /* #f1f3f5 */
+    --color-accent-foreground: 26 26 46; /* #1a1a2e */
+
+    /* feedback */
+    --color-destructive: 239 68 68; /* #ef4444 */
+    --color-destructive-foreground: 255 255 255; /* #ffffff */
+    --color-success: 16 185 129; /* #10b981 */
+    --color-success-foreground: 255 255 255; /* #ffffff */
+    --color-warning: 245 158 11; /* #f59e0b */
+    --color-warning-foreground: 26 26 46; /* #1a1a2e */
+
+    /* form chrome */
+    --color-border: 229 231 235; /* #e5e7eb */
+    --color-input: 229 231 235; /* #e5e7eb */
+    --color-ring: 230 57 70; /* #e63946 */
+
+    /* charts (price history, KPIs…) */
+    --color-chart-1: 230 57 70; /* #e63946 */
+    --color-chart-2: 29 53 87; /* #1d3557 */
+    --color-chart-3: 244 162 97; /* #f4a261 */
+    --color-chart-4: 16 185 129; /* #10b981 */
+    --color-chart-5: 107 114 128; /* #6b7280 */
+
+    /* sidebar / drawer (kept for parity even though mobile has no
+       sidebar today — saved searches dropdown may consume it later) */
+    --color-sidebar: 248 249 250; /* #f8f9fa */
+    --color-sidebar-foreground: 26 26 46; /* #1a1a2e */
+    --color-sidebar-primary: 230 57 70; /* #e63946 */
+    --color-sidebar-primary-foreground: 255 255 255; /* #ffffff */
+    --color-sidebar-accent: 241 243 245; /* #f1f3f5 */
+    --color-sidebar-accent-foreground: 26 26 46; /* #1a1a2e */
+    --color-sidebar-border: 229 231 235; /* #e5e7eb */
+    --color-sidebar-ring: 230 57 70; /* #e63946 */
+
+    /* radius scale (consumed via tailwind.config.js borderRadius map) */
+    --radius: 0.75rem;
+  }
+
+  .dark:root {
+    --color-background: 15 15 26; /* #0f0f1a */
+    --color-foreground: 241 243 245; /* #f1f3f5 */
+    --color-card: 26 26 46; /* #1a1a2e */
+    --color-card-foreground: 241 243 245; /* #f1f3f5 */
+    --color-popover: 26 26 46; /* #1a1a2e */
+    --color-popover-foreground: 241 243 245; /* #f1f3f5 */
+
+    --color-primary: 255 77 90; /* #ff4d5a */
+    --color-primary-foreground: 255 255 255; /* #ffffff */
+    --color-brand: 255 77 90; /* #ff4d5a */
+    --color-brand-foreground: 255 255 255; /* #ffffff */
+    --color-brand-secondary: 168 196 224; /* #a8c4e0 */
+    --color-brand-accent: 244 162 97; /* #f4a261 */
+
+    --color-secondary: 42 42 62; /* #2a2a3e */
+    --color-secondary-foreground: 241 243 245; /* #f1f3f5 */
+    --color-muted: 42 42 62; /* #2a2a3e */
+    --color-muted-foreground: 156 163 175; /* #9ca3af */
+    --color-accent: 42 42 62; /* #2a2a3e */
+    --color-accent-foreground: 241 243 245; /* #f1f3f5 */
+
+    --color-destructive: 239 68 68; /* #ef4444 */
+    --color-destructive-foreground: 255 255 255; /* #ffffff */
+    --color-success: 16 185 129; /* #10b981 */
+    --color-success-foreground: 255 255 255; /* #ffffff */
+    --color-warning: 245 158 11; /* #f59e0b */
+    --color-warning-foreground: 26 26 46; /* #1a1a2e */
+
+    /* Pre-composited from rgba(255,255,255,0.1) over #0f0f1a — the web
+       uses an alpha border but NativeWind can't blend a token-driven
+       alpha against a token-driven background reliably across the
+       expo-image / Pressable / RN core paint pipeline. The flat colour
+       is visually indistinguishable on real devices. */
+    --color-border: 39 39 50; /* #272732 */
+    --color-input: 51 51 62; /* #33333e */
+    --color-ring: 255 77 90; /* #ff4d5a */
+
+    --color-chart-1: 255 77 90; /* #ff4d5a */
+    --color-chart-2: 168 196 224; /* #a8c4e0 */
+    --color-chart-3: 244 162 97; /* #f4a261 */
+    --color-chart-4: 16 185 129; /* #10b981 */
+    --color-chart-5: 156 163 175; /* #9ca3af */
+
+    --color-sidebar: 26 26 46; /* #1a1a2e */
+    --color-sidebar-foreground: 241 243 245; /* #f1f3f5 */
+    --color-sidebar-primary: 255 77 90; /* #ff4d5a */
+    --color-sidebar-primary-foreground: 255 255 255; /* #ffffff */
+    --color-sidebar-accent: 42 42 62; /* #2a2a3e */
+    --color-sidebar-accent-foreground: 241 243 245; /* #f1f3f5 */
+    --color-sidebar-border: 39 39 50; /* #272732 */
+    --color-sidebar-ring: 255 77 90; /* #ff4d5a */
+  }
+}

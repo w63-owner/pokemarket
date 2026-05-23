@@ -15,6 +15,21 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    // `/.well-known/*` cannot live under app/ (folders starting with `.` are
+    // ignored by the App Router). Route handlers under `app/api/well-known/`
+    // serve the actual content with the correct `Content-Type`.
+    return [
+      {
+        source: "/.well-known/apple-app-site-association",
+        destination: "/api/well-known/apple-app-site-association",
+      },
+      {
+        source: "/.well-known/assetlinks.json",
+        destination: "/api/well-known/assetlinks",
+      },
+    ];
+  },
   async headers() {
     const csp = [
       "default-src 'self'",

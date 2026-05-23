@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable } from "react-native";
 import { ChevronDown, Check } from "lucide-react-native";
-import { Sheet } from "./sheet";
+import { Sheet, SheetScrollView } from "./sheet";
 import { Text } from "./text";
 import { cn } from "@/lib/cn";
+import { useThemeColor } from "@/lib/theme-colors";
 
 export type SelectOption = { value: string; label: string };
 
@@ -26,6 +27,8 @@ export function Select({
 }: Props) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
+  const mutedForeground = useThemeColor("mutedForeground");
+  const primary = useThemeColor("primary");
 
   return (
     <>
@@ -43,11 +46,11 @@ export function Select({
         >
           {selected?.label ?? placeholder}
         </Text>
-        <ChevronDown size={16} color="#64748b" />
+        <ChevronDown size={16} color={mutedForeground} />
       </Pressable>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <ScrollView style={{ maxHeight: 380 }}>
+      <Sheet open={open} onOpenChange={setOpen} snapPoints={["50%", "75%"]}>
+        <SheetScrollView>
           {options.map((opt) => {
             const isActive = opt.value === value;
             return (
@@ -62,11 +65,11 @@ export function Select({
                 <Text className={isActive ? "font-semibold" : ""}>
                   {opt.label}
                 </Text>
-                {isActive ? <Check size={18} color="#E63946" /> : null}
+                {isActive ? <Check size={18} color={primary} /> : null}
               </Pressable>
             );
           })}
-        </ScrollView>
+        </SheetScrollView>
       </Sheet>
     </>
   );

@@ -1,38 +1,91 @@
 import { Modal, Pressable, View, type ModalProps } from "react-native";
-import { MotiView } from "moti";
+import { AnimatePresence, MotiView } from "moti";
+import { BlurView } from "expo-blur";
 import { cn } from "@/lib/cn";
+import { duration, fadeInScale, useReducedMotionSafe } from "@/lib/motion";
+import { useEffectiveTheme } from "@/lib/stores/theme";
 import { Text } from "./text";
 
 type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  className?: string;
 } & Omit<ModalProps, "visible" | "onRequestClose" | "transparent">;
 
-export function Dialog({ open, onOpenChange, children, ...rest }: DialogProps) {
+/**
+ * Modal centered dialog with a blurred backdrop (parity with the web
+ * `<Dialog>` shadcn primitive). The backdrop fade and the content
+ * scale-in are driven by Moti so we can rely on `AnimatePresence` for
+ * the exit animation — the native `Modal` `animationType` is left at
+ * `"none"` so it doesn't fight our fade.
+ */
+export function Dialog({
+  open,
+  onOpenChange,
+  children,
+  className,
+  ...rest
+}: DialogProps) {
+  const reduceMotion = useReducedMotionSafe();
+  const theme = useEffectiveTheme();
+
   return (
     <Modal
       visible={open}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={() => onOpenChange(false)}
+      statusBarTranslucent
       {...rest}
     >
-      <Pressable
-        onPress={() => onOpenChange(false)}
-        className="flex-1 items-center justify-center bg-black/50 px-4"
-      >
-        <Pressable onPress={(e) => e.stopPropagation()} className="w-full">
+      <AnimatePresence>
+        {open ? (
           <MotiView
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "timing", duration: 180 }}
-            className="w-full rounded-2xl bg-card p-6"
+            key="dialog-backdrop"
+            from={{ opacity: reduceMotion ? 1 : 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: "timing", duration: duration.fast }}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
           >
-            {children}
+            <BlurView
+              intensity={20}
+              tint={theme === "dark" ? "dark" : "default"}
+              style={{ flex: 1 }}
+            >
+              <Pressable
+                onPress={() => onOpenChange(false)}
+                className="flex-1 items-center justify-center bg-black/40 px-4"
+              >
+                <Pressable
+                  onPress={(e) => e.stopPropagation()}
+                  className="w-full"
+                >
+                  <MotiView
+                    from={reduceMotion ? fadeInScale.animate : fadeInScale.from}
+                    animate={fadeInScale.animate}
+                    exit={fadeInScale.exit}
+                    transition={{ type: "timing", duration: duration.fast }}
+                    className={cn(
+                      "w-full rounded-2xl border border-border bg-card p-6",
+                      className,
+                    )}
+                  >
+                    {children}
+                  </MotiView>
+                </Pressable>
+              </Pressable>
+            </BlurView>
           </MotiView>
-        </Pressable>
-      </Pressable>
+        ) : null}
+      </AnimatePresence>
     </Modal>
   );
 }

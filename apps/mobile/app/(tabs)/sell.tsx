@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
-import { ScrollView, View, KeyboardAvoidingView, Platform } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowRight, ScanLine, Sparkles } from "lucide-react-native";
@@ -12,6 +13,7 @@ import {
 } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreateListing } from "@/hooks/use-listings";
+import { useSellDraft } from "@/hooks/use-sell-draft";
 import {
   ImageUploader,
   OcrResults,
@@ -24,6 +26,8 @@ import { toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { runOcrScan } from "@/lib/api/ocr";
 import type { UploadedListingImage } from "@/lib/api/listings";
+import { useThemeColor } from "@/lib/theme-colors";
+import { duration } from "@/lib/motion";
 
 type OcrState = {
   isLoading: boolean;
@@ -46,6 +50,14 @@ const INITIAL_OCR: OcrState = {
 export default function SellScreen() {
   const { user, loading: authLoading } = useAuth();
   const createListing = useCreateListing();
+  const primaryForeground = useThemeColor("primaryForeground");
+  const mutedForeground = useThemeColor("mutedForeground");
+  const {
+    draft,
+    hydrated,
+    update: updateDraft,
+    clear: clearDraft,
+  } = useSellDraft();
 
   const [images, setImages] = useState<{
     cover: UploadedListingImage | null;
@@ -53,6 +65,19 @@ export default function SellScreen() {
   }>({ cover: null, back: null });
   const [ocr, setOcr] = useState<OcrState>(INITIAL_OCR);
   const [showForm, setShowForm] = useState(false);
+
+  // Restore previously persisted draft (cover/back images) once on hydration.
+  // We don't restore form fields here — RHF is the source of truth and the
+  // wizard reopens on the photo step anyway.
+  useEffect(() => {
+    if (!hydrated || !draft) return;
+    if (draft.cover || draft.back) {
+      setImages({
+        cover: draft.cover ?? null,
+        back: draft.back ?? null,
+      });
+    }
+  }, [hydrated, draft]);
 
   const hasBothImages = !!images.cover && !!images.back;
 
@@ -62,12 +87,13 @@ export default function SellScreen() {
       back: UploadedListingImage | null;
     }) => {
       setImages(next);
+      updateDraft({ cover: next.cover, back: next.back });
       if ((!next.cover || !next.back) && ocr.hasRun) {
         setOcr(INITIAL_OCR);
         setShowForm(false);
       }
     },
-    [ocr.hasRun],
+    [ocr.hasRun, updateDraft],
   );
 
   const handleOcrScan = useCallback(async () => {
@@ -161,12 +187,19 @@ export default function SellScreen() {
             setImages({ cover: null, back: null });
             setOcr(INITIAL_OCR);
             setShowForm(false);
+            void clearDraft();
             router.push(`/listing/${listing.id}`);
           },
         },
       );
     },
-    [createListing, images.back, images.cover, ocr.selectedCandidate],
+    [
+      clearDraft,
+      createListing,
+      images.back,
+      images.cover,
+      ocr.selectedCandidate,
+    ],
   );
 
   const formDefaultValues: Partial<SellFormValues> | undefined =
@@ -221,10 +254,7 @@ export default function SellScreen() {
         </Text>
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
           keyboardShouldPersistTaps="handled"
@@ -238,20 +268,20 @@ export default function SellScreen() {
                 from={{ opacity: 0, translateY: 12 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ type: "timing", duration: 250 }}
+                transition={{ type: "timing", duration: duration.normal }}
                 className="mt-6 gap-3"
               >
                 <Button
                   onPress={handleOcrScan}
                   loading={ocr.isLoading}
-                  leftIcon={<Sparkles size={16} color="#fff" />}
+                  leftIcon={<Sparkles size={16} color={primaryForeground} />}
                 >
                   Scanner la carte avec l&apos;IA
                 </Button>
                 <Button
                   onPress={handleSkipOcr}
                   variant="ghost"
-                  rightIcon={<ArrowRight size={14} color="#64748b" />}
+                  rightIcon={<ArrowRight size={14} color={mutedForeground} />}
                 >
                   <Text variant="muted">Passer le scan</Text>
                 </Button>
@@ -266,7 +296,7 @@ export default function SellScreen() {
                 from={{ opacity: 0, translateY: 12 }}
                 animate={{ opacity: 1, translateY: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ type: "timing", duration: 250 }}
+                transition={{ type: "timing", duration: duration.normal }}
                 className="mt-6"
               >
                 <OcrResults
@@ -290,7 +320,7 @@ export default function SellScreen() {
                 exit={{ opacity: 0 }}
                 className="mt-3 flex-row items-center gap-2"
               >
-                <ScanLine size={14} color="#94a3b8" />
+                <ScanLine size={14} color={mutedForeground} />
                 <Text variant="caption">
                   Sélectionnez un résultat pour continuer
                 </Text>
@@ -303,7 +333,7 @@ export default function SellScreen() {
               key={`form-${ocr.selectedCardKey ?? "manual"}`}
               from={{ opacity: 0, translateY: 16 }}
               animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: "timing", duration: 350 }}
+              transition={{ type: "timing", duration: duration.normal }}
               className="mt-8"
             >
               <View className="mb-4 flex-row items-center gap-2">
