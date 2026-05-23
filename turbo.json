@@ -4,7 +4,36 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_SENTRY_DSN",
+        "NEXT_PUBLIC_VAPID_PUBLIC_KEY",
+        "NEXT_PUBLIC_MANGOPAY_CLIENT_ID",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        "OPENAI_API_KEY",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL",
+        "VAPID_PRIVATE_KEY",
+        "VAPID_SUBJECT",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "MANGOPAY_CLIENT_ID",
+        "MANGOPAY_API_KEY",
+        "MANGOPAY_BASE_URL",
+        "MANGOPAY_WEBHOOK_SECRET",
+        "MANGOPAY_PLATFORM_USER_ID",
+        "MANGOPAY_PLATFORM_WALLET_ID",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_RN_API_VERSION",
+        "CRON_SECRET",
+        "PAYMENT_PROVIDER"
+      ],
+      "passThroughEnv": ["SENTRY_AUTH_TOKEN"]
     },
     "dev": {
       "cache": false,
