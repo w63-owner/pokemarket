@@ -25,6 +25,7 @@ import { toast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/api/client";
 import { runOcrScan } from "@/lib/api/ocr";
 import type { UploadedListingImage } from "@/lib/api/listings";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type OcrState = {
   isLoading: boolean;
@@ -47,6 +48,8 @@ const INITIAL_OCR: OcrState = {
 export default function SellScreen() {
   const { user, loading: authLoading } = useAuth();
   const createListing = useCreateListing();
+  const primaryForeground = useThemeColor("primaryForeground");
+  const mutedForeground = useThemeColor("mutedForeground");
   const {
     draft,
     hydrated,
@@ -272,14 +275,14 @@ export default function SellScreen() {
                 <Button
                   onPress={handleOcrScan}
                   loading={ocr.isLoading}
-                  leftIcon={<Sparkles size={16} color="#fff" />}
+                  leftIcon={<Sparkles size={16} color={primaryForeground} />}
                 >
                   Scanner la carte avec l&apos;IA
                 </Button>
                 <Button
                   onPress={handleSkipOcr}
                   variant="ghost"
-                  rightIcon={<ArrowRight size={14} color="#64748b" />}
+                  rightIcon={<ArrowRight size={14} color={mutedForeground} />}
                 >
                   <Text variant="muted">Passer le scan</Text>
                 </Button>
@@ -318,7 +321,7 @@ export default function SellScreen() {
                 exit={{ opacity: 0 }}
                 className="mt-3 flex-row items-center gap-2"
               >
-                <ScanLine size={14} color="#94a3b8" />
+                <ScanLine size={14} color={mutedForeground} />
                 <Text variant="caption">
                   Sélectionnez un résultat pour continuer
                 </Text>

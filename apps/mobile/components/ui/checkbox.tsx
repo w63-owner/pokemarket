@@ -1,6 +1,7 @@
-import { Pressable, View } from "react-native";
+import { Pressable } from "react-native";
 import { Check } from "lucide-react-native";
 import { cn } from "@/lib/cn";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
   checked: boolean;
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function Checkbox({ checked, onCheckedChange, disabled }: Props) {
+  const primaryForeground = useThemeColor("primaryForeground");
   return (
     <Pressable
       disabled={disabled}
@@ -20,7 +22,9 @@ export function Checkbox({ checked, onCheckedChange, disabled }: Props) {
         disabled && "opacity-50",
       )}
     >
-      {checked ? <Check size={14} color="#fff" strokeWidth={3} /> : null}
+      {checked ? (
+        <Check size={14} color={primaryForeground} strokeWidth={3} />
+      ) : null}
     </Pressable>
   );
 }

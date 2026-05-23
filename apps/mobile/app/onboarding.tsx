@@ -16,30 +16,41 @@ import { Camera, ShieldCheck, Wallet as WalletIcon } from "lucide-react-native";
 import { Button, Text } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { duration } from "@/lib/motion";
+import { useThemeColors, type ThemeColorName } from "@/lib/theme-colors";
 
 export const ONBOARDING_DONE_KEY = "pokemarket.onboarding.done";
 
-const SLIDES = [
+type SlideDef = {
+  icon: typeof Camera;
+  title: string;
+  description: string;
+  accent: ThemeColorName;
+};
+
+// Per-slide accent maps to a design token so light/dark variants stay
+// consistent and the brand vs informational vs success semantics are
+// preserved automatically.
+const SLIDES: SlideDef[] = [
   {
     icon: Camera,
     title: "Vendez en quelques secondes",
     description:
       "Photographiez votre carte, l'IA reconnaît automatiquement le set, le numéro et la rareté pour préremplir votre annonce.",
-    accent: "#E63946",
+    accent: "primary",
   },
   {
     icon: ShieldCheck,
     title: "Achats 100% sécurisés",
     description:
       "Votre paiement est conservé en escrow jusqu'à confirmation de la réception. Litiges gérés par notre équipe.",
-    accent: "#2563eb",
+    accent: "brandSecondary",
   },
   {
     icon: WalletIcon,
     title: "Recevez vos gains rapidement",
     description:
       "Virement automatique sur votre compte bancaire dès la confirmation de l'acheteur, en moins de 48h.",
-    accent: "#16a34a",
+    accent: "success",
   },
 ];
 
@@ -56,6 +67,7 @@ async function markOnboardingDone() {
 export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
+  const colors = useThemeColors();
 
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -107,6 +119,10 @@ export default function OnboardingScreen() {
       >
         {SLIDES.map((slide, i) => {
           const Icon = slide.icon;
+          const accentColor = colors[slide.accent];
+          // 0x1A = 10% alpha — keeps the soft halo behind the icon
+          // visually identical to the previous hand-tuned hex.
+          const accentTint = `${accentColor}1A`;
           return (
             <View
               key={slide.title}
@@ -121,9 +137,9 @@ export default function OnboardingScreen() {
                 }}
                 transition={{ type: "timing", duration: duration.normal }}
                 className="mb-10 h-32 w-32 items-center justify-center rounded-full"
-                style={{ backgroundColor: `${slide.accent}1A` }}
+                style={{ backgroundColor: accentTint }}
               >
-                <Icon size={56} color={slide.accent} strokeWidth={1.5} />
+                <Icon size={56} color={accentColor} strokeWidth={1.5} />
               </MotiView>
               <Text variant="h2" className="mb-3 text-center">
                 {slide.title}

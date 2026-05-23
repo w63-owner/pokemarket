@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/cn";
+import { useThemeColor } from "@/lib/theme-colors";
 import { Text } from "./text";
 
 const buttonVariants = cva(
@@ -68,6 +69,12 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
   ref,
 ) {
   const isDisabled = disabled || loading;
+  const foreground = useThemeColor("foreground");
+  const primaryForeground = useThemeColor("primaryForeground");
+  const spinnerColor =
+    variant === "outline" || variant === "ghost"
+      ? foreground
+      : primaryForeground;
   return (
     <Pressable
       ref={ref}
@@ -80,12 +87,7 @@ export const Button = forwardRef<View, ButtonProps>(function Button(
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator
-          color={
-            variant === "outline" || variant === "ghost" ? "#0f172a" : "#fff"
-          }
-          size="small"
-        />
+        <ActivityIndicator color={spinnerColor} size="small" />
       ) : (
         <>
           {leftIcon ? <View className="mr-2">{leftIcon}</View> : null}

@@ -39,7 +39,7 @@ export default function FavoritesScreen() {
         </View>
         <View className="flex-1 items-center justify-center">
           <AuthRequired
-            icon={<Heart size={28} color="#E63946" />}
+            icon={<Heart size={28} color={primary} />}
             title="Connecte-toi pour voir tes favoris"
             description="Sauvegarde des cartes, suis des vendeurs et crée des alertes de recherche."
           />

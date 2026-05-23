@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import { useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react-native";
 import { Text } from "./text";
+import { useThemeColors, type ThemeColorName } from "@/lib/theme-colors";
 
 type ToastType = "success" | "error" | "info";
 
@@ -51,16 +51,20 @@ const iconMap: Record<
   info: Info,
 };
 
-const colorMap: Record<ToastType, string> = {
-  success: "#16a34a",
-  error: "#dc2626",
-  info: "#2563eb",
+// Maps each toast variant to a token name in `lib/theme-colors.ts`.
+// `info` falls back to `brand-secondary` (deep navy on light, light
+// blue on dark) since the design system has no dedicated `info` token.
+const TOAST_TOKEN: Record<ToastType, ThemeColorName> = {
+  success: "success",
+  error: "destructive",
+  info: "brandSecondary",
 };
 
 export function ToastViewport() {
   const items = useStore((s) => s.items);
   const dismiss = useStore((s) => s.dismiss);
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
 
   return (
     <View
@@ -79,7 +83,7 @@ export function ToastViewport() {
               transition={{ type: "timing", duration: 200 }}
               className="mb-2 flex-row items-start gap-3 rounded-xl border border-border bg-card p-3 shadow"
             >
-              <Icon size={20} color={colorMap[item.type]} />
+              <Icon size={20} color={colors[TOAST_TOKEN[item.type]]} />
               <View className="flex-1">
                 <Text className="font-semibold">{item.title}</Text>
                 {item.description ? (
@@ -87,7 +91,7 @@ export function ToastViewport() {
                 ) : null}
               </View>
               <Pressable onPress={() => dismiss(item.id)} hitSlop={8}>
-                <X size={16} color="#64748b" />
+                <X size={16} color={colors.mutedForeground} />
               </Pressable>
             </MotiView>
           );

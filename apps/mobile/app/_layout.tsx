@@ -16,6 +16,7 @@ import { initSentry, Sentry } from "@/lib/sentry";
 import { env } from "@/lib/env";
 import { ToastViewport } from "@/components/ui/toast";
 import { useEffectiveTheme } from "@/lib/stores/theme";
+import { useAppFonts } from "@/lib/fonts";
 
 // #region agent log
 try {
@@ -77,15 +78,28 @@ function RootLayout() {
   }
   // #endregion
 
+  const [fontsLoaded, fontError] = useAppFonts();
+
+  // Coordinate splash hiding with font loading so the first paint
+  // always renders with the design system fonts (Inter + Plus Jakarta
+  // Sans) and never the system fallback. We still hide the splash if
+  // a font fails to load — we'd rather show degraded typography than
+  // brick the app on a missing asset.
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontError]);
 
   const effectiveTheme = useEffectiveTheme();
   const { setColorScheme } = useColorScheme();
   useEffect(() => {
     setColorScheme(effectiveTheme);
   }, [effectiveTheme, setColorScheme]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -21,12 +21,14 @@ import {
   ConversationListItemSkeleton,
 } from "@/components/messages";
 import { Button, Text } from "@/components/ui";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function InboxScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const primary = useThemeColor("primary");
   const {
     data: conversations,
     isLoading,
@@ -90,7 +92,7 @@ export default function InboxScreen() {
           variant="ghost"
           size="sm"
           onPress={() => router.push("/offers")}
-          leftIcon={<Tag size={16} color="#E63946" />}
+          leftIcon={<Tag size={16} color={primary} />}
         >
           Offres
         </Button>
@@ -128,7 +130,7 @@ export default function InboxScreen() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor="#E63946"
+              tintColor={primary}
             />
           }
         />
@@ -148,10 +150,11 @@ function EmptyState({
   ctaLabel: string;
   onCta: () => void;
 }) {
+  const mutedForeground = useThemeColor("mutedForeground");
   return (
     <View className="flex-1 items-center justify-center gap-3 px-8">
       <View className="size-14 items-center justify-center rounded-full bg-muted">
-        <MessageCircle size={26} color="#94a3b8" />
+        <MessageCircle size={26} color={mutedForeground} />
       </View>
       <Text variant="h4" className="text-center">
         {title}

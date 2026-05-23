@@ -42,6 +42,8 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const MUTED = useThemeColor("mutedForeground");
   const cardColor = useThemeColor("card");
   const borderColor = useThemeColor("border");
+  const destructive = useThemeColor("destructive");
+  const primaryForeground = useThemeColor("primaryForeground");
 
   const isDark = scheme === "dark";
   const opaqueBg = cardColor;
@@ -143,14 +145,14 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                       height: 16,
                       paddingHorizontal: 4,
                       borderRadius: 999,
-                      backgroundColor: "#EF4444",
+                      backgroundColor: destructive,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
                     <Text
                       style={{
-                        color: "white",
+                        color: primaryForeground,
                         fontSize: 9,
                         fontWeight: "700",
                         lineHeight: 12,

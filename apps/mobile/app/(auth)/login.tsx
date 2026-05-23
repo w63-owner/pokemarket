@@ -21,6 +21,7 @@ import {
   isBiometryEnabled,
   unlockWithBiometry,
 } from "@/lib/biometry";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type FormValues = z.infer<typeof loginSchema>;
 
@@ -29,6 +30,7 @@ export default function LoginScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLabel, setBiometricLabel] = useState("Biométrie");
   const [biometricBusy, setBiometricBusy] = useState(false);
+  const foreground = useThemeColor("foreground");
   const {
     control,
     handleSubmit,
@@ -170,7 +172,7 @@ export default function LoginScreen() {
                 disabled={biometricBusy}
                 className="flex-row items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 active:opacity-80"
               >
-                <Fingerprint size={18} color="#0f172a" />
+                <Fingerprint size={18} color={foreground} />
                 <Text className="font-semibold">
                   Se connecter avec {biometricLabel}
                 </Text>
