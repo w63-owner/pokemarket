@@ -6,6 +6,12 @@ import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { NavigationHistoryTracker } from "@/hooks/use-navigation-history";
+import { useUnreadCountSubscription } from "@/hooks/use-conversations";
+
+function RealtimeBridge() {
+  useUnreadCountSubscription();
+  return null;
+}
 
 function makeQueryClient() {
   return new QueryClient({
@@ -45,6 +51,7 @@ export function Providers({ children }: { children: ReactNode }) {
           disableTransitionOnChange={false}
         >
           <NavigationHistoryTracker />
+          <RealtimeBridge />
           {children}
           <Toaster
             position="bottom-center"

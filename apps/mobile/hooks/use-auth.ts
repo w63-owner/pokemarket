@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { unregisterPushToken } from "@/lib/notifications";
+import { disableBiometry } from "@/lib/biometry";
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -29,6 +31,11 @@ export function useAuth() {
     user,
     loading,
     isAuthenticated: !!session,
-    signOut: () => supabase.auth.signOut(),
+    signOut: async () => {
+      // Drop the push token first so the device stops receiving notifications
+      // intended for the old user; failures are silent so logout always works.
+      await Promise.allSettled([unregisterPushToken(), disableBiometry()]);
+      return supabase.auth.signOut();
+    },
   };
 }

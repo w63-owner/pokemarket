@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View, KeyboardAvoidingView, Platform } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import {
 } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreateListing } from "@/hooks/use-listings";
+import { useSellDraft } from "@/hooks/use-sell-draft";
 import {
   ImageUploader,
   OcrResults,
@@ -46,6 +47,12 @@ const INITIAL_OCR: OcrState = {
 export default function SellScreen() {
   const { user, loading: authLoading } = useAuth();
   const createListing = useCreateListing();
+  const {
+    draft,
+    hydrated,
+    update: updateDraft,
+    clear: clearDraft,
+  } = useSellDraft();
 
   const [images, setImages] = useState<{
     cover: UploadedListingImage | null;
@@ -53,6 +60,19 @@ export default function SellScreen() {
   }>({ cover: null, back: null });
   const [ocr, setOcr] = useState<OcrState>(INITIAL_OCR);
   const [showForm, setShowForm] = useState(false);
+
+  // Restore previously persisted draft (cover/back images) once on hydration.
+  // We don't restore form fields here — RHF is the source of truth and the
+  // wizard reopens on the photo step anyway.
+  useEffect(() => {
+    if (!hydrated || !draft) return;
+    if (draft.cover || draft.back) {
+      setImages({
+        cover: draft.cover ?? null,
+        back: draft.back ?? null,
+      });
+    }
+  }, [hydrated, draft]);
 
   const hasBothImages = !!images.cover && !!images.back;
 
@@ -62,12 +82,13 @@ export default function SellScreen() {
       back: UploadedListingImage | null;
     }) => {
       setImages(next);
+      updateDraft({ cover: next.cover, back: next.back });
       if ((!next.cover || !next.back) && ocr.hasRun) {
         setOcr(INITIAL_OCR);
         setShowForm(false);
       }
     },
-    [ocr.hasRun],
+    [ocr.hasRun, updateDraft],
   );
 
   const handleOcrScan = useCallback(async () => {
@@ -161,12 +182,19 @@ export default function SellScreen() {
             setImages({ cover: null, back: null });
             setOcr(INITIAL_OCR);
             setShowForm(false);
+            void clearDraft();
             router.push(`/listing/${listing.id}`);
           },
         },
       );
     },
-    [createListing, images.back, images.cover, ocr.selectedCandidate],
+    [
+      clearDraft,
+      createListing,
+      images.back,
+      images.cover,
+      ocr.selectedCandidate,
+    ],
   );
 
   const formDefaultValues: Partial<SellFormValues> | undefined =

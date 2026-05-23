@@ -1,33 +1,107 @@
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  Heart,
-  ListChecks,
+  Bell,
+  CreditCard,
   ChevronRight,
-  Wallet,
-  Receipt,
-  Star,
-  Settings,
-  TrendingUp,
+  FileText,
+  Fingerprint,
+  Heart,
+  Info,
+  ListChecks,
   LogOut,
+  Moon,
+  Receipt,
+  Scale,
+  ShieldCheck,
+  Sun,
+  TrendingUp,
+  User as UserIcon,
+  Wallet,
 } from "lucide-react-native";
-import { Avatar, Card, Skeleton, Text } from "@/components/ui";
+import { Avatar, Card, Skeleton, Switch, Text, toast } from "@/components/ui";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "@/hooks/use-profile";
+import {
+  disableBiometry,
+  enableBiometryForCurrentSession,
+  getBiometryCapability,
+  isBiometryEnabled,
+} from "@/lib/biometry";
+import { useEffectiveTheme, useThemeStore } from "@/lib/stores/theme";
+import { useThemeColor } from "@/lib/theme-colors";
 
-const items = [
+const accountItems = [
+  { icon: UserIcon, label: "Mon profil", href: "/profile/edit" },
   { icon: ListChecks, label: "Mes annonces", href: "/profile/listings" },
   { icon: Heart, label: "Favoris", href: "/favorites" },
   { icon: Receipt, label: "Mes achats / ventes", href: "/transactions" },
   { icon: Wallet, label: "Mon portefeuille", href: "/wallet" },
+  { icon: CreditCard, label: "Moyens de paiement", href: "/profile/payments" },
+  { icon: Bell, label: "Notifications", href: "/profile/notifications" },
   { icon: TrendingUp, label: "Cote des cartes", href: "/price-checking" },
-  { icon: Settings, label: "Paramètres", href: "/profile/settings" },
+] as const;
+
+const legalItems = [
+  { icon: FileText, label: "CGV", href: "/legal/cgv" },
+  { icon: Scale, label: "CGU", href: "/legal/cgu" },
+  { icon: ShieldCheck, label: "Confidentialité", href: "/legal/privacy" },
+  { icon: Info, label: "Mentions légales", href: "/legal/mentions" },
 ] as const;
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { data: profile, isLoading } = useMyProfile();
+
+  const effectiveTheme = useEffectiveTheme();
+  const setThemePreference = useThemeStore((s) => s.setPreference);
+
+  const iconForeground = useThemeColor("foreground");
+  const iconMuted = useThemeColor("mutedForeground");
+  const destructive = useThemeColor("destructive");
+
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState("Biométrie");
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricBusy, setBiometricBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([isBiometryEnabled(), getBiometryCapability()]).then(
+      ([enabled, capability]) => {
+        if (cancelled) return;
+        setBiometricEnabled(enabled);
+        setBiometricLabel(capability.label);
+        setBiometricSupported(capability.hasHardware && capability.isEnrolled);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleBiometric = async (next: boolean) => {
+    setBiometricBusy(true);
+    try {
+      if (next) {
+        const result = await enableBiometryForCurrentSession();
+        if (result.ok) {
+          setBiometricEnabled(true);
+          toast.success(`${biometricLabel} activé`);
+        } else {
+          toast.error("Activation impossible", result.reason);
+        }
+      } else {
+        await disableBiometry();
+        setBiometricEnabled(false);
+        toast.success(`${biometricLabel} désactivé`);
+      }
+    } finally {
+      setBiometricBusy(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -56,29 +130,65 @@ export default function ProfileScreen() {
           ) : null}
         </Card>
 
-        <View className="overflow-hidden rounded-2xl border border-border bg-card">
-          {items.map((item, idx) => {
+        <MenuList>
+          {accountItems.map((item, idx) => {
             const Icon = item.icon;
+            const isLast = idx === accountItems.length - 1;
             return (
-              <Pressable
+              <MenuRow
                 key={item.href}
+                icon={<Icon size={20} color={iconForeground} />}
+                label={item.label}
                 onPress={() => router.push(item.href as never)}
-                className="flex-row items-center justify-between px-4 py-3.5 active:bg-muted"
-                style={
-                  idx < items.length - 1
-                    ? { borderBottomWidth: 0.5, borderBottomColor: "#e2e8f0" }
-                    : undefined
-                }
-              >
-                <View className="flex-row items-center gap-3">
-                  <Icon size={20} color="#0f172a" />
-                  <Text>{item.label}</Text>
-                </View>
-                <ChevronRight size={18} color="#94a3b8" />
-              </Pressable>
+                isLast={isLast}
+                chevronColor={iconMuted}
+              />
             );
           })}
-        </View>
+        </MenuList>
+
+        <Card>
+          <View className="flex-row items-center gap-3">
+            {effectiveTheme === "dark" ? (
+              <Moon size={20} color={iconForeground} />
+            ) : (
+              <Sun size={20} color={iconForeground} />
+            )}
+            <View className="flex-1">
+              <Text className="font-semibold">Mode sombre</Text>
+              <Text variant="muted" className="text-xs">
+                {effectiveTheme === "dark" ? "Activé" : "Désactivé"}
+              </Text>
+            </View>
+            <Switch
+              checked={effectiveTheme === "dark"}
+              onCheckedChange={(checked) =>
+                setThemePreference(checked ? "dark" : "light")
+              }
+            />
+          </View>
+        </Card>
+
+        {biometricSupported ? (
+          <Card>
+            <View className="flex-row items-center gap-3">
+              <Fingerprint size={20} color={iconForeground} />
+              <View className="flex-1">
+                <Text className="font-semibold">
+                  Connexion par {biometricLabel}
+                </Text>
+                <Text variant="muted" className="text-xs">
+                  Déverrouille l&apos;app sans saisir ton mot de passe.
+                </Text>
+              </View>
+              <Switch
+                checked={biometricEnabled}
+                onCheckedChange={handleToggleBiometric}
+                disabled={biometricBusy}
+              />
+            </View>
+          </Card>
+        ) : null}
 
         <Pressable
           onPress={async () => {
@@ -87,10 +197,76 @@ export default function ProfileScreen() {
           }}
           className="flex-row items-center justify-center gap-2 rounded-2xl bg-card p-3.5 active:opacity-80"
         >
-          <LogOut size={18} color="#dc2626" />
+          <LogOut size={18} color={destructive} />
           <Text className="font-semibold text-destructive">Se déconnecter</Text>
         </Pressable>
+
+        <View className="gap-2">
+          <Text
+            variant="caption"
+            className="px-1 uppercase tracking-wider text-muted-foreground"
+          >
+            Informations légales
+          </Text>
+          <MenuList>
+            {legalItems.map((item, idx) => {
+              const Icon = item.icon;
+              const isLast = idx === legalItems.length - 1;
+              return (
+                <MenuRow
+                  key={item.href}
+                  icon={<Icon size={20} color={iconForeground} />}
+                  label={item.label}
+                  onPress={() => router.push(item.href as never)}
+                  isLast={isLast}
+                  chevronColor={iconMuted}
+                />
+              );
+            })}
+          </MenuList>
+        </View>
+
+        <Text variant="caption" className="text-center">
+          {`© ${new Date().getFullYear()} PokeMarket. Tous droits réservés.`}
+        </Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function MenuList({ children }: { children: React.ReactNode }) {
+  return (
+    <View className="overflow-hidden rounded-2xl border border-border bg-card">
+      {children}
+    </View>
+  );
+}
+
+function MenuRow({
+  icon,
+  label,
+  onPress,
+  isLast,
+  chevronColor,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  isLast: boolean;
+  chevronColor: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={`flex-row items-center justify-between px-4 py-3.5 active:bg-muted ${
+        isLast ? "" : "border-b border-border"
+      }`}
+    >
+      <View className="flex-row items-center gap-3">
+        {icon}
+        <Text>{label}</Text>
+      </View>
+      <ChevronRight size={18} color={chevronColor} />
+    </Pressable>
   );
 }

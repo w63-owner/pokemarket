@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+// Coerce empty strings to undefined so that `.optional()` fields don't
+// trip on `EXPO_PUBLIC_FOO=` lines in `.env` (zod treats "" as defined).
+const emptyToUndefined = (v: unknown) =>
+  typeof v === "string" && v.trim() === "" ? undefined : v;
+
 const envSchema = z.object({
   API_URL: z.string().url(),
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(20),
-  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
-  SENTRY_DSN: z.string().url().optional(),
+  STRIPE_PUBLISHABLE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
 });
 
 const parsed = envSchema.safeParse({

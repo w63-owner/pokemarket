@@ -14,6 +14,7 @@ import {
 } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
+import { usePresence } from "@/hooks/use-presence";
 import { useRealtime } from "@/hooks/use-realtime";
 import {
   ConversationListItem,
@@ -67,15 +68,18 @@ export default function InboxScreen() {
     enabled: !!user,
   });
 
+  const onlineIds = usePresence(user?.id);
+
   const renderItem = useCallback(
     ({ item, index }: { item: ConversationPreview; index: number }) => (
       <ConversationListItem
         conversation={item}
         currentUserId={user?.id ?? ""}
         index={index}
+        isOnline={onlineIds.has(item.other_user.id)}
       />
     ),
-    [user?.id],
+    [user?.id, onlineIds],
   );
 
   return (
@@ -116,7 +120,6 @@ export default function InboxScreen() {
         <FlashList
           data={conversations}
           renderItem={renderItem}
-          estimatedItemSize={78}
           keyExtractor={(item) => item.id}
           ItemSeparatorComponent={() => (
             <View className="h-[0.5px] bg-border" />

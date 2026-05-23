@@ -41,6 +41,15 @@ export const queryKeys = {
     me: () => ["profile", "me"] as const,
     public: (username: string) => ["profile", "public", username] as const,
   },
+  reviews: {
+    bySeller: (sellerId: string) => ["reviews", "seller", sellerId] as const,
+  },
+  sellers: {
+    followStatus: (sellerId: string) =>
+      ["sellers", "followStatus", sellerId] as const,
+    reputation: (sellerId: string) =>
+      ["sellers", "reputation", sellerId] as const,
+  },
   favorites: {
     listings: () => ["favorites", "listings"] as const,
     listingIds: () => ["favorites", "listingIds"] as const,

@@ -1,29 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CreditCard, ShieldCheck } from "lucide-react-native";
+import { ChevronLeft, CreditCard, ShieldCheck } from "lucide-react-native";
 import {
   calcTotalBuyer,
   formatPrice,
-  LIMITS,
   SHIPPING_COUNTRIES,
   type ShippingCountry,
 } from "@pokemarket/shared";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useListing } from "@/hooks/use-listings";
-import { supabase } from "@/lib/supabase";
 import { fetchShippingCost } from "@/lib/api/shipping";
 import { fetchMyProfile } from "@/lib/api/profile";
 import { usePayment } from "@/lib/payments";
 import { Button, Skeleton, Text, toast } from "@/components/ui";
-import { MobileHeader } from "@/components/layout/mobile-header";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
 import { AddressForm } from "@/components/checkout/address-form";
-import { haptic } from "@/lib/haptics";
 
 function isSupportedCountry(value: string | null): value is ShippingCountry {
   return (
@@ -74,15 +76,7 @@ export default function CheckoutScreen() {
     enabled: !!listing,
   });
 
-  // The reservation lock is created server-side when the buyer hits "Pay"
-  // (`/api/checkout` writes `transactions.expiration_date = now +
-  // LIMITS.CHECKOUT_LOCK_MINUTES`). Before that, no reservation exists,
-  // so the countdown is informational — but we still source the duration
-  // from the same shared constant the API uses to keep the UI honest.
-  const expiresAt = useMemo(
-    () => new Date(Date.now() + LIMITS.CHECKOUT_LOCK_MINUTES * 60 * 1000),
-    [],
-  );
+  const expiresAt = useMemo(() => new Date(Date.now() + 30 * 60 * 1000), []);
 
   const { startPayment, isProcessing } = usePayment();
 
@@ -135,7 +129,6 @@ export default function CheckoutScreen() {
     if (!isFormValid || isProcessing || isExpired) return;
     if (!listing) return;
 
-    haptic("confirm");
     const result = await startPayment({
       listing_id: listing.id,
       shipping_country: country,
@@ -149,21 +142,12 @@ export default function CheckoutScreen() {
       return;
     }
     if (result.status === "cancelled") {
+      // The user cancelled inside PaymentSheet — keep them on the checkout
+      // screen so they can retry without losing their address. The backend
+      // already created a PENDING_PAYMENT transaction; the cron job will
+      // expire it after CHECKOUT_LOCK_MINUTES.
       return;
     }
-
-    // Session expired mid-checkout: sign out and redirect to login so the
-    // user can re-authenticate and try again with a fresh token.
-    if (
-      result.error === "Session expirée. Veuillez vous reconnecter." ||
-      result.error === "Non authentifié"
-    ) {
-      await supabase.auth.signOut();
-      router.replace("/(auth)/login" as never);
-      return;
-    }
-
-    haptic("error");
     toast.error("Paiement impossible", result.error);
   }
 
@@ -171,7 +155,21 @@ export default function CheckoutScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <MobileHeader title="Paiement" fallbackHref={`/listing/${listing.id}`} />
+      <SafeAreaView edges={["top"]} className="border-b border-border bg-card">
+        <View className="flex-row items-center gap-3 px-4 py-3">
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace(`/listing/${listing.id}` as never);
+            }}
+            hitSlop={8}
+            className="h-9 w-9 items-center justify-center rounded-full"
+          >
+            <ChevronLeft size={22} color="#0f172a" />
+          </Pressable>
+          <Text className="text-lg font-semibold">Paiement</Text>
+        </View>
+      </SafeAreaView>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}

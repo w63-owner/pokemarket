@@ -26,80 +26,8 @@ async function buildHeaders(authenticated: boolean): Promise<Headers> {
 
   if (authenticated) {
     const { data } = await supabase.auth.getSession();
-    let token = data.session?.access_token ?? null;
-
-    // #region agent log
-    const now = Math.floor(Date.now() / 1000);
-    const expiresAt = data.session?.expires_at ?? 0;
-    const dbgPayload = {
-      sessionId: "35fba9",
-      location: "client.ts:buildHeaders",
-      message: "session state before API call",
-      data: {
-        sessionExists: !!data.session,
-        tokenExists: !!token,
-        tokenLength: token?.length ?? 0,
-        expiresAt,
-        nowUnix: now,
-        isExpired: expiresAt > 0 ? expiresAt < now : null,
-        secondsUntilExpiry: expiresAt > 0 ? expiresAt - now : null,
-        authEnabled: authenticated,
-      },
-      timestamp: Date.now(),
-      hypothesisId: "H-A,H-B,H-C",
-    };
-    console.log(
-      "[DEBUG-35fba9] buildHeaders:",
-      JSON.stringify(dbgPayload.data),
-    );
-    fetch("http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "35fba9",
-      },
-      body: JSON.stringify(dbgPayload),
-    }).catch(() => {});
-    // #endregion
-
-    // If no token, try an explicit refresh before giving up. getSession() may
-    // have returned a stale session while a background refresh was in flight,
-    // or the auto-refresh may not have fired yet (e.g. after app resume).
-    if (!token) {
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      token = refreshed.session?.access_token ?? null;
-      // #region agent log
-      const dbgRefresh = {
-        sessionId: "35fba9",
-        location: "client.ts:buildHeaders:refresh",
-        message: "refresh attempt result",
-        data: { refreshSucceeded: !!token, tokenLength: token?.length ?? 0 },
-        timestamp: Date.now(),
-        hypothesisId: "H-A",
-      };
-      console.log(
-        "[DEBUG-35fba9] buildHeaders refresh:",
-        JSON.stringify(dbgRefresh.data),
-      );
-      fetch(
-        "http://127.0.0.1:7638/ingest/38e16e0f-1e33-457e-a7b0-2a438c776c6a",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "35fba9",
-          },
-          body: JSON.stringify(dbgRefresh),
-        },
-      ).catch(() => {});
-      // #endregion
-    }
-
-    if (!token) {
-      throw new ApiError(401, "Session expirée. Veuillez vous reconnecter.");
-    }
-
-    headers.set("Authorization", `Bearer ${token}`);
+    const token = data.session?.access_token;
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   return headers;

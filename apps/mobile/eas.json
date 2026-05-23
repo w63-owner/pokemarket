@@ -47,18 +47,42 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pokemarket.app"
+      },
+      "hooks": {
+        "onSuccess": "./eas-hooks/eas-build-on-success.sh"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "TODO_APP_STORE_CONNECT_ID"
+        "ascAppId": "TODO_APP_STORE_CONNECT_APP_ID",
+        "appleId": "TODO_APPLE_ID_EMAIL",
+        "appleTeamId": "TODO_APPLE_TEAM_ID",
+        "ascApiKeyPath": "../../secrets/asc-api-key.p8",
+        "ascApiKeyId": "TODO_ASC_API_KEY_ID",
+        "ascApiKeyIssuerId": "TODO_ASC_API_KEY_ISSUER_ID"
       },
       "android": {
         "serviceAccountKeyPath": "../../secrets/play-store-service-account.json",
-        "track": "internal"
+        "track": "internal",
+        "releaseStatus": "draft",
+        "changesNotSentForReview": false
       }
+    },
+    "production-prod-track": {
+      "extends": "production",
+      "android": {
+        "track": "production",
+        "rollout": 0.1,
+        "releaseStatus": "inProgress"
+      }
+    }
+  },
+  "metadata": {
+    "production": {
+      "$comment": "Used by `eas metadata:push --profile production`. Reads apps/mobile/store.config.json relative to the project root.",
+      "configPath": "./store.config.json"
     }
   }
 }
