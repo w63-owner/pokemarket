@@ -13,7 +13,6 @@ import {
   useToggleFavorite,
 } from "@/hooks/use-favorites";
 import { fadeInUp, staggerDelay, useReducedMotionSafe } from "@/lib/motion";
-import { useTabBarScrollHandler } from "@/hooks/use-scroll-direction";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
@@ -62,7 +61,6 @@ export function FeedGrid({
   const mutedForeground = useThemeColor("mutedForeground");
   const destructive = useThemeColor("destructive");
   const reduceMotion = useReducedMotionSafe();
-  const onScroll = useTabBarScrollHandler();
 
   // Pick column count based on viewport width — kept reactive so a
   // device rotation or iPad split-view resize re-flows live.
@@ -177,8 +175,6 @@ export function FeedGrid({
       }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.6}
-      onScroll={onScroll}
-      scrollEventThrottle={16}
       renderItem={({ item, index }: ListRenderItemInfo<FeedItem>) => (
         <View
           style={{

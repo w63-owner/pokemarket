@@ -16,18 +16,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
 import { usePresence } from "@/hooks/use-presence";
 import { useRealtime } from "@/hooks/use-realtime";
-import { useTabBarScrollHandler } from "@/hooks/use-scroll-direction";
 import {
   ConversationListItem,
   ConversationListItemSkeleton,
 } from "@/components/messages";
+import { AuthRequired } from "@/components/shared";
 import { Button, Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function InboxScreen() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const primary = useThemeColor("primary");
   const {
@@ -72,7 +72,6 @@ export default function InboxScreen() {
   });
 
   const onlineIds = usePresence(user?.id);
-  const onScroll = useTabBarScrollHandler();
 
   const renderItem = useCallback(
     ({ item, index }: { item: ConversationPreview; index: number }) => (
@@ -85,6 +84,23 @@ export default function InboxScreen() {
     ),
     [user?.id, onlineIds],
   );
+
+  if (!authLoading && !user) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <View className="flex-row items-center justify-between border-b border-border bg-background px-4 py-3">
+          <Text variant="h2">Messages</Text>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <AuthRequired
+            icon={<MessageCircle size={28} color={primary} />}
+            title="Connecte-toi pour accéder à la messagerie"
+            description="Discute avec les vendeurs et acheteurs depuis ton compte."
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -135,8 +151,6 @@ export default function InboxScreen() {
               tintColor={primary}
             />
           }
-          onScroll={onScroll}
-          scrollEventThrottle={16}
         />
       )}
     </SafeAreaView>

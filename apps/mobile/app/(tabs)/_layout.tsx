@@ -21,20 +21,14 @@ import Animated, {
   useDerivedValue,
   useSharedValue,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 
 import { Text } from "@/components/ui/text";
 import { useUnreadCount } from "@/hooks/use-conversations";
-import {
-  TabBarScrollProvider,
-  useTabBarScrollState,
-  type TabBarScrollContextValue,
-} from "@/hooks/use-scroll-direction";
 import { useThemeColor } from "@/lib/theme-colors";
 import { useEffectiveTheme } from "@/lib/stores/theme";
-import { duration, spring, useReducedMotionSafe } from "@/lib/motion";
+import { spring, useReducedMotionSafe } from "@/lib/motion";
 
 type IconProps = { size?: number; color?: string; strokeWidth?: number };
 
@@ -56,17 +50,8 @@ const TABS: TabConfig[] = [
 // `left/right: 14` inside its tab cell). Keeps the underline horizontally
 // centred under the icon as the indicator slides between tabs.
 const INDICATOR_INSET = 14;
-// Hide-on-scroll travel distance — covers the tab bar height + safe-area
-// inset on every notch we ship to. Using an over-shoot value (vs the
-// measured height) keeps the bar fully off-screen even on rotation
-// changes / dynamic safe-area updates.
-const HIDE_TRANSLATE_Y = 120;
 
-function CustomTabBar({
-  state,
-  navigation,
-  scrollState,
-}: BottomTabBarProps & { scrollState: TabBarScrollContextValue }) {
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { data: unreadCount = 0 } = useUnreadCount();
   const scheme = useEffectiveTheme();
@@ -141,28 +126,8 @@ function CustomTabBar({
     layoutsBumpVersion.value = layoutsBumpVersion.value + 1;
   };
 
-  // ─── Hide-on-scroll ─────────────────────────────────────────────────────
-  const containerStyle = useAnimatedStyle(() => {
-    const value = scrollState.hidden.value;
-    return {
-      transform: [
-        {
-          translateY: reduceMotion
-            ? withTiming(value * HIDE_TRANSLATE_Y, { duration: duration.fast })
-            : withSpring(value * HIDE_TRANSLATE_Y, spring.snappy),
-        },
-      ],
-    };
-  });
-
-  // Force-show the tab bar on tab navigation so the new screen always
-  // arrives with the nav visible regardless of inherited scroll state.
-  useEffect(() => {
-    scrollState.show();
-  }, [state.index, scrollState]);
-
   return (
-    <Animated.View style={containerStyle}>
+    <View>
       <BlurView
         intensity={Platform.OS === "ios" ? 60 : 0}
         tint={isDark ? "dark" : "light"}
@@ -291,31 +256,21 @@ function CustomTabBar({
           })}
         </View>
       </BlurView>
-    </Animated.View>
+    </View>
   );
 }
 
 export default function TabsLayout() {
-  // The provider is mounted *above* the navigator so any descendant
-  // screen can grab the scroll handler regardless of nesting depth.
-  // Using a hook (vs `<Provider value={...}>` inline) lets the children
-  // access the same shared value without re-creating it on each render.
-  const scrollState = useTabBarScrollState();
-
   return (
-    <TabBarScrollProvider value={scrollState}>
-      <Tabs
-        tabBar={(props) => (
-          <CustomTabBar {...props} scrollState={scrollState} />
-        )}
-        screenOptions={{ headerShown: false }}
-      >
-        <Tabs.Screen name="index" />
-        <Tabs.Screen name="favorites" />
-        <Tabs.Screen name="sell" />
-        <Tabs.Screen name="inbox" />
-        <Tabs.Screen name="profile" />
-      </Tabs>
-    </TabBarScrollProvider>
+    <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="favorites" />
+      <Tabs.Screen name="sell" />
+      <Tabs.Screen name="inbox" />
+      <Tabs.Screen name="profile" />
+    </Tabs>
   );
 }

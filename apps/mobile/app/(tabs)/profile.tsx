@@ -24,9 +24,9 @@ import {
   Wallet,
 } from "lucide-react-native";
 import { Avatar, Card, Skeleton, Switch, Text, toast } from "@/components/ui";
+import { AuthRequired } from "@/components/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "@/hooks/use-profile";
-import { useTabBarScrollHandler } from "@/hooks/use-scroll-direction";
 import {
   disableBiometry,
   enableBiometryForCurrentSession,
@@ -56,9 +56,8 @@ const legalItems = [
 ] as const;
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const { data: profile, isLoading } = useMyProfile();
-  const onScroll = useTabBarScrollHandler();
 
   const effectiveTheme = useEffectiveTheme();
   const setThemePreference = useThemeStore((s) => s.setPreference);
@@ -66,6 +65,7 @@ export default function ProfileScreen() {
   const iconForeground = useThemeColor("foreground");
   const iconMuted = useThemeColor("mutedForeground");
   const destructive = useThemeColor("destructive");
+  const primary = useThemeColor("primary");
 
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricLabel, setBiometricLabel] = useState("Biométrie");
@@ -108,13 +108,26 @@ export default function ProfileScreen() {
     }
   };
 
+  if (!authLoading && !user) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <View className="border-b border-border bg-background px-4 pb-3 pt-2">
+          <Text variant="h2">Profil</Text>
+        </View>
+        <View className="flex-1 items-center justify-center">
+          <AuthRequired
+            icon={<UserIcon size={28} color={primary} />}
+            title="Connecte-toi pour accéder à tes informations"
+            description="Retrouve ton profil, tes annonces, ton portefeuille et tes paramètres."
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <Animated.ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16 }}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-      >
+      <Animated.ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         <Card>
           {isLoading ? (
             <View className="flex-row items-center gap-3">
