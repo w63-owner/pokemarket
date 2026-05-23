@@ -18,7 +18,7 @@
     "test": "turbo test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "node -e \"if (process.env.CI !== 'true' && process.env.EAS_BUILD !== '1') { require('child_process').execSync('husky', {stdio: 'inherit'}) }\""
   },
   "lint-staged": {
     "apps/web/**/*.{ts,tsx}": [
