@@ -1,6 +1,8 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+type PushNotificationData = Record<string, string>;
+
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 // Push services may use this contact to reach us if our notifications cause
@@ -25,6 +27,7 @@ export async function sendPushNotification(
   title: string,
   body: string,
   url?: string,
+  data?: PushNotificationData,
 ): Promise<void> {
   if (!ensureConfigured()) return;
 
@@ -42,7 +45,7 @@ export async function sendPushNotification(
 
   if (!subscriptions || subscriptions.length === 0) return;
 
-  const payload = JSON.stringify({ title, body, url });
+  const payload = JSON.stringify({ title, body, url, data });
   const staleIds: string[] = [];
 
   await Promise.allSettled(

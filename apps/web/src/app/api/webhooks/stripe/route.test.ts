@@ -241,9 +241,40 @@ describe("webhooks/stripe — CHAOS", () => {
     mockClient = db.client;
     const res = await POST(makeReq());
     expect(res.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
   });
 
-  it("DB chaos during finalize → 500 returned, idempotency key NOT discarded (Stripe will redeliver)", async () => {
+  it("handler failure clears idempotency so Stripe redelivery can finalize", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_retry_after_not_found",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const scenario = basicScenario();
+    const [transaction] = scenario.transactions!;
+    scenario.transactions = [];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const first = await POST(makeReq());
+    expect(first.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+
+    db.state.transactions.push(transaction);
+
+    const retry = await POST(makeReq());
+    expect(retry.status).toBe(200);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(1);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
+  it("DB chaos during finalize → 500 returned, retry path remains coherent", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_chaos",
       type: "checkout.session.completed",

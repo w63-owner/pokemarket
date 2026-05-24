@@ -69,14 +69,19 @@ beforeEach(() => {
   ephemeralKeyCreate.mockClear();
 });
 
-function makeReq(body: any, options: { client?: "mobile" | "web" } = {}) {
+function makeReq(
+  body: any,
+  options: { client?: "mobile" | "web"; origin?: string } = {},
+) {
   const url =
     options.client === "mobile"
       ? "http://localhost/api/checkout?client=mobile"
       : "http://localhost/api/checkout";
+  const headers = new Headers({ "content-type": "application/json" });
+  if (options.origin) headers.set("origin", options.origin);
   return new Request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -177,6 +182,31 @@ describe("checkout — listing-status guards", () => {
     const callArgs = stripeCreate.mock.calls[0][0];
     const itemAmount = callArgs.line_items[0].price_data.unit_amount;
     expect(itemAmount).toBe(3000);
+  });
+
+  it("does not trust Origin when building Stripe redirect URLs", async () => {
+    const previousAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.pokemarket.test/";
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(
+      makeReq(validBody, { origin: "https://attacker.example" }),
+    );
+    if (previousAppUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_APP_URL;
+    } else {
+      process.env.NEXT_PUBLIC_APP_URL = previousAppUrl;
+    }
+
+    expect(res.status).toBe(200);
+    const callArgs = stripeCreate.mock.calls[0][0];
+    expect(callArgs.success_url).toMatch(
+      /^https:\/\/app\.pokemarket\.test\/orders\//,
+    );
+    expect(callArgs.cancel_url).toBe(
+      `https://app.pokemarket.test/listing/${LISTING_ID}?checkout=cancelled`,
+    );
   });
 
   it("LOCKED listing with paid stripe session → 400 (already paid)", async () => {
