@@ -278,13 +278,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Derive the redirect base URL from the inbound request first so a buyer
-    // checking out from `localhost:3000` (or a Vercel preview deployment)
-    // doesn't get bounced to the production host on the success page. We only
-    // fall back to NEXT_PUBLIC_APP_URL when no Origin header is present
-    // (e.g. server-to-server invocations during tests).
-    const requestOrigin = request.headers.get("origin");
-    const appUrl = requestOrigin?.trim().replace(/\/$/, "") ?? getAppUrl();
+    // Stripe will redirect the buyer here after payment. Never derive this
+    // from caller-controlled headers; non-browser clients can spoof Origin.
+    const appUrl = getAppUrl();
 
     const { data: buyerProfile } = await admin
       .from("profiles")

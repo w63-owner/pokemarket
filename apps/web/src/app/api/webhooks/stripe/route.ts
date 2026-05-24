@@ -158,6 +158,17 @@ export async function POST(request: Request) {
   } catch (err) {
     Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
+    const { error: cleanupError } = await admin
+      .from("stripe_webhooks_processed")
+      .delete()
+      .eq("stripe_event_id", event.id);
+    if (cleanupError) {
+      Sentry.captureException(cleanupError);
+      console.error("Failed to clear failed webhook idempotency key:", {
+        eventId: event.id,
+        cleanupError,
+      });
+    }
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 },
