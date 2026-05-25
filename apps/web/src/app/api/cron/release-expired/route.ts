@@ -46,11 +46,13 @@ export async function GET(request: Request) {
         .eq("status", "ACCEPTED")
         .maybeSingle();
 
-      const newStatus = acceptedOffer ? "RESERVED" : "ACTIVE";
+      const releasePatch = acceptedOffer
+        ? { status: "RESERVED" }
+        : { status: "ACTIVE", reserved_for: null };
 
       await admin
         .from("listings")
-        .update({ status: newStatus })
+        .update(releasePatch)
         .eq("id", listingId)
         .eq("status", "LOCKED");
     }

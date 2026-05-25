@@ -134,6 +134,7 @@ describe("checkout — listing-status guards", () => {
     expect(json.url).toBeTruthy();
     expect(json.transaction_id).toBeTruthy();
     expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.listings[0].reserved_for).toBe("buyer-1");
     expect(db.state.transactions).toHaveLength(1);
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
   });
@@ -195,6 +196,48 @@ describe("checkout — listing-status guards", () => {
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(400);
   });
+
+  it("LOCKED listing with current buyer pending checkout session → expires old tx and retries", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-existing",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      seller_id: "seller-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_unpaid",
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(200);
+    expect(stripeRetrieve).toHaveBeenCalledWith("cs_unpaid");
+    expect(db.state.transactions).toHaveLength(2);
+    expect(
+      db.state.transactions.find((t) => t.id === "tx-existing")?.status,
+    ).toBe("EXPIRED");
+    const freshTx = db.state.transactions.find((t) => t.id !== "tx-existing");
+    expect(freshTx?.status).toBe("PENDING_PAYMENT");
+    expect(freshTx?.buyer_id).toBe("buyer-1");
+  });
+
+  it("LOCKED listing reserved for current buyer without a pending tx → 409 while lock is in flight", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-1";
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(409);
+    expect(db.state.transactions).toHaveLength(0);
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("checkout — STRESS concurrent buyers", () => {
@@ -249,18 +292,16 @@ describe("checkout — STRESS concurrent buyers", () => {
 });
 
 describe("checkout — CHAOS", () => {
-  it("Stripe session creation fails AFTER tx insert → 500 returned, cron will clean up", async () => {
+  it("Stripe session creation fails AFTER tx insert → rolls back lock and expires tx", async () => {
     stripeCreate.mockRejectedValueOnce(new Error("[chaos] Stripe down"));
     const db = createMockDb(activeListingScenario());
     mockClient = db.client;
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(500);
 
-    // Known limitation — the tx + LOCKED state persist until release-expired
-    // cron cleans them up (after CHECKOUT_LOCK_MINUTES). Verified separately
-    // in src/app/api/cron/release-expired/route.test.ts.
-    expect(db.state.listings[0].status).toBe("LOCKED");
-    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(db.state.listings[0].reserved_for).toBeNull();
+    expect(db.state.transactions[0].status).toBe("EXPIRED");
   });
 });
 
@@ -323,6 +364,7 @@ describe("checkout — mobile (?client=mobile)", () => {
     // Mobile path explicitly rolls back so the buyer can retry without
     // being told the listing is "verrouillée".
     expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(db.state.listings[0].reserved_for).toBeNull();
     expect(db.state.transactions[0].status).toBe("EXPIRED");
   });
 });

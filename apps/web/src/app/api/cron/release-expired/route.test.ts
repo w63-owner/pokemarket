@@ -43,7 +43,7 @@ describe("cron/release-expired — QA", () => {
           expiration_date: new Date(Date.now() - HOUR).toISOString(),
         },
       ],
-      listings: [{ id: "L1", status: "LOCKED" }],
+      listings: [{ id: "L1", status: "LOCKED", reserved_for: "B1" }],
       offers: [],
     });
     mockClient = db.client;
@@ -53,6 +53,7 @@ describe("cron/release-expired — QA", () => {
     expect(json.released).toBe(1);
     expect(db.state.transactions[0].status).toBe("EXPIRED");
     expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(db.state.listings[0].reserved_for).toBeNull();
   });
 
   it("with ACCEPTED offer present → listing reverts to RESERVED, not ACTIVE", async () => {
@@ -65,12 +66,13 @@ describe("cron/release-expired — QA", () => {
           expiration_date: new Date(Date.now() - HOUR).toISOString(),
         },
       ],
-      listings: [{ id: "L1", status: "LOCKED" }],
+      listings: [{ id: "L1", status: "LOCKED", reserved_for: "B1" }],
       offers: [{ id: "o1", listing_id: "L1", status: "ACCEPTED" }],
     });
     mockClient = db.client;
     await GET(authedReq());
     expect(db.state.listings[0].status).toBe("RESERVED");
+    expect(db.state.listings[0].reserved_for).toBe("B1");
   });
 
   it("does not release transactions still within expiration window", async () => {
