@@ -112,20 +112,14 @@ export async function POST(request: Request) {
       listing.reserved_for === user.id;
     const isActive = listing.status === "ACTIVE";
 
-    if (!isActive && !isReservedForMe) {
-      return NextResponse.json(
-        { error: "Cette annonce n'est plus disponible à l'achat" },
-        { status: 400 },
-      );
-    }
-
-    const effectiveDisplayPrice =
-      (isReservedForMe
-        ? (listing.reserved_price ?? listing.display_price)
-        : listing.display_price) ?? 0;
+    let existingTx: {
+      id: string;
+      stripe_checkout_session_id: string | null;
+      stripe_payment_intent_id: string | null;
+    } | null = null;
 
     if (listing.status === "LOCKED") {
-      const { data: existingTx } = await admin
+      const { data } = await admin
         .from("transactions")
         .select("id, stripe_checkout_session_id, stripe_payment_intent_id")
         .eq("listing_id", listing_id)
@@ -134,6 +128,46 @@ export async function POST(request: Request) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      existingTx = data;
+    }
+
+    const isLockRetryForMe = listing.status === "LOCKED" && !!existingTx;
+
+    if (!isActive && !isReservedForMe && !isLockRetryForMe) {
+      return NextResponse.json(
+        { error: "Cette annonce n'est plus disponible à l'achat" },
+        { status: 400 },
+      );
+    }
+
+    const effectiveDisplayPrice =
+      (isReservedForMe || isLockRetryForMe
+        ? (listing.reserved_price ?? listing.display_price)
+        : listing.display_price) ?? 0;
+
+    if (listing.status === "LOCKED") {
+      if (!existingTx) {
+        return NextResponse.json(
+          {
+            error:
+              "Cette annonce est en cours de verrouillage. Réessayez dans quelques instants.",
+          },
+          { status: 409 },
+        );
+      }
+
+      if (
+        !existingTx.stripe_checkout_session_id &&
+        !existingTx.stripe_payment_intent_id
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Le paiement précédent est encore en préparation. Réessayez dans quelques instants.",
+          },
+          { status: 409 },
+        );
+      }
 
       if (existingTx?.stripe_checkout_session_id) {
         const stripe = getStripe();
@@ -192,7 +226,11 @@ export async function POST(request: Request) {
       // double-charge.
       const { data: locked, error: lockError } = await admin
         .from("listings")
-        .update({ status: "LOCKED" })
+        .update(
+          isReservedForMe
+            ? { status: "LOCKED" }
+            : { status: "LOCKED", reserved_for: user.id },
+        )
         .eq("id", listing_id)
         .in("status", isReservedForMe ? ["RESERVED"] : ["ACTIVE"])
         .select("id");
@@ -240,10 +278,13 @@ export async function POST(request: Request) {
       .single();
 
     if (txError || !transaction) {
-      const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
       await admin
         .from("listings")
-        .update({ status: rollbackStatus })
+        .update(
+          isReservedForMe
+            ? { status: "RESERVED" }
+            : { status: "ACTIVE", reserved_for: null },
+        )
         .eq("id", listing_id);
 
       return NextResponse.json(
@@ -265,10 +306,13 @@ export async function POST(request: Request) {
           mobileResponse satisfies MobileCheckoutResponse,
         );
       } catch (err) {
-        const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
         await admin
           .from("listings")
-          .update({ status: rollbackStatus })
+          .update(
+            isReservedForMe
+              ? { status: "RESERVED" }
+              : { status: "ACTIVE", reserved_for: null },
+          )
           .eq("id", listing_id);
         await admin
           .from("transactions")
@@ -300,41 +344,59 @@ export async function POST(request: Request) {
       : { customer_email: user.email };
 
     const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      ...stripeCustomerProps,
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: listing.title,
-              images: listing.cover_image_url
-                ? [listing.cover_image_url]
-                : undefined,
+    const session = await (async () => {
+      try {
+        return await stripe.checkout.sessions.create({
+          mode: "payment",
+          ...stripeCustomerProps,
+          line_items: [
+            {
+              price_data: {
+                currency: "eur",
+                product_data: {
+                  name: listing.title,
+                  images: listing.cover_image_url
+                    ? [listing.cover_image_url]
+                    : undefined,
+                },
+                unit_amount: Math.round(effectiveDisplayPrice * 100),
+              },
+              quantity: 1,
             },
-            unit_amount: Math.round(effectiveDisplayPrice * 100),
+            {
+              price_data: {
+                currency: "eur",
+                product_data: { name: "Frais de livraison" },
+                unit_amount: Math.round(shippingCost * 100),
+              },
+              quantity: 1,
+            },
+          ],
+          metadata: {
+            transaction_id: transaction.id,
+            listing_id,
           },
-          quantity: 1,
-        },
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: "Frais de livraison" },
-            unit_amount: Math.round(shippingCost * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        transaction_id: transaction.id,
-        listing_id,
-      },
-      success_url: `${appUrl}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/listing/${listing_id}?checkout=cancelled`,
-      expires_at:
-        Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
-    });
+          success_url: `${appUrl}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${appUrl}/listing/${listing_id}?checkout=cancelled`,
+          expires_at:
+            Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
+        });
+      } catch (err) {
+        await admin
+          .from("listings")
+          .update(
+            isReservedForMe
+              ? { status: "RESERVED" }
+              : { status: "ACTIVE", reserved_for: null },
+          )
+          .eq("id", listing_id);
+        await admin
+          .from("transactions")
+          .update({ status: "EXPIRED" })
+          .eq("id", transaction.id);
+        throw err;
+      }
+    })();
 
     await admin
       .from("transactions")
