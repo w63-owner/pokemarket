@@ -156,6 +156,7 @@ export async function POST(request: Request) {
         console.warn(`Unhandled event type: ${event.type}`);
     }
   } catch (err) {
+    await forgetProcessedWebhook(admin, event.id);
     Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
     return NextResponse.json(
@@ -168,6 +169,36 @@ export async function POST(request: Request) {
 }
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function forgetProcessedWebhook(admin: AdminClient, eventId: string) {
+  try {
+    const { error } = await admin
+      .from("stripe_webhooks_processed")
+      .delete()
+      .eq("stripe_event_id", eventId);
+
+    if (!error) return;
+
+    Sentry.captureException(error, {
+      extra: {
+        context: "stripe_webhook_idempotency_cleanup",
+        stripe_event_id: eventId,
+      },
+    });
+    console.error("Failed to clear Stripe webhook idempotency key:", error);
+  } catch (cleanupErr) {
+    Sentry.captureException(cleanupErr, {
+      extra: {
+        context: "stripe_webhook_idempotency_cleanup",
+        stripe_event_id: eventId,
+      },
+    });
+    console.error(
+      "Failed to clear Stripe webhook idempotency key:",
+      cleanupErr,
+    );
+  }
+}
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const transactionId = session.metadata?.transaction_id;

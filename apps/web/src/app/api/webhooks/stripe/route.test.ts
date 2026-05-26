@@ -243,7 +243,59 @@ describe("webhooks/stripe — CHAOS", () => {
     expect(res.status).toBe(500);
   });
 
-  it("DB chaos during finalize → 500 returned, idempotency key NOT discarded (Stripe will redeliver)", async () => {
+  it("transient handler failure clears the idempotency key so Stripe redelivery can retry", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_retry_after_failure",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    const originalFrom = db.client.from.bind(db.client);
+    let failNextTransactionRead = true;
+    db.client.from = (name: string) => {
+      const builder = originalFrom(name);
+      if (name === "transactions") {
+        const originalSingle = builder.single.bind(builder);
+        builder.single = async () => {
+          if (failNextTransactionRead) {
+            failNextTransactionRead = false;
+            throw new Error("[chaos] transaction read failed");
+          }
+          return originalSingle();
+        };
+      }
+      return builder;
+    };
+    mockClient = db.client;
+
+    const first = await POST(makeReq());
+    expect(first.status).toBe(500);
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (event) => event.stripe_event_id === "evt_retry_after_failure",
+      ),
+    ).toHaveLength(0);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+
+    const second = await POST(makeReq());
+    expect(second.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (event) => event.stripe_event_id === "evt_retry_after_failure",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("DB chaos during finalize → 500 returned without double-credit", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_chaos",
       type: "checkout.session.completed",
