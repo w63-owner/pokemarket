@@ -1,51 +1,31 @@
-import { useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-import { queryKeys, type Database } from "@pokemarket/shared";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtime } from "@/hooks/use-realtime";
 import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
 
-type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
-
+/**
+ * Conversations and unread count are kept fresh by the app-root
+ * `useInboxChannel` realtime subscription (see
+ * `hooks/use-inbox-channel.ts`), so we don't need a per-hook channel
+ * or a poll interval — `staleTime` only controls how aggressively
+ * background refetches re-fire when the user navigates back to the
+ * inbox.
+ */
 export function useConversations() {
   return useQuery({
     queryKey: queryKeys.conversations.list(),
     queryFn: fetchConversations,
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 }
 
 export function useUnreadCount() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  const handleInsert = useCallback(
-    (payload: RealtimePostgresChangesPayload<MessageRow>) => {
-      const row = (payload.new ?? payload.old) as MessageRow | undefined;
-      if (!row) return;
-      if (row.sender_id === user?.id) return;
-
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.conversations.unreadCount(),
-      });
-    },
-    [queryClient, user?.id],
-  );
-
-  useRealtime({
-    channelName: `unread-badge-${user?.id ?? "anon"}`,
-    table: "messages",
-    event: "INSERT",
-    onInsert: handleInsert,
-    enabled: !!user,
-  });
 
   return useQuery({
     queryKey: queryKeys.conversations.unreadCount(),
     queryFn: fetchUnreadCount,
-    staleTime: 15_000,
-    refetchInterval: 60_000,
+    staleTime: 30_000,
     enabled: !!user,
   });
 }

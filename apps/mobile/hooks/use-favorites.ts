@@ -11,6 +11,11 @@ export function useFavoriteListingIds() {
   return useQuery({
     queryKey: queryKeys.favorites.listingIds(),
     queryFn: fetchFavoriteListingIds,
+    // IDs are tiny (string[]) and only change on explicit toggle, which
+    // already runs an optimistic update + onSettled invalidate — a long
+    // staleTime here lets the feed skip a network round-trip every time
+    // it remounts.
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -18,6 +23,7 @@ export function useFavoriteListings() {
   return useQuery({
     queryKey: queryKeys.favorites.listings(),
     queryFn: fetchFavoriteListings,
+    staleTime: 60_000,
   });
 }
 

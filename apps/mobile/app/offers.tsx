@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { Image } from "expo-image";
 import { router, Stack } from "expo-router";
@@ -24,7 +24,8 @@ import {
   type SentOfferWithContext,
 } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtime } from "@/hooks/use-realtime";
+import { subscription, useRealtime } from "@/hooks/use-realtime";
+import { channels } from "@/lib/realtime/channels";
 import {
   acceptOffer,
   cancelOffer,
@@ -444,13 +445,20 @@ export default function OffersScreen() {
     queryClient.invalidateQueries({ queryKey: queryKeys.offers.sent() });
   }, [queryClient]);
 
+  const offerSubs = useMemo(
+    () => [
+      subscription("offers", "*", {
+        onInsert: invalidateOffers,
+        onUpdate: invalidateOffers,
+      }),
+    ],
+    [invalidateOffers],
+  );
+
   useRealtime({
-    channelName: `offers-dashboard-${user?.id ?? "anon"}`,
-    table: "offers",
-    event: "*",
-    onInsert: invalidateOffers,
-    onUpdate: invalidateOffers,
+    channelName: user ? channels.offersDashboard(user.id) : "offers:anon",
     enabled: !!user,
+    subscriptions: offerSubs,
   });
 
   const pendingReceivedCount =

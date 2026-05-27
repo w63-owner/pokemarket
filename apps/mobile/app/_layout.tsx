@@ -7,7 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
@@ -19,8 +19,11 @@ import { ToastViewport } from "@/components/ui/toast";
 import { AnimatedSplash } from "@/components/splash/animated-splash";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useAppFonts } from "@/lib/fonts";
-import { initAuth } from "@/hooks/use-auth";
-import { setupNotificationListeners } from "@/lib/notifications";
+import { initAuth, useAuth } from "@/hooks/use-auth";
+import { useInboxChannel } from "@/hooks/use-inbox-channel";
+import { queryClient } from "@/lib/query/client";
+import { setupQueryManagers } from "@/lib/query/setup";
+import { persistOptions } from "@/lib/query/persister";
 
 initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -30,18 +33,19 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // auth state is already resolved — no flash of protected content.
 initAuth();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// Wire React Query's `focusManager` + `onlineManager` once at module
+// init — before the provider mounts — so cold-start refetches pick up
+// the correct online/foreground state on the very first render.
+setupQueryManagers();
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useAppFonts();
+  const { user } = useAuth();
+
+  // App-root realtime — single websocket powering the bottom-tab badge
+  // and the conversations list, regardless of whether the user has
+  // opened the inbox yet.
+  useInboxChannel(user?.id ?? null);
 
   // Coordinate splash hiding with font loading so the first paint
   // always renders with the design system fonts (Inter + Plus Jakarta
@@ -60,15 +64,6 @@ function RootLayout() {
     setColorScheme(effectiveTheme);
   }, [effectiveTheme, setColorScheme]);
 
-  // Subscribe to push notification taps + universal links once, at the root.
-  // The listener resolves cold-start notifications (app launched by tap) AND
-  // warm taps (app already running). Cleanup is mandatory because Expo
-  // Notifications keeps the subscription alive across Fast Refresh otherwise.
-  useEffect(() => {
-    const cleanup = setupNotificationListeners();
-    return cleanup;
-  }, []);
-
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -83,29 +78,36 @@ function RootLayout() {
           the keyboard on Android — see app.json `edgeToEdgeEnabled: true`). */}
       <KeyboardProvider>
         <SafeAreaProvider>
-          <QueryClientProvider client={queryClient}>
-            <StripeProvider
-              publishableKey={env.STRIPE_PUBLISHABLE_KEY ?? ""}
-              merchantIdentifier="merchant.app.pokemarket"
-            >
-              <BottomSheetModalProvider>
-                <StatusBar
-                  style={effectiveTheme === "dark" ? "light" : "dark"}
-                />
-                <Stack screenOptions={{ headerShown: false }} />
-                <ToastViewport />
-                {/* Mounted last so it floats above the navigator + every
-                    modal until it self-dismisses (one-shot per install
-                    via AsyncStorage flag). Costs nothing past first paint
-                    thanks to its internal `phase === "done"` short-circuit. */}
-                <AnimatedSplash />
-              </BottomSheetModalProvider>
-            </StripeProvider>
-          </QueryClientProvider>
+          <StripeProvider
+            publishableKey={env.STRIPE_PUBLISHABLE_KEY ?? ""}
+            merchantIdentifier="merchant.app.pokemarket"
+          >
+            <BottomSheetModalProvider>
+              <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
+              <Stack screenOptions={{ headerShown: false }} />
+              <ToastViewport />
+              {/* Mounted last so it floats above the navigator + every
+                  modal until it self-dismisses (one-shot per install
+                  via AsyncStorage flag). Costs nothing past first paint
+                  thanks to its internal `phase === "done"` short-circuit. */}
+              <AnimatedSplash />
+            </BottomSheetModalProvider>
+          </StripeProvider>
         </SafeAreaProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }
 
-export default Sentry.wrap(RootLayout);
+function PersistedRoot() {
+  return (
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={persistOptions}
+    >
+      <RootLayout />
+    </PersistQueryClientProvider>
+  );
+}
+
+export default Sentry.wrap(PersistedRoot);

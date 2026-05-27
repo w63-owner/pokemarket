@@ -26,7 +26,12 @@ import {
 
 import { queryKeys, type Message } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtime } from "@/hooks/use-realtime";
+import {
+  subscription,
+  useRealtime,
+  type RealtimePayload,
+} from "@/hooks/use-realtime";
+import { channels } from "@/lib/realtime/channels";
 import {
   fetchConversationDetail,
   fetchMessages,
@@ -280,7 +285,7 @@ export default function ConversationThreadScreen() {
 
   // ── Realtime: new messages ────────────────────────────────────────────
   const handleRealtimeInsert = useCallback(
-    (payload: { new: Record<string, unknown> }) => {
+    (payload: RealtimePayload<"messages">) => {
       const newMsg = payload.new as unknown as Message;
 
       if (newMsg.sender_id === user?.id) {
@@ -340,18 +345,9 @@ export default function ConversationThreadScreen() {
     [conversationId, queryClient, user?.id, convQuery.data?.listing_id],
   );
 
-  useRealtime({
-    channelName: `thread-${conversationId}`,
-    table: "messages",
-    filter: `conversation_id=eq.${conversationId}`,
-    event: "INSERT",
-    onInsert: handleRealtimeInsert,
-    enabled: !!user && !!conversationId,
-  });
-
   // ── Realtime: read receipts ────────────────────────────────────────────
   const handleRealtimeUpdate = useCallback(
-    (payload: { new: Record<string, unknown> }) => {
+    (payload: RealtimePayload<"messages">) => {
       const updated = payload.new as unknown as Message;
       queryClient.setQueryData<{
         pages: MessagesPage[];
@@ -372,13 +368,25 @@ export default function ConversationThreadScreen() {
     [conversationId, queryClient],
   );
 
+  // ── Realtime: fused INSERT + UPDATE on the thread ─────────────────────
+  // One websocket per open thread (down from two): both events live on
+  // the same channel under a single `.on('postgres_changes')` listener
+  // dispatched by event type.
+  const threadSubs = useMemo(
+    () => [
+      subscription("messages", "*", {
+        filter: `conversation_id=eq.${conversationId}`,
+        onInsert: handleRealtimeInsert,
+        onUpdate: handleRealtimeUpdate,
+      }),
+    ],
+    [conversationId, handleRealtimeInsert, handleRealtimeUpdate],
+  );
+
   useRealtime({
-    channelName: `thread-reads-${conversationId}`,
-    table: "messages",
-    filter: `conversation_id=eq.${conversationId}`,
-    event: "UPDATE",
-    onUpdate: handleRealtimeUpdate,
+    channelName: channels.thread(conversationId),
     enabled: !!user && !!conversationId,
+    subscriptions: threadSubs,
   });
 
   // ── Auto-read: batch mark as read every 2s ────────────────────────────

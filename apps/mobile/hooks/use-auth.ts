@@ -3,6 +3,8 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { registerPushToken, unregisterPushToken } from "@/lib/notifications";
 import { disableBiometry } from "@/lib/biometry";
+import { queryClient } from "@/lib/query/client";
+import { persister } from "@/lib/query/persister";
 
 type AuthState = {
   session: Session | null;
@@ -78,6 +80,15 @@ export function initAuth() {
     if (event === "SIGNED_IN" && newSession) {
       void registerPushToken();
     }
+
+    // Belt-and-suspenders: if the session vanishes for any reason
+    // (token expired, refresh failed, signOut() bypassed), nuke the
+    // React Query cache AND the persisted snapshot so we never replay
+    // a previous user's data on the next launch.
+    if (event === "SIGNED_OUT") {
+      queryClient.clear();
+      void persister.removeClient();
+    }
   });
 }
 
@@ -111,7 +122,17 @@ export function useAuth() {
       // Drop the push token first so the device stops receiving notifications
       // intended for the old user; failures are silent so logout always works.
       await Promise.allSettled([unregisterPushToken(), disableBiometry()]);
-      return supabase.auth.signOut();
+      const result = await supabase.auth.signOut();
+      // Wipe the in-memory React Query cache AND the persisted snapshot
+      // in AsyncStorage so the next user that signs in on the same
+      // device never sees the previous user's hydrated favorites,
+      // inbox, profile, etc. `removeClient()` is needed because the
+      // persister throttles writes by 1.5 s — if the user kills the
+      // app before that window expires, `clear()` alone would leave
+      // stale data on disk.
+      queryClient.clear();
+      void persister.removeClient();
+      return result;
     },
   };
 }

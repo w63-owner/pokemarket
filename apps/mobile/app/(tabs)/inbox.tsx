@@ -5,17 +5,11 @@ import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageCircle, Tag } from "lucide-react-native";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
-import {
-  queryKeys,
-  type ConversationPreview,
-  type Database,
-} from "@pokemarket/shared";
+import { queryKeys, type ConversationPreview } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
 import { usePresence } from "@/hooks/use-presence";
-import { useRealtime } from "@/hooks/use-realtime";
 import {
   ConversationListItem,
   ConversationListItemSkeleton,
@@ -23,8 +17,6 @@ import {
 import { AuthRequired } from "@/components/shared";
 import { Button, Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
-
-type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function InboxScreen() {
   const { user, loading: authLoading } = useAuth();
@@ -38,38 +30,15 @@ export default function InboxScreen() {
     error,
   } = useConversations();
 
+  // Realtime is centralised in `useInboxChannel` (mounted in
+  // `app/_layout.tsx`), so this screen only needs a manual invalidator
+  // for the "retry" button on the error state.
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.conversations.list() });
     queryClient.invalidateQueries({
       queryKey: queryKeys.conversations.unreadCount(),
     });
   }, [queryClient]);
-
-  const handleMessageInsert = useCallback(
-    (payload: RealtimePostgresChangesPayload<MessageRow>) => {
-      const newMsg = payload.new as MessageRow | undefined;
-      if (newMsg?.sender_id === user?.id) return;
-      invalidate();
-    },
-    [invalidate, user?.id],
-  );
-
-  useRealtime({
-    channelName: `inbox-messages-${user?.id ?? "anon"}`,
-    table: "messages",
-    event: "INSERT",
-    onInsert: handleMessageInsert,
-    enabled: !!user,
-  });
-
-  useRealtime({
-    channelName: `inbox-conversations-${user?.id ?? "anon"}`,
-    table: "conversations",
-    event: "*",
-    onInsert: invalidate,
-    onUpdate: invalidate,
-    enabled: !!user,
-  });
 
   const onlineIds = usePresence(user?.id);
 
