@@ -20,9 +20,13 @@
         "resourceClass": "medium"
       },
       "channel": "development",
+      "cache": {
+        "key": "v1-dev-rn0.81-expo54"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EAS_USE_CACHE": "1"
       }
     },
     "preview": {
@@ -37,9 +41,13 @@
         "resourceClass": "medium"
       },
       "channel": "preview",
+      "cache": {
+        "key": "v1-preview-rn0.81-expo54"
+      },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EAS_USE_CACHE": "1"
       }
     },
     "production": {
@@ -53,15 +61,19 @@
         "buildType": "app-bundle",
         "resourceClass": "medium"
       },
+      "cache": {
+        "key": "v1-prod-rn0.81-expo54"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://pokemarket.app"
+        "EXPO_PUBLIC_API_URL": "https://pokemarket.app",
+        "EAS_USE_CACHE": "1"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "TODO_APP_STORE_CONNECT_ID"
+        "ascAppId": "6773838040"
       },
       "android": {
         "serviceAccountKeyPath": "../../secrets/play-store-service-account.json",

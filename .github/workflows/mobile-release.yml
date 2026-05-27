@@ -80,6 +80,30 @@ jobs:
           echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
           echo "Resolved profile: $PROFILE"
 
+      # Sourcemap upload happens on the EAS builder (apps/mobile/eas-hooks/
+      # eas-build-on-success.sh) which needs SENTRY_AUTH_TOKEN / SENTRY_ORG /
+      # SENTRY_PROJECT as EAS secrets (`eas secret:create`, scoped to the
+      # project). The CLI exposes them with `eas secret:list`. We fail the
+      # job here when running the production profile so a missing secret is
+      # caught at workflow start — not 30 min later after the native build.
+      - name: Verify Sentry sourcemap secrets on EAS (production)
+        if: steps.profile.outputs.profile == 'production'
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Checking that SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT are configured as EAS secrets…"
+          SECRETS_JSON="$(eas secret:list --non-interactive --json)"
+          for KEY in SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT; do
+            if ! echo "$SECRETS_JSON" | grep -q "\"name\": *\"$KEY\""; then
+              echo "::error::EAS secret \"$KEY\" is missing. Run: eas secret:create --scope project --name $KEY --value <value>"
+              echo "Sourcemap upload would silently no-op (see apps/mobile/eas-hooks/eas-build-on-success.sh)."
+              exit 1
+            fi
+          done
+          echo "All Sentry sourcemap secrets present."
+
       # SENTRY_* in this job env are NOT sent to EAS cloud builders — configure
       # them as EAS project secrets (`eas secret:create`) for production builds.
       - name: Trigger EAS build (iOS + Android)
@@ -99,6 +123,22 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas metadata:push --profile production --non-interactive
+
+      # Submit is a one-way trip to TestFlight / Play Console — bail
+      # out loudly if `ascAppId` is still the placeholder. EAS would
+      # otherwise fail with an opaque "could not resolve app" error
+      # several minutes into the iOS submit.
+      - name: Assert eas.json submit config is wired
+        if: |
+          steps.profile.outputs.profile == 'production' &&
+          (github.event_name == 'push' || github.event.inputs.submit == 'true')
+        run: |
+          set -euo pipefail
+          ASC_APP_ID="$(node -e "console.log(require('./apps/mobile/eas.json').submit.production.ios.ascAppId)")"
+          if [ "$ASC_APP_ID" = "TODO_APP_STORE_CONNECT_ID" ] || [ -z "$ASC_APP_ID" ]; then
+            echo "::error::eas.json submit.production.ios.ascAppId is unset. Get the numeric App ID from https://appstoreconnect.apple.com → App Information → Apple ID."
+            exit 1
+          fi
 
       - name: Submit to stores (when requested)
         if: |

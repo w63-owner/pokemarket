@@ -124,6 +124,19 @@ interface RegistryEntry {
 
 const registry = new Map<string, RegistryEntry>();
 
+/**
+ * Returns the number of distinct Supabase Realtime channels currently
+ * subscribed across the whole app. Each channel multiplexes any number
+ * of `postgres_changes` listeners and is shared via ref-counting, so
+ * this is the canonical "websocket count" metric.
+ *
+ * Used by `lib/metrics.ts` for the periodic gauge — we want to keep
+ * this < 5 on a typical screen and alert past 10.
+ */
+export function getActiveChannelCount(): number {
+  return registry.size;
+}
+
 function subscriptionKey(s: {
   event: EventType;
   table: string;

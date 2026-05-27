@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 import "../global.css";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   useFonts as useExpoFonts,
   Inter_500Medium,
@@ -21,6 +21,7 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "nativewind";
 
 import { initSentry, Sentry } from "@/lib/sentry";
+import { recordChannelCount, recordColdStart } from "@/lib/metrics";
 import { env } from "@/lib/env";
 import { ToastViewport } from "@/components/ui/toast";
 import { AnimatedSplash } from "@/components/splash/animated-splash";
@@ -31,6 +32,12 @@ import { useInboxChannel } from "@/hooks/use-inbox-channel";
 import { queryClient } from "@/lib/query/client";
 import { setupQueryManagers } from "@/lib/query/setup";
 import { persistOptions } from "@/lib/query/persister";
+import { getActiveChannelCount } from "@/hooks/use-realtime";
+
+// Captured as early as possible during JS bundle evaluation so the
+// cold-start metric measures "JS eval -> usable UI" — the latency the
+// user actually perceives.
+const coldStartStartedAt = Date.now();
 
 initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -74,6 +81,29 @@ function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
+
+  // Cold-start metric: fired exactly once when fonts have resolved
+  // (the same condition that hides the splash). `fontError` still
+  // counts as "the app is ready" — we don't want to lose the metric
+  // because a Google Font CDN was slow.
+  const coldStartReported = useRef(false);
+  useEffect(() => {
+    if (coldStartReported.current) return;
+    if (fontsLoaded || fontError) {
+      coldStartReported.current = true;
+      recordColdStart(Date.now() - coldStartStartedAt);
+    }
+  }, [fontsLoaded, fontError]);
+
+  // Realtime channel-count gauge: polled every 30s. Cheap to read
+  // (Map.size) and gives us visibility on websocket leaks before they
+  // show up as battery / rate-limit complaints.
+  useEffect(() => {
+    const tick = () => recordChannelCount(getActiveChannelCount());
+    tick();
+    const interval = setInterval(tick, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const effectiveTheme = useEffectiveTheme();
   const { setColorScheme } = useColorScheme();
