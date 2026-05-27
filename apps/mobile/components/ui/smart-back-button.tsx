@@ -2,7 +2,10 @@ import { Platform, Pressable, View } from "react-native";
 import { ChevronLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { BlurView } from "expo-blur";
+import { MotiView } from "moti";
 
+import { haptic } from "@/lib/haptics";
+import { tapScale } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 export type SmartBackButtonVariant = "default" | "overlay";
@@ -35,6 +38,7 @@ export function SmartBackButton({
   const isOverlay = variant === "overlay";
 
   const handlePress = () => {
+    haptic("tap");
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -60,32 +64,40 @@ export function SmartBackButton({
           overflow: "hidden",
         }}
       >
-        {Platform.OS === "ios" ? (
-          <BlurView
-            intensity={30}
-            tint="dark"
-            style={{
-              width: 40,
-              height: 40,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(0,0,0,0.30)",
-            }}
+        {({ pressed }) => (
+          <MotiView
+            animate={tapScale.animate(pressed)}
+            transition={tapScale.transition}
+            style={{ width: 40, height: 40 }}
           >
-            <ChevronLeft size={22} color="#fff" />
-          </BlurView>
-        ) : (
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(0,0,0,0.40)",
-            }}
-          >
-            <ChevronLeft size={22} color="#fff" />
-          </View>
+            {Platform.OS === "ios" ? (
+              <BlurView
+                intensity={30}
+                tint="dark"
+                style={{
+                  width: 40,
+                  height: 40,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(0,0,0,0.30)",
+                }}
+              >
+                <ChevronLeft size={22} color="#fff" />
+              </BlurView>
+            ) : (
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(0,0,0,0.40)",
+                }}
+              >
+                <ChevronLeft size={22} color="#fff" />
+              </View>
+            )}
+          </MotiView>
         )}
       </Pressable>
     );
@@ -99,7 +111,15 @@ export function SmartBackButton({
       accessibilityLabel="Retour"
       className="h-10 w-10 items-center justify-center rounded-full bg-card"
     >
-      <ChevronLeft size={22} color={defaultIconColor} />
+      {({ pressed }) => (
+        <MotiView
+          animate={tapScale.animate(pressed)}
+          transition={tapScale.transition}
+          style={{ alignItems: "center", justifyContent: "center" }}
+        >
+          <ChevronLeft size={22} color={defaultIconColor} />
+        </MotiView>
+      )}
     </Pressable>
   );
 }

@@ -12,6 +12,7 @@ import {
   duration,
   fadeInUp,
   staggerDelay,
+  tapScale,
   useReducedMotionSafe,
 } from "@/lib/motion";
 
@@ -78,74 +79,85 @@ export function ConversationListItem({
     >
       <Pressable
         onPress={() => router.push(`/inbox/${conversation.id}`)}
-        className={cn(
-          "flex-row items-center gap-3 px-4 py-3 active:bg-muted/60",
-          hasUnread && "bg-muted/30",
-        )}
+        className={cn("active:bg-muted/60", hasUnread && "bg-muted/30")}
       >
-        <View className="relative">
-          <View className="size-12 overflow-hidden rounded-md border border-border bg-muted">
-            {listing.cover_image_url ? (
-              <Image
-                source={{ uri: listing.cover_image_url }}
-                style={{ width: 48, height: 48 }}
-                contentFit="cover"
-                transition={150}
-              />
-            ) : null}
-          </View>
-          {hasUnread ? (
-            <View className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
-          ) : null}
-        </View>
+        {({ pressed }) => (
+          <MotiView
+            animate={tapScale.animate(pressed)}
+            transition={tapScale.transition}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+            }}
+          >
+            <View className="relative">
+              <View className="size-12 overflow-hidden rounded-md border border-border bg-muted">
+                {listing.cover_image_url ? (
+                  <Image
+                    source={{ uri: listing.cover_image_url }}
+                    style={{ width: 48, height: 48 }}
+                    contentFit="cover"
+                    transition={150}
+                  />
+                ) : null}
+              </View>
+              {hasUnread ? (
+                <View className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
+              ) : null}
+            </View>
 
-        <View className="min-w-0 flex-1">
-          <View className="flex-row items-center justify-between gap-2">
-            <Text
-              numberOfLines={1}
-              className={cn(
-                "flex-1 text-sm",
-                hasUnread ? "font-semibold" : "font-medium",
-              )}
-            >
-              {listing.title}
-            </Text>
-            {last_message?.created_at ? (
-              <Text className="shrink-0 text-[11px] text-muted-foreground">
-                {formatRelativeDate(last_message.created_at)}
-              </Text>
-            ) : null}
-          </View>
+            <View className="min-w-0 flex-1">
+              <View className="flex-row items-center justify-between gap-2">
+                <Text
+                  numberOfLines={1}
+                  className={cn(
+                    "flex-1 text-sm",
+                    hasUnread ? "font-semibold" : "font-medium",
+                  )}
+                >
+                  {listing.title}
+                </Text>
+                {last_message?.created_at ? (
+                  <Text className="shrink-0 text-[11px] text-muted-foreground">
+                    {formatRelativeDate(last_message.created_at)}
+                  </Text>
+                ) : null}
+              </View>
 
-          <View className="mt-0.5 flex-row items-center gap-1.5">
-            {isOnline ? (
-              <View className="size-1.5 rounded-full bg-success" />
-            ) : null}
-            <Text
-              numberOfLines={1}
-              className={cn(
-                "flex-1 text-[13px]",
-                hasUnread
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              {isOnline ? "En ligne · " : ""}
-              Avec {other_user.username}
-              {preview ? ` · ${preview}` : ""}
-            </Text>
-          </View>
-
-          {hasUnread ? (
-            <View className="mt-1 flex-row items-center justify-end">
-              <View className="h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5">
-                <Text className="text-[10px] font-bold text-primary-foreground">
-                  {unread_count > 99 ? "99+" : unread_count}
+              <View className="mt-0.5 flex-row items-center gap-1.5">
+                {isOnline ? (
+                  <View className="size-1.5 rounded-full bg-success" />
+                ) : null}
+                <Text
+                  numberOfLines={1}
+                  className={cn(
+                    "flex-1 text-[13px]",
+                    hasUnread
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {isOnline ? "En ligne · " : ""}
+                  Avec {other_user.username}
+                  {preview ? ` · ${preview}` : ""}
                 </Text>
               </View>
+
+              {hasUnread ? (
+                <View className="mt-1 flex-row items-center justify-end">
+                  <View className="h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5">
+                    <Text className="text-[10px] font-bold text-primary-foreground">
+                      {unread_count > 99 ? "99+" : unread_count}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-        </View>
+          </MotiView>
+        )}
       </Pressable>
     </MotiView>
   );

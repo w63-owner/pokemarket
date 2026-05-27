@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react-native";
 
 import { Avatar, Text } from "@/components/ui";
 import { StarRating } from "@/components/shared/star-rating";
+import { haptic } from "@/lib/haptics";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
@@ -34,7 +35,10 @@ export function SellerBlock({
 
   return (
     <Link href={`/u/${username}`} asChild>
-      <Pressable className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3 active:opacity-80">
+      <Pressable
+        onPress={() => haptic("tap")}
+        className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-3 active:opacity-80"
+      >
         <Avatar uri={avatarUrl} fallback={username} size={48} />
         <View className="min-w-0 flex-1">
           <Text className="font-semibold" numberOfLines={1}>

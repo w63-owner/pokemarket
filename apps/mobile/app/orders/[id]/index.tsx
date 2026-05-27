@@ -33,6 +33,7 @@ import { TransactionActions } from "@/components/messages";
 import { Badge, Avatar, Button, Card, Skeleton, Text } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { transactionRoutes } from "@/lib/routes/orders";
+import { haptic } from "@/lib/haptics";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type StatusVariant =
@@ -301,7 +302,9 @@ export default function PurchaseDetailScreen() {
             <Pressable
               onPress={() => {
                 const name = purchase.seller?.username;
-                if (name) router.push(`/u/${name}` as never);
+                if (!name) return;
+                haptic("tap");
+                router.push(`/u/${name}` as never);
               }}
               className="flex-row items-center gap-3 active:opacity-80"
             >

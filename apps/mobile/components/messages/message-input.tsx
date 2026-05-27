@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardState } from "react-native-keyboard-controller";
 import { LIMITS } from "@pokemarket/shared";
 import { cn } from "@/lib/cn";
+import { haptic } from "@/lib/haptics";
 import { spring } from "@/lib/motion";
 import { toast } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme-colors";
@@ -62,6 +63,7 @@ export function MessageInput({
 
   const handleSend = useCallback(() => {
     if (!canSend) return;
+    haptic("tap");
     onSend(trimmed);
     setValue("");
   }, [canSend, onSend, trimmed]);

@@ -20,6 +20,7 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
+  withSequence,
   withSpring,
 } from "react-native-reanimated";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -87,6 +88,28 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   useEffect(() => {
     focusedIndex.value = state.index;
   }, [focusedIndex, state.index]);
+
+  // ─── Inbox badge pulse ──────────────────────────────────────────────────
+  //
+  // Fire a one-shot spring sequence (1 → 1.2 → 1) on the unread badge
+  // whenever the count grows — same intent as the web "new-message"
+  // notification pulse. We drive scale from a shared value so the
+  // animation runs on the UI thread.
+  const badgeScale = useSharedValue(1);
+  const prevUnreadRef = useRef(unreadCount);
+  useEffect(() => {
+    const prev = prevUnreadRef.current;
+    if (unreadCount > prev && !reduceMotion) {
+      badgeScale.value = withSequence(
+        withSpring(1.2, spring.bouncy),
+        withSpring(1, spring.gentle),
+      );
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [badgeScale, reduceMotion, unreadCount]);
+  const badgeAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgeScale.value }],
+  }));
 
   // Drive the indicator from the focused tab index — recompute whenever
   // `state.index` changes OR a layout bump fires (initial measure /
@@ -212,20 +235,23 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                     strokeWidth={isFocused ? 2.2 : 2}
                   />
                   {badgeValue !== null && (
-                    <View
+                    <Animated.View
                       accessibilityLabel={`${unreadCount} message${unreadCount > 1 ? "s" : ""} non lu${unreadCount > 1 ? "s" : ""}`}
-                      style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -8,
-                        minWidth: 16,
-                        height: 16,
-                        paddingHorizontal: 4,
-                        borderRadius: 999,
-                        backgroundColor: destructive,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      style={[
+                        {
+                          position: "absolute",
+                          top: -6,
+                          right: -8,
+                          minWidth: 16,
+                          height: 16,
+                          paddingHorizontal: 4,
+                          borderRadius: 999,
+                          backgroundColor: destructive,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        },
+                        badgeAnimatedStyle,
+                      ]}
                     >
                       <Text
                         style={{
@@ -237,7 +263,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
                       >
                         {badgeValue}
                       </Text>
-                    </View>
+                    </Animated.View>
                   )}
                 </MotiView>
 

@@ -28,7 +28,7 @@ export function ListingActions({ listing, viewerId, onContact }: Props) {
 
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 100 }}
+      from={{ opacity: 0, translateY: 24 }}
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ ...spring.gentle, delay: 100 }}
     >
