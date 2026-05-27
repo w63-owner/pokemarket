@@ -158,3 +158,15 @@ export type FeedItem = FeedItemBase & {
   card_rarity?: string | null;
   card_language?: string | null;
 };
+
+// Push notification categories used both by the server (sendPushNotification)
+// and the mobile notification-preferences UI. Keep in sync with the
+// `notification_preferences.category` CHECK constraint in migration 00052
+// (currently 'messages' | 'offers' | 'commerce'); 'saved_searches' and
+// 'following' are reserved for upcoming preference toggles.
+export type PushNotificationCategory =
+  | "messages"
+  | "offers"
+  | "commerce"
+  | "saved_searches"
+  | "following";

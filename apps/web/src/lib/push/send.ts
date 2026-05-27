@@ -1,5 +1,10 @@
 import webpush from "web-push";
+import type { PushNotificationCategory } from "@pokemarket/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+export type SendPushOptions = {
+  category?: PushNotificationCategory;
+};
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
@@ -25,6 +30,7 @@ export async function sendPushNotification(
   title: string,
   body: string,
   url?: string,
+  options?: SendPushOptions,
 ): Promise<void> {
   if (!ensureConfigured()) return;
 
@@ -42,7 +48,12 @@ export async function sendPushNotification(
 
   if (!subscriptions || subscriptions.length === 0) return;
 
-  const payload = JSON.stringify({ title, body, url });
+  const payload = JSON.stringify({
+    title,
+    body,
+    url,
+    ...(options?.category && { category: options.category }),
+  });
   const staleIds: string[] = [];
 
   await Promise.allSettled(
