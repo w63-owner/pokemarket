@@ -161,7 +161,7 @@ export function ReportDialog({ listingId }: Props) {
               onPress={handleSubmit(onSubmit)}
               loading={submitting}
               leftIcon={
-                submitting ? undefined : <Flag size={16} color="#ffffff" />
+                submitting ? undefined : <Flag size={16} color="#fff" />
               }
             >
               {submitting ? "Envoi…" : "Envoyer"}

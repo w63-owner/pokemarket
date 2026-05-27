@@ -14,6 +14,7 @@ import { createSetupIntent } from "@/lib/api/payment-methods";
 import { env } from "@/lib/env";
 import { Button, Skeleton, Text, toast } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { useThemeColors } from "@/lib/theme-colors";
 
 /**
  * Add a new card. Mobile uses Stripe PaymentSheet in SetupIntent mode (no
@@ -24,10 +25,17 @@ import { MobileHeader } from "@/components/layout/mobile-header";
  */
 export default function NewPaymentMethodScreen() {
   const qc = useQueryClient();
+  const colors = useThemeColors();
   const [isPreparing, setIsPreparing] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+
+  // Captured for the Stripe PaymentSheet `appearance.colors.primary`
+  // option, which doesn't accept Tailwind classes. The Stripe SDK
+  // re-renders the native sheet only when `initPaymentSheet` is called
+  // again, so we don't need to re-init on theme change for this screen.
+  const sheetPrimary = colors.primary;
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +49,7 @@ export default function NewPaymentMethodScreen() {
           setupIntentClientSecret: client_secret,
           customerId: customer_id,
           appearance: {
-            colors: { primary: "#E63946" },
+            colors: { primary: sheetPrimary },
             shapes: { borderRadius: 12 },
           },
           returnURL: "pokemarket://stripe-redirect",
@@ -77,6 +85,9 @@ export default function NewPaymentMethodScreen() {
     return () => {
       cancelled = true;
     };
+    // `sheetPrimary` is read once at init; we intentionally don't re-prepare
+    // the sheet just because the theme toggles mid-screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleAddCard() {
@@ -139,7 +150,7 @@ export default function NewPaymentMethodScreen() {
             </View>
 
             <View className="flex-row items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
-              <ShieldCheck size={20} color="#E63946" />
+              <ShieldCheck size={20} color={colors.primary} />
               <Text className="flex-1 text-xs leading-5 text-muted-foreground">
                 Vos informations sont traitées et stockées par Stripe. Aucune
                 donnée bancaire ne transite par nos serveurs.

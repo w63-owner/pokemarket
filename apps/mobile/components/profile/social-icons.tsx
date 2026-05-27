@@ -2,7 +2,11 @@ import Svg, { Path, Rect, Circle } from "react-native-svg";
 
 type Props = {
   size?: number;
-  color?: string;
+  // Required: callers pass a theme-aware colour via `useThemeColor()`
+  // so brand glyphs flip correctly between light and dark mode. No
+  // default — silently rendering as `currentColor` (= black) on iOS
+  // would defeat the purpose.
+  color: string;
 };
 
 /**
@@ -11,7 +15,7 @@ type Props = {
  * (24×24 viewBox, single-stroke) consistent with the rest of the
  * lucide icon set.
  */
-export function InstagramIcon({ size = 22, color = "#64748b" }: Props) {
+export function InstagramIcon({ size = 22, color }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect
@@ -36,7 +40,7 @@ export function InstagramIcon({ size = 22, color = "#64748b" }: Props) {
   );
 }
 
-export function FacebookIcon({ size = 22, color = "#64748b" }: Props) {
+export function FacebookIcon({ size = 22, color }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -50,7 +54,7 @@ export function FacebookIcon({ size = 22, color = "#64748b" }: Props) {
   );
 }
 
-export function TikTokIcon({ size = 22, color = "#64748b" }: Props) {
+export function TikTokIcon({ size = 22, color }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path

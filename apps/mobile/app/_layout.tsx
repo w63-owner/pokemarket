@@ -20,6 +20,7 @@ import { AnimatedSplash } from "@/components/splash/animated-splash";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useAppFonts } from "@/lib/fonts";
 import { initAuth } from "@/hooks/use-auth";
+import { setupNotificationListeners } from "@/lib/notifications";
 
 initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -58,6 +59,15 @@ function RootLayout() {
   useEffect(() => {
     setColorScheme(effectiveTheme);
   }, [effectiveTheme, setColorScheme]);
+
+  // Subscribe to push notification taps + universal links once, at the root.
+  // The listener resolves cold-start notifications (app launched by tap) AND
+  // warm taps (app already running). Cleanup is mandatory because Expo
+  // Notifications keeps the subscription alive across Fast Refresh otherwise.
+  useEffect(() => {
+    const cleanup = setupNotificationListeners();
+    return cleanup;
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;

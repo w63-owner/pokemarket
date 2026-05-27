@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import { formatPrice } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
+import { useThemeColor } from "@/lib/theme-colors";
 
 interface ListingContextBarProps {
   listing: {
@@ -16,6 +17,7 @@ interface ListingContextBarProps {
 }
 
 export function ListingContextBar({ listing }: ListingContextBarProps) {
+  const mutedFg = useThemeColor("mutedForeground");
   return (
     <Pressable
       onPress={() => router.push(`/listing/${listing.id}`)}
@@ -41,7 +43,7 @@ export function ListingContextBar({ listing }: ListingContextBarProps) {
         </Text>
       </View>
 
-      <ChevronRight size={16} color="#94a3b8" />
+      <ChevronRight size={16} color={mutedFg} />
     </Pressable>
   );
 }

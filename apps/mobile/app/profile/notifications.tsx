@@ -23,6 +23,7 @@ import { registerPushToken, unregisterPushToken } from "@/lib/notifications";
 import { Card, Skeleton, Switch, Text, toast } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { useAuth } from "@/hooks/use-auth";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type Status = "loading" | "granted" | "denied" | "undetermined" | "unsupported";
 
@@ -79,6 +80,7 @@ const DEFAULT_CATEGORY_STATE = (): Record<
 export default function NotificationsScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const colors = useThemeColors();
   const [status, setStatus] = useState<Status>("loading");
   const [togglingPush, setTogglingPush] = useState(false);
 
@@ -201,9 +203,9 @@ export default function NotificationsScreen() {
               <View className="flex-row items-center gap-4">
                 <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
                   {status === "granted" ? (
-                    <Bell size={22} color="#0f172a" />
+                    <Bell size={22} color={colors.foreground} />
                   ) : (
-                    <BellOff size={22} color="#94a3b8" />
+                    <BellOff size={22} color={colors.mutedForeground} />
                   )}
                 </View>
                 <View className="flex-1">
@@ -278,7 +280,7 @@ export default function NotificationsScreen() {
                         }}
                       >
                         <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
-                          <Icon size={18} color="#475569" />
+                          <Icon size={18} color={colors.mutedForeground} />
                         </View>
                         <View className="flex-1">
                           <Text className="font-medium">{meta.label}</Text>

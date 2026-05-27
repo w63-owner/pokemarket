@@ -12,6 +12,7 @@ import { fetchTransactionForBuyer } from "@/lib/api/checkout";
 import { Button, Skeleton, Text } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 
 // Brand-tinted palette for the confetti burst — mirrors the web
 // `canvas-confetti` colours used on the success page.
@@ -64,6 +65,7 @@ export default function OrderSuccessScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const reduceMotion = useReducedMotionSafe();
   const [confettiVisible, setConfettiVisible] = useState(false);
+  const colors = useThemeColors();
 
   const { data: transaction, isLoading } = useQuery({
     queryKey: ["transactions", "buyer", id],
@@ -156,7 +158,11 @@ export default function OrderSuccessScreen() {
             className="mb-6 items-center justify-center rounded-full bg-primary/10 p-5"
           >
             <View className="relative">
-              <CheckCircle2 size={64} color="#E63946" strokeWidth={1.5} />
+              <CheckCircle2
+                size={64}
+                color={colors.primary}
+                strokeWidth={1.5}
+              />
               {isFresh ? (
                 <MotiView
                   from={{ scale: 0, opacity: 0 }}
@@ -164,7 +170,7 @@ export default function OrderSuccessScreen() {
                   transition={{ delay: 500 }}
                   className="absolute -right-1 -top-1"
                 >
-                  <Sparkles size={24} color="#eab308" />
+                  <Sparkles size={24} color={colors.warning} />
                 </MotiView>
               ) : null}
             </View>
@@ -191,7 +197,9 @@ export default function OrderSuccessScreen() {
             <Button
               size="lg"
               onPress={() => router.replace("/(tabs)/profile" as never)}
-              leftIcon={<ShoppingBag size={18} color="#fff" />}
+              leftIcon={
+                <ShoppingBag size={18} color={colors.primaryForeground} />
+              }
             >
               Voir mes achats
             </Button>
@@ -199,7 +207,7 @@ export default function OrderSuccessScreen() {
               variant="outline"
               size="lg"
               onPress={() => router.replace("/(tabs)" as never)}
-              leftIcon={<Home size={18} color="#0f172a" />}
+              leftIcon={<Home size={18} color={colors.foreground} />}
             >
               Retour à l&apos;accueil
             </Button>

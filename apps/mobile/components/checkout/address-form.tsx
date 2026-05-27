@@ -7,6 +7,7 @@ import {
   type ShippingCountry,
 } from "@pokemarket/shared";
 import { Input, Label, Select, Text } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type AddressFormProps = {
   country: ShippingCountry;
@@ -51,6 +52,7 @@ export function AddressForm({
   const [isFetching, setIsFetching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressFetchRef = useRef(false);
+  const colors = useThemeColors();
 
   useEffect(() => {
     return () => {
@@ -132,7 +134,7 @@ export function AddressForm({
           />
           {isFetching ? (
             <View className="absolute right-3 top-3.5">
-              <ActivityIndicator size="small" color="#94a3b8" />
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
             </View>
           ) : null}
         </View>
@@ -145,7 +147,7 @@ export function AddressForm({
                 onPress={() => handlePickSuggestion(s)}
                 className="flex-row items-center gap-2.5 px-3 py-3 active:bg-muted"
               >
-                <MapPin size={16} color="#64748b" />
+                <MapPin size={16} color={colors.mutedForeground} />
                 <Text className="flex-1 text-sm" numberOfLines={1}>
                   {s.label}
                 </Text>

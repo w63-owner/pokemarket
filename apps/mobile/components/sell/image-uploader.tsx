@@ -14,6 +14,7 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { duration } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 import {
   removeListingImage,
   uploadListingImage,
@@ -98,6 +99,7 @@ function ImageSlot({
 
   const hasImage = !!state.publicUrl;
   const isInteractive = !disabled && !state.uploading;
+  const colors = useThemeColors();
 
   return (
     <View className="flex-1 gap-2">
@@ -124,7 +126,7 @@ function ImageSlot({
               style={{ flex: 1 }}
               className="items-center justify-center gap-2"
             >
-              <ActivityIndicator color="#E63946" />
+              <ActivityIndicator color={colors.primary} />
               <Text variant="caption">Compression & upload…</Text>
             </MotiView>
           ) : hasImage ? (
@@ -192,7 +194,7 @@ function ImageSlot({
                 hitSlop={8}
                 className="h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 active:bg-primary/25"
               >
-                <Camera size={26} color="#E63946" />
+                <Camera size={26} color={colors.primary} />
               </Pressable>
               <Text className="text-sm font-medium">Prendre en photo</Text>
               <Pressable
@@ -201,7 +203,7 @@ function ImageSlot({
                 hitSlop={8}
                 className="mt-1 flex-row items-center gap-1.5"
               >
-                <FolderOpen size={14} color="#64748b" />
+                <FolderOpen size={14} color={colors.mutedForeground} />
                 <Text variant="caption">Choisir un fichier</Text>
               </Pressable>
             </MotiView>

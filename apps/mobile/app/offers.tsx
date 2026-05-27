@@ -48,46 +48,53 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { EmptyState, ErrorState } from "@/components/shared";
 import { duration, fadeInUp, staggerDelay } from "@/lib/motion";
 import { haptic } from "@/lib/haptics";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type StatusKey = "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
 
-const STATUS_CONFIG: Record<
-  StatusKey,
-  {
-    label: string;
-    variant: "default" | "secondary" | "destructive" | "outline";
-    Icon: React.ComponentType<{ size: number; color: string }>;
-    iconColor: string;
-  }
-> = {
-  PENDING: {
-    label: "En attente",
-    variant: "secondary",
-    Icon: Clock,
-    iconColor: "#64748b",
-  },
-  ACCEPTED: {
-    label: "Acceptée",
-    variant: "default",
-    Icon: Check,
-    iconColor: "#fff",
-  },
-  REJECTED: {
-    label: "Refusée",
-    variant: "destructive",
-    Icon: X,
-    iconColor: "#dc2626",
-  },
-  CANCELLED: {
-    label: "Annulée",
-    variant: "outline",
-    Icon: Ban,
-    iconColor: "#64748b",
-  },
+type StatusConfig = {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline";
+  Icon: React.ComponentType<{ size: number; color: string }>;
+  iconColor: string;
 };
 
+// Resolves the icon colour from live tokens so the badge stays legible
+// in both light and dark themes. Mirrors the same pattern as the wallet's
+// KYC badge — the variant string drives the bg, the resolved hex drives
+// the lucide icon stroke.
+function useStatusConfig(): Record<StatusKey, StatusConfig> {
+  const colors = useThemeColors();
+  return {
+    PENDING: {
+      label: "En attente",
+      variant: "secondary",
+      Icon: Clock,
+      iconColor: colors.mutedForeground,
+    },
+    ACCEPTED: {
+      label: "Acceptée",
+      variant: "default",
+      Icon: Check,
+      iconColor: colors.primaryForeground,
+    },
+    REJECTED: {
+      label: "Refusée",
+      variant: "destructive",
+      Icon: X,
+      iconColor: colors.destructive,
+    },
+    CANCELLED: {
+      label: "Annulée",
+      variant: "outline",
+      Icon: Ban,
+      iconColor: colors.mutedForeground,
+    },
+  };
+}
+
 function OfferStatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status as StatusKey];
+  const config = useStatusConfig()[status as StatusKey];
   if (!config) return null;
   const { Icon, iconColor, label, variant } = config;
 
@@ -100,7 +107,7 @@ function OfferStatusBadge({ status }: { status: string }) {
             variant === "default"
               ? "text-primary-foreground"
               : variant === "destructive"
-                ? "text-red-800"
+                ? "text-destructive"
                 : variant === "outline"
                   ? "text-foreground"
                   : "text-secondary-foreground"
@@ -133,6 +140,7 @@ function CardThumbnail({
   uri: string | null;
   listingId: string;
 }) {
+  const mutedFg = useThemeColors().mutedForeground;
   return (
     <Pressable
       onPress={() => router.push(`/listing/${listingId}`)}
@@ -147,7 +155,7 @@ function CardThumbnail({
         />
       ) : (
         <View className="size-full items-center justify-center">
-          <Tag size={18} color="#94a3b8" />
+          <Tag size={18} color={mutedFg} />
         </View>
       )}
     </Pressable>
@@ -162,6 +170,7 @@ function ReceivedOfferCard({
   index: number;
 }) {
   const queryClient = useQueryClient();
+  const colors = useThemeColors();
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.offers.received() });
@@ -259,7 +268,7 @@ function ReceivedOfferCard({
                 }}
                 disabled={isMutating}
                 loading={acceptMut.isPending}
-                leftIcon={<Check size={14} color="#fff" />}
+                leftIcon={<Check size={14} color={colors.primaryForeground} />}
               >
                 Accepter
               </Button>
@@ -272,7 +281,7 @@ function ReceivedOfferCard({
                 }}
                 disabled={isMutating}
                 loading={rejectMut.isPending}
-                leftIcon={<X size={14} color="#fff" />}
+                leftIcon={<X size={14} color={colors.destructiveForeground} />}
               >
                 Refuser
               </Button>
@@ -292,6 +301,7 @@ function SentOfferCard({
   index: number;
 }) {
   const queryClient = useQueryClient();
+  const colors = useThemeColors();
 
   const cancelMut = useMutation({
     mutationFn: () => cancelOffer(offer.id, offer.conversation_id!),
@@ -361,7 +371,7 @@ function SentOfferCard({
                 }}
                 disabled={cancelMut.isPending}
                 loading={cancelMut.isPending}
-                leftIcon={<X size={14} color="#0f172a" />}
+                leftIcon={<X size={14} color={colors.foreground} />}
               >
                 Annuler
               </Button>
@@ -385,7 +395,9 @@ function SentOfferCard({
               <Button
                 size="sm"
                 onPress={() => router.push(`/checkout/${offer.listing_id}`)}
-                leftIcon={<CreditCard size={14} color="#fff" />}
+                leftIcon={
+                  <CreditCard size={14} color={colors.primaryForeground} />
+                }
               >
                 {`Payer ${formatPrice(offer.offer_amount)}`}
               </Button>
@@ -400,6 +412,7 @@ function SentOfferCard({
 export default function OffersScreen() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const colors = useThemeColors();
   const [tab, setTab] = useState<"received" | "sent">("received");
 
   const {
@@ -457,7 +470,7 @@ export default function OffersScreen() {
             <TabsList>
               <TabsTrigger value="received">
                 <View className="flex-row items-center gap-1.5">
-                  <Inbox size={14} color="#0f172a" />
+                  <Inbox size={14} color={colors.foreground} />
                   <Text className="text-sm font-medium">Reçues</Text>
                   {pendingReceivedCount > 0 ? (
                     <View className="ml-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
@@ -470,7 +483,7 @@ export default function OffersScreen() {
               </TabsTrigger>
               <TabsTrigger value="sent">
                 <View className="flex-row items-center gap-1.5">
-                  <Send size={14} color="#0f172a" />
+                  <Send size={14} color={colors.foreground} />
                   <Text className="text-sm font-medium">Envoyées</Text>
                   {pendingSentCount > 0 ? (
                     <View className="ml-1 h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1">
@@ -491,7 +504,7 @@ export default function OffersScreen() {
                   <RefreshControl
                     refreshing={refReceived}
                     onRefresh={refetchReceived}
-                    tintColor="#E63946"
+                    tintColor={colors.primary}
                   />
                 }
               >
@@ -519,7 +532,7 @@ export default function OffersScreen() {
                   ))
                 ) : (
                   <EmptyState
-                    icon={<Tag size={22} color="#94a3b8" />}
+                    icon={<Tag size={22} color={colors.mutedForeground} />}
                     title="Aucune offre reçue"
                     description="Les offres faites sur vos annonces apparaîtront ici."
                   />
@@ -535,7 +548,7 @@ export default function OffersScreen() {
                   <RefreshControl
                     refreshing={refSent}
                     onRefresh={refetchSent}
-                    tintColor="#E63946"
+                    tintColor={colors.primary}
                   />
                 }
               >
@@ -563,7 +576,7 @@ export default function OffersScreen() {
                   ))
                 ) : (
                   <EmptyState
-                    icon={<Tag size={22} color="#94a3b8" />}
+                    icon={<Tag size={22} color={colors.mutedForeground} />}
                     title="Aucune offre envoyée"
                     description="Parcourez les annonces et faites des offres aux vendeurs !"
                     action={{

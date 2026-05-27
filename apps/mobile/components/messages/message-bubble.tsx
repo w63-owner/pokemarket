@@ -11,6 +11,7 @@ import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
 import { getMessageAttachmentSignedUrl } from "@/lib/api/conversations";
+import { useThemeColors } from "@/lib/theme-colors";
 
 interface MessageBubbleProps {
   message: Message;
@@ -46,6 +47,7 @@ function ImageMessageContent({
     enabled: !!storagePath,
     staleTime: 50 * 60 * 1000,
   });
+  const colors = useThemeColors();
 
   if (isLoading) {
     return (
@@ -53,7 +55,9 @@ function ImageMessageContent({
         className="items-center justify-center rounded-xl bg-black/5"
         style={{ width: 200, height: 240 }}
       >
-        <ActivityIndicator color={isOwn ? "#fff" : "#64748b"} />
+        <ActivityIndicator
+          color={isOwn ? colors.primaryForeground : colors.mutedForeground}
+        />
       </View>
     );
   }
@@ -64,7 +68,7 @@ function ImageMessageContent({
         className="items-center justify-center gap-2 rounded-xl bg-black/5"
         style={{ width: 200, height: 240 }}
       >
-        <ImageOff size={28} color="#94a3b8" />
+        <ImageOff size={28} color={colors.mutedForeground} />
         <Text variant="caption">Image indisponible</Text>
       </View>
     );

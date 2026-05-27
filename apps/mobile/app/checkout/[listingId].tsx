@@ -24,6 +24,7 @@ import { useListing } from "@/hooks/use-listings";
 import { fetchShippingCost } from "@/lib/api/shipping";
 import { fetchMyProfile } from "@/lib/api/profile";
 import { usePayment } from "@/lib/payments";
+import { useThemeColors } from "@/lib/theme-colors";
 import { Button, Skeleton, Text, toast } from "@/components/ui";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
@@ -100,6 +101,7 @@ export default function CheckoutScreen() {
   );
 
   const { startPayment, isProcessing } = usePayment();
+  const colors = useThemeColors();
 
   const isFormValid =
     addressLine.trim().length > 0 &&
@@ -186,7 +188,7 @@ export default function CheckoutScreen() {
             hitSlop={8}
             className="h-9 w-9 items-center justify-center rounded-full"
           >
-            <ChevronLeft size={22} color="#0f172a" />
+            <ChevronLeft size={22} color={colors.foreground} />
           </Pressable>
           <Text className="text-lg font-semibold">Paiement</Text>
         </View>
@@ -242,7 +244,7 @@ export default function CheckoutScreen() {
           </View>
 
           <View className="flex-row items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
-            <ShieldCheck size={20} color="#E63946" />
+            <ShieldCheck size={20} color={colors.primary} />
             <Text className="flex-1 text-xs leading-5 text-muted-foreground">
               Votre paiement est sécurisé. Les fonds sont conservés sous
               séquestre jusqu&apos;à confirmation de réception de la carte.
@@ -259,7 +261,7 @@ export default function CheckoutScreen() {
             onPress={handlePay}
             disabled={!isFormValid || isExpired}
             loading={isProcessing}
-            leftIcon={<CreditCard size={20} color="#fff" />}
+            leftIcon={<CreditCard size={20} color={colors.primaryForeground} />}
           >
             {`Payer ${formatPrice(total)}`}
           </Button>

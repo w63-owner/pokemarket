@@ -23,6 +23,7 @@ import { Select, type SelectOption } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
 import { duration } from "@/lib/motion";
+import { useThemeColor } from "@/lib/theme-colors";
 
 const sellFormSchema = z
   .object({
@@ -152,6 +153,7 @@ export function SellForm({
     typeof priceSeller === "number" && priceSeller > 0
       ? calcDisplayPrice(priceSeller)
       : null;
+  const primary = useThemeColor("primary");
 
   return (
     <View className="gap-5">
@@ -299,7 +301,7 @@ export function SellForm({
         <FieldError message={errors.price_seller?.message} />
         {displayPrice != null ? (
           <View className="mt-1 flex-row items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-            <ShieldCheck size={16} color="#E63946" />
+            <ShieldCheck size={16} color={primary} />
             <Text className="text-sm">
               Prix affiché à l&apos;acheteur :{" "}
               <Text className="font-bold text-primary">

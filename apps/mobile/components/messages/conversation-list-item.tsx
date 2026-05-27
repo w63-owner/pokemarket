@@ -119,7 +119,7 @@ export function ConversationListItem({
 
           <View className="mt-0.5 flex-row items-center gap-1.5">
             {isOnline ? (
-              <View className="size-1.5 rounded-full bg-emerald-500" />
+              <View className="size-1.5 rounded-full bg-success" />
             ) : null}
             <Text
               numberOfLines={1}

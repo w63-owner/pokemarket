@@ -10,6 +10,7 @@ import { LIMITS } from "@pokemarket/shared";
 import { cn } from "@/lib/cn";
 import { spring } from "@/lib/motion";
 import { toast } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme-colors";
 
 const COMPRESSED_MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.85;
@@ -47,6 +48,7 @@ export function MessageInput({
   const [value, setValue] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   // When the keyboard is open the system nav bar / home indicator sits
   // behind it, so we collapse the safe-area padding to keep the input
   // flush with the keyboard (otherwise the parent `KeyboardAvoidingView`
@@ -122,9 +124,9 @@ export function MessageInput({
           )}
         >
           {isUploading ? (
-            <ActivityIndicator size="small" color="#64748b" />
+            <ActivityIndicator size="small" color={colors.mutedForeground} />
           ) : (
-            <ImagePlus size={20} color="#64748b" />
+            <ImagePlus size={20} color={colors.mutedForeground} />
           )}
         </Pressable>
 
@@ -132,7 +134,7 @@ export function MessageInput({
           value={value}
           onChangeText={setValue}
           placeholder="Votre message..."
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.mutedForeground}
           multiline
           maxLength={LIMITS.MAX_MESSAGE_LENGTH}
           editable={!disabled && !isUploading}
@@ -156,7 +158,7 @@ export function MessageInput({
               !canSend && "opacity-50",
             )}
           >
-            <Send size={16} color="#fff" />
+            <Send size={16} color={colors.primaryForeground} />
           </Pressable>
         </MotiView>
       </View>

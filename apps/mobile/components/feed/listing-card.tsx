@@ -93,15 +93,15 @@ function ListingCardComponent({ item, isFavorite, onToggleFavorite }: Props) {
                     </View>
                   ) : null}
                   {rarity ? (
-                    <View className="rounded-full bg-amber-100 px-2 py-0.5">
-                      <Text className="text-[10px] font-medium text-amber-800">
+                    <View className="rounded-full bg-warning/15 px-2 py-0.5">
+                      <Text className="text-[10px] font-medium text-warning">
                         {rarity}
                       </Text>
                     </View>
                   ) : null}
                   {language ? (
-                    <View className="rounded-full bg-blue-100 px-2 py-0.5">
-                      <Text className="text-[10px] font-medium text-blue-800">
+                    <View className="rounded-full bg-brand-secondary/15 px-2 py-0.5">
+                      <Text className="text-[10px] font-medium text-brand-secondary">
                         {language.toUpperCase()}
                       </Text>
                     </View>

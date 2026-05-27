@@ -18,6 +18,7 @@ import {
   useReducedMotionSafe,
 } from "@/lib/motion";
 import { haptic } from "@/lib/haptics";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type CountdownTimerProps = {
   expiresAt: Date;
@@ -109,6 +110,7 @@ export function CountdownTimer({
   }, [expired, isUrgent, reduceMotion]);
 
   const pulseStyle = useUrgentPulseStyle(isUrgent, reduceMotion);
+  const colors = useThemeColors();
 
   return (
     <AnimatePresence>
@@ -123,7 +125,7 @@ export function CountdownTimer({
             className,
           )}
         >
-          <AlertTriangle size={20} color="#dc2626" />
+          <AlertTriangle size={20} color={colors.destructive} />
           <View className="flex-1">
             <Text className="text-sm font-semibold text-destructive">
               Session expirée
@@ -149,7 +151,7 @@ export function CountdownTimer({
         >
           <AnimatedClock
             size={20}
-            color={isUrgent ? "#dc2626" : "#64748b"}
+            color={isUrgent ? colors.destructive : colors.mutedForeground}
             style={pulseStyle}
           />
           <View className="flex-1">

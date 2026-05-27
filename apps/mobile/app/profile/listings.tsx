@@ -19,6 +19,7 @@ export default function MyListingsScreen() {
   } = useMyListings();
 
   const muted = useThemeColor("mutedForeground");
+  const primary = useThemeColor("primary");
 
   return (
     <View className="flex-1 bg-background">
@@ -70,7 +71,7 @@ export default function MyListingsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={refetch}
-                tintColor="#E63946"
+                tintColor={primary}
               />
             }
           />

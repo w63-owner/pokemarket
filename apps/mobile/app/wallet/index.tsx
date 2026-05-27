@@ -34,54 +34,62 @@ import { Badge, Button, Card, Skeleton, Text, toast } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ErrorState } from "@/components/shared";
 import { haptic } from "@/lib/haptics";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type KycVariant = "default" | "secondary" | "destructive" | "outline";
 
-const KYC_CONFIG: Record<
-  KycStatus,
-  {
-    label: string;
-    variant: KycVariant;
-    Icon: React.ComponentType<{ size: number; color: string }>;
-    color: string;
-  }
-> = {
-  UNVERIFIED: {
-    label: "Non vérifié",
-    variant: "secondary",
-    Icon: AlertTriangle,
-    color: "#64748b",
-  },
-  PENDING: {
-    label: "En cours",
-    variant: "outline",
-    Icon: Clock,
-    color: "#d97706",
-  },
-  REQUIRED: {
-    label: "Action requise",
-    variant: "destructive",
-    Icon: AlertTriangle,
-    color: "#dc2626",
-  },
-  VERIFIED: {
-    label: "Vérifié",
-    variant: "default",
-    Icon: BadgeCheck,
-    color: "#16a34a",
-  },
-  REJECTED: {
-    label: "Refusé",
-    variant: "destructive",
-    Icon: AlertTriangle,
-    color: "#dc2626",
-  },
+type KycConfigEntry = {
+  label: string;
+  variant: KycVariant;
+  Icon: React.ComponentType<{ size: number; color: string }>;
+  color: string;
 };
+
+// Resolves the per-status colour against the live palette so the icon
+// inside `<KycBadge>` keeps a usable contrast in both light and dark
+// themes. We deliberately re-derive the map on every render – it's
+// cheap and avoids stale closures when the user toggles the scheme.
+function useKycConfig(): Record<KycStatus, KycConfigEntry> {
+  const colors = useThemeColors();
+  return {
+    UNVERIFIED: {
+      label: "Non vérifié",
+      variant: "secondary",
+      Icon: AlertTriangle,
+      color: colors.mutedForeground,
+    },
+    PENDING: {
+      label: "En cours",
+      variant: "outline",
+      Icon: Clock,
+      color: colors.warning,
+    },
+    REQUIRED: {
+      label: "Action requise",
+      variant: "destructive",
+      Icon: AlertTriangle,
+      color: colors.destructive,
+    },
+    VERIFIED: {
+      label: "Vérifié",
+      variant: "default",
+      Icon: BadgeCheck,
+      color: colors.success,
+    },
+    REJECTED: {
+      label: "Refusé",
+      variant: "destructive",
+      Icon: AlertTriangle,
+      color: colors.destructive,
+    },
+  };
+}
 
 export default function WalletScreen() {
   const { balanceQuery, kycQuery, refetchAll } = useWalletData();
   const onboardMutation = useStripeConnectOnboarding();
   const payoutMutation = useRequestPayout();
+  const colors = useThemeColors();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -165,7 +173,7 @@ export default function WalletScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#E63946"
+              tintColor={colors.primary}
             />
           }
         >
@@ -196,12 +204,12 @@ export default function WalletScreen() {
                 <BalanceCard
                   label="Solde disponible"
                   amount={availableBalance}
-                  accentClassName="text-emerald-600"
+                  accentClassName="text-success"
                 />
                 <BalanceCard
                   label="En attente"
                   amount={wallet?.pending_balance ?? 0}
-                  accentClassName="text-amber-600"
+                  accentClassName="text-warning"
                   hint="Libéré à la confirmation de réception"
                 />
               </View>
@@ -209,7 +217,7 @@ export default function WalletScreen() {
               <Card>
                 <View className="flex-row items-center justify-between">
                   <View className="flex-row items-center gap-3">
-                    <ShieldCheck size={20} color="#64748b" />
+                    <ShieldCheck size={20} color={colors.mutedForeground} />
                     <View>
                       <Text className="text-sm font-medium">
                         Vérification KYC
@@ -239,7 +247,10 @@ export default function WalletScreen() {
                     onPress={handleOnboard}
                     leftIcon={
                       onboardMutation.isPending ? null : (
-                        <ExternalLink size={18} color="#fff" />
+                        <ExternalLink
+                          size={18}
+                          color={colors.primaryForeground}
+                        />
                       )
                     }
                   >
@@ -279,7 +290,7 @@ export default function WalletScreen() {
                   }}
                   leftIcon={
                     payoutMutation.isPending ? null : (
-                      <ArrowUpRight size={18} color="#0f172a" />
+                      <ArrowUpRight size={18} color={colors.foreground} />
                     )
                   }
                 >
@@ -304,12 +315,12 @@ export default function WalletScreen() {
                 className="mt-2 flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
               >
                 <View className="flex-row items-center gap-3">
-                  <Receipt size={18} color="#0f172a" />
+                  <Receipt size={18} color={colors.foreground} />
                   <Text className="font-medium">
                     Historique des transactions
                   </Text>
                 </View>
-                <ChevronRight size={18} color="#94a3b8" />
+                <ChevronRight size={18} color={colors.mutedForeground} />
               </Pressable>
             </MotiView>
           )}
@@ -348,7 +359,7 @@ function BalanceCard({
 }
 
 function KycBadge({ status }: { status: KycStatus }) {
-  const config = KYC_CONFIG[status];
+  const config = useKycConfig()[status];
   const Icon = config.Icon;
   return (
     <Badge variant={config.variant} className="flex-row items-center gap-1.5">
@@ -358,7 +369,7 @@ function KycBadge({ status }: { status: KycStatus }) {
           config.variant === "default"
             ? "text-primary-foreground"
             : config.variant === "destructive"
-              ? "text-red-800"
+              ? "text-destructive"
               : "text-foreground"
         }`}
       >

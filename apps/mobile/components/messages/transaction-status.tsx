@@ -7,6 +7,7 @@ import {
 } from "lucide-react-native";
 import type { Transaction } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme-colors";
 
 interface TransactionStatusProps {
   transaction: Transaction;
@@ -28,11 +29,12 @@ export function TransactionStatus({
 }: TransactionStatusProps) {
   const isSeller = currentUserId === sellerId;
   const isBuyer = currentUserId === buyerId;
+  const colors = useThemeColors();
 
   if (transaction.status === "PENDING_PAYMENT") {
     return (
       <StatusBar
-        icon={<ActivityIndicator size="small" color="#2563eb" />}
+        icon={<ActivityIndicator size="small" color={colors.brandSecondary} />}
         label="Paiement en cours de validation…"
       />
     );
@@ -41,7 +43,7 @@ export function TransactionStatus({
   if (transaction.status === "PAID" && isSeller) {
     return (
       <StatusBar
-        icon={<Package size={16} color="#2563eb" />}
+        icon={<Package size={16} color={colors.brandSecondary} />}
         label="Paiement reçu — préparez le colis"
       />
     );
@@ -50,7 +52,7 @@ export function TransactionStatus({
   if (transaction.status === "PAID" && isBuyer) {
     return (
       <StatusBar
-        icon={<Package size={16} color="#2563eb" />}
+        icon={<Package size={16} color={colors.brandSecondary} />}
         label="Paiement confirmé — en attente d'envoi"
       />
     );
@@ -59,7 +61,7 @@ export function TransactionStatus({
   if (transaction.status === "SHIPPED" && isBuyer) {
     return (
       <StatusBar
-        icon={<Truck size={16} color="#d97706" />}
+        icon={<Truck size={16} color={colors.warning} />}
         label="Colis en route — confirmez la réception"
       />
     );
@@ -68,7 +70,7 @@ export function TransactionStatus({
   if (transaction.status === "SHIPPED" && isSeller) {
     return (
       <StatusBar
-        icon={<Truck size={16} color="#d97706" />}
+        icon={<Truck size={16} color={colors.warning} />}
         label="En attente de la confirmation de réception"
       />
     );
@@ -77,7 +79,7 @@ export function TransactionStatus({
   if (transaction.status === "DISPUTED") {
     return (
       <StatusBar
-        icon={<AlertTriangle size={16} color="#dc2626" />}
+        icon={<AlertTriangle size={16} color={colors.destructive} />}
         label="Litige en cours — un administrateur va intervenir"
       />
     );
@@ -86,7 +88,7 @@ export function TransactionStatus({
   if (transaction.status === "COMPLETED") {
     return (
       <StatusBar
-        icon={<CheckCircle2 size={16} color="#16a34a" />}
+        icon={<CheckCircle2 size={16} color={colors.success} />}
         label="Transaction finalisée"
       />
     );

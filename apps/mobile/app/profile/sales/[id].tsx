@@ -30,69 +30,65 @@ import { TransactionActions } from "@/components/messages";
 import { Badge, Card, Separator, Skeleton, Text } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ErrorState } from "@/components/shared";
+import { useThemeColors } from "@/lib/theme-colors";
 
-const STATUS_CONFIG: Record<
-  string,
-  {
-    label: string;
-    variant: "default" | "secondary" | "destructive" | "outline" | "warning";
-    Icon: React.ComponentType<{ size: number; color: string }>;
-    color: string;
-  }
-> = {
-  PENDING_PAYMENT: {
-    label: "En attente de paiement",
-    variant: "outline",
-    Icon: CreditCard,
-    color: "#64748b",
-  },
-  PAID: {
-    label: "Payée — En attente d'expédition",
-    variant: "default",
-    Icon: Package,
-    color: "#fff",
-  },
-  SHIPPED: {
-    label: "Expédiée",
-    variant: "secondary",
-    Icon: Truck,
-    color: "#0f172a",
-  },
-  COMPLETED: {
-    label: "Finalisée",
-    variant: "default",
-    Icon: CheckCircle2,
-    color: "#fff",
-  },
-  CANCELLED: {
-    label: "Annulée",
-    variant: "destructive",
-    Icon: Package,
-    color: "#fff",
-  },
-  REFUNDED: {
-    label: "Remboursée",
-    variant: "outline",
-    Icon: Package,
-    color: "#64748b",
-  },
-  DISPUTED: {
-    label: "Litige en cours",
-    variant: "destructive",
-    Icon: Package,
-    color: "#fff",
-  },
+type StatusConfig = {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline" | "warning";
+  Icon: React.ComponentType<{ size: number; color: string }>;
+  color: string;
 };
 
-function getStatusConfig(status: string) {
-  return (
-    STATUS_CONFIG[status] ?? {
-      label: status,
-      variant: "outline" as const,
+// Reactive variant of the status map: each entry's `color` is resolved
+// against the live palette so the badge icon stroke stays legible in
+// both light and dark themes. The variant strings still drive the
+// badge background, the resolved hex drives the lucide icon.
+function useStatusConfigMap(): Record<string, StatusConfig> {
+  const colors = useThemeColors();
+  return {
+    PENDING_PAYMENT: {
+      label: "En attente de paiement",
+      variant: "outline",
+      Icon: CreditCard,
+      color: colors.mutedForeground,
+    },
+    PAID: {
+      label: "Payée — En attente d'expédition",
+      variant: "default",
       Icon: Package,
-      color: "#64748b",
-    }
-  );
+      color: colors.primaryForeground,
+    },
+    SHIPPED: {
+      label: "Expédiée",
+      variant: "secondary",
+      Icon: Truck,
+      color: colors.foreground,
+    },
+    COMPLETED: {
+      label: "Finalisée",
+      variant: "default",
+      Icon: CheckCircle2,
+      color: colors.primaryForeground,
+    },
+    CANCELLED: {
+      label: "Annulée",
+      variant: "destructive",
+      Icon: Package,
+      color: colors.destructiveForeground,
+    },
+    REFUNDED: {
+      label: "Remboursée",
+      variant: "outline",
+      Icon: Package,
+      color: colors.mutedForeground,
+    },
+    DISPUTED: {
+      label: "Litige en cours",
+      variant: "destructive",
+      Icon: Package,
+      color: colors.destructiveForeground,
+    },
+  };
 }
 
 function formatLongDate(iso: string | null | undefined): string {
@@ -107,6 +103,8 @@ function formatLongDate(iso: string | null | undefined): string {
 export default function SaleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const colors = useThemeColors();
+  const statusConfigMap = useStatusConfigMap();
 
   const { data: sale, isLoading, isError, error, refetch } = useSaleDetail(id);
 
@@ -169,7 +167,7 @@ export default function SaleDetailScreen() {
       <SafeAreaView className="flex-1 bg-background">
         <Stack.Screen options={{ headerShown: false }} />
         <View className="flex-1 items-center justify-center px-6">
-          <Receipt size={40} color="#94a3b8" />
+          <Receipt size={40} color={colors.mutedForeground} />
           <Text variant="h3" className="mt-4 text-center">
             Vente introuvable
           </Text>
@@ -189,7 +187,13 @@ export default function SaleDetailScreen() {
     );
   }
 
-  const statusConfig = getStatusConfig(sale.status ?? "PENDING_PAYMENT");
+  const statusKey = sale.status ?? "PENDING_PAYMENT";
+  const statusConfig: StatusConfig = statusConfigMap[statusKey] ?? {
+    label: statusKey,
+    variant: "outline",
+    Icon: Package,
+    color: colors.mutedForeground,
+  };
   const StatusIcon = statusConfig.Icon;
   const netEarnings = sale.total_amount - sale.fee_amount;
   const hasShippingAddress =
@@ -244,7 +248,7 @@ export default function SaleDetailScreen() {
 
           <Card className="gap-3">
             <View className="flex-row items-center gap-2">
-              <Package size={16} color="#0f172a" />
+              <Package size={16} color={colors.foreground} />
               <Text className="text-sm font-semibold">Carte vendue</Text>
             </View>
             <View className="flex-row gap-3">
@@ -258,7 +262,7 @@ export default function SaleDetailScreen() {
                   />
                 ) : (
                   <View className="h-full w-full items-center justify-center">
-                    <Package size={20} color="#94a3b8" />
+                    <Package size={20} color={colors.mutedForeground} />
                   </View>
                 )}
               </View>
@@ -300,7 +304,7 @@ export default function SaleDetailScreen() {
 
           <Card className="gap-3">
             <View className="flex-row items-center gap-2">
-              <CreditCard size={16} color="#0f172a" />
+              <CreditCard size={16} color={colors.foreground} />
               <Text className="text-sm font-semibold">
                 Récapitulatif financier
               </Text>
@@ -326,7 +330,7 @@ export default function SaleDetailScreen() {
               <Row
                 label="Prix net gagné"
                 value={formatPrice(netEarnings)}
-                accentClassName="text-emerald-600 font-bold"
+                accentClassName="text-success font-bold"
                 bold
               />
             </View>
@@ -334,7 +338,7 @@ export default function SaleDetailScreen() {
 
           <Card className="gap-3">
             <View className="flex-row items-center gap-2">
-              <UserIcon size={16} color="#0f172a" />
+              <UserIcon size={16} color={colors.foreground} />
               <Text className="text-sm font-semibold">Acheteur</Text>
             </View>
             <View className="flex-row items-center gap-3">
@@ -346,7 +350,7 @@ export default function SaleDetailScreen() {
                 />
               ) : (
                 <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  <UserIcon size={18} color="#64748b" />
+                  <UserIcon size={18} color={colors.mutedForeground} />
                 </View>
               )}
               <Text className="text-sm font-medium">
@@ -358,7 +362,7 @@ export default function SaleDetailScreen() {
           {hasShippingAddress ? (
             <Card className="gap-3">
               <View className="flex-row items-center gap-2">
-                <MapPin size={16} color="#0f172a" />
+                <MapPin size={16} color={colors.foreground} />
                 <Text className="text-sm font-semibold">
                   Adresse de livraison
                 </Text>
@@ -384,14 +388,14 @@ export default function SaleDetailScreen() {
           {sale.tracking_number ? (
             <Card className="gap-3">
               <View className="flex-row items-center gap-2">
-                <Truck size={16} color="#0f172a" />
+                <Truck size={16} color={colors.foreground} />
                 <Text className="text-sm font-semibold">
                   Suivi de livraison
                 </Text>
               </View>
               <View className="gap-2">
                 <View className="flex-row items-center gap-2">
-                  <Hash size={14} color="#64748b" />
+                  <Hash size={14} color={colors.mutedForeground} />
                   <Text className="font-mono text-sm" selectable>
                     {sale.tracking_number}
                   </Text>
@@ -407,7 +411,7 @@ export default function SaleDetailScreen() {
                     }
                     className="flex-row items-center gap-1.5 self-start rounded-md bg-primary px-3 py-1.5"
                   >
-                    <ExternalLink size={12} color="#fff" />
+                    <ExternalLink size={12} color={colors.primaryForeground} />
                     <Text className="text-xs font-medium text-primary-foreground">
                       Suivre le colis
                     </Text>

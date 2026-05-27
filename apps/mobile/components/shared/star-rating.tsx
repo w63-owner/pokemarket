@@ -1,6 +1,7 @@
 import { Pressable, View } from "react-native";
 import { Star } from "lucide-react-native";
 import { cn } from "@/lib/cn";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type Size = "sm" | "md" | "lg";
 
@@ -19,9 +20,6 @@ type Props = {
   className?: string;
 };
 
-const FILLED = "#f59e0b";
-const EMPTY = "#cbd5e1";
-
 /**
  * Renders a 0..maxRating star bar with fractional fills (e.g. 4.3 → 4
  * full stars + 30% of the 5th). When `interactive`, taps emit the
@@ -36,6 +34,9 @@ export function StarRating({
   className,
 }: Props) {
   const px = SIZE_PX[size];
+  const colors = useThemeColors();
+  const filled = colors.warning;
+  const empty = colors.border;
   return (
     <View className={cn("flex-row items-center gap-0.5", className)}>
       {Array.from({ length: maxRating }).map((_, i) => {
@@ -48,7 +49,7 @@ export function StarRating({
             hitSlop={interactive ? 4 : undefined}
           >
             <View>
-              <Star size={px} color={EMPTY} fill={EMPTY} strokeWidth={1.5} />
+              <Star size={px} color={empty} fill={empty} strokeWidth={1.5} />
               {fill > 0 ? (
                 <View
                   pointerEvents="none"
@@ -63,8 +64,8 @@ export function StarRating({
                 >
                   <Star
                     size={px}
-                    color={FILLED}
-                    fill={FILLED}
+                    color={filled}
+                    fill={filled}
                     strokeWidth={1.5}
                   />
                 </View>

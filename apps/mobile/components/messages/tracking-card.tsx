@@ -4,6 +4,7 @@ import { ExternalLink, Hash, Package } from "lucide-react-native";
 import type { Message } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
 import { fadeInScale, spring, useReducedMotionSafe } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 
 function normalizeUrl(url: string): string {
   const trimmed = url.trim();
@@ -40,6 +41,7 @@ export function TrackingCard({ message }: TrackingCardProps) {
     : null;
 
   const reduceMotion = useReducedMotionSafe();
+  const colors = useThemeColors();
 
   return (
     <MotiView
@@ -48,14 +50,14 @@ export function TrackingCard({ message }: TrackingCardProps) {
       transition={spring.snappy}
       style={{ alignSelf: "center", paddingVertical: 6 }}
     >
-      <View className="w-72 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50">
-        <View className="flex-row items-center gap-2 border-b border-amber-200 bg-amber-100 px-3 py-2">
-          <Package size={16} color="#d97706" />
-          <Text className="text-xs font-semibold text-amber-800">
+      <View className="w-72 overflow-hidden rounded-2xl border border-warning/30 bg-warning/10">
+        <View className="flex-row items-center gap-2 border-b border-warning/30 bg-warning/20 px-3 py-2">
+          <Package size={16} color={colors.warning} />
+          <Text className="text-xs font-semibold text-warning">
             Colis expédié
           </Text>
           {formattedDate ? (
-            <Text className="ml-auto text-[10px] text-amber-700/70">
+            <Text className="ml-auto text-[10px] text-warning/70">
               {formattedDate}
             </Text>
           ) : null}
@@ -63,7 +65,7 @@ export function TrackingCard({ message }: TrackingCardProps) {
 
         <View className="gap-2 px-3 py-2.5">
           <View className="flex-row items-center gap-2">
-            <Hash size={14} color="#b45309" />
+            <Hash size={14} color={colors.warning} />
             <Text
               className="font-mono text-xs font-medium text-foreground"
               selectable
@@ -75,10 +77,10 @@ export function TrackingCard({ message }: TrackingCardProps) {
           {trackingUrl ? (
             <Pressable
               onPress={() => Linking.openURL(trackingUrl).catch(() => {})}
-              className="flex-row items-center gap-1.5 self-start rounded-md bg-amber-600 px-2.5 py-1.5"
+              className="flex-row items-center gap-1.5 self-start rounded-md bg-warning px-2.5 py-1.5"
             >
-              <ExternalLink size={12} color="#fff" />
-              <Text className="text-xs font-medium text-white">
+              <ExternalLink size={12} color={colors.warningForeground} />
+              <Text className="text-xs font-medium text-warning-foreground">
                 Suivre le colis
               </Text>
             </Pressable>

@@ -31,21 +31,6 @@ function usePresence() {
   return [true, () => {}];
 }
 
-// #region agent log
-(function logStubLoad() {
-  try {
-    if (typeof globalThis.__agentLog === "function") {
-      globalThis.__agentLog({
-        location: "stubs/framer-motion.js:eval",
-        message: "FRAMER_MOTION_STUB_LOADED",
-        hypothesisId: "H3",
-        data: { hasAnimatePresence: typeof AnimatePresence, hasUsePresence: typeof usePresence },
-      });
-    }
-  } catch (_e) {}
-})();
-// #endregion
-
 const exportsObj = { AnimatePresence, PresenceContext, usePresence };
 
 module.exports = new Proxy(exportsObj, {
@@ -53,18 +38,6 @@ module.exports = new Proxy(exportsObj, {
     if (prop in target) {
       return Reflect.get(target, prop, receiver);
     }
-    // #region agent log
-    try {
-      if (typeof globalThis.__agentLog === "function") {
-        globalThis.__agentLog({
-          location: "stubs/framer-motion.js:proxyGet",
-          message: "FRAMER_MOTION_UNKNOWN_KEY_ACCESS",
-          hypothesisId: "H1",
-          data: { key: String(prop) },
-        });
-      }
-    } catch (_e) {}
-    // #endregion
     return undefined;
   },
 });

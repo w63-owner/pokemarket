@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/cn";
 import { duration, fadeInUp, staggerDelay } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 
 const MANUAL_VALUE = "__manual__";
 
@@ -19,9 +20,9 @@ type Props = {
 };
 
 function confidenceColor(confidence: number): string {
-  if (confidence >= 80) return "bg-emerald-500";
-  if (confidence >= 50) return "bg-amber-500";
-  return "bg-red-400";
+  if (confidence >= 80) return "bg-success";
+  if (confidence >= 50) return "bg-warning";
+  return "bg-destructive";
 }
 
 function confidenceLabel(confidence: number): string {
@@ -38,6 +39,7 @@ function CandidateCard({
   selected: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
+  const colors = useThemeColors();
 
   return (
     <View
@@ -72,7 +74,7 @@ function CandidateCard({
           />
         ) : (
           <View className="flex-1 items-center justify-center">
-            <CircleHelp size={20} color="#94a3b8" />
+            <CircleHelp size={20} color={colors.mutedForeground} />
           </View>
         )}
       </View>
@@ -125,10 +127,11 @@ function CandidateCard({
 }
 
 function ScanSkeleton() {
+  const colors = useThemeColors();
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-2">
-        <Sparkles size={16} color="#E63946" />
+        <Sparkles size={16} color={colors.primary} />
         <Text className="text-sm font-medium text-muted-foreground">
           Analyse de la carte en cours…
         </Text>
@@ -153,6 +156,7 @@ function ScanSkeleton() {
 
 export function OcrResults({ candidates, isLoading, onSelect }: Props) {
   const [selected, setSelected] = useState<string>("");
+  const colors = useThemeColors();
 
   if (isLoading) return <ScanSkeleton />;
   if (candidates.length === 0) return null;
@@ -165,7 +169,7 @@ export function OcrResults({ candidates, isLoading, onSelect }: Props) {
   return (
     <View className="gap-3">
       <View className="flex-row items-center gap-2">
-        <ScanLine size={16} color="#E63946" />
+        <ScanLine size={16} color={colors.primary} />
         <Text className="text-sm font-semibold">
           Résultats de l&apos;identification
         </Text>
@@ -225,7 +229,7 @@ export function OcrResults({ candidates, isLoading, onSelect }: Props) {
             ) : null}
           </View>
           <View className="flex-row items-center gap-2">
-            <CircleHelp size={16} color="#64748b" />
+            <CircleHelp size={16} color={colors.mutedForeground} />
             <Text variant="muted" className="text-sm font-medium">
               Aucun de ces résultats (Saisie manuelle)
             </Text>

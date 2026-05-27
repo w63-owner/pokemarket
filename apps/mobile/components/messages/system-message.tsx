@@ -12,51 +12,57 @@ import {
 import type { Message } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
 import { fadeInScale, spring, useReducedMotionSafe } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 import { TrackingCard } from "./tracking-card";
 
 type IconComponent = React.ComponentType<{ size: number; color: string }>;
 
-const SYSTEM_CONFIG: Record<
-  string,
-  { label?: string; icon: IconComponent; color: string }
-> = {
-  offer: { icon: Tag, color: "#E63946" },
-  offer_accepted: {
-    label: "Offre acceptée",
-    icon: PartyPopper,
-    color: "#16a34a",
-  },
-  offer_rejected: {
-    label: "Offre déclinée",
-    icon: XCircle,
-    color: "#64748b",
-  },
-  offer_cancelled: {
-    label: "Offre annulée",
-    icon: Ban,
-    color: "#64748b",
-  },
-  offer_cancelled_by_buyer: {
-    label: "Offre annulée",
-    icon: Ban,
-    color: "#64748b",
-  },
-  payment_completed: {
-    label: "Paiement effectué",
-    icon: CreditCard,
-    color: "#2563eb",
-  },
-  order_shipped: {
-    label: "Colis expédié",
-    icon: Package,
-    color: "#d97706",
-  },
-  sale_completed: {
-    label: "Vente finalisée",
-    icon: CheckCircle2,
-    color: "#16a34a",
-  },
-};
+type SystemConfig = { label?: string; icon: IconComponent; color: string };
+
+// Same pattern as the wallet/orders status maps: each entry's icon
+// colour is resolved from the live palette so badges stay readable
+// in both light and dark themes.
+function useSystemConfig(): Record<string, SystemConfig> {
+  const colors = useThemeColors();
+  return {
+    offer: { icon: Tag, color: colors.primary },
+    offer_accepted: {
+      label: "Offre acceptée",
+      icon: PartyPopper,
+      color: colors.success,
+    },
+    offer_rejected: {
+      label: "Offre déclinée",
+      icon: XCircle,
+      color: colors.mutedForeground,
+    },
+    offer_cancelled: {
+      label: "Offre annulée",
+      icon: Ban,
+      color: colors.mutedForeground,
+    },
+    offer_cancelled_by_buyer: {
+      label: "Offre annulée",
+      icon: Ban,
+      color: colors.mutedForeground,
+    },
+    payment_completed: {
+      label: "Paiement effectué",
+      icon: CreditCard,
+      color: colors.brandSecondary,
+    },
+    order_shipped: {
+      label: "Colis expédié",
+      icon: Package,
+      color: colors.warning,
+    },
+    sale_completed: {
+      label: "Vente finalisée",
+      icon: CheckCircle2,
+      color: colors.success,
+    },
+  };
+}
 
 interface SystemMessageProps {
   message: Message;
@@ -64,16 +70,18 @@ interface SystemMessageProps {
 
 export function SystemMessage({ message }: SystemMessageProps) {
   const reduceMotion = useReducedMotionSafe();
+  const colors = useThemeColors();
+  const systemConfig = useSystemConfig();
 
   if (message.message_type === "order_shipped") {
     return <TrackingCard message={message} />;
   }
 
   const config = message.message_type
-    ? SYSTEM_CONFIG[message.message_type]
+    ? systemConfig[message.message_type]
     : undefined;
   const Icon = config?.icon ?? CheckCircle2;
-  const color = config?.color ?? "#64748b";
+  const color = config?.color ?? colors.mutedForeground;
   const label = config?.label ?? message.content ?? "Message système";
 
   return (

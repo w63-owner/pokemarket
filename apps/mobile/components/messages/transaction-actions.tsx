@@ -27,6 +27,7 @@ import {
 } from "@/hooks/use-transactions";
 import type { DisputeReason } from "@/lib/api/transactions";
 import { spring } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type TransactionActionsProps = {
   transaction: Transaction;
@@ -54,11 +55,12 @@ export function TransactionActions({
 }: TransactionActionsProps) {
   const isSeller = currentUserId === sellerId;
   const isBuyer = currentUserId === buyerId;
+  const colors = useThemeColors();
 
   if (transaction.status === "PENDING_PAYMENT") {
     return (
       <StatusBar
-        icon={<Package size={16} color="#2563eb" />}
+        icon={<Package size={16} color={colors.brandSecondary} />}
         label="Paiement en cours de validation…"
       />
     );
@@ -77,7 +79,7 @@ export function TransactionActions({
   if (transaction.status === "PAID" && isBuyer) {
     return (
       <StatusBar
-        icon={<Package size={16} color="#2563eb" />}
+        icon={<Package size={16} color={colors.brandSecondary} />}
         label="Paiement confirmé — en attente d'envoi"
       />
     );
@@ -103,7 +105,7 @@ export function TransactionActions({
   if (transaction.status === "SHIPPED" && isSeller) {
     return (
       <StatusBar
-        icon={<Truck size={16} color="#d97706" />}
+        icon={<Truck size={16} color={colors.warning} />}
         label="En attente de la confirmation de réception"
       />
     );
@@ -112,7 +114,7 @@ export function TransactionActions({
   if (transaction.status === "DISPUTED") {
     return (
       <StatusBar
-        icon={<AlertTriangle size={16} color="#dc2626" />}
+        icon={<AlertTriangle size={16} color={colors.destructive} />}
         label="Litige en cours — un administrateur va intervenir"
       />
     );
@@ -121,7 +123,7 @@ export function TransactionActions({
   if (transaction.status === "COMPLETED") {
     return (
       <StatusBar
-        icon={<CheckCircle2 size={16} color="#16a34a" />}
+        icon={<CheckCircle2 size={16} color={colors.success} />}
         label="Transaction finalisée"
       />
     );
@@ -157,6 +159,7 @@ function ShipOrderBar({
   const [trackingUrl, setTrackingUrl] = useState("");
 
   const ship = useShipOrder();
+  const colors = useThemeColors();
 
   const handleSubmit = useCallback(() => {
     if (!trackingNumber.trim() || ship.isPending) return;
@@ -191,14 +194,14 @@ function ShipOrderBar({
 
   return (
     <>
-      <View className="flex-row items-center justify-between gap-2 border-b border-border bg-blue-50 px-3 py-2.5">
+      <View className="flex-row items-center justify-between gap-2 border-b border-border bg-brand-secondary/10 px-3 py-2.5">
         <View className="flex-row items-center gap-2">
-          <Package size={16} color="#2563eb" />
+          <Package size={16} color={colors.brandSecondary} />
           <Text className="text-sm font-medium">Paiement reçu</Text>
         </View>
         <Button size="sm" onPress={() => setOpen(true)}>
           <View className="flex-row items-center gap-1.5">
-            <Truck size={14} color="#fff" />
+            <Truck size={14} color={colors.primaryForeground} />
             <Text className="text-sm font-semibold text-primary-foreground">
               Expédier
             </Text>
@@ -247,7 +250,11 @@ function ShipOrderBar({
           loading={ship.isPending}
           onPress={handleSubmit}
           disabled={!trackingNumber.trim()}
-          leftIcon={ship.isPending ? null : <Package size={18} color="#fff" />}
+          leftIcon={
+            ship.isPending ? null : (
+              <Package size={18} color={colors.primaryForeground} />
+            )
+          }
         >
           Confirmer l&apos;expédition
         </Button>
@@ -274,6 +281,7 @@ function ConfirmReceptionBar({
   const [comment, setComment] = useState("");
 
   const confirm = useConfirmReception();
+  const colors = useThemeColors();
 
   const handleSubmit = useCallback(() => {
     if (rating < 1 || rating > 5 || confirm.isPending) return;
@@ -303,14 +311,14 @@ function ConfirmReceptionBar({
 
   return (
     <>
-      <View className="flex-row items-center justify-between gap-2 border-b border-border bg-amber-50 px-3 py-2.5">
+      <View className="flex-row items-center justify-between gap-2 border-b border-border bg-warning/10 px-3 py-2.5">
         <View className="flex-row items-center gap-2">
-          <Truck size={16} color="#d97706" />
+          <Truck size={16} color={colors.warning} />
           <Text className="text-sm font-medium">Colis en route</Text>
         </View>
         <Button size="sm" onPress={() => setOpen(true)}>
           <View className="flex-row items-center gap-1.5">
-            <CheckCircle2 size={14} color="#fff" />
+            <CheckCircle2 size={14} color={colors.primaryForeground} />
             <Text className="text-sm font-semibold text-primary-foreground">
               Confirmer
             </Text>
@@ -356,7 +364,9 @@ function ConfirmReceptionBar({
           onPress={handleSubmit}
           disabled={rating < 1}
           leftIcon={
-            confirm.isPending ? null : <CheckCircle2 size={18} color="#fff" />
+            confirm.isPending ? null : (
+              <CheckCircle2 size={18} color={colors.primaryForeground} />
+            )
           }
         >
           Confirmer et noter
@@ -373,10 +383,12 @@ function StarPicker({
   value: number;
   onChange: (next: number) => void;
 }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-row gap-2 py-1">
       {[1, 2, 3, 4, 5].map((n) => {
         const active = n <= value;
+        const starColor = active ? colors.warning : colors.border;
         return (
           <Pressable
             key={n}
@@ -391,8 +403,8 @@ function StarPicker({
             >
               <Star
                 size={32}
-                color={active ? "#f59e0b" : "#cbd5e1"}
-                fill={active ? "#f59e0b" : "transparent"}
+                color={starColor}
+                fill={active ? colors.warning : "transparent"}
               />
             </MotiView>
           </Pressable>
@@ -427,6 +439,7 @@ function ReportDisputeButton({
   const [description, setDescription] = useState("");
 
   const dispute = useCreateDispute();
+  const colors = useThemeColors();
 
   const handleSubmit = useCallback(() => {
     if (reason === "" || description.trim().length < 10 || dispute.isPending)
@@ -460,14 +473,14 @@ function ReportDisputeButton({
           onPress={() => setOpen(true)}
           className="flex-row items-center gap-1.5 active:opacity-60"
         >
-          <AlertTriangle size={12} color="#64748b" />
+          <AlertTriangle size={12} color={colors.mutedForeground} />
           <Text variant="caption">Signaler un problème</Text>
         </Pressable>
       </View>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <View className="flex-row items-center gap-2">
-          <AlertTriangle size={20} color="#dc2626" />
+          <AlertTriangle size={20} color={colors.destructive} />
           <Text variant="h4">Signaler un problème</Text>
         </View>
         <Text variant="muted" className="mt-1">
@@ -515,7 +528,9 @@ function ReportDisputeButton({
           disabled={reason === "" || description.trim().length < 10}
           onPress={handleSubmit}
           leftIcon={
-            dispute.isPending ? null : <AlertTriangle size={18} color="#fff" />
+            dispute.isPending ? null : (
+              <AlertTriangle size={18} color={colors.destructiveForeground} />
+            )
           }
         >
           Ouvrir le litige

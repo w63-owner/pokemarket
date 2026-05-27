@@ -27,6 +27,7 @@ import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import type { UploadedListingImage } from "@/lib/api/listings";
+import { useThemeColors } from "@/lib/theme-colors";
 
 export default function EditListingScreen() {
   const params = useLocalSearchParams<{ id: string }>();
@@ -34,6 +35,7 @@ export default function EditListingScreen() {
   const { data: listing, isLoading, error } = useOwnedListing(id);
   const updateListing = useUpdateListing();
   const deleteListing = useDeleteListing();
+  const colors = useThemeColors();
 
   const [images, setImages] = useState<{
     cover: UploadedListingImage | null;
@@ -99,7 +101,7 @@ export default function EditListingScreen() {
   if (isLoading || (!listing && !error)) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#E63946" />
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -110,7 +112,7 @@ export default function EditListingScreen() {
         className="flex-1 items-center justify-center gap-3 bg-background px-8"
         edges={["top"]}
       >
-        <AlertTriangle size={28} color="#dc2626" />
+        <AlertTriangle size={28} color={colors.destructive} />
         <Text variant="muted">Annonce introuvable ou accès refusé</Text>
         <Button onPress={() => router.back()}>Retour</Button>
       </SafeAreaView>

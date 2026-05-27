@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { unregisterPushToken } from "@/lib/notifications";
+import { registerPushToken, unregisterPushToken } from "@/lib/notifications";
 import { disableBiometry } from "@/lib/biometry";
 
 type AuthState = {
@@ -41,13 +41,22 @@ export function initAuth() {
     emit();
   });
 
-  supabase.auth.onAuthStateChange((_event, newSession) => {
+  supabase.auth.onAuthStateChange((event, newSession) => {
     cached = {
       session: newSession,
       user: newSession?.user ?? null,
       loading: false,
     };
     emit();
+
+    // After a successful sign-in, register the device for push notifications
+    // so the backend can target this install. Fire-and-forget; failures are
+    // logged internally and never block the auth flow. `INITIAL_SESSION` is
+    // intentionally excluded — that fires on every cold boot for already-
+    // signed-in users and would spam our token endpoint.
+    if (event === "SIGNED_IN" && newSession) {
+      void registerPushToken();
+    }
   });
 }
 

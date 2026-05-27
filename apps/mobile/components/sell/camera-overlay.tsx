@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { MotiView } from "moti";
 import { Text } from "@/components/ui/text";
+import { useThemeColor } from "@/lib/theme-colors";
 
 /** Pokemon card standard ratio: 63mm × 88mm → width / height */
 export const CARD_ASPECT_RATIO = 63 / 88;
@@ -10,13 +11,13 @@ export const CUTOUT_WIDTH_PERCENT = 0.88;
 
 const BRACKET_LEN = 22;
 const BRACKET_W = 2.5;
-const BRAND_COLOR = "#E63946";
 
 type Position = "tl" | "tr" | "bl" | "br";
 
 function CornerBracket({ position }: { position: Position }) {
   const isTop = position.startsWith("t");
   const isLeft = position.endsWith("l");
+  const brandColor = useThemeColor("primary");
 
   return (
     <MotiView
@@ -34,7 +35,7 @@ function CornerBracket({ position }: { position: Position }) {
         position: "absolute",
         width: BRACKET_LEN,
         height: BRACKET_LEN,
-        borderColor: BRAND_COLOR,
+        borderColor: brandColor,
         borderTopWidth: isTop ? BRACKET_W : 0,
         borderBottomWidth: isTop ? 0 : BRACKET_W,
         borderLeftWidth: isLeft ? BRACKET_W : 0,

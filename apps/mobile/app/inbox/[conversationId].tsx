@@ -48,6 +48,7 @@ import {
 } from "@/components/messages";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Skeleton, Text, toast } from "@/components/ui";
+import { useThemeColors } from "@/lib/theme-colors";
 
 const SYSTEM_TYPES = new Set([
   "system",
@@ -115,6 +116,7 @@ export default function ConversationThreadScreen() {
   const conversationId = params.conversationId;
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const colors = useThemeColors();
 
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
 
@@ -539,7 +541,7 @@ export default function ConversationThreadScreen() {
   if (convQuery.error || !convQuery.data) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center gap-3 bg-background px-6">
-        <AlertCircle size={28} color="#dc2626" />
+        <AlertCircle size={28} color={colors.destructive} />
         <Text variant="muted">Conversation introuvable</Text>
         <Pressable
           onPress={() => router.replace("/(tabs)/inbox")}
@@ -633,7 +635,7 @@ export default function ConversationThreadScreen() {
                 <RefreshControl
                   refreshing={messagesQuery.isRefetching}
                   onRefresh={() => messagesQuery.refetch()}
-                  tintColor="#E63946"
+                  tintColor={colors.primary}
                   // Counter-rotate the spinner so it spins the right way
                   // inside the inverted FlashList.
                   style={{ transform: [{ scaleY: -1 }] }}
@@ -642,7 +644,7 @@ export default function ConversationThreadScreen() {
               ListFooterComponent={
                 messagesQuery.isFetchingNextPage ? (
                   <View className="py-4">
-                    <ActivityIndicator color="#E63946" />
+                    <ActivityIndicator color={colors.primary} />
                   </View>
                 ) : null
               }

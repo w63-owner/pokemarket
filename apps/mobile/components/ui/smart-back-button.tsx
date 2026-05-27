@@ -72,7 +72,7 @@ export function SmartBackButton({
               backgroundColor: "rgba(0,0,0,0.30)",
             }}
           >
-            <ChevronLeft size={22} color="#ffffff" />
+            <ChevronLeft size={22} color="#fff" />
           </BlurView>
         ) : (
           <View
@@ -84,7 +84,7 @@ export function SmartBackButton({
               backgroundColor: "rgba(0,0,0,0.40)",
             }}
           >
-            <ChevronLeft size={22} color="#ffffff" />
+            <ChevronLeft size={22} color="#fff" />
           </View>
         )}
       </Pressable>

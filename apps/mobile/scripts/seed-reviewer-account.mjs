@@ -18,7 +18,9 @@
  * Env required:
  *   NEXT_PUBLIC_SUPABASE_URL
  *   NEXT_PUBLIC_SUPABASE_ANON_KEY
- *   SUPABASE_SERVICE_ROLE_KEY  (admin, NEVER commit)
+ *   SUPABASE_SERVICE_ROLE_KEY    (admin, NEVER commit)
+ *   SEED_REVIEWER_PWD            password for reviewer@pokemarket.app
+ *   SEED_BUDDY_PWD               password for buddy.reviewer@pokemarket.app
  *
  * Outputs the credentials + IDs as JSON on stdout so the calling shell
  * can feed App Store Connect or paste into reviewer notes.
@@ -36,13 +38,26 @@ if (!SUPABASE_URL || !SUPABASE_SR || !SUPABASE_ANON) {
   process.exit(2);
 }
 
+// Passwords are intentionally sourced from the environment so they never end
+// up committed alongside the script (which would surface them in any git
+// history audit). The seeder is a developer-only utility; if the operator
+// forgot to export the variables, fail loudly rather than fall back to a
+// known constant — that would defeat the purpose of moving them out.
+const REVIEWER_PASSWORD = process.env.SEED_REVIEWER_PWD;
+const BUDDY_PASSWORD = process.env.SEED_BUDDY_PWD;
+
+if (!REVIEWER_PASSWORD || !BUDDY_PASSWORD) {
+  console.error(
+    "Missing env. Required: SEED_REVIEWER_PWD, SEED_BUDDY_PWD (passwords for the seeded reviewer + buddy accounts).",
+  );
+  process.exit(2);
+}
+
 const args = new Set(process.argv.slice(2));
 const RESET = args.has("--reset");
 
 const REVIEWER_EMAIL = "reviewer@pokemarket.app";
-const REVIEWER_PASSWORD = "ReviewerPass2026!";
 const BUDDY_EMAIL = "buddy.reviewer@pokemarket.app";
-const BUDDY_PASSWORD = "BuddyReviewerPass2026!";
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",

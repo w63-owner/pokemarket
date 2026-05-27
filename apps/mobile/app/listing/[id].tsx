@@ -21,6 +21,7 @@ import { ReportDialog } from "@/components/listing/report-dialog";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { Badge, Skeleton, Text, toast } from "@/components/ui";
 import { useEffectiveTheme } from "@/lib/stores/theme";
+import { useThemeColor } from "@/lib/theme-colors";
 import { haptic } from "@/lib/haptics";
 import { env } from "@/lib/env";
 
@@ -32,6 +33,7 @@ export default function ListingScreen() {
   const { data: reputation } = useSellerReputation(listing?.seller_id);
   const toggleFavorite = useToggleFavorite();
   const isFavorite = favIds.includes(id);
+  const primary = useThemeColor("primary");
 
   const contactMutation = useMutation({
     mutationFn: (listingId: string) => fetchOrCreateConversation(listingId),
@@ -104,15 +106,15 @@ export default function ListingScreen() {
                 >
                   <Heart
                     size={20}
-                    color="#E63946"
-                    fill={isFavorite ? "#E63946" : "transparent"}
+                    color={primary}
+                    fill={isFavorite ? primary : "transparent"}
                   />
                 </OverlayIconButton>
                 <OverlayIconButton
                   onPress={handleShare}
                   accessibilityLabel="Partager"
                 >
-                  <Share2 size={18} color="#ffffff" />
+                  <Share2 size={18} color="#fff" />
                 </OverlayIconButton>
               </View>
             }

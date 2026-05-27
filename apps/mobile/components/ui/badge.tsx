@@ -8,9 +8,9 @@ const badgeVariants = cva("self-start rounded-full px-2.5 py-1", {
     variant: {
       default: "bg-primary",
       secondary: "bg-secondary",
-      success: "bg-green-100",
-      warning: "bg-amber-100",
-      destructive: "bg-red-100",
+      success: "bg-success/15",
+      warning: "bg-warning/15",
+      destructive: "bg-destructive/15",
       outline: "border border-border bg-transparent",
       // `ghost` and `link` mirror the web counterparts: no background, no
       // border. `link` additionally drops horizontal padding so it sits
@@ -27,9 +27,9 @@ const badgeTextVariants = cva("text-xs font-medium", {
     variant: {
       default: "text-primary-foreground",
       secondary: "text-secondary-foreground",
-      success: "text-green-800",
-      warning: "text-amber-800",
-      destructive: "text-red-800",
+      success: "text-success",
+      warning: "text-warning",
+      destructive: "text-destructive",
       outline: "text-foreground",
       ghost: "text-muted-foreground",
       link: "text-primary underline",

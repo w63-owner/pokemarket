@@ -112,7 +112,7 @@ export function ImageCarousel({ images }: Props) {
         accessibilityLabel="Voir en grand"
         className="absolute bottom-3 right-3 z-10 h-9 w-9 items-center justify-center rounded-full bg-black/40 active:opacity-80"
       >
-        <ZoomIn size={16} color="#ffffff" />
+        <ZoomIn size={16} color="#fff" />
       </Pressable>
 
       <FullscreenZoom uri={zoomed} onClose={() => setZoomed(null)} />
@@ -141,10 +141,7 @@ function DotPill({ active }: { active: boolean }) {
 
   return (
     <Animated.View
-      style={[
-        { height: 6, borderRadius: 999, backgroundColor: "#ffffff" },
-        style,
-      ]}
+      style={[{ height: 6, borderRadius: 999, backgroundColor: "#fff" }, style]}
     />
   );
 }
@@ -272,7 +269,7 @@ function FullscreenZoom({
           accessibilityLabel="Fermer"
           className="absolute right-4 top-12 z-10 h-10 w-10 items-center justify-center rounded-full bg-white/10 active:opacity-80"
         >
-          <X size={20} color="#ffffff" />
+          <X size={20} color="#fff" />
         </Pressable>
 
         <GestureDetector gesture={composed}>

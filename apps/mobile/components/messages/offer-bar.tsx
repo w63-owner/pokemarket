@@ -14,6 +14,7 @@ import {
   rejectOffer,
 } from "@/lib/api/offers";
 import type { ConversationDetail } from "@/lib/api/conversations";
+import { useThemeColors } from "@/lib/theme-colors";
 
 interface OfferBarProps {
   conversation: ConversationDetail;
@@ -29,6 +30,7 @@ export function OfferBar({
   const queryClient = useQueryClient();
   const isBuyer = currentUser.id === conversation.buyer_id;
   const listing = conversation.listing;
+  const colors = useThemeColors();
 
   const minOffer =
     Math.ceil(listing.display_price * LIMITS.MIN_OFFER_PERCENT * 100) / 100;
@@ -113,7 +115,7 @@ export function OfferBar({
       return (
         <BarShell>
           <View className="flex-row items-center gap-2">
-            <ShoppingCart size={14} color="#16a34a" />
+            <ShoppingCart size={14} color={colors.success} />
             <Text className="text-sm font-medium">
               Offre acceptée — {formatPrice(activeOffer.offer_amount)}
             </Text>
@@ -143,7 +145,7 @@ export function OfferBar({
       return (
         <BarShell>
           <View className="flex-row items-center gap-2">
-            <Tag size={14} color="#E63946" />
+            <Tag size={14} color={colors.primary} />
             <Text className="text-sm font-medium">
               Offre de {formatPrice(activeOffer.offer_amount)} en attente
             </Text>
@@ -176,7 +178,7 @@ export function OfferBar({
     return (
       <BarShell>
         <View className="flex-row items-center gap-2">
-          <Check size={14} color="#16a34a" />
+          <Check size={14} color={colors.success} />
           <Text className="text-sm font-medium">
             Offre acceptée — En attente du paiement
           </Text>
@@ -189,7 +191,7 @@ export function OfferBar({
     return (
       <BarShell highlight>
         <View className="flex-row items-center gap-2">
-          <Tag size={14} color="#E63946" />
+          <Tag size={14} color={colors.primary} />
           <Text className="text-sm font-medium">
             Offre de {formatPrice(activeOffer.offer_amount)}
           </Text>
@@ -236,6 +238,7 @@ function BuyerOfferEntry({
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const colors = useThemeColors();
 
   const createMutation = useMutation({
     mutationFn: () => {
@@ -270,7 +273,7 @@ function BuyerOfferEntry({
     <>
       <BarShell>
         <View className="flex-row items-center gap-2">
-          <Tag size={14} color="#E63946" />
+          <Tag size={14} color={colors.primary} />
           <Text className="text-sm font-medium">
             Min. {formatPrice(minOffer)}
           </Text>
@@ -325,7 +328,7 @@ function BuyerOfferEntry({
               disabled={!amount || createMutation.isPending}
             >
               {createMutation.isPending ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.primaryForeground} />
               ) : (
                 "Envoyer"
               )}

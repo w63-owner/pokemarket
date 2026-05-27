@@ -11,6 +11,7 @@ import { fetchStripeConnectStatus } from "@/lib/api/wallet";
 import { stripeConnectStatusKey } from "@/hooks/use-wallet";
 import { Button, Text } from "@/components/ui";
 import { spring } from "@/lib/motion";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type Phase = "checking" | "success" | "error";
 
@@ -24,6 +25,7 @@ export default function WalletReturnScreen() {
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>("checking");
   const [kycStatus, setKycStatus] = useState<KycStatus>("PENDING");
+  const colors = useThemeColors();
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +74,7 @@ export default function WalletReturnScreen() {
         >
           {phase === "checking" && (
             <>
-              <ActivityIndicator size="large" color="#E63946" />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text variant="h3" className="mt-5 text-center">
                 Vérification en cours…
               </Text>
@@ -88,9 +90,13 @@ export default function WalletReturnScreen() {
                 from={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={spring.bouncy}
-                className="rounded-full bg-emerald-100 p-4"
+                className="rounded-full bg-success/15 p-4"
               >
-                <CheckCircle2 size={48} color="#16a34a" strokeWidth={1.8} />
+                <CheckCircle2
+                  size={48}
+                  color={colors.success}
+                  strokeWidth={1.8}
+                />
               </MotiView>
               <Text variant="h3" className="mt-5 text-center">
                 {kycStatus === "VERIFIED"
@@ -110,8 +116,12 @@ export default function WalletReturnScreen() {
 
           {phase === "error" && (
             <>
-              <View className="rounded-full bg-red-100 p-4">
-                <AlertTriangle size={48} color="#dc2626" strokeWidth={1.8} />
+              <View className="rounded-full bg-destructive/15 p-4">
+                <AlertTriangle
+                  size={48}
+                  color={colors.destructive}
+                  strokeWidth={1.8}
+                />
               </View>
               <Text variant="h3" className="mt-5 text-center">
                 Une erreur est survenue
