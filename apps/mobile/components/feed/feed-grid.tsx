@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { RefreshControl, useWindowDimensions, View } from "react-native";
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
 import { MotiView } from "moti";
@@ -12,7 +13,7 @@ import {
   useFavoriteListingIds,
   useToggleFavorite,
 } from "@/hooks/use-favorites";
-import { fadeInUp, staggerDelay, useReducedMotionSafe } from "@/lib/motion";
+import { fadeInUp, useReducedMotionSafe } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
@@ -61,6 +62,16 @@ export function FeedGrid({
   const mutedForeground = useThemeColor("mutedForeground");
   const destructive = useThemeColor("destructive");
   const reduceMotion = useReducedMotionSafe();
+
+  // Stable Set so `ListingCard` memo stays effective even when the favIds
+  // array reference changes but the contents are the same.
+  const favIdsSet = useMemo(() => new Set(favIds), [favIds]);
+
+  // Stable callback — avoids re-creating `renderItem` on every render.
+  const handleToggleFavorite = useCallback(
+    (id: string) => toggleFavorite.mutate(id),
+    [toggleFavorite],
+  );
 
   // Pick column count based on viewport width — kept reactive so a
   // device rotation or iPad split-view resize re-flows live.
@@ -154,6 +165,23 @@ export function FeedGrid({
     );
   };
 
+  // Stable renderItem — depends only on favIdsSet and handleToggleFavorite
+  // so FlashList's internal item recycler is not invalidated on every
+  // parent render. The entrance MotiView has been removed: the per-card
+  // stagger animation was the primary source of JS-thread jank on scroll.
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<FeedItem>) => (
+      <View style={{ flex: 1, paddingHorizontal: ITEM_GUTTER / 2 }}>
+        <ListingCard
+          item={item}
+          isFavorite={favIdsSet.has(item.id)}
+          onToggleFavorite={handleToggleFavorite}
+        />
+      </View>
+    ),
+    [favIdsSet, handleToggleFavorite],
+  );
+
   return (
     <FlashList
       data={data}
@@ -175,32 +203,7 @@ export function FeedGrid({
       }
       onEndReached={onEndReached}
       onEndReachedThreshold={0.6}
-      renderItem={({ item, index }: ListRenderItemInfo<FeedItem>) => (
-        <View
-          style={{
-            flex: 1,
-            paddingHorizontal: ITEM_GUTTER / 2,
-          }}
-        >
-          {/* Stagger entrance — caps at 10 items so deep scroll
-              positions don't pay an animation cost. Reduce Motion
-              collapses `from` onto `animate` to mount instantly. */}
-          <MotiView
-            from={reduceMotion ? fadeInUp.animate : fadeInUp.from}
-            animate={fadeInUp.animate}
-            transition={{
-              ...(fadeInUp.transition as object),
-              delay: staggerDelay(index, 50, 10),
-            }}
-          >
-            <ListingCard
-              item={item}
-              isFavorite={favIds.includes(item.id)}
-              onToggleFavorite={(id) => toggleFavorite.mutate(id)}
-            />
-          </MotiView>
-        </View>
-      )}
+      renderItem={renderItem}
     />
   );
 }

@@ -7,7 +7,7 @@ import { Camera, Loader2 } from "lucide-react-native";
 import { MotiView } from "moti";
 
 import { requireUserId } from "@/lib/auth/current-user";
-import { base64ToArrayBuffer } from "@/lib/storage/base64";
+import { uploadImageFromUri } from "@/lib/storage/upload-image";
 import { supabase } from "@/lib/supabase";
 import { Text, toast } from "@/components/ui";
 import { duration } from "@/lib/motion";
@@ -70,38 +70,30 @@ export function AvatarUploader({
     setPreviewUri(asset.uri);
 
     try {
-      // Downscale + re-encode JPEG, returning base64 so we can ship the
-      // bytes through Supabase Storage without a `Blob` (RN's Blob is
-      // unreliable on `file://` URIs).
+      // Downscale + re-encode JPEG from the local URI using native upload
+      // (no base64 in JS memory — bytes stream directly from the native layer).
       const manipulated = await ImageManipulator.manipulateAsync(
         asset.uri,
         [{ resize: { width: TARGET_DIM, height: TARGET_DIM } }],
         {
           compress: COMPRESS_QUALITY,
           format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
         },
       );
 
-      if (!manipulated.base64) {
-        throw new Error("Échec de la conversion JPEG");
-      }
-
       const userId = await requireUserId();
-
       const fileName = `${userId}/avatar.jpg`;
-      const buffer = base64ToArrayBuffer(manipulated.base64);
 
-      const { error: uploadError } = await supabase.storage
-        .from(AVATAR_BUCKET)
-        .upload(fileName, buffer, {
-          contentType: "image/jpeg",
-          cacheControl: "3600",
-          upsert: true,
-        });
+      await uploadImageFromUri({
+        uri: manipulated.uri,
+        contentType: "image/jpeg",
+        bucket: AVATAR_BUCKET,
+        storagePath: fileName,
+        upsert: true,
+      });
 
-      if (uploadError) throw uploadError;
-
+      // Supabase storage `upsert` mode is handled by the upload helper via
+      // the `x-upsert` header. Re-fetch the public URL after upload.
       const {
         data: { publicUrl },
       } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(fileName);

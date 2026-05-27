@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AccessibilityInfo, type ViewProps } from "react-native";
+import { type ViewProps } from "react-native";
+import { useReducedMotionStore } from "./stores/reduced-motion";
 import type { MotiTransitionProp } from "moti";
 
 /**
@@ -235,32 +235,12 @@ export const hoverScale = {
  * Hook returning whether the user has enabled "Reduce Motion" at the
  * OS level (iOS Settings → Accessibility, Android → Animator scale).
  *
- * Listens to live changes so toggling the system setting takes effect
- * on the next render without a hard restart.
+ * Backed by a module-level Zustand store (`lib/stores/reduced-motion.ts`)
+ * so a single `AccessibilityInfo` listener serves all consumers — no
+ * per-component subscription overhead.
  */
 export function useReducedMotionSafe(): boolean {
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((value) => {
-        if (!cancelled) setReduceMotion(value);
-      })
-      .catch(() => {});
-
-    const sub = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      (value: boolean) => setReduceMotion(value),
-    );
-
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
-  }, []);
-
-  return reduceMotion;
+  return useReducedMotionStore((state) => state.reduceMotion);
 }
 
 /**

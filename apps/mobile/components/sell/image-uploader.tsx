@@ -49,7 +49,7 @@ type Props = {
 };
 
 async function compressFromUri(uri: string): Promise<{
-  base64: string;
+  uri: string;
   width: number;
   height: number;
 }> {
@@ -57,14 +57,12 @@ async function compressFromUri(uri: string): Promise<{
     uri,
     [{ resize: { width: COMPRESSED_MAX_DIMENSION } }],
     {
-      base64: true,
       compress: JPEG_QUALITY,
       format: ImageManipulator.SaveFormat.JPEG,
     },
   );
-  if (!result.base64) throw new Error("Compression failed");
   return {
-    base64: result.base64,
+    uri: result.uri,
     width: result.width,
     height: result.height,
   };
@@ -283,7 +281,7 @@ export function ImageUploader({
     async (
       kind: SlotKind,
       payload: {
-        base64: string;
+        uri: string;
         contentType: "image/jpeg" | "image/webp" | "image/png";
       },
     ) => {
@@ -294,7 +292,7 @@ export function ImageUploader({
 
       try {
         const uploaded = await uploadListingImage({
-          base64: payload.base64,
+          uri: payload.uri,
           contentType: payload.contentType,
           previousPath: current.storagePath,
         });
@@ -323,7 +321,7 @@ export function ImageUploader({
     (img: CapturedImage) => {
       if (!cameraTarget) return;
       uploadAndSet(cameraTarget, {
-        base64: img.base64,
+        uri: img.uri,
         contentType: img.contentType,
       });
       setCameraTarget(null);
@@ -351,7 +349,7 @@ export function ImageUploader({
       try {
         const compressed = await compressFromUri(asset.uri);
         uploadAndSet(kind, {
-          base64: compressed.base64,
+          uri: compressed.uri,
           contentType: "image/jpeg",
         });
       } catch {

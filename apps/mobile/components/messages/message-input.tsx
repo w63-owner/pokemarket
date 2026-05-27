@@ -18,26 +18,22 @@ const JPEG_QUALITY = 0.85;
 interface MessageInputProps {
   onSend: (content: string) => void;
   onSendImage?: (payload: {
-    base64: string;
+    uri: string;
     contentType: "image/jpeg";
   }) => Promise<void> | void;
   disabled?: boolean;
 }
 
-async function compressFromUri(uri: string): Promise<{
-  base64: string;
-}> {
+async function compressFromUri(uri: string): Promise<{ uri: string }> {
   const result = await ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: COMPRESSED_MAX_DIMENSION } }],
     {
-      base64: true,
       compress: JPEG_QUALITY,
       format: ImageManipulator.SaveFormat.JPEG,
     },
   );
-  if (!result.base64) throw new Error("Compression failed");
-  return { base64: result.base64 };
+  return { uri: result.uri };
 }
 
 export function MessageInput({
@@ -95,7 +91,7 @@ export function MessageInput({
     try {
       const compressed = await compressFromUri(asset.uri);
       await onSendImage({
-        base64: compressed.base64,
+        uri: compressed.uri,
         contentType: "image/jpeg",
       });
     } catch (err) {

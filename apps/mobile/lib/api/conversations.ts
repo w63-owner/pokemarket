@@ -5,7 +5,10 @@ import {
 } from "@pokemarket/shared";
 import { api } from "@/lib/api/client";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
-import { base64ToArrayBuffer } from "@/lib/storage/base64";
+import {
+  uploadImageFromUri,
+  contentTypeToExt,
+} from "@/lib/storage/upload-image";
 import { supabase } from "@/lib/supabase";
 
 const MESSAGE_ATTACHMENTS_BUCKET = "message_attachments";
@@ -208,6 +211,7 @@ export async function markMessagesAsRead(messageIds: string[]): Promise<void> {
 export async function sendMessage(
   conversationId: string,
   content: string,
+  clientId?: string,
 ): Promise<Message> {
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Message vide");
@@ -218,6 +222,7 @@ export async function sendMessage(
   const result = await api.post<{ message: Message }>("/api/messages/send", {
     conversation_id: conversationId,
     content: trimmed,
+    ...(clientId ? { client_id: clientId } : {}),
   });
   return result.message;
 }
@@ -227,45 +232,30 @@ export async function sendMessage(
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Upload an already-compressed JPEG (provided as base64) into the private
- * `message_attachments` bucket under `{conversationId}/{filename}.jpg`,
- * then insert a `message_type: "image"` row whose `content` stores the
- * storage path so the bubble renderer can later mint a signed URL.
- *
- * The bucket is private (RLS scoped to conversation participants), so we
- * never persist a public URL — only the storage path. Returns the inserted
- * message so the caller can patch its optimistic placeholder.
+ * Upload an image from a local `file://` URI into the private
+ * `message_attachments` bucket, then insert a `message_type: "image"` row.
+ * Uses native multipart upload to avoid base64 memory overhead.
  */
 export async function sendImageMessage(
   conversationId: string,
   payload: {
-    base64: string;
+    uri: string;
     contentType: "image/jpeg" | "image/webp" | "image/png";
   },
 ): Promise<Message> {
   const userId = await requireUserId();
 
-  const ext =
-    payload.contentType === "image/webp"
-      ? "webp"
-      : payload.contentType === "image/png"
-        ? "png"
-        : "jpg";
+  const ext = contentTypeToExt(payload.contentType);
   const fileName = `${conversationId}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${ext}`;
 
-  const buffer = base64ToArrayBuffer(payload.base64);
-
-  const { error: uploadError } = await supabase.storage
-    .from(MESSAGE_ATTACHMENTS_BUCKET)
-    .upload(fileName, buffer, {
-      contentType: payload.contentType,
-      cacheControl: "31536000",
-      upsert: false,
-    });
-
-  if (uploadError) throw new Error(uploadError.message);
+  await uploadImageFromUri({
+    uri: payload.uri,
+    contentType: payload.contentType,
+    bucket: MESSAGE_ATTACHMENTS_BUCKET,
+    storagePath: fileName,
+  });
 
   const { data, error } = await supabase
     .from("messages")

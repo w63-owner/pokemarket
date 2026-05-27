@@ -64,6 +64,9 @@ export async function POST(request: Request) {
         sender_id: user.id,
         content: parsed.data.content,
         message_type: "text",
+        ...(body.client_id && typeof body.client_id === "string"
+          ? { metadata: { client_id: body.client_id } }
+          : {}),
       })
       .select()
       .single();

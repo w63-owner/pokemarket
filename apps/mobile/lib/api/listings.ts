@@ -11,7 +11,10 @@ import {
   type SellerReputation,
 } from "@pokemarket/shared";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
-import { base64ToArrayBuffer } from "@/lib/storage/base64";
+import {
+  uploadImageFromUri,
+  contentTypeToExt,
+} from "@/lib/storage/upload-image";
 import { supabase } from "@/lib/supabase";
 
 type RpcArgs = Database["public"]["Functions"]["search_listings_feed"]["Args"];
@@ -299,12 +302,12 @@ export type UploadedListingImage = {
 };
 
 /**
- * Upload an already-compressed JPEG/WEBP image (provided as base64 string)
- * to Supabase Storage under the user's folder. Returns the public URL plus
- * the storage path so callers can later remove the previous file.
+ * Upload an image from a local `file://` URI to Supabase Storage.
+ * Uses native multipart upload via `expo-file-system` to avoid the
+ * base64 → ArrayBuffer memory spike on large images.
  */
 export async function uploadListingImage(params: {
-  base64: string;
+  uri: string;
   contentType: "image/jpeg" | "image/webp" | "image/png";
   previousPath?: string | null;
 }): Promise<UploadedListingImage> {
@@ -319,27 +322,17 @@ export async function uploadListingImage(params: {
       });
   }
 
-  const ext =
-    params.contentType === "image/webp"
-      ? "webp"
-      : params.contentType === "image/png"
-        ? "png"
-        : "jpg";
+  const ext = contentTypeToExt(params.contentType);
   const fileName = `${userId}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${ext}`;
 
-  const buffer = base64ToArrayBuffer(params.base64);
-
-  const { error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .upload(fileName, buffer, {
-      contentType: params.contentType,
-      cacheControl: "31536000",
-      upsert: false,
-    });
-
-  if (error) throw new Error(error.message);
+  await uploadImageFromUri({
+    uri: params.uri,
+    contentType: params.contentType,
+    bucket: STORAGE_BUCKET,
+    storagePath: fileName,
+  });
 
   const {
     data: { publicUrl },

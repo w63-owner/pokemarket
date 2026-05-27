@@ -2,6 +2,13 @@ import "react-native-url-polyfill/auto";
 import "../global.css";
 
 import { useEffect } from "react";
+import {
+  useFonts as useExpoFonts,
+  Inter_500Medium,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import { PlusJakartaSans_600SemiBold } from "@expo-google-fonts/plus-jakarta-sans";
+import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -41,6 +48,16 @@ setupQueryManagers();
 function RootLayout() {
   const [fontsLoaded, fontError] = useAppFonts();
   const { user } = useAuth();
+
+  // Deferred font weights: loaded post-mount so they don't block the splash.
+  // Falls back to the nearest critical weight while these load (imperceptible
+  // for most users). GeistMono is only visible on order/sale detail screens.
+  useExpoFonts({
+    Inter_500Medium,
+    Inter_700Bold,
+    PlusJakartaSans_600SemiBold,
+    GeistMono_400Regular,
+  });
 
   // App-root realtime — single websocket powering the bottom-tab badge
   // and the conversations list, regardless of whether the user has

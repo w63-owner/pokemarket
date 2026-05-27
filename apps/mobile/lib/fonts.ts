@@ -1,46 +1,37 @@
 import {
   useFonts as useExpoFonts,
   Inter_400Regular,
-  Inter_500Medium,
   Inter_600SemiBold,
-  Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import {
-  PlusJakartaSans_600SemiBold,
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from "@expo-google-fonts/plus-jakarta-sans";
-import { GeistMono_400Regular } from "@expo-google-fonts/geist-mono";
 
 /**
- * Single source of truth for the typography stack loaded at app boot.
+ * Critical font subset loaded at boot (before the splash screen hides).
+ * Kept minimal so the first paint is blocked as briefly as possible.
  *
- * Keys mirror the names referenced by `tailwind.config.js#fontFamily`
- * so utility classes like `font-sans`, `font-heading`, `font-display`,
- * `font-mono` resolve to a registered native font face.
+ * Weights included here:
+ *   • Inter 400 — body text everywhere
+ *   • Inter 600 — semibold labels, buttons
+ *   • PlusJakartaSans 700 — headings (font-heading)
+ *   • PlusJakartaSans 800 — animated splash logo (font-display, needed before first frame)
  *
- * Bundled assets are stripped to the weights we actually consume on
- * mobile (web ships more variants because it dynamically subsets via
- * `next/font`). When adding a weight to the design system, register
- * it here and reference it from `tailwind.config.js` to keep the two
- * in lock-step.
+ * Deferred weights (loaded post-mount in `_layout.tsx`):
+ *   • Inter 500, Inter 700, PlusJakartaSans 600, GeistMono 400
  */
-export const APP_FONTS = {
+export const CRITICAL_FONTS = {
   Inter_400Regular,
-  Inter_500Medium,
   Inter_600SemiBold,
-  Inter_700Bold,
-  PlusJakartaSans_600SemiBold,
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
-  GeistMono_400Regular,
 } as const;
 
 /**
- * Hook returning `[loaded, error]` for the full PokeMarket typography
- * bundle. Designed to be awaited in `app/_layout.tsx` alongside the
- * splash screen so the first paint never falls back to system fonts.
+ * Hook returning `[loaded, error]` for the critical PokeMarket typography
+ * bundle. Blocks the splash screen until resolved.
  */
 export function useAppFonts(): [boolean, Error | null] {
-  return useExpoFonts(APP_FONTS);
+  return useExpoFonts(CRITICAL_FONTS);
 }

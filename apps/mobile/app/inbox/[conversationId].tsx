@@ -170,8 +170,14 @@ export default function ConversationThreadScreen() {
 
   // ── Send ──────────────────────────────────────────────────────────────
   const sendMutation = useMutation({
-    mutationFn: (content: string) => sendMessage(conversationId, content),
-    onMutate: (content) => {
+    mutationFn: ({
+      content,
+      clientId,
+    }: {
+      content: string;
+      clientId: string;
+    }) => sendMessage(conversationId, content, clientId),
+    onMutate: ({ content, clientId }) => {
       const tempId = `temp-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}`;
@@ -182,7 +188,7 @@ export default function ConversationThreadScreen() {
         content,
         message_type: "text",
         offer_id: null,
-        metadata: null,
+        metadata: { client_id: clientId },
         read_at: null,
         created_at: new Date().toISOString(),
       };
@@ -222,11 +228,10 @@ export default function ConversationThreadScreen() {
   // ── Send image ─────────────────────────────────────────────────────────
   // Image attachments live in the private `message_attachments` bucket
   // (RLS scoped to conversation participants). The mutation uploads the
-  // base64 payload then inserts a `message_type: "image"` row whose
-  // `content` holds the storage path — `MessageBubble` mints a signed
-  // URL on demand to render it.
+  // image directly from its local URI (no base64 round-trip) then inserts
+  // a `message_type: "image"` row whose `content` holds the storage path.
   const sendImageMutation = useMutation({
-    mutationFn: (payload: { base64: string; contentType: "image/jpeg" }) =>
+    mutationFn: (payload: { uri: string; contentType: "image/jpeg" }) =>
       sendImageMessage(conversationId, payload),
     onMutate: () => {
       const tempId = `temp-img-${Date.now()}-${Math.random()
@@ -277,7 +282,7 @@ export default function ConversationThreadScreen() {
   });
 
   const handleSendImage = useCallback(
-    async (payload: { base64: string; contentType: "image/jpeg" }) => {
+    async (payload: { uri: string; contentType: "image/jpeg" }) => {
       await sendImageMutation.mutateAsync(payload);
     },
     [sendImageMutation],
@@ -290,6 +295,17 @@ export default function ConversationThreadScreen() {
 
       if (newMsg.sender_id === user?.id) {
         setPendingMessages((prev) => {
+          const incomingClientId = (
+            newMsg.metadata as Record<string, unknown> | null
+          )?.client_id;
+          if (incomingClientId) {
+            return prev.filter(
+              (p) =>
+                (p.metadata as Record<string, unknown> | null)?.client_id !==
+                incomingClientId,
+            );
+          }
+          // Fallback: remove by content (no client_id on older messages).
           const idx = prev.findIndex((p) => p.content === newMsg.content);
           if (idx === -1) return prev;
           return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
@@ -409,16 +425,20 @@ export default function ConversationThreadScreen() {
               }>(queryKeys.conversations.messages(conversationId), (old) => {
                 if (!old) return old;
                 const readSet = new Set(ids);
+                const [first, ...rest] = old.pages;
                 return {
                   ...old,
-                  pages: old.pages.map((page) => ({
-                    ...page,
-                    messages: page.messages.map((m) =>
-                      readSet.has(m.id)
-                        ? { ...m, read_at: new Date().toISOString() }
-                        : m,
-                    ),
-                  })),
+                  pages: [
+                    {
+                      ...first,
+                      messages: first.messages.map((m) =>
+                        readSet.has(m.id)
+                          ? { ...m, read_at: new Date().toISOString() }
+                          : m,
+                      ),
+                    },
+                    ...rest,
+                  ],
                 };
               });
               queryClient.invalidateQueries({
@@ -462,7 +482,8 @@ export default function ConversationThreadScreen() {
 
   const handleSend = useCallback(
     (content: string) => {
-      sendMutation.mutate(content);
+      const clientId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      sendMutation.mutate({ content, clientId });
     },
     [sendMutation],
   );
