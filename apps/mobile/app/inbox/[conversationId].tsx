@@ -9,7 +9,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AlertCircle } from "lucide-react-native";
+import { AlertCircle, MessageCircle } from "lucide-react-native";
 
 import { formatDateLabel } from "@pokemarket/shared";
 import {
@@ -25,6 +25,7 @@ import {
   TransactionActions,
 } from "@/components/messages";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { EmptyState } from "@/components/shared";
 import { Skeleton, Text } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme-colors";
 
@@ -146,8 +147,14 @@ export default function ConversationThreadScreen() {
           {messagesQuery.isLoading ? (
             <MessagesSkeleton />
           ) : rows.length === 0 ? (
-            <View className="flex-1 items-center justify-center px-6">
-              <Text variant="muted">Envoyez le premier message !</Text>
+            <View className="flex-1 items-center justify-center">
+              <EmptyState
+                icon={
+                  <MessageCircle size={28} color={colors.mutedForeground} />
+                }
+                title="Brisez la glace"
+                description="Envoyez le premier message pour démarrer la conversation."
+              />
             </View>
           ) : (
             <FlashList

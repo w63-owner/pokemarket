@@ -94,7 +94,7 @@ export function ConversationListItem({
             }}
           >
             <View className="relative">
-              <View className="size-12 overflow-hidden rounded-md border border-border bg-muted">
+              <View className="size-12 overflow-hidden rounded-xl border border-border bg-muted">
                 {listing.cover_image_url ? (
                   <Image
                     source={{ uri: listing.cover_image_url }}
@@ -166,7 +166,7 @@ export function ConversationListItem({
 export function ConversationListItemSkeleton() {
   return (
     <View className="flex-row items-center gap-3 px-4 py-3">
-      <Skeleton className="size-12 rounded-md" />
+      <Skeleton className="size-12 rounded-xl" />
       <View className="flex-1 gap-2">
         <View className="flex-row items-center justify-between">
           <Skeleton className="h-3.5 w-32" />

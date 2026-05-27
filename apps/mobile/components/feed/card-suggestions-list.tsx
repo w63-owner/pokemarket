@@ -39,7 +39,7 @@ export function CardSuggestionsList({ query, onSelect }: Props) {
             key={i}
             className="mb-2 flex-row items-center gap-3 rounded-lg px-2 py-2"
           >
-            <Skeleton className="h-14 w-10 rounded-md" />
+            <Skeleton className="h-14 w-10 rounded-xl" />
             <View className="flex-1">
               <Skeleton className="mb-1.5 h-3 w-1/2" />
               <Skeleton className="h-2.5 w-3/4" />
@@ -101,7 +101,7 @@ export function CardSuggestionsList({ query, onSelect }: Props) {
             android_ripple={{ color: "rgba(0,0,0,0.06)" }}
             className="flex-row items-center gap-3 px-4 py-2.5 active:bg-muted"
           >
-            <View className="h-14 w-10 overflow-hidden rounded-md bg-muted">
+            <View className="h-14 w-10 overflow-hidden rounded-xl bg-muted">
               {card.image_url ? (
                 <Image
                   source={{ uri: card.image_url }}

@@ -114,6 +114,7 @@ export function ReportDialog({ listingId }: Props) {
                   onValueChange={(v) => field.onChange(v as ReportReason)}
                   options={REASON_OPTIONS}
                   placeholder="Sélectionner une raison"
+                  title="Raison du signalement"
                 />
               )}
             />

@@ -16,6 +16,13 @@ type Props = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * Optional header rendered at the top of the picker Sheet. Mirrors the
+   * field's `<Label>` so users keep their bearings after the sheet
+   * covers the form context. Typically pass the same string as the
+   * companion `Label`.
+   */
+  title?: string;
 };
 
 export function Select({
@@ -25,6 +32,7 @@ export function Select({
   placeholder = "Sélectionner",
   disabled,
   className,
+  title,
 }: Props) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
@@ -51,6 +59,11 @@ export function Select({
       </Pressable>
 
       <Sheet open={open} onOpenChange={setOpen} snapPoints={["50%", "75%"]}>
+        {title ? (
+          <Text variant="h4" className="mb-2 mt-1">
+            {title}
+          </Text>
+        ) : null}
         <SheetScrollView>
           {options.map((opt) => {
             const isActive = opt.value === value;

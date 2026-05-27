@@ -120,6 +120,7 @@ export function AddressForm({
           value={country}
           onValueChange={(v) => onCountryChange(v as ShippingCountry)}
           options={countryOptions}
+          title="Pays"
         />
       </View>
 
