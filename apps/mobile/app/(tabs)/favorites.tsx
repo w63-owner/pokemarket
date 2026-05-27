@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Heart } from "lucide-react-native";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -9,14 +8,9 @@ import { useSavedSearchNewCounts } from "@/hooks/use-saved-searches";
 import { FeedGrid } from "@/components/feed/feed-grid";
 import { SavedSearchesList } from "@/components/favorites/saved-searches-list";
 import { FollowedSellersList } from "@/components/favorites/followed-sellers-list";
+import { TabHeader } from "@/components/layout";
 import { AuthRequired, EmptyState } from "@/components/shared";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Text,
-} from "@/components/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type TabKey = "listings" | "sellers" | "saved-searches";
@@ -42,10 +36,8 @@ export default function FavoritesScreen() {
   // before the AuthRequired empty state appears.
   if (!user) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-        <View className="border-b border-border bg-background px-4 pb-1 pt-2">
-          <Text variant="h2">Favoris</Text>
-        </View>
+      <View className="flex-1 bg-background">
+        <TabHeader title="Favoris" />
         {authLoading ? null : (
           <View className="flex-1 items-center justify-center">
             <AuthRequired
@@ -55,12 +47,13 @@ export default function FavoritesScreen() {
             />
           </View>
         )}
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
+      <TabHeader title="Favoris" />
       <Tabs
         value={tab}
         onValueChange={(next) => setTab(next as TabKey)}
@@ -69,10 +62,6 @@ export default function FavoritesScreen() {
         fill
       >
         <View className="border-b border-border bg-background px-4 pb-1 pt-2">
-          <Text variant="h2" className="mb-3">
-            Favoris
-          </Text>
-
           <TabsList>
             <TabsTrigger value="listings">Annonces</TabsTrigger>
             <TabsTrigger value="sellers">Vendeurs</TabsTrigger>
@@ -122,6 +111,6 @@ export default function FavoritesScreen() {
           <SavedSearchesList />
         </TabsContent>
       </Tabs>
-    </SafeAreaView>
+    </View>
   );
 }

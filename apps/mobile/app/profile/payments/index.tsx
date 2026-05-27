@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -21,7 +21,19 @@ import {
 } from "@/lib/api/payment-methods";
 import { ApiError } from "@/lib/api/client";
 import { ErrorState } from "@/components/shared";
-import { Button, Badge, Card, Skeleton, Text, toast } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Skeleton,
+  Text,
+  toast,
+} from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { fadeInUp, staggerDelay } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
@@ -143,6 +155,7 @@ function SwipePaymentCard({
 }) {
   const qc = useQueryClient();
   const translateX = useSharedValue(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const resetPosition = useCallback(() => {
     translateX.value = withSpring(0, SWIPE_SPRING);
@@ -175,21 +188,18 @@ function SwipePaymentCard({
   });
 
   const promptDelete = useCallback(() => {
-    Alert.alert(
-      "Supprimer cette carte ?",
-      "Tu pourras enregistrer une nouvelle carte à tout moment.",
-      [
-        { text: "Annuler", style: "cancel", onPress: resetPosition },
-        {
-          text: "Supprimer",
-          style: "destructive",
-          onPress: () => {
-            resetPosition();
-            deleteMutation.mutate();
-          },
-        },
-      ],
-    );
+    setConfirmOpen(true);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    setConfirmOpen(false);
+    resetPosition();
+  }, [resetPosition]);
+
+  const handleConfirmDelete = useCallback(() => {
+    setConfirmOpen(false);
+    resetPosition();
+    deleteMutation.mutate();
   }, [deleteMutation, resetPosition]);
 
   const animatedRowStyle = useAnimatedStyle(() => ({
@@ -212,56 +222,80 @@ function SwipePaymentCard({
     });
 
   return (
-    <GestureDetector gesture={pan}>
-      <Animated.View style={animatedRowStyle} className="rounded-xl">
-        <Card>
-          <View className="gap-3">
-            <View className="flex-row items-center gap-4">
-              <View className="h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <CreditCard size={20} color={mutedColor} />
-              </View>
-              <View className="flex-1">
-                <View className="flex-row flex-wrap items-center gap-2">
-                  <Text className="font-semibold">
-                    {brandLabel(card.brand)} •••• {card.last4}
-                  </Text>
-                  {card.is_default ? (
-                    <Badge variant="secondary" className="px-2 py-0">
-                      <Text className="text-[10px] font-medium">
-                        Par défaut
-                      </Text>
-                    </Badge>
+    <>
+      <GestureDetector gesture={pan}>
+        <Animated.View style={animatedRowStyle} className="rounded-xl">
+          <Card>
+            <View className="gap-3">
+              <View className="flex-row items-center gap-4">
+                <View className="h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <CreditCard size={20} color={mutedColor} />
+                </View>
+                <View className="flex-1">
+                  <View className="flex-row flex-wrap items-center gap-2">
+                    <Text className="font-semibold">
+                      {brandLabel(card.brand)} •••• {card.last4}
+                    </Text>
+                    {card.is_default ? (
+                      <Badge variant="secondary" className="px-2 py-0">
+                        <Text className="text-[10px] font-medium">
+                          Par défaut
+                        </Text>
+                      </Badge>
+                    ) : null}
+                  </View>
+                  {card.exp_month != null && card.exp_year != null ? (
+                    <Text variant="caption">
+                      Expire {String(card.exp_month).padStart(2, "0")}/
+                      {card.exp_year}
+                    </Text>
                   ) : null}
                 </View>
-                {card.exp_month != null && card.exp_year != null ? (
-                  <Text variant="caption">
-                    Expire {String(card.exp_month).padStart(2, "0")}/
-                    {card.exp_year}
-                  </Text>
-                ) : null}
               </View>
+
+              {!card.is_default ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  loading={setDefaultMutation.isPending}
+                  disabled={setDefaultMutation.isPending}
+                  onPress={() => setDefaultMutation.mutate()}
+                >
+                  Définir par défaut
+                </Button>
+              ) : null}
+
+              <Text variant="caption" className="text-muted-foreground">
+                Glisse vers la gauche pour supprimer.
+              </Text>
             </View>
+          </Card>
+        </Animated.View>
+      </GestureDetector>
 
-            {!card.is_default ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start"
-                loading={setDefaultMutation.isPending}
-                disabled={setDefaultMutation.isPending}
-                onPress={() => setDefaultMutation.mutate()}
-              >
-                Définir par défaut
-              </Button>
-            ) : null}
-
-            <Text variant="caption" className="text-muted-foreground">
-              Glisse vers la gauche pour supprimer.
-            </Text>
-          </View>
-        </Card>
-      </Animated.View>
-    </GestureDetector>
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCancelDelete();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Supprimer cette carte ?</DialogTitle>
+          <DialogDescription>
+            Tu pourras enregistrer une nouvelle carte à tout moment.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onPress={handleCancelDelete}>
+            Annuler
+          </Button>
+          <Button variant="destructive" onPress={handleConfirmDelete}>
+            Supprimer
+          </Button>
+        </DialogFooter>
+      </Dialog>
+    </>
   );
 }
 

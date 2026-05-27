@@ -3,7 +3,6 @@ import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { MotiView } from "moti";
 import Animated from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   Bell,
   CreditCard,
@@ -23,7 +22,16 @@ import {
   User as UserIcon,
   Wallet,
 } from "lucide-react-native";
-import { Avatar, Card, Skeleton, Switch, Text, toast } from "@/components/ui";
+import {
+  Avatar,
+  Button,
+  Card,
+  Skeleton,
+  Switch,
+  Text,
+  toast,
+} from "@/components/ui";
+import { TabHeader } from "@/components/layout";
 import { AuthRequired } from "@/components/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "@/hooks/use-profile";
@@ -118,10 +126,8 @@ export default function ProfileScreen() {
   // flash for a frame before the AuthRequired empty state appears.
   if (!user) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-        <View className="border-b border-border bg-background px-4 pb-3 pt-2">
-          <Text variant="h2">Profil</Text>
-        </View>
+      <View className="flex-1 bg-background">
+        <TabHeader title="Profil" />
         {authLoading ? null : (
           <View className="flex-1 items-center justify-center">
             <AuthRequired
@@ -131,12 +137,13 @@ export default function ProfileScreen() {
             />
           </View>
         )}
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <View className="flex-1 bg-background">
+      <TabHeader title="Profil" />
       <Animated.ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         <Card>
           {isLoading ? (
@@ -222,16 +229,21 @@ export default function ProfileScreen() {
           </Card>
         ) : null}
 
-        <Pressable
-          onPress={async () => {
-            await signOut();
-            router.replace("/(auth)/login");
-          }}
-          className="flex-row items-center justify-center gap-2 rounded-2xl bg-card p-3.5 active:opacity-80"
-        >
-          <LogOut size={18} color={destructive} />
-          <Text className="font-semibold text-destructive">Se déconnecter</Text>
-        </Pressable>
+        <View className="overflow-hidden rounded-2xl border border-destructive/20 bg-card">
+          <Button
+            variant="ghost"
+            onPress={async () => {
+              await signOut();
+              router.replace("/(auth)/login");
+            }}
+            leftIcon={<LogOut size={18} color={destructive} />}
+            className="h-12 w-full rounded-2xl"
+          >
+            <Text className="font-semibold text-destructive">
+              Se déconnecter
+            </Text>
+          </Button>
+        </View>
 
         <View className="gap-2">
           <Text
@@ -262,7 +274,7 @@ export default function ProfileScreen() {
           {`© ${new Date().getFullYear()} PokeMarket. Tous droits réservés.`}
         </Text>
       </Animated.ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
