@@ -73,6 +73,23 @@ export function FeedGrid({
     [toggleFavorite],
   );
 
+  // Stable renderItem — depends only on favIdsSet and handleToggleFavorite
+  // so FlashList's internal item recycler is not invalidated on every
+  // parent render. Defined BEFORE any conditional early return so the
+  // hook order stays stable across renders (Rules of Hooks).
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<FeedItem>) => (
+      <View style={{ flex: 1, paddingHorizontal: ITEM_GUTTER / 2 }}>
+        <ListingCard
+          item={item}
+          isFavorite={favIdsSet.has(item.id)}
+          onToggleFavorite={handleToggleFavorite}
+        />
+      </View>
+    ),
+    [favIdsSet, handleToggleFavorite],
+  );
+
   // Pick column count based on viewport width — kept reactive so a
   // device rotation or iPad split-view resize re-flows live.
   const { width } = useWindowDimensions();
@@ -164,23 +181,6 @@ export function FeedGrid({
       </View>
     );
   };
-
-  // Stable renderItem — depends only on favIdsSet and handleToggleFavorite
-  // so FlashList's internal item recycler is not invalidated on every
-  // parent render. The entrance MotiView has been removed: the per-card
-  // stagger animation was the primary source of JS-thread jank on scroll.
-  const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<FeedItem>) => (
-      <View style={{ flex: 1, paddingHorizontal: ITEM_GUTTER / 2 }}>
-        <ListingCard
-          item={item}
-          isFavorite={favIdsSet.has(item.id)}
-          onToggleFavorite={handleToggleFavorite}
-        />
-      </View>
-    ),
-    [favIdsSet, handleToggleFavorite],
-  );
 
   return (
     <FlashList
