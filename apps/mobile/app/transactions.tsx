@@ -30,6 +30,7 @@ import {
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { EmptyState, ErrorState } from "@/components/shared";
 import { fadeInUp, staggerDelay } from "@/lib/motion";
+import { transactionRoutes } from "@/lib/routes/orders";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type TabKey = "purchases" | "sales";
@@ -258,8 +259,10 @@ function TransactionRow({
   // purchases route to the generic order detail page so non-PAID statuses
   // (PENDING_PAYMENT, SHIPPED, COMPLETED, CANCELLED, …) get a real screen
   // instead of crashing the success-only one.
-  const href =
-    type === "sales" ? `/profile/sales/${tx.id}` : `/orders/${tx.id}`;
+  const href = transactionRoutes.detailForRole(
+    tx.id,
+    type === "sales" ? "sale" : "purchase",
+  );
 
   return (
     <MotiView

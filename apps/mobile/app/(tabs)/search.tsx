@@ -20,7 +20,7 @@ export default function SearchScreen() {
         <Text variant="h2" className="mb-3">
           Recherche
         </Text>
-        <CardSearchInput value={search} onChange={setSearch} />
+        <CardSearchInput value={search} onChangeText={setSearch} />
       </View>
       {debounced.length === 0 ? (
         <View className="flex-1 items-center justify-center p-6">

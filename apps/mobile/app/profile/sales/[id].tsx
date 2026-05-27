@@ -30,6 +30,7 @@ import { TransactionActions } from "@/components/messages";
 import { Badge, Card, Separator, Skeleton, Text } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ErrorState } from "@/components/shared";
+import { transactionRoutes } from "@/lib/routes/orders";
 import { useThemeColors } from "@/lib/theme-colors";
 
 type StatusConfig = {
@@ -142,7 +143,7 @@ export default function SaleDetailScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <MobileHeader title="Erreur" fallbackHref="/transactions" />
+        <MobileHeader title="Erreur" fallbackHref={transactionRoutes.list()} />
         <View className="flex-1 justify-center px-4">
           <ErrorState
             variant="card"
@@ -174,7 +175,7 @@ export default function SaleDetailScreen() {
           <Pressable
             onPress={() => {
               if (router.canGoBack()) router.back();
-              else router.replace("/transactions");
+              else router.replace(transactionRoutes.list());
             }}
             className="mt-6 rounded-full bg-primary px-4 py-2"
           >
@@ -203,7 +204,10 @@ export default function SaleDetailScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <MobileHeader title="Détail de la vente" fallbackHref="/transactions" />
+      <MobileHeader
+        title="Détail de la vente"
+        fallbackHref={transactionRoutes.list()}
+      />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         <MotiView
@@ -464,7 +468,10 @@ function SaleDetailSkeleton() {
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <MobileHeader title="Détail de la vente" fallbackHref="/transactions" />
+      <MobileHeader
+        title="Détail de la vente"
+        fallbackHref={transactionRoutes.list()}
+      />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
         <Skeleton className="h-7 w-32 rounded-full" />
         <Skeleton className="h-32 rounded-2xl" />

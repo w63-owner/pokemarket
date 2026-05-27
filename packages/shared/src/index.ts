@@ -7,6 +7,7 @@ export * from "./api-contracts";
 export * from "./lib/pricing";
 export * from "./lib/shipping";
 export * from "./lib/utils";
+export * from "./lib/date";
 export * from "./lib/country";
 export * from "./lib/reputation";
 export * from "./lib/feed-filters";

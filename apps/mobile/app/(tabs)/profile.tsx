@@ -34,6 +34,7 @@ import {
   isBiometryEnabled,
 } from "@/lib/biometry";
 import { tapScale } from "@/lib/motion";
+import { transactionRoutes } from "@/lib/routes/orders";
 import { useEffectiveTheme, useThemeStore } from "@/lib/stores/theme";
 import { useThemeColor } from "@/lib/theme-colors";
 
@@ -41,7 +42,11 @@ const accountItems = [
   { icon: UserIcon, label: "Mon profil", href: "/profile/edit" },
   { icon: ListChecks, label: "Mes annonces", href: "/profile/listings" },
   { icon: Heart, label: "Favoris", href: "/favorites" },
-  { icon: Receipt, label: "Mes achats / ventes", href: "/transactions" },
+  {
+    icon: Receipt,
+    label: "Mes achats / ventes",
+    href: transactionRoutes.list(),
+  },
   { icon: Wallet, label: "Mon portefeuille", href: "/wallet" },
   { icon: CreditCard, label: "Moyens de paiement", href: "/profile/payments" },
   { icon: Bell, label: "Notifications", href: "/profile/notifications" },

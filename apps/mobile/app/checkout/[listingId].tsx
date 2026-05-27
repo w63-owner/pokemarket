@@ -24,6 +24,7 @@ import { useListing } from "@/hooks/use-listings";
 import { fetchShippingCost } from "@/lib/api/shipping";
 import { fetchMyProfile } from "@/lib/api/profile";
 import { usePayment } from "@/lib/payments";
+import { transactionRoutes } from "@/lib/routes/orders";
 import { useThemeColors } from "@/lib/theme-colors";
 import { Button, Skeleton, Text, toast } from "@/components/ui";
 import { OrderSummary } from "@/components/checkout/order-summary";
@@ -161,7 +162,9 @@ export default function CheckoutScreen() {
     });
 
     if (result.status === "succeeded") {
-      router.replace(`/orders/${result.transactionId}/success` as never);
+      router.replace(
+        transactionRoutes.buyerSuccess(result.transactionId) as never,
+      );
       return;
     }
     if (result.status === "cancelled") {

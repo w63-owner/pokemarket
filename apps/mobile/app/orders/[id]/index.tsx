@@ -32,6 +32,7 @@ import { fadeInUp } from "@/lib/motion";
 import { TransactionActions } from "@/components/messages";
 import { Badge, Avatar, Button, Card, Skeleton, Text } from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { transactionRoutes } from "@/lib/routes/orders";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type StatusVariant =
@@ -150,7 +151,10 @@ export default function PurchaseDetailScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <Stack.Screen options={{ headerShown: false }} />
-        <MobileHeader title="Commande" fallbackHref="/transactions" />
+        <MobileHeader
+          title="Commande"
+          fallbackHref={transactionRoutes.list()}
+        />
         <View className="flex-1 items-center justify-center px-6">
           <Receipt size={40} color={mutedForeground} />
           <Text variant="h3" className="mt-4 text-center">
@@ -158,7 +162,7 @@ export default function PurchaseDetailScreen() {
           </Text>
           <Button
             className="mt-6"
-            onPress={() => router.replace("/transactions" as never)}
+            onPress={() => router.replace(transactionRoutes.list() as never)}
           >
             Mes transactions
           </Button>
@@ -179,7 +183,10 @@ export default function PurchaseDetailScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <MobileHeader title="Ma commande" fallbackHref="/transactions" />
+      <MobileHeader
+        title="Ma commande"
+        fallbackHref={transactionRoutes.list()}
+      />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         <MotiView
@@ -226,7 +233,9 @@ export default function PurchaseDetailScreen() {
               size="sm"
               className="self-start"
               onPress={() =>
-                router.push(`/orders/${purchase.id}/success` as never)
+                router.push(
+                  transactionRoutes.buyerSuccess(purchase.id) as never,
+                )
               }
               leftIcon={<Sparkles size={16} color={warning} />}
             >
@@ -426,7 +435,10 @@ function PurchaseDetailSkeleton() {
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <MobileHeader title="Ma commande" fallbackHref="/transactions" />
+      <MobileHeader
+        title="Ma commande"
+        fallbackHref={transactionRoutes.list()}
+      />
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
         <Skeleton className="h-7 w-40 rounded-full" />
         <Skeleton className="h-24 rounded-2xl" />

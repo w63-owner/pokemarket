@@ -6,7 +6,7 @@ import Animated, { LinearTransition } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { Check, CheckCheck, Clock, ImageOff } from "lucide-react-native";
 import type { Message } from "@pokemarket/shared";
-import { queryKeys } from "@pokemarket/shared";
+import { formatTime, queryKeys } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
@@ -18,13 +18,6 @@ interface MessageBubbleProps {
   isOwn: boolean;
   isPending?: boolean;
   onVisible?: (messageId: string) => void;
-}
-
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 /**

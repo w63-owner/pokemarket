@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-
-const PRESENCE_CHANNEL = "presence:inbox";
+import { channels } from "@/lib/realtime/channels";
 
 /**
  * Lightweight global presence channel — every authenticated user joins the
@@ -40,7 +39,7 @@ export function usePresence(currentUserId: string | undefined) {
 
     const subscribe = () => {
       if (channel) return;
-      channel = supabase.channel(PRESENCE_CHANNEL, {
+      channel = supabase.channel(channels.presence(), {
         config: { presence: { key: currentUserId } },
       });
 

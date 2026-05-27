@@ -5,6 +5,7 @@ import * as Linking from "expo-linking";
 import { router } from "expo-router";
 
 import { api, apiFetch } from "@/lib/api/client";
+import { transactionRoutes } from "@/lib/routes/orders";
 
 /**
  * Per-app notification handler — runs in foreground, decides whether to
@@ -178,7 +179,7 @@ function navigateForNotification(data: NotificationPayload | undefined) {
     return;
   }
   if (data.transactionId) {
-    router.push(`/profile/sales/${data.transactionId}` as never);
+    router.push(transactionRoutes.sellerDetail(data.transactionId) as never);
     return;
   }
   if (data.listingId) {

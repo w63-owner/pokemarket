@@ -5,6 +5,7 @@ import { m } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import { Check, CheckCheck, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTime } from "@pokemarket/shared";
 import type { Message } from "@/types";
 
 interface MessageBubbleProps {
@@ -12,13 +13,6 @@ interface MessageBubbleProps {
   isOwn: boolean;
   isPending?: boolean;
   onVisible?: (messageId: string) => void;
-}
-
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("fr-FR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export const MessageBubble = memo(function MessageBubble({

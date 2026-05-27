@@ -35,6 +35,7 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { ErrorState } from "@/components/shared";
 import { haptic } from "@/lib/haptics";
 import { useThemeColors } from "@/lib/theme-colors";
+import { transactionRoutes } from "@/lib/routes/orders";
 
 type KycVariant = "default" | "secondary" | "destructive" | "outline";
 
@@ -311,7 +312,7 @@ export default function WalletScreen() {
               </MotiView>
 
               <Pressable
-                onPress={() => router.push("/transactions")}
+                onPress={() => router.push(transactionRoutes.list())}
                 className="mt-2 flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
               >
                 <View className="flex-row items-center gap-3">

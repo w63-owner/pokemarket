@@ -22,10 +22,12 @@ const parsed = envSchema.safeParse({
 });
 
 if (!parsed.success) {
-  console.error(
-    "[env] Missing or invalid Expo public env vars:",
-    parsed.error.flatten().fieldErrors,
-  );
+  if (__DEV__) {
+    console.error(
+      "[env] Missing or invalid Expo public env vars:",
+      parsed.error.flatten().fieldErrors,
+    );
+  }
   throw new Error(
     "Invalid mobile env. Copy .env.example to .env and fill required keys.",
   );
