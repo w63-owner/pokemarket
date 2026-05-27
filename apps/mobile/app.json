@@ -89,7 +89,14 @@
           "enableGooglePay": true
         }
       ],
-      "@sentry/react-native",
+      [
+        "@sentry/react-native",
+        {
+          "organization": "pokemarket",
+          "project": "react-native",
+          "url": "https://sentry.io/"
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
