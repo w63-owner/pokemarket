@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import {
   KeyboardAvoidingView,
   useKeyboardState,
@@ -10,7 +10,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { ChevronLeft, CreditCard, ShieldCheck } from "lucide-react-native";
+import { CreditCard, ShieldCheck } from "lucide-react-native";
 import {
   calcTotalBuyer,
   formatPrice,
@@ -27,6 +27,7 @@ import { usePayment } from "@/lib/payments";
 import { transactionRoutes } from "@/lib/routes/orders";
 import { useThemeColors } from "@/lib/theme-colors";
 import { Button, Skeleton, Text, toast } from "@/components/ui";
+import { MobileHeader } from "@/components/layout";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
 import { AddressForm } from "@/components/checkout/address-form";
@@ -181,21 +182,7 @@ export default function CheckoutScreen() {
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <SafeAreaView edges={["top"]} className="border-b border-border bg-card">
-        <View className="flex-row items-center gap-3 px-4 py-3">
-          <Pressable
-            onPress={() => {
-              if (router.canGoBack()) router.back();
-              else router.replace(`/listing/${listing.id}` as never);
-            }}
-            hitSlop={8}
-            className="h-9 w-9 items-center justify-center rounded-full"
-          >
-            <ChevronLeft size={22} color={colors.foreground} />
-          </Pressable>
-          <Text className="text-lg font-semibold">Paiement</Text>
-        </View>
-      </SafeAreaView>
+      <MobileHeader title="Paiement" fallbackHref={`/listing/${listing.id}`} />
 
       {/* `KeyboardAvoidingView` from `react-native-keyboard-controller`
           handles both iOS and Android edge-to-edge correctly — the legacy

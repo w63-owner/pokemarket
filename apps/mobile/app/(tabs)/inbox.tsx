@@ -3,7 +3,6 @@ import { RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageCircle, Tag } from "lucide-react-native";
 
 import { queryKeys, type ConversationPreview } from "@pokemarket/shared";
@@ -14,14 +13,16 @@ import {
   ConversationListItem,
   ConversationListItemSkeleton,
 } from "@/components/messages";
-import { AuthRequired } from "@/components/shared";
-import { Button, Text } from "@/components/ui";
+import { TabHeader } from "@/components/layout";
+import { AuthRequired, EmptyState, ErrorState } from "@/components/shared";
+import { Button } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 export default function InboxScreen() {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const primary = useThemeColor("primary");
+  const mutedForeground = useThemeColor("mutedForeground");
   const {
     data: conversations,
     isLoading,
@@ -59,10 +60,8 @@ export default function InboxScreen() {
   // for a frame before the AuthRequired empty state appears.
   if (!user) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-        <View className="flex-row items-center justify-between border-b border-border bg-background px-4 py-3">
-          <Text variant="h2">Messages</Text>
-        </View>
+      <View className="flex-1 bg-background">
+        <TabHeader title="Messages" />
         {authLoading ? null : (
           <View className="flex-1 items-center justify-center">
             <AuthRequired
@@ -72,44 +71,52 @@ export default function InboxScreen() {
             />
           </View>
         )}
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="flex-row items-center justify-between border-b border-border bg-background px-4 py-3">
-        <Text variant="h2">Messages</Text>
-        <Button
-          variant="ghost"
-          size="sm"
-          onPress={() => router.push("/offers")}
-          leftIcon={<Tag size={16} color={primary} />}
-        >
-          Offres
-        </Button>
-      </View>
+    <View className="flex-1 bg-background">
+      <TabHeader
+        title="Messages"
+        right={
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={() => router.push("/offers")}
+            leftIcon={<Tag size={16} color={primary} />}
+          >
+            Offres
+          </Button>
+        }
+      />
 
-      {!user || isLoading ? (
+      {isLoading ? (
         <View>
           {Array.from({ length: 6 }).map((_, i) => (
             <ConversationListItemSkeleton key={i} />
           ))}
         </View>
       ) : error ? (
-        <EmptyState
-          title="Erreur de chargement"
-          description="Impossible de charger vos conversations. Réessayez."
-          ctaLabel="Réessayer"
-          onCta={invalidate}
-        />
+        <View className="flex-1 items-center justify-center px-6">
+          <ErrorState
+            title="Erreur de chargement"
+            description="Impossible de charger vos conversations. Réessayez."
+            action={{ label: "Réessayer", onPress: invalidate }}
+          />
+        </View>
       ) : !conversations || conversations.length === 0 ? (
-        <EmptyState
-          title="Aucune conversation"
-          description="Contactez un vendeur depuis une annonce pour démarrer une conversation."
-          ctaLabel="Explorer le marché"
-          onCta={() => router.push("/(tabs)")}
-        />
+        <View className="flex-1 items-center justify-center">
+          <EmptyState
+            icon={<MessageCircle size={26} color={mutedForeground} />}
+            title="Aucune conversation"
+            description="Contactez un vendeur depuis une annonce pour démarrer une conversation."
+            action={{
+              label: "Explorer le marché",
+              onPress: () => router.push("/(tabs)"),
+            }}
+          />
+        </View>
       ) : (
         <FlashList
           data={conversations}
@@ -127,36 +134,6 @@ export default function InboxScreen() {
           }
         />
       )}
-    </SafeAreaView>
-  );
-}
-
-function EmptyState({
-  title,
-  description,
-  ctaLabel,
-  onCta,
-}: {
-  title: string;
-  description: string;
-  ctaLabel: string;
-  onCta: () => void;
-}) {
-  const mutedForeground = useThemeColor("mutedForeground");
-  return (
-    <View className="flex-1 items-center justify-center gap-3 px-8">
-      <View className="size-14 items-center justify-center rounded-full bg-muted">
-        <MessageCircle size={26} color={mutedForeground} />
-      </View>
-      <Text variant="h4" className="text-center">
-        {title}
-      </Text>
-      <Text variant="muted" className="text-center">
-        {description}
-      </Text>
-      <Button onPress={onCta} className="mt-2">
-        {ctaLabel}
-      </Button>
     </View>
   );
 }

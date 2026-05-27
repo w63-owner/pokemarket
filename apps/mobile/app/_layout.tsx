@@ -24,6 +24,7 @@ import { initSentry, Sentry } from "@/lib/sentry";
 import { recordChannelCount, recordColdStart } from "@/lib/metrics";
 import { env } from "@/lib/env";
 import { ToastViewport } from "@/components/ui/toast";
+import { OfflineBanner } from "@/components/layout";
 import { AnimatedSplash } from "@/components/splash/animated-splash";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useAppFonts } from "@/lib/fonts";
@@ -132,6 +133,9 @@ function RootLayout() {
             <BottomSheetModalProvider>
               <StatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
               <Stack screenOptions={{ headerShown: false }} />
+              {/* Floats over every screen via `position: absolute` and
+                  is `pointerEvents="none"` so it never steals taps. */}
+              <OfflineBanner />
               <ToastViewport />
               {/* Mounted last so it floats above the navigator + every
                   modal until it self-dismisses (one-shot per install

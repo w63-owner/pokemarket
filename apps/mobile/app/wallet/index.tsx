@@ -1,11 +1,5 @@
 import { useCallback, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { router, Stack } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,7 +24,19 @@ import {
   useStripeConnectOnboarding,
   useWalletData,
 } from "@/hooks/use-wallet";
-import { Badge, Button, Card, Skeleton, Text, toast } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Skeleton,
+  Text,
+  toast,
+} from "@/components/ui";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { ErrorState } from "@/components/shared";
 import { haptic } from "@/lib/haptics";
@@ -93,6 +99,7 @@ export default function WalletScreen() {
   const colors = useThemeColors();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmPayoutOpen, setConfirmPayoutOpen] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -130,12 +137,14 @@ export default function WalletScreen() {
   const handlePayout = useCallback(async () => {
     try {
       const result = await payoutMutation.mutateAsync();
+      setConfirmPayoutOpen(false);
       haptic("success");
       toast.success(
         `Virement de ${formatPrice(result.payout_amount)} demandé`,
         "Les fonds arriveront sous 1 à 3 jours ouvrés.",
       );
     } catch (err) {
+      setConfirmPayoutOpen(false);
       haptic("error");
       const message =
         err instanceof ApiError
@@ -275,20 +284,7 @@ export default function WalletScreen() {
                   size="lg"
                   disabled={!canPayout}
                   loading={payoutMutation.isPending}
-                  onPress={() => {
-                    Alert.alert(
-                      "Demander un virement",
-                      `Vous allez recevoir ${formatPrice(availableBalance)} sur votre compte bancaire sous 1 à 3 jours ouvrés.`,
-                      [
-                        { text: "Annuler", style: "cancel" },
-                        {
-                          text: "Confirmer",
-                          style: "default",
-                          onPress: handlePayout,
-                        },
-                      ],
-                    );
-                  }}
+                  onPress={() => setConfirmPayoutOpen(true)}
                   leftIcon={
                     payoutMutation.isPending ? null : (
                       <ArrowUpRight size={18} color={colors.foreground} />
@@ -327,6 +323,38 @@ export default function WalletScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      <Dialog
+        open={confirmPayoutOpen}
+        onOpenChange={(open) => {
+          // Block dismiss while the mutation is in-flight so the
+          // user doesn't accidentally tap the backdrop and lose the
+          // loading feedback on the confirm button.
+          if (payoutMutation.isPending) return;
+          setConfirmPayoutOpen(open);
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Demander un virement</DialogTitle>
+          <DialogDescription>
+            {`Vous allez recevoir ${formatPrice(
+              availableBalance,
+            )} sur votre compte bancaire sous 1 à 3 jours ouvrés.`}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onPress={() => setConfirmPayoutOpen(false)}
+            disabled={payoutMutation.isPending}
+          >
+            Annuler
+          </Button>
+          <Button onPress={handlePayout} loading={payoutMutation.isPending}>
+            Confirmer
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </View>
   );
 }

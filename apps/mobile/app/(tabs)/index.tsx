@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Keyboard, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useInfiniteFeed } from "@/hooks/use-infinite-feed";
 import { useFeedFilters, countActiveFilters } from "@/hooks/use-feed-filters";
@@ -8,7 +7,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { FeedGrid } from "@/components/feed/feed-grid";
 import { FeedFilters } from "@/components/feed/feed-filters";
 import { CardSuggestionsList } from "@/components/feed/card-suggestions-list";
-import { Text } from "@/components/ui";
+import { TabHeader } from "@/components/layout";
 import { CARD_SEARCH_MIN_LENGTH, parseCardQuery } from "@/lib/api/tcgdex";
 
 export default function HomeScreen() {
@@ -80,11 +79,9 @@ export default function HomeScreen() {
   }, [reset]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="border-b border-border bg-background px-4 pb-3 pt-2">
-        <Text variant="h2" className="mb-3">
-          PokeMarket
-        </Text>
+    <View className="flex-1 bg-background">
+      <TabHeader title="PokeMarket" />
+      <View className="border-b border-border bg-background px-4 pb-3 pt-3">
         <FeedFilters
           filters={filters}
           searchValue={searchValue}
@@ -125,6 +122,6 @@ export default function HomeScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }

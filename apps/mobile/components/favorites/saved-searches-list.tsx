@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { Alert, FlatList, Pressable, View } from "react-native";
+import { useCallback, useState } from "react";
+import { FlatList, Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { ExternalLink, Search, Trash2 } from "lucide-react-native";
 import { MotiView } from "moti";
@@ -9,7 +9,17 @@ import {
   type SavedSearch,
 } from "@pokemarket/shared";
 
-import { Badge, Skeleton, Text } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Skeleton,
+  Text,
+} from "@/components/ui";
 import { EmptyState } from "@/components/shared";
 import {
   useDeleteSavedSearch,
@@ -132,6 +142,11 @@ export function SavedSearchesList() {
   const mutedForeground = useThemeColor("mutedForeground");
   const destructive = useThemeColor("destructive");
 
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
   const handleRun = useCallback(
     (id: string, params: FeedFilters) => {
       markSeen(id);
@@ -143,23 +158,15 @@ export function SavedSearchesList() {
     [markSeen, setPending],
   );
 
-  const handleDelete = useCallback(
-    (id: string, name: string) => {
-      Alert.alert(
-        "Supprimer la recherche ?",
-        `« ${name} » sera supprimée définitivement.`,
-        [
-          { text: "Annuler", style: "cancel" },
-          {
-            text: "Supprimer",
-            style: "destructive",
-            onPress: () => deleteSearch(id),
-          },
-        ],
-      );
-    },
-    [deleteSearch],
-  );
+  const handleDelete = useCallback((id: string, name: string) => {
+    setPendingDelete({ id, name });
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (!pendingDelete) return;
+    deleteSearch(pendingDelete.id);
+    setPendingDelete(null);
+  }, [deleteSearch, pendingDelete]);
 
   if (isLoading) {
     return (
@@ -202,19 +209,45 @@ export function SavedSearchesList() {
   }
 
   return (
-    <FlatList
-      data={searches}
-      keyExtractor={(s) => s.id}
-      contentContainerStyle={{ gap: 12, padding: 16 }}
-      renderItem={({ item, index }) => (
-        <Row
-          search={item}
-          newCount={countsMap.get(item.id) ?? 0}
-          index={index}
-          onRun={handleRun}
-          onDelete={handleDelete}
-        />
-      )}
-    />
+    <>
+      <FlatList
+        data={searches}
+        keyExtractor={(s) => s.id}
+        contentContainerStyle={{ gap: 12, padding: 16 }}
+        renderItem={({ item, index }) => (
+          <Row
+            search={item}
+            newCount={countsMap.get(item.id) ?? 0}
+            index={index}
+            onRun={handleRun}
+            onDelete={handleDelete}
+          />
+        )}
+      />
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Supprimer la recherche ?</DialogTitle>
+          <DialogDescription>
+            {pendingDelete
+              ? `« ${pendingDelete.name} » sera supprimée définitivement.`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setPendingDelete(null)}>
+            Annuler
+          </Button>
+          <Button variant="destructive" onPress={confirmDelete}>
+            Supprimer
+          </Button>
+        </DialogFooter>
+      </Dialog>
+    </>
   );
 }

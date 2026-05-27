@@ -20,6 +20,7 @@ import {
   SellForm,
   type SellFormValues,
 } from "@/components/sell";
+import { TabHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
@@ -246,13 +247,11 @@ export default function SellScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <View className="border-b border-border px-4 py-3">
-        <Text variant="h3">Vendre une carte</Text>
-        <Text variant="muted" className="mt-0.5">
-          Photos, identification IA, prix.
-        </Text>
-      </View>
+    <View className="flex-1 bg-background">
+      <TabHeader
+        title="Vendre une carte"
+        subtitle="Photos, identification IA, prix."
+      />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
@@ -352,6 +351,6 @@ export default function SellScreen() {
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

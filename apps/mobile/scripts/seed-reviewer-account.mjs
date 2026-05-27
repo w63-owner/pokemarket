@@ -65,18 +65,77 @@ const TINY_PNG = Buffer.from(
 );
 
 const SAMPLE_LISTINGS = [
-  { title: "Charizard Base Set Holo PSA 8", price: 299.0, condition: "GOOD", graded: true, grading_company: "PSA", grading_value: "8" },
-  { title: "Pikachu Illustrator Promo (replica) PSA 9", price: 49.0, condition: "NEAR_MINT", graded: true, grading_company: "PSA", grading_value: "9" },
-  { title: "Dracaufeu V Astro Évolution Céleste FR", price: 14.5, condition: "MINT", graded: false },
-  { title: "Mewtwo EX Full Art XY Promo", price: 22.0, condition: "NEAR_MINT", graded: false },
+  {
+    title: "Charizard Base Set Holo PSA 8",
+    price: 299.0,
+    condition: "GOOD",
+    graded: true,
+    grading_company: "PSA",
+    grading_value: "8",
+  },
+  {
+    title: "Pikachu Illustrator Promo (replica) PSA 9",
+    price: 49.0,
+    condition: "NEAR_MINT",
+    graded: true,
+    grading_company: "PSA",
+    grading_value: "9",
+  },
+  {
+    title: "Dracaufeu V Astro Évolution Céleste FR",
+    price: 14.5,
+    condition: "MINT",
+    graded: false,
+  },
+  {
+    title: "Mewtwo EX Full Art XY Promo",
+    price: 22.0,
+    condition: "NEAR_MINT",
+    graded: false,
+  },
   { title: "Mew ex 151 EN", price: 9.9, condition: "MINT", graded: false },
-  { title: "Tortank Holo Néo Génésis FR", price: 35.0, condition: "GOOD", graded: false },
-  { title: "Ronflex VMAX Rainbow", price: 18.0, condition: "MINT", graded: false },
-  { title: "Lugia Argenté Tempête Argentée FR", price: 26.5, condition: "NEAR_MINT", graded: false },
-  { title: "Évoli ex Évolutions Prismatiques", price: 11.0, condition: "MINT", graded: false },
-  { title: "Pikachu Promo Black Star", price: 7.5, condition: "PLAYED", graded: false },
-  { title: "Carapuce Délire Galarien holo", price: 4.0, condition: "GOOD", graded: false },
-  { title: "Dialga GX Rainbow Tonnerre Perdu", price: 39.0, condition: "NEAR_MINT", graded: false },
+  {
+    title: "Tortank Holo Néo Génésis FR",
+    price: 35.0,
+    condition: "GOOD",
+    graded: false,
+  },
+  {
+    title: "Ronflex VMAX Rainbow",
+    price: 18.0,
+    condition: "MINT",
+    graded: false,
+  },
+  {
+    title: "Lugia Argenté Tempête Argentée FR",
+    price: 26.5,
+    condition: "NEAR_MINT",
+    graded: false,
+  },
+  {
+    title: "Évoli ex Évolutions Prismatiques",
+    price: 11.0,
+    condition: "MINT",
+    graded: false,
+  },
+  {
+    title: "Pikachu Promo Black Star",
+    price: 7.5,
+    condition: "PLAYED",
+    graded: false,
+  },
+  {
+    title: "Carapuce Délire Galarien holo",
+    price: 4.0,
+    condition: "GOOD",
+    graded: false,
+  },
+  {
+    title: "Dialga GX Rainbow Tonnerre Perdu",
+    price: 39.0,
+    condition: "NEAR_MINT",
+    graded: false,
+  },
 ];
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SR, {
@@ -110,7 +169,8 @@ async function uploadCover(client, userId, suffix) {
     .from("listing-images")
     .upload(path, TINY_PNG, { contentType: "image/png" });
   if (error) throw error;
-  return client.storage.from("listing-images").getPublicUrl(path).data.publicUrl;
+  return client.storage.from("listing-images").getPublicUrl(path).data
+    .publicUrl;
 }
 
 async function main() {
@@ -160,11 +220,7 @@ async function main() {
   }
 
   // ── buddy buyer (used to populate inbox + transaction in transit) ───
-  const buddy = await createUser(
-    BUDDY_EMAIL,
-    BUDDY_PASSWORD,
-    "buddy_reviewer",
-  );
+  const buddy = await createUser(BUDDY_EMAIL, BUDDY_PASSWORD, "buddy_reviewer");
 
   const buddyClient = createClient(SUPABASE_URL, SUPABASE_ANON);
   await buddyClient.auth.signInWithPassword({
@@ -215,7 +271,10 @@ async function main() {
     shipped_at: new Date().toISOString(),
   });
   if (txErr) {
-    console.warn("Could not insert transaction (schema may differ):", txErr.message);
+    console.warn(
+      "Could not insert transaction (schema may differ):",
+      txErr.message,
+    );
   }
 
   // Wallet credit (only if a wallets table exists in current schema)
@@ -226,7 +285,10 @@ async function main() {
       { onConflict: "user_id" },
     );
   if (wErr) {
-    console.warn("Could not seed wallet (table may not exist yet):", wErr.message);
+    console.warn(
+      "Could not seed wallet (table may not exist yet):",
+      wErr.message,
+    );
   }
 
   // ── Output ────────────────────────────────────────────────────────────
