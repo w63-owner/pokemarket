@@ -497,6 +497,7 @@ function ReportDisputeButton({
               onValueChange={(v) => setReason(v as DisputeReason)}
               options={DISPUTE_REASONS}
               placeholder="Sélectionnez une raison"
+              title="Raison du litige"
               disabled={dispute.isPending}
             />
           </View>

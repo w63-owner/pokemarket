@@ -23,7 +23,7 @@ export function ListingContextBar({ listing }: ListingContextBarProps) {
       onPress={() => router.push(`/listing/${listing.id}`)}
       className="flex-row items-center gap-2.5 border-b border-border bg-card px-3 py-2 active:bg-muted/50"
     >
-      <View className="size-9 overflow-hidden rounded-md border border-border bg-muted">
+      <View className="size-9 overflow-hidden rounded-xl border border-border bg-muted">
         {listing.cover_image_url ? (
           <Image
             source={{ uri: listing.cover_image_url }}

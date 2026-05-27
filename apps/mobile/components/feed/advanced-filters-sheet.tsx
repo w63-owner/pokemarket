@@ -153,6 +153,7 @@ export function AdvancedFiltersSheet({
             onValueChange={(val) => onChange({ rarity: val || undefined })}
             options={RARITY_SELECT_OPTIONS}
             placeholder="Toutes"
+            title="Rareté"
           />
         </View>
 
@@ -163,6 +164,7 @@ export function AdvancedFiltersSheet({
             onValueChange={(val) => onChange({ condition: val || undefined })}
             options={CONDITION_SELECT_OPTIONS}
             placeholder="Tous"
+            title="État"
           />
         </View>
 

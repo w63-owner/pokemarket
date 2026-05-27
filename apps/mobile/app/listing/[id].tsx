@@ -1,6 +1,5 @@
 import { Platform, Pressable, ScrollView, Share, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { MotiView } from "moti";
 import { Heart, Share2 } from "lucide-react-native";
@@ -63,15 +62,19 @@ export default function ListingScreen() {
 
   if (isLoading || !listing) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
+      <View className="flex-1 bg-background">
         <Stack.Screen options={{ headerShown: false }} />
-        <Skeleton className="h-96 w-full" />
+        {/* Hero — matches the carousel aspect ratio (Pokémon TCG: 63x88 ≈ 0.72) so
+            there is no layout shift when the image loads. */}
+        <Skeleton className="w-full" style={{ aspectRatio: 0.72 }} />
         <View className="gap-3 p-4">
           <Skeleton className="h-6 w-3/4" />
           <Skeleton className="h-8 w-1/3" />
-          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-12 w-full rounded-2xl" />
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 

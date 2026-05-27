@@ -95,7 +95,7 @@ export function DialogHeader({ children }: { children: React.ReactNode }) {
 }
 
 export function DialogTitle({ children }: { children: React.ReactNode }) {
-  return <Text variant="h4">{children}</Text>;
+  return <Text variant="h3">{children}</Text>;
 }
 
 export function DialogDescription({ children }: { children: React.ReactNode }) {

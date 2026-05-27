@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { toast } from "@/components/ui/toast";
+
 const STORAGE_KEY = "@pokemarket/sell-draft/v1";
+
+// Minimum delay between two "Brouillon enregistré" toasts. The wizard
+// can call `update()` very often (every photo change, every form blur),
+// so we throttle to avoid stacking duplicate toasts on top of each
+// other when the user is rapidly editing fields.
+const SAVE_TOAST_THROTTLE_MS = 30_000;
 
 export type SellDraftPayload = {
   cover?: { publicUrl: string; storagePath: string } | null;
@@ -26,6 +34,9 @@ export function useSellDraft() {
   const [draft, setDraft] = useState<SellDraftPayload | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Timestamp of the last "Brouillon enregistré" toast, used to throttle
+  // the confirmation toast to once every `SAVE_TOAST_THROTTLE_MS`.
+  const lastToastAtRef = useRef<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,9 +72,15 @@ export function useSellDraft() {
 
       if (persistTimer.current) clearTimeout(persistTimer.current);
       persistTimer.current = setTimeout(() => {
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(
-          () => undefined,
-        );
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+          .then(() => {
+            const now = Date.now();
+            if (now - lastToastAtRef.current >= SAVE_TOAST_THROTTLE_MS) {
+              lastToastAtRef.current = now;
+              toast.info("Brouillon enregistré", { duration: 2000 });
+            }
+          })
+          .catch(() => undefined);
       }, 400);
 
       return next;
@@ -76,6 +93,7 @@ export function useSellDraft() {
       clearTimeout(persistTimer.current);
       persistTimer.current = null;
     }
+    lastToastAtRef.current = 0;
     await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
   }, []);
 

@@ -3,7 +3,12 @@ import { ScrollView, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowRight, ScanLine, Sparkles } from "lucide-react-native";
+import {
+  ArrowRight,
+  PlusCircle,
+  ScanLine,
+  Sparkles,
+} from "lucide-react-native";
 import { MotiView, AnimatePresence } from "moti";
 import {
   toCardLanguageSelectValue,
@@ -18,9 +23,11 @@ import {
   ImageUploader,
   OcrResults,
   SellForm,
+  SellStepIndicator,
   type SellFormValues,
 } from "@/components/sell";
 import { TabHeader } from "@/components/layout";
+import { AuthRequired } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
@@ -231,20 +238,24 @@ export default function SellScreen() {
 
   if (!authLoading && !user) {
     return (
-      <SafeAreaView
-        className="flex-1 items-center justify-center gap-3 bg-background px-8"
-        edges={["top"]}
-      >
-        <Text variant="h3">Connectez-vous pour vendre</Text>
-        <Text variant="muted" className="text-center">
-          Vous devez avoir un compte pour publier une annonce.
-        </Text>
-        <Button onPress={() => router.push("/(auth)/login")} className="mt-2">
-          Se connecter
-        </Button>
-      </SafeAreaView>
+      <View className="flex-1 bg-background">
+        <TabHeader title="Vendre une carte" />
+        <SafeAreaView className="flex-1" edges={["bottom"]}>
+          <AuthRequired
+            icon={<PlusCircle size={28} color={mutedForeground} />}
+            title="Connecte-toi pour vendre"
+            description="Crée ou connecte-toi à ton compte pour publier ta première annonce."
+          />
+        </SafeAreaView>
+      </View>
     );
   }
+
+  // Step 1 = uploading photos, 2 = OCR / picking a candidate, 3 = filling
+  // the form. We collapse "loading OCR" into step 2 — the form only
+  // becomes the focus once the user has explicitly chosen to skip or
+  // confirmed a candidate.
+  const currentStep: 1 | 2 | 3 = !hasBothImages ? 1 : !showForm ? 2 : 3;
 
   return (
     <View className="flex-1 bg-background">
@@ -252,6 +263,7 @@ export default function SellScreen() {
         title="Vendre une carte"
         subtitle="Photos, identification IA, prix."
       />
+      <SellStepIndicator current={currentStep} />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView

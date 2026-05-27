@@ -239,6 +239,7 @@ export function SellForm({
                 onValueChange={onChange}
                 options={LANGUAGE_OPTIONS}
                 placeholder="Langue"
+                title="Langue"
               />
             )}
           />
@@ -256,6 +257,7 @@ export function SellForm({
               onValueChange={onChange}
               options={RARITY_SELECT_OPTIONS}
               placeholder="Choisir la rareté"
+              title="Rareté"
             />
           )}
         />
@@ -347,6 +349,7 @@ export function SellForm({
                     onValueChange={onChange}
                     options={GRADING_OPTIONS}
                     placeholder="Choisir l'organisme"
+                    title="Organisme de gradation"
                   />
                 )}
               />
@@ -395,6 +398,7 @@ export function SellForm({
                   onValueChange={onChange}
                   options={CONDITION_OPTIONS}
                   placeholder="Choisir l'état"
+                  title="État de la carte"
                 />
               )}
             />
