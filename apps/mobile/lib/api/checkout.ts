@@ -3,6 +3,7 @@ import type {
   MobileCheckoutResponse,
   Transaction,
 } from "@pokemarket/shared";
+import { getCurrentUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 import { api } from "./client";
 
@@ -28,16 +29,14 @@ export async function startCheckout(
 export async function fetchTransactionForBuyer(
   transactionId: string,
 ): Promise<Transaction | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const userId = getCurrentUserId();
+  if (!userId) return null;
 
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
     .eq("id", transactionId)
-    .eq("buyer_id", user.id)
+    .eq("buyer_id", userId)
     .maybeSingle();
 
   if (error) throw new Error(error.message);

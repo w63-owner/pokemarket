@@ -4,6 +4,7 @@ import type {
   SentOfferWithContext,
 } from "@pokemarket/shared";
 import { api } from "@/lib/api/client";
+import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 
 export async function createOffer(
@@ -58,10 +59,7 @@ export async function cancelOffer(
 }
 
 export async function fetchReceivedOffers(): Promise<OfferWithContext[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("offers")
@@ -76,7 +74,7 @@ export async function fetchReceivedOffers(): Promise<OfferWithContext[]> {
       )
     `,
     )
-    .eq("listing.seller_id", user.id)
+    .eq("listing.seller_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -84,10 +82,7 @@ export async function fetchReceivedOffers(): Promise<OfferWithContext[]> {
 }
 
 export async function fetchSentOffers(): Promise<SentOfferWithContext[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("offers")
@@ -102,7 +97,7 @@ export async function fetchSentOffers(): Promise<SentOfferWithContext[]> {
       )
     `,
     )
-    .eq("buyer_id", user.id)
+    .eq("buyer_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);

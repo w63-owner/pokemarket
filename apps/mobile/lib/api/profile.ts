@@ -1,5 +1,10 @@
 import type { Profile, ProfileWithStats } from "@pokemarket/shared";
-import { normalizeUrl, profileUpdateSchema } from "@pokemarket/shared";
+import {
+  getSellerReputation,
+  normalizeUrl,
+  profileUpdateSchema,
+} from "@pokemarket/shared";
+import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 
 export type ProfileUpdateInput = {
@@ -16,21 +21,29 @@ export type ProfileUpdateInput = {
 };
 
 export async function fetchMyProfile(): Promise<Profile | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const userId = getCurrentUserId();
+  if (!userId) return null;
 
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (error) throw new Error(error.message);
   return data;
 }
 
+/**
+ * Loads a public seller profile + aggregate stats. The reputation
+ * (avg rating + review count) is now computed server-side via the
+ * `get_seller_reputation` RPC instead of pulling every review row, and
+ * the listing count uses a HEAD `count: exact` query that scans the
+ * partial index `idx_listings_active_seller` without returning rows.
+ *
+ * Net wire: 3 small queries in parallel instead of 2 + a full reviews
+ * payload (~50 rows × ~150 B each = 7.5 KB before parsing).
+ */
 export async function fetchPublicProfile(
   username: string,
 ): Promise<ProfileWithStats | null> {
@@ -45,25 +58,20 @@ export async function fetchPublicProfile(
     throw new Error(error.message);
   }
 
-  const [{ count: listingCount }, { data: reviews }] = await Promise.all([
+  const [{ count: listingCount }, reputation] = await Promise.all([
     supabase
       .from("listings")
       .select("id", { count: "exact", head: true })
       .eq("seller_id", profile.id)
       .eq("status", "ACTIVE"),
-    supabase.from("reviews").select("rating").eq("reviewee_id", profile.id),
+    getSellerReputation(supabase, profile.id),
   ]);
-
-  const reviewCount = reviews?.length ?? 0;
-  const avgRating = reviewCount
-    ? reviews!.reduce((s, r) => s + (r.rating ?? 0), 0) / reviewCount || null
-    : null;
 
   return {
     ...profile,
     listing_count: listingCount ?? 0,
-    review_count: reviewCount,
-    avg_rating: avgRating,
+    review_count: reputation.reviewCount,
+    avg_rating: reputation.reviewCount > 0 ? reputation.avgRating : null,
   } satisfies ProfileWithStats;
 }
 
@@ -75,10 +83,7 @@ export async function fetchPublicProfile(
 export async function updateMyProfile(
   input: ProfileUpdateInput,
 ): Promise<Profile> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const payload = {
     ...input,
@@ -96,7 +101,7 @@ export async function updateMyProfile(
   const { data, error } = await supabase
     .from("profiles")
     .update(parsed.data)
-    .eq("id", user.id)
+    .eq("id", userId)
     .select()
     .single();
 
@@ -148,15 +153,13 @@ export async function fetchSellerReviews(
 }
 
 export async function isFollowingSeller(sellerId: string): Promise<boolean> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
+  const userId = getCurrentUserId();
+  if (!userId) return false;
 
   const { data, error } = await supabase
     .from("favorite_sellers")
     .select("seller_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("seller_id", sellerId)
     .maybeSingle();
 
@@ -165,27 +168,21 @@ export async function isFollowingSeller(sellerId: string): Promise<boolean> {
 }
 
 export async function followSeller(sellerId: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { error } = await supabase
     .from("favorite_sellers")
-    .insert({ user_id: user.id, seller_id: sellerId });
+    .insert({ user_id: userId, seller_id: sellerId });
   if (error) throw new Error(error.message);
 }
 
 export async function unfollowSeller(sellerId: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { error } = await supabase
     .from("favorite_sellers")
     .delete()
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("seller_id", sellerId);
   if (error) throw new Error(error.message);
 }

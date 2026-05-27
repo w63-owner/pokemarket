@@ -6,6 +6,8 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { Camera, Loader2 } from "lucide-react-native";
 import { MotiView } from "moti";
 
+import { requireUserId } from "@/lib/auth/current-user";
+import { base64ToArrayBuffer } from "@/lib/storage/base64";
 import { supabase } from "@/lib/supabase";
 import { Text, toast } from "@/components/ui";
 import { duration } from "@/lib/motion";
@@ -85,12 +87,9 @@ export function AvatarUploader({
         throw new Error("Échec de la conversion JPEG");
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non authentifié");
+      const userId = await requireUserId();
 
-      const fileName = `${user.id}/avatar.jpg`;
+      const fileName = `${userId}/avatar.jpg`;
       const buffer = base64ToArrayBuffer(manipulated.base64);
 
       const { error: uploadError } = await supabase.storage
@@ -179,12 +178,4 @@ export function AvatarUploader({
       ) : null}
     </Pressable>
   );
-}
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = globalThis.atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
 }

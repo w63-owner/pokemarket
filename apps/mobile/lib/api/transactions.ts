@@ -5,6 +5,7 @@ import type {
   TransactionWithDetails,
 } from "@pokemarket/shared";
 
+import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 import { api } from "./client";
 
@@ -68,10 +69,7 @@ export async function fetchMyPurchases({
   pageParam?: number;
   limit?: number;
 } = {}): Promise<PaginatedTransactions> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const from = pageParam * limit;
   const to = from + limit - 1;
@@ -79,7 +77,7 @@ export async function fetchMyPurchases({
   const { data, error } = await supabase
     .from("transactions")
     .select(TRANSACTION_SELECT)
-    .eq("buyer_id", user.id)
+    .eq("buyer_id", userId)
     .in("status", [...BUYER_LIST_STATUSES])
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -100,10 +98,7 @@ export async function fetchMySales({
   pageParam?: number;
   limit?: number;
 } = {}): Promise<PaginatedTransactions> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const from = pageParam * limit;
   const to = from + limit - 1;
@@ -111,7 +106,7 @@ export async function fetchMySales({
   const { data, error } = await supabase
     .from("transactions")
     .select(TRANSACTION_SELECT)
-    .eq("seller_id", user.id)
+    .eq("seller_id", userId)
     .in("status", [...VISIBLE_STATUSES])
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -162,10 +157,7 @@ export type PurchaseDetail = TransactionWithDetails & {
 export async function fetchSaleDetail(
   saleId: string,
 ): Promise<SaleDetail | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("transactions")
@@ -173,7 +165,7 @@ export async function fetchSaleDetail(
       "*, listing:listings(id, title, cover_image_url, condition, is_graded, grade_note, grading_company, display_price), buyer:profiles!transactions_buyer_id_fkey(id, username, avatar_url), seller:profiles!transactions_seller_id_fkey(id, username)",
     )
     .eq("id", saleId)
-    .eq("seller_id", user.id)
+    .eq("seller_id", userId)
     .maybeSingle();
 
   if (error) throw error;
@@ -183,10 +175,7 @@ export async function fetchSaleDetail(
 export async function fetchPurchaseDetail(
   purchaseId: string,
 ): Promise<PurchaseDetail | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("transactions")
@@ -194,7 +183,7 @@ export async function fetchPurchaseDetail(
       "*, listing:listings(id, title, cover_image_url, condition, is_graded, grade_note, grading_company, display_price), buyer:profiles!transactions_buyer_id_fkey(id, username), seller:profiles!transactions_seller_id_fkey(id, username, avatar_url)",
     )
     .eq("id", purchaseId)
-    .eq("buyer_id", user.id)
+    .eq("buyer_id", userId)
     .maybeSingle();
 
   if (error) throw error;
@@ -212,12 +201,15 @@ export type DisputeReason =
   | "other";
 
 /**
- * Seller marks a transaction as shipped + posts a system message + fires
- * a fire-and-forget notification to the buyer.
+ * Seller marks a transaction as shipped. Atomic: a single Postgres RPC
+ * (`ship_order`) UPDATEs the transaction AND inserts the system message
+ * within one server-side transaction, eliminating the previous half-
+ * shipped / half-messaged failure mode (e.g. status flipped but the
+ * notification message never landed because the network died between
+ * the two round-trips).
  *
- * RLS guards the update: only the seller of a PAID transaction can flip
- * it to SHIPPED. The notification call is deliberately not awaited — a
- * failed email/push must never block the seller from continuing.
+ * The shipped-notify webhook is fire-and-forget: a network blip on the
+ * notification service must never bubble up here.
  */
 export async function shipOrder(
   transactionId: string,
@@ -225,47 +217,27 @@ export async function shipOrder(
   trackingUrl: string | null,
   conversationId: string,
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  await requireUserId();
 
-  const now = new Date().toISOString();
   const normalizedUrl =
     trackingUrl && !/^https?:\/\//i.test(trackingUrl)
       ? `https://${trackingUrl}`
       : trackingUrl;
 
-  const { error: txError } = await supabase
-    .from("transactions")
-    .update({
-      status: "SHIPPED",
-      tracking_number: trackingNumber,
-      tracking_url: normalizedUrl,
-      shipped_at: now,
-    })
-    .eq("id", transactionId)
-    .eq("seller_id", user.id)
-    .eq("status", "PAID");
-
-  if (txError) throw txError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Colis expédié",
-    message_type: "order_shipped",
-    metadata: {
-      tracking_number: trackingNumber,
-      ...(normalizedUrl && { tracking_url: normalizedUrl }),
-      shipped_at: now,
-    },
+  const { error } = await supabase.rpc("ship_order", {
+    p_transaction_id: transactionId,
+    p_tracking_number: trackingNumber,
+    // Supabase gen-types models all function `TEXT` params as non-nullable
+    // `string`, but Postgres TEXT parameters accept NULL just fine. The RPC
+    // explicitly handles `IS NULL` for the tracking_url branch.
+    p_tracking_url: normalizedUrl as unknown as string,
+    p_conversation_id: conversationId,
   });
 
-  if (msgError) throw msgError;
+  if (error) throw new Error(error.message);
 
   // Fire-and-forget notification. The endpoint accepts Bearer auth so the
-  // mobile call goes through fine; we still wrap in try/catch because a
+  // mobile call goes through fine; we still wrap in catch because a
   // network blip must never bubble up here.
   api
     .post("/api/orders/shipped-notify", { transaction_id: transactionId })
@@ -273,8 +245,10 @@ export async function shipOrder(
 }
 
 /**
- * Buyer opens a dispute on a SHIPPED transaction. Mirrors the web helper
- * but uses the mobile supabase client (RLS-bound).
+ * Buyer opens a dispute on a SHIPPED transaction. Atomic: a single
+ * Postgres RPC (`create_dispute`) inserts the dispute, flips the
+ * transaction status, and posts the system message in one server-side
+ * transaction.
  */
 export async function createDispute(
   transactionId: string,
@@ -282,43 +256,21 @@ export async function createDispute(
   description: string,
   conversationId: string,
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  await requireUserId();
 
   const trimmed = description.trim();
   if (trimmed.length < 10) {
     throw new Error("La description doit faire au moins 10 caractères");
   }
 
-  const { error: disputeError } = await supabase.from("disputes").insert({
-    transaction_id: transactionId,
-    opened_by: user.id,
-    reason,
-    description: trimmed,
+  const { error } = await supabase.rpc("create_dispute", {
+    p_transaction_id: transactionId,
+    p_reason: reason,
+    p_description: trimmed,
+    p_conversation_id: conversationId,
   });
 
-  if (disputeError) throw disputeError;
-
-  const { error: txError } = await supabase
-    .from("transactions")
-    .update({ status: "DISPUTED" })
-    .eq("id", transactionId)
-    .eq("buyer_id", user.id)
-    .eq("status", "SHIPPED");
-
-  if (txError) throw txError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Litige ouvert",
-    message_type: "dispute_opened",
-    metadata: { reason, description: trimmed },
-  });
-
-  if (msgError) throw msgError;
+  if (error) throw new Error(error.message);
 }
 
 /**

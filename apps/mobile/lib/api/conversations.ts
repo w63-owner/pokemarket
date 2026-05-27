@@ -3,25 +3,12 @@ import {
   type ConversationPreview,
   type Message,
 } from "@pokemarket/shared";
-import { supabase } from "@/lib/supabase";
 import { api } from "@/lib/api/client";
+import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
+import { base64ToArrayBuffer } from "@/lib/storage/base64";
+import { supabase } from "@/lib/supabase";
 
 const MESSAGE_ATTACHMENTS_BUCKET = "message_attachments";
-
-/**
- * Decode a base64 string to an `ArrayBuffer`. React Native lacks both
- * `File` and a reliable `fetch(uri).blob()` on `file://` URIs, so we
- * mirror the same helper used by `lib/api/listings.ts` to upload to
- * Supabase Storage. Relies on `globalThis.atob` polyfilled by
- * `react-native-url-polyfill/auto`.
- */
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = globalThis.atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
 
 export interface ConversationDetail {
   id: string;
@@ -49,14 +36,10 @@ export interface MessagesPage {
 }
 
 export async function fetchConversations(): Promise<ConversationPreview[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase.rpc("get_inbox", {
-    p_user_id: user.id,
+    p_user_id: userId,
   });
 
   if (error) throw new Error(error.message);
@@ -95,15 +78,11 @@ export async function fetchConversations(): Promise<ConversationPreview[]> {
 export async function fetchOrCreateConversation(
   listingId: string,
 ): Promise<string> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase.rpc("upsert_conversation", {
     p_listing_id: listingId,
-    p_buyer_id: user.id,
+    p_buyer_id: userId,
   });
 
   if (error) throw new Error(error.message);
@@ -115,11 +94,7 @@ export async function fetchOrCreateConversation(
 export async function fetchConversationDetail(
   conversationId: string,
 ): Promise<ConversationDetail> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("conversations")
@@ -151,7 +126,7 @@ export async function fetchConversationDetail(
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Conversation introuvable");
 
-  const isBuyer = data.buyer_id === user.id;
+  const isBuyer = data.buyer_id === userId;
   const otherUser = isBuyer ? data.seller : data.buyer;
 
   return {
@@ -205,16 +180,14 @@ export async function fetchMessages(
 }
 
 export async function fetchUnreadCount(): Promise<number> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return 0;
+  const userId = getCurrentUserId();
+  if (!userId) return 0;
 
   const { count, error } = await supabase
     .from("messages")
     .select("*", { count: "exact", head: true })
     .is("read_at", null)
-    .neq("sender_id", user.id);
+    .neq("sender_id", userId);
 
   if (error) throw new Error(error.message);
   return count ?? 0;
@@ -270,10 +243,7 @@ export async function sendImageMessage(
     contentType: "image/jpeg" | "image/webp" | "image/png";
   },
 ): Promise<Message> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const ext =
     payload.contentType === "image/webp"
@@ -301,7 +271,7 @@ export async function sendImageMessage(
     .from("messages")
     .insert({
       conversation_id: conversationId,
-      sender_id: user.id,
+      sender_id: userId,
       content: fileName,
       message_type: "image",
     })

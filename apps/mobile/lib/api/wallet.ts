@@ -1,5 +1,6 @@
 import type { KycStatus, Wallet } from "@pokemarket/shared";
 
+import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 import { api } from "./client";
 
@@ -21,15 +22,12 @@ export type PayoutResult = {
  * helper at `apps/web/src/lib/api/wallet.ts`.
  */
 export async function fetchWalletBalance(): Promise<Wallet | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("wallets")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) throw error;

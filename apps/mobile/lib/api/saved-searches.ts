@@ -1,18 +1,17 @@
 import type { FeedFilters, Json, SavedSearch } from "@pokemarket/shared";
+import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 
 export type SavedSearchNewCount = { search_id: string; new_count: number };
 
 export async function fetchSavedSearches(): Promise<SavedSearch[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase
     .from("saved_searches")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -23,15 +22,12 @@ export async function createSavedSearch(
   name: string,
   filters: FeedFilters,
 ): Promise<SavedSearch> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("saved_searches")
     .insert({
-      user_id: user.id,
+      user_id: userId,
       name,
       search_params: filters as unknown as Json,
     })
@@ -43,16 +39,13 @@ export async function createSavedSearch(
 }
 
 export async function deleteSavedSearch(id: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { error } = await supabase
     .from("saved_searches")
     .delete()
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
 }
@@ -60,10 +53,8 @@ export async function deleteSavedSearch(id: string): Promise<void> {
 export async function fetchSavedSearchNewCounts(): Promise<
   SavedSearchNewCount[]
 > {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase.rpc("count_new_for_saved_searches");
 
@@ -72,16 +63,13 @@ export async function fetchSavedSearchNewCounts(): Promise<
 }
 
 export async function markSavedSearchSeen(id: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { error } = await supabase
     .from("saved_searches")
     .update({ last_seen_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
 }

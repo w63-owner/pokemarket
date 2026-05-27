@@ -10,6 +10,8 @@ import {
   listingCreateSchema,
   type SellerReputation,
 } from "@pokemarket/shared";
+import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
+import { base64ToArrayBuffer } from "@/lib/storage/base64";
 import { supabase } from "@/lib/supabase";
 
 type RpcArgs = Database["public"]["Functions"]["search_listings_feed"]["Args"];
@@ -117,15 +119,13 @@ export async function fetchSellerReputation(
 }
 
 export async function fetchMyListings(): Promise<Listing[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = getCurrentUserId();
+  if (!userId) return [];
 
   const { data, error } = await supabase
     .from("listings")
     .select("*")
-    .eq("seller_id", user.id)
+    .eq("seller_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -178,17 +178,14 @@ export async function createListing(
     throw new Error(first);
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const d = parsed.data;
 
   const { data, error } = await supabase
     .from("listings")
     .insert({
-      seller_id: user.id,
+      seller_id: userId,
       title: d.title,
       price_seller: d.price_seller,
       condition: d.is_graded ? null : (d.condition ?? null),
@@ -235,10 +232,7 @@ export type UpdateListingInput = {
 export async function updateListing(
   input: UpdateListingInput,
 ): Promise<Listing> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("listings")
@@ -259,7 +253,7 @@ export async function updateListing(
       card_illustrator: input.card_illustrator ?? null,
     })
     .eq("id", input.id)
-    .eq("seller_id", user.id)
+    .eq("seller_id", userId)
     .select()
     .single();
 
@@ -268,31 +262,25 @@ export async function updateListing(
 }
 
 export async function deleteListing(listingId: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { error } = await supabase
     .from("listings")
     .delete()
     .eq("id", listingId)
-    .eq("seller_id", user.id);
+    .eq("seller_id", userId);
 
   if (error) throw new Error(error.message);
 }
 
 export async function fetchOwnedListing(id: string): Promise<Listing> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("listings")
     .select("*")
     .eq("id", id)
-    .eq("seller_id", user.id)
+    .eq("seller_id", userId)
     .single();
 
   if (error) throw new Error(error.message);
@@ -304,21 +292,6 @@ export async function fetchOwnedListing(id: string): Promise<Listing> {
 // ────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_BUCKET = "listing-images";
-
-/**
- * Decode a base64 string to an `ArrayBuffer`. Used for Supabase Storage upload
- * because React Native has no `File`/`Blob.arrayBuffer` and `fetch(uri).blob()`
- * is unreliable on `file://` URIs across platforms.
- *
- * Uses a shared `globalThis.atob` polyfilled by `react-native-url-polyfill`.
- */
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = globalThis.atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
 
 export type UploadedListingImage = {
   publicUrl: string;
@@ -335,10 +308,7 @@ export async function uploadListingImage(params: {
   contentType: "image/jpeg" | "image/webp" | "image/png";
   previousPath?: string | null;
 }): Promise<UploadedListingImage> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   if (params.previousPath) {
     await supabase.storage
@@ -355,7 +325,7 @@ export async function uploadListingImage(params: {
       : params.contentType === "image/png"
         ? "png"
         : "jpg";
-  const fileName = `${user.id}/${Date.now()}-${Math.random()
+  const fileName = `${userId}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${ext}`;
 

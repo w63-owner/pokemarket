@@ -23,16 +23,37 @@ let cached: AuthState = {
 
 const listeners = new Set<(state: AuthState) => void>();
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
 function emit() {
   for (const listener of listeners) listener(cached);
+}
+
+/**
+ * Synchronous read of the current Supabase user id from the in-memory
+ * auth cache. Returns `null` if `initAuth()` has not yet resolved or the
+ * user is signed out. Callers that need to wait for the first session
+ * resolution should use `requireUserId()` from `@/lib/auth/current-user`
+ * instead — that helper awaits the boot init promise.
+ */
+export function getCachedUserId(): string | null {
+  return cached.user?.id ?? null;
+}
+
+/**
+ * Promise that resolves once `initAuth()` has performed its first
+ * `getSession()` call. Used by `requireUserId()` to bridge the brief
+ * window between the very first render and the cache being warm.
+ */
+export function getAuthInitPromise(): Promise<void> {
+  return initPromise ?? Promise.resolve();
 }
 
 export function initAuth() {
   if (initialized) return;
   initialized = true;
 
-  void supabase.auth.getSession().then(({ data }) => {
+  initPromise = supabase.auth.getSession().then(({ data }) => {
     cached = {
       session: data.session,
       user: data.session?.user ?? null,

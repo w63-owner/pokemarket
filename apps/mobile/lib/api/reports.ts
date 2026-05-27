@@ -1,4 +1,5 @@
 import type { ReportReason } from "@pokemarket/shared";
+import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 
 type CreateReportInput = {
@@ -17,13 +18,10 @@ export async function createReport(
   listingId: string,
   input: CreateReportInput,
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  const userId = await requireUserId();
 
   const { error } = await supabase.from("reports").insert({
-    reporter_id: user.id,
+    reporter_id: userId,
     listing_id: listingId,
     reason: input.reason,
     description: input.description || null,

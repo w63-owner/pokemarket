@@ -10,32 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4";
-  };
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
+    PostgrestVersion: "14.5";
   };
   public: {
     Tables: {
@@ -211,6 +186,47 @@ export type Database = {
             columns: ["transaction_id"];
             isOneToOne: true;
             referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      expo_push_tokens: {
+        Row: {
+          app_version: string | null;
+          created_at: string;
+          device_id: string | null;
+          id: string;
+          platform: string;
+          token: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          app_version?: string | null;
+          created_at?: string;
+          device_id?: string | null;
+          id?: string;
+          platform: string;
+          token: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          app_version?: string | null;
+          created_at?: string;
+          device_id?: string | null;
+          id?: string;
+          platform?: string;
+          token?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expo_push_tokens_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -429,6 +445,35 @@ export type Database = {
           {
             foreignKeyName: "messages_sender_id_fkey";
             columns: ["sender_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notification_preferences: {
+        Row: {
+          category: string;
+          enabled: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          category: string;
+          enabled?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          category?: string;
+          enabled?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -659,47 +704,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "push_subscriptions_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      expo_push_tokens: {
-        Row: {
-          app_version: string | null;
-          created_at: string;
-          device_id: string | null;
-          id: string;
-          platform: string;
-          token: string;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          app_version?: string | null;
-          created_at?: string;
-          device_id?: string | null;
-          id?: string;
-          platform: string;
-          token: string;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          app_version?: string | null;
-          created_at?: string;
-          device_id?: string | null;
-          id?: string;
-          platform?: string;
-          token?: string;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "expo_push_tokens_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
@@ -1233,6 +1237,15 @@ export type Database = {
           search_id: string;
         }[];
       };
+      create_dispute: {
+        Args: {
+          p_conversation_id: string;
+          p_description: string;
+          p_reason: string;
+          p_transaction_id: string;
+        };
+        Returns: undefined;
+      };
       get_inbox: {
         Args: { p_user_id: string };
         Returns: {
@@ -1319,8 +1332,22 @@ export type Database = {
           title: string;
         }[];
       };
+      ship_order: {
+        Args: {
+          p_conversation_id: string;
+          p_tracking_number: string;
+          p_tracking_url: string;
+          p_transaction_id: string;
+        };
+        Returns: undefined;
+      };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      toggle_favorite_listing: {
+        Args: { p_listing_id: string };
+        Returns: boolean;
+      };
+      unaccent: { Args: { "": string }; Returns: string };
       upsert_conversation: {
         Args: { p_buyer_id: string; p_listing_id: string };
         Returns: string;
@@ -1456,9 +1483,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
