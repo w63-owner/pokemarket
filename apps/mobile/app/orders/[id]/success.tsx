@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { CheckCircle2, Home, ShoppingBag, Sparkles } from "lucide-react-native";
-import { formatPrice } from "@pokemarket/shared";
+import { formatPrice, queryKeys } from "@pokemarket/shared";
 
-import { fetchTransactionForBuyer } from "@/lib/api/checkout";
+import {
+  fetchTransactionForBuyer,
+  reconcileMobileOrder,
+} from "@/lib/api/checkout";
 import { Button, Skeleton, Text } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
@@ -66,6 +69,7 @@ export default function OrderSuccessScreen() {
   const reduceMotion = useReducedMotionSafe();
   const [confettiVisible, setConfettiVisible] = useState(false);
   const colors = useThemeColors();
+  const queryClient = useQueryClient();
 
   const { data: transaction, isLoading } = useQuery({
     queryKey: ["transactions", "buyer", id],
@@ -81,6 +85,43 @@ export default function OrderSuccessScreen() {
       return pollCount > 6 ? false : 1500;
     },
   });
+
+  // Server-side reconcile fallback. The mobile PaymentSheet flow uses
+  // direct PaymentIntents, so the `payment_intent.succeeded` webhook is
+  // what flips PENDING_PAYMENT → PAID. Webhooks can lag (especially in
+  // local dev where `stripe listen` isn't always running), leaving the
+  // buyer stuck on "En attente de paiement" in their purchases list.
+  // Calling reconcile asks the server to query Stripe directly and run
+  // the same finalize side-effects the webhook would. Idempotent: a
+  // concurrent webhook still wins exactly-once via the atomic PAID
+  // transition guard in `finalizePaidTransaction`.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    reconcileMobileOrder(id)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.status === "PAID") {
+          // Refresh the buyer's transaction immediately so the success UI
+          // stops polling AND invalidate the purchases list so navigating
+          // back to Profile → "Mes achats" doesn't show a stale
+          // PENDING_PAYMENT badge.
+          queryClient.invalidateQueries({
+            queryKey: ["transactions", "buyer", id],
+          });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.transactions.purchases(),
+          });
+        }
+      })
+      .catch(() => {
+        // Best-effort — polling below will surface the eventual PAID
+        // state once the webhook catches up.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, queryClient]);
 
   useEffect(() => {
     if (transaction?.status === "PENDING_PAYMENT") {

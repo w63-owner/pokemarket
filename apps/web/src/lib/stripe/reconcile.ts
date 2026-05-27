@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
 
+export type ReconcileResult = "PAID" | "PENDING_PAYMENT" | "ALREADY_PROCESSED";
+
 /**
  * Verify a Stripe checkout session and complete the payment flow if the
  * webhook hasn't processed it yet. Safe to call multiple times — the shared
@@ -13,7 +15,7 @@ import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
 export async function reconcileCheckoutSession(
   transactionId: string,
   stripeSessionId: string,
-): Promise<"PAID" | "PENDING_PAYMENT" | "ALREADY_PROCESSED"> {
+): Promise<ReconcileResult> {
   const admin = createAdminClient();
 
   const { data: transaction } = await admin
@@ -52,6 +54,59 @@ export async function reconcileCheckoutSession(
 
   const result = await finalizePaidTransaction(transactionId, {
     paymentIntentId,
+    chargeId,
+  });
+  if (result === "PAID" || result === "ALREADY_PROCESSED") return result;
+  return "PENDING_PAYMENT";
+}
+
+/**
+ * Mobile equivalent of `reconcileCheckoutSession`: verifies a Stripe
+ * PaymentIntent (created by the mobile PaymentSheet flow) and finalises the
+ * transaction if Stripe confirms the payment, regardless of webhook delivery.
+ *
+ * Required because the mobile flow uses direct PaymentIntents (not Checkout
+ * Sessions), so the success-page Server Component reconcile we rely on for
+ * web doesn't apply. Webhooks can lag (or, in local dev, never arrive at all
+ * without `stripe listen`), leaving the buyer's transaction stuck on
+ * PENDING_PAYMENT even though the charge succeeded.
+ *
+ * Safe to call concurrently with the `payment_intent.succeeded` webhook: the
+ * shared `finalizePaidTransaction` helper guards the PENDING_PAYMENT → PAID
+ * transition with an atomic UPDATE so side-effects (wallet credit, system
+ * message, emails) run exactly once.
+ */
+export async function reconcilePaymentIntent(
+  transactionId: string,
+  stripePaymentIntentId: string,
+): Promise<ReconcileResult> {
+  const admin = createAdminClient();
+
+  const { data: transaction } = await admin
+    .from("transactions")
+    .select("id, status")
+    .eq("id", transactionId)
+    .single();
+
+  if (!transaction) return "PENDING_PAYMENT";
+  if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
+
+  // Expand `latest_charge` so we get both IDs in a single round-trip — same
+  // shape used by the webhook path for refund / dispute downstream lookups.
+  const stripe = getStripe();
+  const intent = await stripe.paymentIntents.retrieve(stripePaymentIntentId, {
+    expand: ["latest_charge"],
+  });
+
+  if (intent.status !== "succeeded") return "PENDING_PAYMENT";
+
+  const chargeId =
+    typeof intent.latest_charge === "string"
+      ? intent.latest_charge
+      : (intent.latest_charge?.id ?? null);
+
+  const result = await finalizePaidTransaction(transactionId, {
+    paymentIntentId: intent.id,
     chargeId,
   });
   if (result === "PAID" || result === "ALREADY_PROCESSED") return result;

@@ -23,6 +23,27 @@ export async function startCheckout(
 }
 
 /**
+ * Server-side reconcile fallback for the mobile success screen. The mobile
+ * checkout uses direct PaymentIntents, so the `payment_intent.succeeded`
+ * webhook is what flips the transaction to PAID. If the webhook is slow
+ * (or, in local dev, not forwarded at all), this endpoint asks the server
+ * to check Stripe directly and run the same finalize side-effects the
+ * webhook would.
+ *
+ * Best-effort: errors are swallowed by the caller — the success page will
+ * still poll the DB and eventually display the PAID state once the
+ * webhook catches up.
+ */
+export async function reconcileMobileOrder(
+  transactionId: string,
+): Promise<{ status: string }> {
+  return api.post<{ status: string }>(
+    `/api/orders/${transactionId}/reconcile`,
+    {},
+  );
+}
+
+/**
  * Read the buyer's view of a transaction (for the success screen).
  * RLS allows the buyer to see their own transactions.
  */
