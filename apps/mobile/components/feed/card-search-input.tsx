@@ -3,6 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { Search, X } from "lucide-react-native";
 
 import { Input } from "@/components/ui";
+import { haptic } from "@/lib/haptics";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type Props = {
@@ -50,6 +51,7 @@ export const CardSearchInput = forwardRef<TextInput, Props>(
         {value ? (
           <Pressable
             onPress={() => {
+              haptic("tap");
               onChangeText("");
               onClear?.();
             }}

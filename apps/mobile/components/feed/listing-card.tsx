@@ -1,5 +1,11 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { Pressable, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from "react-native-reanimated";
 import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { Heart } from "lucide-react-native";
@@ -7,6 +13,8 @@ import type { FeedItem } from "@pokemarket/shared";
 import { formatPrice } from "@pokemarket/shared";
 import { Badge, Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { haptic } from "@/lib/haptics";
+import { spring, useReducedMotionSafe } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
 // Neutral 4-pixel BlurHash; renders a soft beige rectangle behind the
@@ -55,21 +63,11 @@ function ListingCardComponent({ item, isFavorite, onToggleFavorite }: Props) {
               </Badge>
             ) : null}
             {onToggleFavorite ? (
-              <Pressable
+              <HeartButton
+                isFavorite={!!isFavorite}
+                primary={primary}
                 onPress={() => onToggleFavorite(item.id)}
-                hitSlop={8}
-                className="absolute right-2 top-2 h-9 w-9 items-center justify-center rounded-full bg-white/90"
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
-                }
-              >
-                <Heart
-                  size={18}
-                  color={primary}
-                  fill={isFavorite ? primary : "transparent"}
-                />
-              </Pressable>
+              />
             ) : null}
           </View>
           <View className="gap-1 p-3">
@@ -118,3 +116,53 @@ function ListingCardComponent({ item, isFavorite, onToggleFavorite }: Props) {
 }
 
 export const ListingCard = memo(ListingCardComponent);
+
+type HeartButtonProps = {
+  isFavorite: boolean;
+  primary: string;
+  onPress: () => void;
+};
+
+/**
+ * Favorite toggle with a subtle "wobble" — Reanimated spring sequence
+ * driven by a shared value so the animation runs entirely on the UI
+ * thread and is reduced-motion-aware.
+ */
+function HeartButton({ isFavorite, primary, onPress }: HeartButtonProps) {
+  const reduceMotion = useReducedMotionSafe();
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = useCallback(() => {
+    haptic("tap");
+    if (!reduceMotion) {
+      scale.value = withSequence(
+        withSpring(1.25, spring.bouncy),
+        withSpring(1, spring.gentle),
+      );
+    }
+    onPress();
+  }, [onPress, reduceMotion, scale]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      hitSlop={8}
+      className="absolute right-2 top-2 h-9 w-9 items-center justify-center rounded-full bg-white/90"
+      accessibilityRole="button"
+      accessibilityLabel={
+        isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
+      }
+    >
+      <Animated.View style={animatedStyle}>
+        <Heart
+          size={18}
+          color={primary}
+          fill={isFavorite ? primary : "transparent"}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+}

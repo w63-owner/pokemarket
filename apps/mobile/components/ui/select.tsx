@@ -4,6 +4,7 @@ import { ChevronDown, Check } from "lucide-react-native";
 import { Sheet, SheetScrollView } from "./sheet";
 import { Text } from "./text";
 import { cn } from "@/lib/cn";
+import { haptic } from "@/lib/haptics";
 import { useThemeColor } from "@/lib/theme-colors";
 
 export type SelectOption = { value: string; label: string };
@@ -57,6 +58,7 @@ export function Select({
               <Pressable
                 key={opt.value}
                 onPress={() => {
+                  haptic("select");
                   onValueChange(opt.value);
                   setOpen(false);
                 }}

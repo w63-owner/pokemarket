@@ -2,6 +2,7 @@ import { Platform, Pressable, ScrollView, Share, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
+import { MotiView } from "moti";
 import { Heart, Share2 } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
 import { formatPrice, formatRelativeDate } from "@pokemarket/shared";
@@ -23,6 +24,7 @@ import { Badge, Skeleton, Text, toast } from "@/components/ui";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useThemeColor } from "@/lib/theme-colors";
 import { haptic } from "@/lib/haptics";
+import { tapScale } from "@/lib/motion";
 import { env } from "@/lib/env";
 
 export default function ListingScreen() {
@@ -111,7 +113,10 @@ export default function ListingScreen() {
                   />
                 </OverlayIconButton>
                 <OverlayIconButton
-                  onPress={handleShare}
+                  onPress={() => {
+                    haptic("tap");
+                    void handleShare();
+                  }}
                   accessibilityLabel="Partager"
                 >
                   <Share2 size={18} color="#fff" />
@@ -228,35 +233,42 @@ function OverlayIconButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
-      {Platform.OS === "ios" ? (
-        <BlurView
-          intensity={30}
-          tint={theme === "dark" ? "dark" : "light"}
-          style={{
-            height: 40,
-            width: 40,
-            borderRadius: 999,
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-            backgroundColor: "rgba(0,0,0,0.30)",
-          }}
+      {({ pressed }) => (
+        <MotiView
+          animate={tapScale.animate(pressed)}
+          transition={tapScale.transition}
         >
-          {children}
-        </BlurView>
-      ) : (
-        <View
-          style={{
-            height: 40,
-            width: 40,
-            borderRadius: 999,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "rgba(0,0,0,0.40)",
-          }}
-        >
-          {children}
-        </View>
+          {Platform.OS === "ios" ? (
+            <BlurView
+              intensity={30}
+              tint={theme === "dark" ? "dark" : "light"}
+              style={{
+                height: 40,
+                width: 40,
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                backgroundColor: "rgba(0,0,0,0.30)",
+              }}
+            >
+              {children}
+            </BlurView>
+          ) : (
+            <View
+              style={{
+                height: 40,
+                width: 40,
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "rgba(0,0,0,0.40)",
+              }}
+            >
+              {children}
+            </View>
+          )}
+        </MotiView>
       )}
     </Pressable>
   );
