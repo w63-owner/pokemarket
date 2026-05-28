@@ -4,6 +4,29 @@ import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
 
 export type ReconcileResult = "PAID" | "PENDING_PAYMENT" | "ALREADY_PROCESSED";
 
+type ReconcileTransaction = {
+  id: string;
+  listing_id: string;
+  status: string | null;
+  total_amount: number | string | null;
+};
+
+const STRIPE_CURRENCY = "eur";
+
+function expectedAmountCents(totalAmount: number | string | null): number {
+  return Math.round(Number(totalAmount ?? 0) * 100);
+}
+
+function metadataMatchesTransaction(
+  metadata: Record<string, string> | null | undefined,
+  transaction: ReconcileTransaction,
+): boolean {
+  return (
+    metadata?.transaction_id === transaction.id &&
+    metadata?.listing_id === transaction.listing_id
+  );
+}
+
 /**
  * Verify a Stripe checkout session and complete the payment flow if the
  * webhook hasn't processed it yet. Safe to call multiple times — the shared
@@ -20,7 +43,7 @@ export async function reconcileCheckoutSession(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, listing_id, status, total_amount")
     .eq("id", transactionId)
     .single();
 
@@ -36,6 +59,15 @@ export async function reconcileCheckoutSession(
     expand: ["payment_intent.latest_charge"],
   });
   if (session.payment_status !== "paid") return "PENDING_PAYMENT";
+  if (!metadataMatchesTransaction(session.metadata, transaction)) {
+    return "PENDING_PAYMENT";
+  }
+  if (
+    session.currency?.toLowerCase() !== STRIPE_CURRENCY ||
+    session.amount_total !== expectedAmountCents(transaction.total_amount)
+  ) {
+    return "PENDING_PAYMENT";
+  }
 
   const paymentIntent =
     typeof session.payment_intent === "object" &&
@@ -84,7 +116,7 @@ export async function reconcilePaymentIntent(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, listing_id, status, total_amount")
     .eq("id", transactionId)
     .single();
 
@@ -99,6 +131,18 @@ export async function reconcilePaymentIntent(
   });
 
   if (intent.status !== "succeeded") return "PENDING_PAYMENT";
+  if (!metadataMatchesTransaction(intent.metadata, transaction)) {
+    return "PENDING_PAYMENT";
+  }
+
+  const expectedAmount = expectedAmountCents(transaction.total_amount);
+  if (
+    intent.currency?.toLowerCase() !== STRIPE_CURRENCY ||
+    intent.amount !== expectedAmount ||
+    intent.amount_received !== expectedAmount
+  ) {
+    return "PENDING_PAYMENT";
+  }
 
   const chargeId =
     typeof intent.latest_charge === "string"
