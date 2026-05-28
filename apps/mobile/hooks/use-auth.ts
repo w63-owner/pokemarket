@@ -4,7 +4,11 @@ import { supabase } from "@/lib/supabase";
 import { registerPushToken, unregisterPushToken } from "@/lib/notifications";
 import { disableBiometry } from "@/lib/biometry";
 import { queryClient } from "@/lib/query/client";
-import { persister } from "@/lib/query/persister";
+import {
+  getPersistedCacheOwner,
+  markPersistedCacheOwner,
+  persister,
+} from "@/lib/query/persister";
 
 type AuthState = {
   session: Session | null;
@@ -55,7 +59,21 @@ export function initAuth() {
   if (initialized) return;
   initialized = true;
 
-  initPromise = supabase.auth.getSession().then(({ data }) => {
+  initPromise = supabase.auth.getSession().then(async ({ data }) => {
+    const sessionUserId = data.session?.user.id ?? null;
+
+    if (sessionUserId) {
+      const cacheOwner = await getPersistedCacheOwner();
+      if (cacheOwner !== sessionUserId) {
+        queryClient.clear();
+        await persister.removeClient();
+      }
+      await markPersistedCacheOwner(sessionUserId);
+    } else {
+      queryClient.clear();
+      await persister.removeClient();
+    }
+
     cached = {
       session: data.session,
       user: data.session?.user ?? null,
@@ -65,6 +83,29 @@ export function initAuth() {
   });
 
   supabase.auth.onAuthStateChange((event, newSession) => {
+    const previousUserId = cached.user?.id ?? null;
+    const nextUserId = newSession?.user.id ?? null;
+
+    if (event === "SIGNED_IN" && nextUserId) {
+      if (previousUserId !== nextUserId) {
+        queryClient.clear();
+        void Promise.resolve(persister.removeClient()).then(() =>
+          markPersistedCacheOwner(nextUserId),
+        );
+      } else {
+        void markPersistedCacheOwner(nextUserId);
+      }
+    }
+
+    // Belt-and-suspenders: if the session vanishes for any reason
+    // (token expired, refresh failed, signOut() bypassed), nuke the
+    // React Query cache AND the persisted snapshot so we never replay
+    // a previous user's data on the next launch.
+    if (event === "SIGNED_OUT") {
+      queryClient.clear();
+      void persister.removeClient();
+    }
+
     cached = {
       session: newSession,
       user: newSession?.user ?? null,
@@ -79,15 +120,6 @@ export function initAuth() {
     // signed-in users and would spam our token endpoint.
     if (event === "SIGNED_IN" && newSession) {
       void registerPushToken();
-    }
-
-    // Belt-and-suspenders: if the session vanishes for any reason
-    // (token expired, refresh failed, signOut() bypassed), nuke the
-    // React Query cache AND the persisted snapshot so we never replay
-    // a previous user's data on the next launch.
-    if (event === "SIGNED_OUT") {
-      queryClient.clear();
-      void persister.removeClient();
     }
   });
 }

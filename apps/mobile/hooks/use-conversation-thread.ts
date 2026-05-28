@@ -331,55 +331,63 @@ export function useConversationThread(conversationId: string) {
     subscriptions: threadSubs,
   });
 
+  const flushPendingReadReceipts = useCallback(async () => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+
+    const ids = Array.from(unreadIdsRef.current);
+    unreadIdsRef.current.clear();
+
+    if (ids.length === 0) return;
+
+    try {
+      await markMessagesAsRead(ids);
+      queryClient.setQueryData<{
+        pages: MessagesPage[];
+        pageParams: unknown[];
+      }>(queryKeys.conversations.messages(conversationId), (old) => {
+        if (!old) return old;
+        const readSet = new Set(ids);
+        const [first, ...rest] = old.pages;
+        return {
+          ...old,
+          pages: [
+            {
+              ...first,
+              messages: first.messages.map((m) =>
+                readSet.has(m.id)
+                  ? { ...m, read_at: new Date().toISOString() }
+                  : m,
+              ),
+            },
+            ...rest,
+          ],
+        };
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.unreadCount(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.list(),
+      });
+    } catch {
+      /* silently fail */
+    }
+  }, [conversationId, queryClient]);
+
   const handleMessageVisible = useCallback(
     (messageId: string) => {
       unreadIdsRef.current.add(messageId);
 
       if (!flushTimerRef.current) {
-        flushTimerRef.current = setTimeout(async () => {
-          const ids = Array.from(unreadIdsRef.current);
-          unreadIdsRef.current.clear();
-          flushTimerRef.current = null;
-
-          if (ids.length > 0) {
-            try {
-              await markMessagesAsRead(ids);
-              queryClient.setQueryData<{
-                pages: MessagesPage[];
-                pageParams: unknown[];
-              }>(queryKeys.conversations.messages(conversationId), (old) => {
-                if (!old) return old;
-                const readSet = new Set(ids);
-                const [first, ...rest] = old.pages;
-                return {
-                  ...old,
-                  pages: [
-                    {
-                      ...first,
-                      messages: first.messages.map((m) =>
-                        readSet.has(m.id)
-                          ? { ...m, read_at: new Date().toISOString() }
-                          : m,
-                      ),
-                    },
-                    ...rest,
-                  ],
-                };
-              });
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.conversations.unreadCount(),
-              });
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.conversations.list(),
-              });
-            } catch {
-              /* silently fail */
-            }
-          }
+        flushTimerRef.current = setTimeout(() => {
+          void flushPendingReadReceipts();
         }, 2000);
       }
     },
-    [conversationId, queryClient],
+    [flushPendingReadReceipts],
   );
 
   useEffect(() => {
@@ -401,9 +409,9 @@ export function useConversationThread(conversationId: string) {
 
   useEffect(() => {
     return () => {
-      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      void flushPendingReadReceipts();
     };
-  }, []);
+  }, [flushPendingReadReceipts]);
 
   const handleSend = useCallback(
     (content: string) => {
