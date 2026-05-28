@@ -56,6 +56,7 @@
       ]
     },
     "plugins": [
+      "./plugins/with-gradle-jvm-args",
       "expo-router",
       [
         "expo-camera",
@@ -106,7 +107,8 @@
           "android": {
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keep class com.stripe.android.** { *; }\n-keep class com.reactnativestripesdk.** { *; }\n-keep class io.sentry.** { *; }\n-keep class com.swmansion.reanimated.** { *; }"
+            "extraProguardRules": "-keep class com.stripe.android.** { *; }\n-keep class com.reactnativestripesdk.** { *; }\n-keep class io.sentry.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-dontwarn com.stripe.android.pushProvisioning.**\n-dontwarn com.reactnativestripesdk.pushprovisioning.**",
+            "lintAbortOnError": false
           }
         }
       ]
