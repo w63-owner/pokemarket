@@ -89,9 +89,9 @@ export function initAuth() {
     if (event === "SIGNED_IN" && nextUserId) {
       if (previousUserId !== nextUserId) {
         queryClient.clear();
-        void persister
-          .removeClient()
-          .then(() => markPersistedCacheOwner(nextUserId));
+        void Promise.resolve(persister.removeClient()).then(() =>
+          markPersistedCacheOwner(nextUserId),
+        );
       } else {
         void markPersistedCacheOwner(nextUserId);
       }
