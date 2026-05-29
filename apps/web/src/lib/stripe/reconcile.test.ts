@@ -4,7 +4,15 @@ import { createMockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
 // Track Stripe SDK behaviour
-let stripeRetrieveImpl: () => any = () => ({ payment_status: "paid" });
+let stripeRetrieveImpl: () => any = () => ({
+  payment_status: "paid",
+  metadata: { transaction_id: IDS.TX },
+});
+let stripePaymentIntentRetrieveImpl: () => any = () => ({
+  id: "pi_test_1",
+  status: "succeeded",
+  metadata: { transaction_id: IDS.TX },
+});
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
@@ -12,6 +20,9 @@ vi.mock("@/lib/stripe/server", () => ({
       sessions: {
         retrieve: vi.fn(async () => stripeRetrieveImpl()),
       },
+    },
+    paymentIntents: {
+      retrieve: vi.fn(async () => stripePaymentIntentRetrieveImpl()),
     },
   }),
 }));
@@ -29,10 +40,18 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => mockClient,
 }));
 
-import { reconcileCheckoutSession } from "./reconcile";
+import { reconcileCheckoutSession, reconcilePaymentIntent } from "./reconcile";
 
 beforeEach(() => {
-  stripeRetrieveImpl = () => ({ payment_status: "paid" });
+  stripeRetrieveImpl = () => ({
+    payment_status: "paid",
+    metadata: { transaction_id: IDS.TX },
+  });
+  stripePaymentIntentRetrieveImpl = () => ({
+    id: "pi_test_1",
+    status: "succeeded",
+    metadata: { transaction_id: IDS.TX },
+  });
 });
 
 describe("reconcileCheckoutSession — QA", () => {
@@ -47,7 +66,10 @@ describe("reconcileCheckoutSession — QA", () => {
   });
 
   it("UNPAID Stripe session → returns PENDING_PAYMENT, does NOT finalize", async () => {
-    stripeRetrieveImpl = () => ({ payment_status: "unpaid" });
+    stripeRetrieveImpl = () => ({
+      payment_status: "unpaid",
+      metadata: { transaction_id: IDS.TX },
+    });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
     const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
@@ -57,6 +79,37 @@ describe("reconcileCheckoutSession — QA", () => {
     );
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "LOCKED",
+    );
+  });
+
+  it("paid Stripe session for a different transaction → does NOT finalize", async () => {
+    stripeRetrieveImpl = () => ({
+      payment_status: "paid",
+      metadata: { transaction_id: "tx-other" },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
+  });
+
+  it("paid Stripe session id that does not match the transaction → does NOT finalize", async () => {
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_wrong");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
     );
   });
 
@@ -124,7 +177,10 @@ describe("reconcileCheckoutSession — CHAOS", () => {
     let attempt = 0;
     stripeRetrieveImpl = () => {
       attempt++;
-      return { payment_status: attempt < 2 ? "unpaid" : "paid" };
+      return {
+        payment_status: attempt < 2 ? "unpaid" : "paid",
+        metadata: { transaction_id: IDS.TX },
+      };
     };
     const db = createMockDb(basicScenario());
     mockClient = db.client;
@@ -133,5 +189,54 @@ describe("reconcileCheckoutSession — CHAOS", () => {
       "PENDING_PAYMENT",
     );
     expect(await reconcileCheckoutSession(IDS.TX, "cs_test_1")).toBe("PAID");
+  });
+});
+
+describe("reconcilePaymentIntent — ownership checks", () => {
+  it("succeeded PaymentIntent for the transaction → finalizes transaction", async () => {
+    const scenario = basicScenario();
+    scenario.transactions![0].stripe_payment_intent_id = "pi_test_1";
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const result = await reconcilePaymentIntent(IDS.TX, "pi_test_1");
+
+    expect(result).toBe("PAID");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
+  it("succeeded PaymentIntent for a different transaction → does NOT finalize", async () => {
+    stripePaymentIntentRetrieveImpl = () => ({
+      id: "pi_test_1",
+      status: "succeeded",
+      metadata: { transaction_id: "tx-other" },
+    });
+    const scenario = basicScenario();
+    scenario.transactions![0].stripe_payment_intent_id = "pi_test_1";
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const result = await reconcilePaymentIntent(IDS.TX, "pi_test_1");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("succeeded PaymentIntent id that does not match the transaction → does NOT finalize", async () => {
+    const scenario = basicScenario();
+    scenario.transactions![0].stripe_payment_intent_id = "pi_test_1";
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const result = await reconcilePaymentIntent(IDS.TX, "pi_wrong");
+
+    expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
   });
 });
