@@ -231,6 +231,55 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
 });
 
 describe("webhooks/stripe — CHAOS", () => {
+  it("handler failure releases idempotency key so Stripe redelivery can finalize", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_transient_failure",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    const originalFrom = db.client.from.bind(db.client);
+    let transactionFetches = 0;
+    db.client.from = (name: string) => {
+      const builder = originalFrom(name);
+      if (name === "transactions") {
+        const originalSelect = builder.select.bind(builder);
+        builder.select = (...args: any[]) => {
+          originalSelect(...args);
+          const originalSingle = builder.single.bind(builder);
+          builder.single = async () => {
+            transactionFetches++;
+            if (transactionFetches === 1) {
+              throw new Error("[chaos] transient transaction fetch failed");
+            }
+            return originalSingle();
+          };
+          return builder;
+        };
+      }
+      return builder;
+    };
+    mockClient = db.client;
+
+    const first = await POST(makeReq());
+    expect(first.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+
+    const retry = await POST(makeReq());
+    expect(retry.status).toBe(200);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(1);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
   it("missing transaction_id metadata → returns 500 (caller will retry)", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_no_meta",
