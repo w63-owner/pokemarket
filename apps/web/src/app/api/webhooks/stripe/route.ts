@@ -158,6 +158,7 @@ export async function POST(request: Request) {
   } catch (err) {
     Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
+    await releaseWebhookIdempotencyKey(admin, event.id);
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 },
@@ -168,6 +169,36 @@ export async function POST(request: Request) {
 }
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function releaseWebhookIdempotencyKey(
+  admin: AdminClient,
+  eventId: string,
+) {
+  try {
+    const { error } = await admin
+      .from("stripe_webhooks_processed")
+      .delete()
+      .eq("stripe_event_id", eventId);
+
+    if (!error) return;
+
+    Sentry.captureException(error, {
+      extra: {
+        context: "release_webhook_idempotency_key",
+        stripe_event_id: eventId,
+      },
+    });
+    console.error("Failed to release Stripe webhook idempotency key:", error);
+  } catch (error) {
+    Sentry.captureException(error, {
+      extra: {
+        context: "release_webhook_idempotency_key",
+        stripe_event_id: eventId,
+      },
+    });
+    console.error("Failed to release Stripe webhook idempotency key:", error);
+  }
+}
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const transactionId = session.metadata?.transaction_id;
