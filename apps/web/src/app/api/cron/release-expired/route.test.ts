@@ -1,16 +1,61 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
+import { basicScenario, IDS } from "@/test-utils/fixtures";
 
 let mockClient: any;
+const piRetrieve = vi.fn<() => Promise<Record<string, any>>>(async () => ({
+  status: "requires_payment_method",
+}));
+const piCancel = vi.fn(async () => ({ id: "pi_test_1", status: "canceled" }));
+const sessionRetrieve = vi.fn(async () => ({
+  id: "cs_test_1",
+  payment_status: "unpaid",
+  status: "expired",
+}));
+const sessionExpire = vi.fn(async () => ({
+  id: "cs_test_1",
+  status: "expired",
+}));
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => mockClient,
 }));
+vi.mock("@/lib/stripe/server", () => ({
+  getStripe: () => ({
+    paymentIntents: { retrieve: piRetrieve, cancel: piCancel },
+    checkout: {
+      sessions: { retrieve: sessionRetrieve, expire: sessionExpire },
+    },
+  }),
+}));
+vi.mock("@/lib/emails/send", () => ({ sendEmail: vi.fn() }));
+vi.mock("@/lib/push/send", () => ({
+  sendPushNotification: vi.fn(async () => undefined),
+}));
+vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
+vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
+vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { GET } from "./route";
 
 beforeEach(() => {
   process.env.CRON_SECRET = "test_secret";
+  piRetrieve.mockReset();
+  piRetrieve.mockResolvedValue({
+    id: "pi_test_1",
+    status: "requires_payment_method",
+  });
+  piCancel.mockReset();
+  piCancel.mockResolvedValue({ id: "pi_test_1", status: "canceled" });
+  sessionRetrieve.mockReset();
+  sessionRetrieve.mockResolvedValue({
+    id: "cs_test_1",
+    payment_status: "unpaid",
+    status: "expired",
+  });
+  sessionExpire.mockReset();
+  sessionExpire.mockResolvedValue({ id: "cs_test_1", status: "expired" });
 });
 
 const HOUR = 60 * 60 * 1000;
@@ -53,6 +98,76 @@ describe("cron/release-expired — QA", () => {
     expect(json.released).toBe(1);
     expect(db.state.transactions[0].status).toBe("EXPIRED");
     expect(db.state.listings[0].status).toBe("ACTIVE");
+  });
+
+  it("paid expired mobile PaymentIntent → finalizes order instead of releasing listing", async () => {
+    const scenario = basicScenario();
+    scenario.transactions![0].expiration_date = new Date(
+      Date.now() - HOUR,
+    ).toISOString();
+    scenario.transactions![0].stripe_checkout_session_id = null;
+    scenario.transactions![0].stripe_payment_intent_id = "pi_paid";
+    piRetrieve.mockResolvedValueOnce({
+      id: "pi_paid",
+      status: "succeeded",
+      latest_charge: "ch_paid",
+    });
+
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+    const res = await GET(authedReq());
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toMatchObject({ released: 0, finalized: 1, skipped: 0 });
+    expect(db.state.transactions[0].status).toBe("PAID");
+    expect(db.state.transactions[0].stripe_charge_id).toBe("ch_paid");
+    expect(db.state.listings[0].status).toBe("SOLD");
+    expect(
+      db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
+    ).toBeCloseTo(100, 2);
+    expect(piCancel).not.toHaveBeenCalled();
+  });
+
+  it("unpaid expired mobile PaymentIntent → cancels then releases listing", async () => {
+    const scenario = basicScenario();
+    scenario.transactions![0].expiration_date = new Date(
+      Date.now() - HOUR,
+    ).toISOString();
+    scenario.transactions![0].stripe_checkout_session_id = null;
+    scenario.transactions![0].stripe_payment_intent_id = "pi_unpaid";
+    piRetrieve.mockResolvedValueOnce({
+      id: "pi_unpaid",
+      status: "requires_payment_method",
+    });
+
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+    const res = await GET(authedReq());
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toMatchObject({ released: 1, finalized: 0, skipped: 0 });
+    expect(piCancel).toHaveBeenCalledWith("pi_unpaid");
+    expect(db.state.transactions[0].status).toBe("EXPIRED");
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+  });
+
+  it("Stripe lookup failure leaves expired mobile PaymentIntent pending", async () => {
+    const scenario = basicScenario();
+    scenario.transactions![0].expiration_date = new Date(
+      Date.now() - HOUR,
+    ).toISOString();
+    scenario.transactions![0].stripe_checkout_session_id = null;
+    scenario.transactions![0].stripe_payment_intent_id = "pi_unknown";
+    piRetrieve.mockRejectedValueOnce(new Error("[chaos] Stripe down"));
+
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+    const res = await GET(authedReq());
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toMatchObject({ released: 0, finalized: 0, skipped: 1 });
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.listings[0].status).toBe("LOCKED");
   });
 
   it("with ACCEPTED offer present → listing reverts to RESERVED, not ACTIVE", async () => {
