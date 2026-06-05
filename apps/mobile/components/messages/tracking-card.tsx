@@ -35,6 +35,9 @@ interface TrackingCardProps {
 }
 
 export function TrackingCard({ message }: TrackingCardProps) {
+  const reduceMotion = useReducedMotionSafe();
+  const colors = useThemeColors();
+
   const metadata = message.metadata as {
     tracking_number?: string;
     tracking_url?: string;
@@ -58,8 +61,6 @@ export function TrackingCard({ message }: TrackingCardProps) {
       })
     : null;
 
-  const reduceMotion = useReducedMotionSafe();
-  const colors = useThemeColors();
   const accent = colors.warning;
 
   return (
