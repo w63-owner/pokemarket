@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import Link from "next/link";
+import { SmartBackButton } from "@/components/ui/smart-back-button";
 
 function AuthForm() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -58,6 +59,13 @@ function AuthForm() {
 
   return (
     <div className="space-y-6">
+      <SmartBackButton
+        returnTo={searchParams.get("next") ?? undefined}
+        fallbackUrl="/"
+        variant="ghost"
+        className="-ml-2"
+      />
+
       <div className="text-center">
         <h1 className="font-heading text-3xl font-bold">
           Poke<span className="text-brand">Market</span>

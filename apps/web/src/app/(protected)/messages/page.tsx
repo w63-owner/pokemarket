@@ -11,6 +11,7 @@ import {
   ConversationList,
   ConversationListSkeleton,
 } from "@/components/messages/conversation-list";
+import { AuthRequired } from "@/components/shared/auth-required";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { Database } from "@/types/database";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
@@ -18,7 +19,7 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function MessagesPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { data: conversations, isLoading, error } = useConversations();
 
@@ -57,7 +58,27 @@ export default function MessagesPage() {
     enabled: !!user,
   });
 
-  if (isLoading || !user) {
+  if (!user) {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
+        <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 pt-6 pb-3 backdrop-blur-md">
+          <h1 className="font-display text-2xl font-bold">Messages</h1>
+        </header>
+        {authLoading ? (
+          <ConversationListSkeleton />
+        ) : (
+          <AuthRequired
+            icon={<MessageCircle className="size-6" />}
+            title="Connectez-vous pour accéder à la messagerie"
+            description="Discutez avec les vendeurs et les acheteurs depuis votre compte."
+            next="/messages"
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (isLoading) {
     return (
       <div className="mx-auto w-full max-w-2xl">
         <header className="border-border bg-background/80 sticky top-0 z-10 border-b px-4 pt-6 pb-3 backdrop-blur-md">

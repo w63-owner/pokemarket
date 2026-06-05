@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema } from "@pokemarket/shared";
 import type { z } from "zod";
 import { Fingerprint } from "lucide-react-native";
-import { Button, Input, Label, Text } from "@/components/ui";
+import { Button, Input, Label, SmartBackButton, Text } from "@/components/ui";
 import { toast } from "@/components/ui/toast";
 import { supabase } from "@/lib/supabase";
 import {
@@ -87,6 +87,10 @@ export default function LoginScreen() {
           contentContainerStyle={{ flexGrow: 1, padding: 24 }}
           keyboardShouldPersistTaps="handled"
         >
+          <View className="mb-4">
+            <SmartBackButton fallbackHref="/(tabs)/inbox" />
+          </View>
+
           <View className="flex-1 justify-center gap-6">
             <View className="gap-2">
               <Text variant="h1">Bon retour</Text>

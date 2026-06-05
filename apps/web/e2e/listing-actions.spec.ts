@@ -38,11 +38,12 @@ test.describe("Buyer flow guards (protected → /auth redirect)", () => {
     expect(response?.status()).toBeLessThan(500);
   });
 
-  test("anonymous user redirected to /auth when visiting /messages", async ({
-    page,
-  }) => {
+  test("anonymous user sees sign-in prompt on /messages", async ({ page }) => {
     await page.goto("/messages");
-    await expect(page).toHaveURL(/\/auth/);
+    await expect(page).toHaveURL(/\/messages/);
+    await expect(
+      page.getByRole("button", { name: "Se connecter" }),
+    ).toBeVisible();
   });
 
   test("anonymous user redirected to /auth when visiting /wallet", async ({

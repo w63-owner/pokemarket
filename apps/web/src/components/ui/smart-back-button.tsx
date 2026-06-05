@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 
 interface SmartBackButtonProps {
   fallbackUrl?: string;
+  /** When set, always navigate here (e.g. auth `?next=` — avoids redirect loops). */
+  returnTo?: string;
   label?: string;
   variant?: "ghost" | "secondary" | "overlay";
   className?: string;
@@ -15,6 +17,7 @@ interface SmartBackButtonProps {
 
 export function SmartBackButton({
   fallbackUrl = "/",
+  returnTo,
   label,
   variant = "ghost",
   className,
@@ -23,6 +26,10 @@ export function SmartBackButton({
   const { hasHistory } = useNavigationHistory();
 
   function handleBack() {
+    if (returnTo) {
+      router.push(returnTo);
+      return;
+    }
     if (hasHistory) {
       router.back();
     } else {
