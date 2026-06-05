@@ -39,6 +39,16 @@ export function usePresence(currentUserId: string | undefined) {
 
     const subscribe = () => {
       if (channel) return;
+
+      // Strict Mode (dev) runs cleanup → re-mount synchronously.
+      // `supabase.removeChannel()` is async/fire-and-forget so the old
+      // channel may still be in the client's registry (state: "joined")
+      // when this second subscribe() fires. Removing it first prevents
+      // the "cannot add presence callbacks after subscribe()" throw.
+      const topic = `realtime:${channels.presence()}`;
+      const stale = supabase.getChannels().find((c) => c.topic === topic);
+      if (stale) supabase.removeChannel(stale).catch(() => {});
+
       channel = supabase.channel(channels.presence(), {
         config: { presence: { key: currentUserId } },
       });

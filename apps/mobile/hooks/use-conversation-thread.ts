@@ -53,16 +53,73 @@ const TX_TYPES = new Set([
   "sale_completed",
 ]);
 
+// Consecutive bubbles from the same sender within this window are visually
+// grouped (tight spacing, single tail) — the WhatsApp "burst" behaviour.
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Lightweight snapshot of a quoted message, persisted inside the new
+ * message's `metadata.reply_to`. We store a denormalised copy (content +
+ * sender) so the quoted preview renders instantly without an extra join,
+ * even if the original message is paginated out of memory.
+ */
+export interface ReplySnapshot {
+  id: string;
+  content: string;
+  sender_id: string;
+  message_type: string;
+}
+
+export function getReplySnapshot(message: Message): ReplySnapshot | null {
+  const meta = message.metadata as Record<string, unknown> | null;
+  const reply = meta?.reply_to as ReplySnapshot | undefined;
+  if (reply && typeof reply.id === "string") return reply;
+  return null;
+}
+
 export type ConversationRow =
-  | { kind: "message"; message: Message; isOwn: boolean; isPending: boolean }
+  | {
+      kind: "message";
+      message: Message;
+      isOwn: boolean;
+      isPending: boolean;
+      isFailed: boolean;
+      isGroupStart: boolean;
+      isLastInGroup: boolean;
+    }
   | { kind: "system"; message: Message }
   | { kind: "date"; date: string; id: string };
+
+/**
+ * Whether two adjacent normal messages belong to the same visual group:
+ * same sender, same day, neither is a system event, and sent close in time.
+ */
+function messagesGroup(a?: Message, b?: Message): boolean {
+  if (!a || !b) return false;
+  if (a.sender_id !== b.sender_id) return false;
+  if (
+    SYSTEM_TYPES.has(a.message_type ?? "") ||
+    SYSTEM_TYPES.has(b.message_type ?? "")
+  ) {
+    return false;
+  }
+  if (!a.created_at || !b.created_at) return true;
+  if (!isSameDay(a.created_at, b.created_at)) return false;
+  return (
+    Math.abs(
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    ) <= GROUP_WINDOW_MS
+  );
+}
 
 export function useConversationThread(conversationId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+  // Temp IDs of optimistic messages whose send failed. They stay rendered
+  // (so the user can tap to retry) but lose the "sending" clock.
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
 
   const unreadIdsRef = useRef<Set<string>>(new Set());
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,11 +168,13 @@ export function useConversationThread(conversationId: string) {
     mutationFn: ({
       content,
       clientId,
+      replyTo,
     }: {
       content: string;
       clientId: string;
-    }) => sendMessage(conversationId, content, clientId),
-    onMutate: ({ content, clientId }) => {
+      replyTo?: ReplySnapshot | null;
+    }) => sendMessage(conversationId, content, clientId, replyTo),
+    onMutate: ({ content, clientId, replyTo }) => {
       const tempId = `temp-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}`;
@@ -126,10 +185,20 @@ export function useConversationThread(conversationId: string) {
         content,
         message_type: "text",
         offer_id: null,
-        metadata: { client_id: clientId },
+        metadata: {
+          client_id: clientId,
+          ...(replyTo ? { reply_to: replyTo } : {}),
+        } as unknown as Message["metadata"],
         read_at: null,
         created_at: new Date().toISOString(),
       };
+      // A retry re-uses the same content; clear any stale failed flag.
+      setFailedIds((prev) => {
+        if (prev.size === 0) return prev;
+        const next = new Set(prev);
+        next.delete(tempId);
+        return next;
+      });
       setPendingMessages((prev) => [tempMsg, ...prev]);
       return { tempId };
     },
@@ -158,7 +227,11 @@ export function useConversationThread(conversationId: string) {
     },
     onError: (_err, _vars, ctx) => {
       haptic("error");
-      setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
+      // Keep the optimistic bubble on screen and flag it as failed so the
+      // user can tap to retry, instead of silently dropping the message.
+      if (ctx?.tempId) {
+        setFailedIds((prev) => new Set(prev).add(ctx.tempId));
+      }
       toast.error("Échec de l'envoi du message");
     },
   });
@@ -406,9 +479,26 @@ export function useConversationThread(conversationId: string) {
   }, []);
 
   const handleSend = useCallback(
-    (content: string) => {
+    (content: string, replyTo?: ReplySnapshot | null) => {
       const clientId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      sendMutation.mutate({ content, clientId });
+      sendMutation.mutate({ content, clientId, replyTo });
+    },
+    [sendMutation],
+  );
+
+  const handleRetry = useCallback(
+    (message: Message) => {
+      if (!message.content) return;
+      const replyTo = getReplySnapshot(message);
+      // Drop the failed optimistic bubble; the fresh attempt re-inserts one.
+      setPendingMessages((prev) => prev.filter((m) => m.id !== message.id));
+      setFailedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(message.id);
+        return next;
+      });
+      const clientId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      sendMutation.mutate({ content: message.content, clientId, replyTo });
     },
     [sendMutation],
   );
@@ -417,24 +507,34 @@ export function useConversationThread(conversationId: string) {
     const pendingIds = new Set(pendingMessages.map((m) => m.id));
     const out: ConversationRow[] = [];
 
+    // `allMessages` is newest-first (the thread renders inverted), so the
+    // *older* neighbour sits at i+1 and the *newer* one at i-1.
     allMessages.forEach((msg, i) => {
-      const next = allMessages[i + 1];
+      const older = allMessages[i + 1];
+      const newer = allMessages[i - 1];
       const isLast = i === allMessages.length - 1;
       const showDate =
         isLast ||
-        (next &&
+        (older &&
           msg.created_at &&
-          next.created_at &&
-          !isSameDay(msg.created_at, next.created_at));
+          older.created_at &&
+          !isSameDay(msg.created_at, older.created_at));
 
       if (SYSTEM_TYPES.has(msg.message_type ?? "")) {
         out.push({ kind: "system", message: msg });
       } else {
+        const olderContinues = messagesGroup(msg, older);
+        const newerContinues = messagesGroup(msg, newer);
         out.push({
           kind: "message",
           message: msg,
           isOwn: msg.sender_id === user?.id,
-          isPending: pendingIds.has(msg.id),
+          isPending: pendingIds.has(msg.id) && !failedIds.has(msg.id),
+          isFailed: failedIds.has(msg.id),
+          // Visually top of the group → gets the extra spacing above.
+          isGroupStart: !olderContinues,
+          // Visually bottom of the group → keeps the tail + timestamp.
+          isLastInGroup: !newerContinues,
         });
       }
 
@@ -448,7 +548,7 @@ export function useConversationThread(conversationId: string) {
     });
 
     return out;
-  }, [allMessages, pendingMessages, user?.id]);
+  }, [allMessages, pendingMessages, failedIds, user?.id]);
 
   return {
     user,
@@ -461,6 +561,7 @@ export function useConversationThread(conversationId: string) {
     messagesQuery,
     handleSend,
     handleSendImage,
+    handleRetry,
     handleMessageVisible,
     isSending: sendMutation.isPending,
   };

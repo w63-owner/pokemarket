@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { sendPushNotification } from "@/lib/push/send";
 import type { Message } from "@/types";
+import type { Json } from "@pokemarket/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Optional quoted-message snapshot. We persist a denormalised copy in
+    // `metadata.reply_to` so clients can render the quote without a join.
+    const replyTo = (() => {
+      const raw = body.reply_to as Record<string, unknown> | undefined;
+      if (!raw || typeof raw.id !== "string") return null;
+      return {
+        id: raw.id,
+        content: typeof raw.content === "string" ? raw.content : "",
+        sender_id: typeof raw.sender_id === "string" ? raw.sender_id : "",
+        message_type:
+          typeof raw.message_type === "string" ? raw.message_type : "text",
+      };
+    })();
+
     const admin = createAdminClient();
 
     const { data: conversation, error: convError } = await admin
@@ -57,6 +72,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const metadata: Record<string, Json> = {};
+    if (body.client_id && typeof body.client_id === "string") {
+      metadata.client_id = body.client_id;
+    }
+    if (replyTo) {
+      metadata.reply_to = replyTo;
+    }
+
     const { data: message, error: msgError } = await admin
       .from("messages")
       .insert({
@@ -64,9 +87,7 @@ export async function POST(request: Request) {
         sender_id: user.id,
         content: parsed.data.content,
         message_type: "text",
-        ...(body.client_id && typeof body.client_id === "string"
-          ? { metadata: { client_id: body.client_id } }
-          : {}),
+        ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
       })
       .select()
       .single();

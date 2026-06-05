@@ -208,10 +208,18 @@ export async function markMessagesAsRead(messageIds: string[]): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export interface ReplyToPayload {
+  id: string;
+  content: string;
+  sender_id: string;
+  message_type: string;
+}
+
 export async function sendMessage(
   conversationId: string,
   content: string,
   clientId?: string,
+  replyTo?: ReplyToPayload | null,
 ): Promise<Message> {
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Message vide");
@@ -223,6 +231,16 @@ export async function sendMessage(
     conversation_id: conversationId,
     content: trimmed,
     ...(clientId ? { client_id: clientId } : {}),
+    ...(replyTo
+      ? {
+          reply_to: {
+            id: replyTo.id,
+            content: replyTo.content,
+            sender_id: replyTo.sender_id,
+            message_type: replyTo.message_type,
+          },
+        }
+      : {}),
   });
   return result.message;
 }

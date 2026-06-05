@@ -69,7 +69,8 @@ export function FeedGrid({
 
   // Stable callback — avoids re-creating `renderItem` on every render.
   const handleToggleFavorite = useCallback(
-    (id: string) => toggleFavorite.mutate(id),
+    (id: string, isFavorite: boolean) =>
+      toggleFavorite.mutate({ listingId: id, isFavorite }),
     [toggleFavorite],
   );
 

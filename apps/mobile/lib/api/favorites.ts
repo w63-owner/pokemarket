@@ -69,21 +69,32 @@ export async function fetchFavoriteSellers(): Promise<FavoriteSellerRow[]> {
 }
 
 /**
- * Toggle a favorite atomically server-side. Calls the
- * `toggle_favorite_listing` Postgres function which performs the
- * SELECT + INSERT/DELETE in a single round-trip and returns the new
- * favorited state. Replaces the previous 3-RTT pattern (auth.getUser
- * → SELECT existing → DELETE-or-INSERT).
+ * Toggle a favorite. Uses explicit DELETE/INSERT instead of the RPC
+ * toggle because auth.uid() in the RPC can desync from the JS session.
+ *
+ * @param listingId - The listing to toggle
+ * @param isFavorite - Current state: true = remove, false = add
+ * @returns New favorite state after toggle
  */
 export async function toggleFavoriteListing(
   listingId: string,
+  isFavorite: boolean,
 ): Promise<boolean> {
-  await requireUserId();
+  const userId = await requireUserId();
 
-  const { data, error } = await supabase.rpc("toggle_favorite_listing", {
-    p_listing_id: listingId,
-  });
-
-  if (error) throw new Error(error.message);
-  return data === true;
+  if (isFavorite) {
+    const { error } = await supabase
+      .from("favorite_listings")
+      .delete()
+      .eq("user_id", userId)
+      .eq("listing_id", listingId);
+    if (error) throw new Error(error.message);
+    return false;
+  } else {
+    const { error } = await supabase
+      .from("favorite_listings")
+      .insert({ user_id: userId, listing_id: listingId });
+    if (error) throw new Error(error.message);
+    return true;
+  }
 }

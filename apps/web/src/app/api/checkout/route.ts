@@ -17,41 +17,7 @@ import type {
 
 export async function POST(request: Request) {
   try {
-    // #region agent log
-    const authHeader = request.headers.get("authorization");
-    const dbgServer = {
-      sessionId: "35fba9",
-      location: "checkout/route.ts:POST",
-      message: "incoming request auth state",
-      data: {
-        hasAuthHeader: !!authHeader,
-        authHeaderPrefix: authHeader ? authHeader.slice(0, 20) + "..." : null,
-        authHeaderLength: authHeader?.length ?? 0,
-        clientParam: new URL(request.url).searchParams.get("client"),
-      },
-      timestamp: Date.now(),
-      hypothesisId: "H-B,H-D,H-E",
-    };
-    console.log(
-      "[DEBUG-35fba9] checkout/route:",
-      JSON.stringify(dbgServer.data),
-    );
-    // #endregion
-    const { user, source } = await getRequestUser(request);
-    // #region agent log
-    const dbgUser = {
-      sessionId: "35fba9",
-      location: "checkout/route.ts:getRequestUser",
-      message: "auth result",
-      data: { userFound: !!user, userId: user?.id ?? null, source },
-      timestamp: Date.now(),
-      hypothesisId: "H-B,H-E",
-    };
-    console.log(
-      "[DEBUG-35fba9] checkout/route getRequestUser:",
-      JSON.stringify(dbgUser.data),
-    );
-    // #endregion
+    const { user } = await getRequestUser(request);
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

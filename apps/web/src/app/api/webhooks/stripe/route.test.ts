@@ -285,3 +285,200 @@ describe("webhooks/stripe — CHAOS", () => {
     expect([0, 100]).toContain(Math.round(credit));
   });
 });
+
+// ── Fix A: la réclamation d'idempotence est annulée (DELETE) quand le handler
+//    échoue, pour que la redelivery Stripe du MÊME event.id soit RETRAITÉE au
+//    lieu d'être avalée comme un duplicate. ──────────────────────────────────
+describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", () => {
+  it("handler échoue → 500 ET ligne d'idempotence ABSENTE, puis redelivery réussit (PAID, 1 seule ligne)", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_redeliv_A",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+
+    // 1er POST : la transaction n'est pas encore visible (réplication / lag) →
+    // finalize renvoie NOT_FOUND → handler throw → catch → 500.
+    const scenario = basicScenario();
+    scenario.transactions = [];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res1 = await POST(makeReq());
+    expect(res1.status).toBe(500);
+    // La réclamation d'idempotence a été annulée (rollback du DELETE en finally).
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (e) => e.stripe_event_id === "evt_redeliv_A",
+      ),
+    ).toHaveLength(0);
+
+    // 2e POST : la "redelivery" Stripe du même event.id, cette fois la
+    // transaction existe → traitement complet.
+    db.state.transactions.push({ ...basicScenario().transactions![0] });
+
+    const res2 = await POST(makeReq());
+    expect(res2.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+    // Exactement une ligne d'idempotence pour cet event.id.
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (e) => e.stripe_event_id === "evt_redeliv_A",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("happy path → ligne d'idempotence CONSERVÉE, une vraie redelivery reste un no-op duplicate (pas de double-crédit)", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_happy_A",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res1 = await POST(makeReq());
+    expect(res1.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (e) => e.stripe_event_id === "evt_happy_A",
+      ),
+    ).toHaveLength(1);
+    const creditAfterFirst = db.state.wallets.find(
+      (w) => w.user_id === IDS.SELLER,
+    )?.pending_balance;
+    expect(creditAfterFirst).toBeCloseTo(100, 2);
+
+    // Redelivery du même event après succès → duplicate, no-op.
+    const res2 = await POST(makeReq());
+    expect(res2.status).toBe(200);
+    const json2 = await res2.json();
+    expect(json2.duplicate).toBe(true);
+    // Toujours une seule ligne d'idempotence et pas de double-crédit wallet.
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (e) => e.stripe_event_id === "evt_happy_A",
+      ),
+    ).toHaveLength(1);
+    expect(
+      db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
+    ).toBeCloseTo(100, 2);
+  });
+});
+
+// ── Fix B: payment_intent.payment_failed n'est PAS terminal sauf si le
+//    PaymentIntent est `canceled`. Un décline simple laisse la transaction
+//    PENDING_PAYMENT et l'annonce LOCKED pour que l'acheteur retente. ─────────
+describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal", () => {
+  it("échec non-canceled (requires_payment_method) → 200, tx reste PENDING_PAYMENT, listing reste LOCKED; un succès ultérieur passe PAID", async () => {
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    // 1) Décline simple : retryable.
+    stripeConstructEventImpl = () => ({
+      id: "evt_pi_fail_retry",
+      type: "payment_intent.payment_failed",
+      data: {
+        object: {
+          id: "pi_retry_1",
+          status: "requires_payment_method",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const resFail = await POST(makeReq());
+    expect(resFail.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
+
+    // 2) L'acheteur retente avec succès dans la même PaymentSheet.
+    stripeConstructEventImpl = () => ({
+      id: "evt_pi_success_after_retry",
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_retry_1",
+          latest_charge: "ch_retry_1",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const resOk = await POST(makeReq());
+    expect(resOk.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
+  it("status canceled → tx CANCELLED + listing libéré ACTIVE (aucune offre acceptée)", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_pi_canceled",
+      type: "payment_intent.payment_failed",
+      data: {
+        object: {
+          id: "pi_canceled_1",
+          status: "canceled",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "CANCELLED",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "ACTIVE",
+    );
+  });
+
+  it("status canceled AVEC offre acceptée → listing revient à RESERVED, pas ACTIVE", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_pi_canceled_reserved",
+      type: "payment_intent.payment_failed",
+      data: {
+        object: {
+          id: "pi_canceled_2",
+          status: "canceled",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.offers!.push({
+      id: "offer-accepted-B",
+      listing_id: IDS.LISTING,
+      buyer_id: IDS.BUYER,
+      status: "ACCEPTED",
+      amount: 100,
+    });
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+    await POST(makeReq());
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "CANCELLED",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "RESERVED",
+    );
+  });
+});

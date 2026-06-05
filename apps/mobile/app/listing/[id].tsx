@@ -105,7 +105,7 @@ export default function ListingScreen() {
                       router.push("/(auth)/login");
                       return;
                     }
-                    toggleFavorite.mutate(id);
+                    toggleFavorite.mutate({ listingId: id, isFavorite });
                   }}
                   accessibilityLabel="Ajouter aux favoris"
                 >

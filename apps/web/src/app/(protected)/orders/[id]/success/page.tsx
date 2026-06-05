@@ -33,7 +33,7 @@ export default async function OrderSuccessPage({
   const { data: transaction } = await supabase
     .from("transactions")
     .select(
-      "id, listing_title, total_amount, status, stripe_checkout_session_id",
+      "id, listing_id, listing_title, total_amount, status, stripe_checkout_session_id",
     )
     .eq("id", id)
     .eq("buyer_id", user.id)
@@ -60,6 +60,20 @@ export default async function OrderSuccessPage({
     }
   }
 
+  // The conversation is created (or reused) by `finalizePaidTransaction`, so
+  // by the time we render a PAID order the thread exists. We look it up to
+  // offer a direct "go to the conversation" CTA — the next step for the buyer.
+  let conversationId: string | null = null;
+  if (transaction.listing_id) {
+    const { data: conversation } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("listing_id", transaction.listing_id)
+      .eq("buyer_id", user.id)
+      .maybeSingle();
+    conversationId = conversation?.id ?? null;
+  }
+
   return (
     <SuccessClient
       transaction={{
@@ -68,6 +82,7 @@ export default async function OrderSuccessPage({
         total_amount: transaction.total_amount,
         status: resolvedStatus,
       }}
+      conversationId={conversationId}
     />
   );
 }

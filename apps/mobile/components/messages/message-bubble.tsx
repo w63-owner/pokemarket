@@ -1,23 +1,39 @@
 import { memo, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MotiView } from "moti";
 import Animated, { LinearTransition } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CheckCheck, Clock, ImageOff } from "lucide-react-native";
+import {
+  AlertCircle,
+  Check,
+  CheckCheck,
+  Clock,
+  ImageOff,
+} from "lucide-react-native";
 import type { Message } from "@pokemarket/shared";
 import { formatTime, queryKeys } from "@pokemarket/shared";
 import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
 import { getMessageAttachmentSignedUrl } from "@/lib/api/conversations";
+import { getReplySnapshot } from "@/hooks/use-conversation-thread";
 import { useThemeColors } from "@/lib/theme-colors";
+import { QuotedMessage } from "./quoted-message";
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   isPending?: boolean;
+  isFailed?: boolean;
+  /** Bottom-most bubble of a same-sender group → keeps the tail + timestamp. */
+  isLastInGroup?: boolean;
+  currentUserId: string;
+  otherUsername: string;
   onVisible?: (messageId: string) => void;
+  onRetry?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
+  onImagePress?: (storagePath: string) => void;
 }
 
 /**
@@ -82,7 +98,14 @@ function MessageBubbleComponent({
   message,
   isOwn,
   isPending,
+  isFailed,
+  isLastInGroup = true,
+  currentUserId,
+  otherUsername,
   onVisible,
+  onRetry,
+  onLongPress,
+  onImagePress,
 }: MessageBubbleProps) {
   // Equivalent of useInView in RN: we treat any message we render as
   // "visible" once mounted. The thread is an inverted FlashList, so only
@@ -93,6 +116,27 @@ function MessageBubbleComponent({
 
   const reduceMotion = useReducedMotionSafe();
   const isImage = message.message_type === "image";
+  const reply = getReplySnapshot(message);
+
+  // The tail (reduced corner) only appears on the last bubble of a group;
+  // mid-group bubbles stay fully rounded so a burst reads as one unit.
+  const tail = isOwn
+    ? isLastInGroup
+      ? "rounded-br-md"
+      : ""
+    : isLastInGroup
+      ? "rounded-bl-md"
+      : "";
+
+  const handlePress = () => {
+    if (isFailed) {
+      onRetry?.(message);
+    } else if (isImage && message.content) {
+      onImagePress?.(message.content);
+    }
+  };
+
+  const isInteractive = isFailed || (isImage && !!message.content);
 
   return (
     // Reanimated layout transition lets bubbles re-flow smoothly when a
@@ -108,6 +152,13 @@ function MessageBubbleComponent({
       }}
     >
       <MotiView
+        // The max-width constraint lives here (not on the inner bubble):
+        // this MotiView is the direct flex child of the row above, whose
+        // width is an explicit 100%, so the percentage resolves correctly.
+        // Putting it on the inner View (whose parent — this MotiView — is
+        // auto-width) leaves Yoga with an indeterminate constraint and
+        // collapses the bubble, wrapping text mid-word ("Bonjo / ur").
+        style={{ maxWidth: "80%" }}
         from={
           reduceMotion
             ? { opacity: isPending ? 0.6 : 1, translateY: 0 }
@@ -116,17 +167,31 @@ function MessageBubbleComponent({
         animate={{ opacity: isPending ? 0.6 : 1, translateY: 0 }}
         transition={spring.stiff}
       >
-        <View
+        <Pressable
+          onPress={isInteractive ? handlePress : undefined}
+          onLongPress={onLongPress ? () => onLongPress(message) : undefined}
+          delayLongPress={250}
           className={cn(
-            "max-w-[88%] rounded-2xl",
+            "rounded-2xl",
             isImage ? "p-1.5" : "px-3.5 py-2",
-            isOwn ? "rounded-br-md bg-primary" : "rounded-bl-md bg-muted",
+            isOwn ? "bg-primary" : "bg-muted",
+            tail,
           )}
         >
+          {reply ? (
+            <QuotedMessage
+              reply={reply}
+              currentUserId={currentUserId}
+              otherUsername={otherUsername}
+              onPrimary={isOwn}
+            />
+          ) : null}
+
           {isImage && message.content ? (
             <ImageMessageContent storagePath={message.content} isOwn={isOwn} />
           ) : (
             <Text
+              selectable
               className={cn(
                 "text-sm leading-snug",
                 isOwn ? "text-primary-foreground" : "text-foreground",
@@ -153,16 +218,24 @@ function MessageBubbleComponent({
               {formatTime(message.created_at ?? new Date().toISOString())}
             </Text>
             {isOwn ? (
-              isPending ? (
+              isFailed ? (
+                <AlertCircle size={12} color="rgba(255,255,255,0.95)" />
+              ) : isPending ? (
                 <Clock size={12} color="rgba(255,255,255,0.7)" />
               ) : message.read_at ? (
-                <CheckCheck size={12} color="rgba(255,255,255,0.9)" />
+                <CheckCheck size={12} color="rgba(255,255,255,0.95)" />
               ) : (
                 <Check size={12} color="rgba(255,255,255,0.7)" />
               )
             ) : null}
           </View>
-        </View>
+
+          {isFailed ? (
+            <Text className="mt-0.5 text-right text-[10px] text-primary-foreground/90">
+              Échec · appuyez pour réessayer
+            </Text>
+          ) : null}
+        </Pressable>
       </MotiView>
     </Animated.View>
   );

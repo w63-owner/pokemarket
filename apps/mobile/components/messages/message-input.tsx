@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import { ImagePlus, Send } from "lucide-react-native";
+import { ImagePlus, Send, X } from "lucide-react-native";
 import { MotiView } from "moti";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardState } from "react-native-keyboard-controller";
@@ -11,7 +11,9 @@ import { cn } from "@/lib/cn";
 import { haptic } from "@/lib/haptics";
 import { spring } from "@/lib/motion";
 import { toast } from "@/components/ui";
+import type { ReplySnapshot } from "@/hooks/use-conversation-thread";
 import { useThemeColors } from "@/lib/theme-colors";
+import { QuotedMessage } from "./quoted-message";
 
 const COMPRESSED_MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.85;
@@ -23,6 +25,11 @@ interface MessageInputProps {
     contentType: "image/jpeg";
   }) => Promise<void> | void;
   disabled?: boolean;
+  /** Active reply target — renders a quoted preview above the field. */
+  replyingTo?: ReplySnapshot | null;
+  onCancelReply?: () => void;
+  currentUserId: string;
+  otherUsername: string;
 }
 
 async function compressFromUri(uri: string): Promise<{ uri: string }> {
@@ -41,11 +48,21 @@ export function MessageInput({
   onSend,
   onSendImage,
   disabled,
+  replyingTo,
+  onCancelReply,
+  currentUserId,
+  otherUsername,
 }: MessageInputProps) {
   const [value, setValue] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
+
+  // Focus the field as soon as a reply target is selected from the menu.
+  useEffect(() => {
+    if (replyingTo) inputRef.current?.focus();
+  }, [replyingTo]);
   // When the keyboard is open the system nav bar / home indicator sits
   // behind it, so we collapse the safe-area padding to keep the input
   // flush with the keyboard (otherwise the parent `KeyboardAvoidingView`
@@ -110,6 +127,26 @@ export function MessageInput({
       className="border-t border-border bg-background"
       style={{ paddingBottom: bottomPadding }}
     >
+      {replyingTo ? (
+        <View className="flex-row items-center gap-2 px-3 pt-2">
+          <View className="min-w-0 flex-1">
+            <QuotedMessage
+              reply={replyingTo}
+              currentUserId={currentUserId}
+              otherUsername={otherUsername}
+            />
+          </View>
+          <Pressable
+            onPress={onCancelReply}
+            hitSlop={8}
+            accessibilityLabel="Annuler la réponse"
+            className="size-7 items-center justify-center rounded-full bg-muted"
+          >
+            <X size={15} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+      ) : null}
+
       <View className="flex-row items-end gap-2 px-3 py-2">
         <Pressable
           onPress={handlePickImage}
@@ -129,6 +166,7 @@ export function MessageInput({
         </Pressable>
 
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={setValue}
           placeholder="Votre message..."

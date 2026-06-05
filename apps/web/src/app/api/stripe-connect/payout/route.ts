@@ -83,15 +83,19 @@ export async function POST(request: Request) {
     const amountInCents = Math.round(availableBalance * 100);
     const currency = wallet.currency ?? "eur";
 
-    // Idempotency key: scoped to user + amount + day.
-    // Within 24 h, any network-level retry of the same payout hits the same
-    // Stripe idempotency window and returns the existing transfer instead of
-    // creating a duplicate. A new day produces a new key, which is fine because
-    // the optimistic-lock update below guarantees the balance was genuinely
-    // re-credited before a second payout can succeed.
-    const today = new Date().toISOString().slice(0, 10);
-    const transferIdempotencyKey = `payout-transfer-${user.id}-${amountInCents}-${today}`;
-    const payoutIdempotencyKey = `payout-explicit-${user.id}-${amountInCents}-${today}`;
+    // Idempotency keys MUST be unique per payout attempt — NOT scoped to
+    // amount+day. A seller legitimately withdrawing the same amount twice in
+    // one day (e.g. two sales of identical-priced cards) would otherwise hit
+    // the same Stripe idempotency window: the second `transfers.create` would
+    // return the FIRST transfer (no money moved) while the wallet was zeroed a
+    // second time — silently losing the seller's funds.
+    //
+    // True network-level double-submits are already blocked by the optimistic
+    // lock below (a retry finds available_balance = 0 and 409s before reaching
+    // Stripe), so a fresh per-attempt token is the correct dedup scope.
+    const payoutToken = crypto.randomUUID();
+    const transferIdempotencyKey = `payout-transfer-${user.id}-${payoutToken}`;
+    const payoutIdempotencyKey = `payout-explicit-${user.id}-${payoutToken}`;
 
     // Atomically deduct the wallet BEFORE calling Stripe.
     // The extra .eq("available_balance", availableBalance) acts as an optimistic

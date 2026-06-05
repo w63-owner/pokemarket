@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@pokemarket/shared";
+import type { FeedItem } from "@pokemarket/shared";
 import {
   fetchFavoriteListingIds,
   fetchFavoriteListings,
@@ -11,10 +12,6 @@ export function useFavoriteListingIds() {
   return useQuery({
     queryKey: queryKeys.favorites.listingIds(),
     queryFn: fetchFavoriteListingIds,
-    // IDs are tiny (string[]) and only change on explicit toggle, which
-    // already runs an optimistic update + onSettled invalidate — a long
-    // staleTime here lets the feed skip a network round-trip every time
-    // it remounts.
     staleTime: 5 * 60_000,
   });
 }
@@ -30,30 +27,67 @@ export function useFavoriteListings() {
 export function useToggleFavorite() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (listingId: string) => toggleFavoriteListing(listingId),
-    onMutate: async (listingId) => {
+    mutationFn: ({
+      listingId,
+      isFavorite,
+    }: {
+      listingId: string;
+      isFavorite: boolean;
+    }) => toggleFavoriteListing(listingId, isFavorite),
+    onMutate: async ({ listingId, isFavorite }) => {
       await qc.cancelQueries({ queryKey: queryKeys.favorites.listingIds() });
+      await qc.cancelQueries({ queryKey: queryKeys.favorites.listings() });
+
       const previous = qc.getQueryData<string[]>(
         queryKeys.favorites.listingIds(),
       );
-      qc.setQueryData<string[]>(queryKeys.favorites.listingIds(), (old = []) =>
-        old.includes(listingId)
-          ? old.filter((id) => id !== listingId)
-          : [...old, listingId],
+      const previousListings = qc.getQueryData<FeedItem[]>(
+        queryKeys.favorites.listings(),
       );
-      // Fire haptic on the optimistic flip so it feels instant — even if the
-      // backend rejects we've already given the tap feedback.
+
+      qc.setQueryData<string[]>(queryKeys.favorites.listingIds(), (old = []) =>
+        isFavorite ? old.filter((id) => id !== listingId) : [...old, listingId],
+      );
+
+      if (isFavorite) {
+        qc.setQueryData<FeedItem[]>(
+          queryKeys.favorites.listings(),
+          (old = []) => old.filter((item) => item.id !== listingId),
+        );
+      }
+
       haptic("tap");
-      return { previous };
+      return { previous, previousListings };
     },
-    onError: (_err, _listingId, ctx) => {
+    onSuccess: (serverResult, { listingId }) => {
+      const currentIds =
+        qc.getQueryData<string[]>(queryKeys.favorites.listingIds()) ?? [];
+      const isInCache = currentIds.includes(listingId);
+
+      if (serverResult && !isInCache) {
+        qc.setQueryData<string[]>(queryKeys.favorites.listingIds(), [
+          ...currentIds,
+          listingId,
+        ]);
+        qc.invalidateQueries({ queryKey: queryKeys.favorites.listings() });
+      } else if (!serverResult && isInCache) {
+        qc.setQueryData<string[]>(
+          queryKeys.favorites.listingIds(),
+          currentIds.filter((id) => id !== listingId),
+        );
+        qc.setQueryData<FeedItem[]>(
+          queryKeys.favorites.listings(),
+          (old = []) => old.filter((item) => item.id !== listingId),
+        );
+      }
+    },
+    onError: (_err, _vars, ctx) => {
       if (ctx?.previous) {
         qc.setQueryData(queryKeys.favorites.listingIds(), ctx.previous);
       }
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.favorites.listings() });
-      qc.invalidateQueries({ queryKey: queryKeys.favorites.listingIds() });
+      if (ctx?.previousListings) {
+        qc.setQueryData(queryKeys.favorites.listings(), ctx.previousListings);
+      }
     },
   });
 }

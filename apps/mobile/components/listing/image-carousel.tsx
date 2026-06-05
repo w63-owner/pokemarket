@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -129,10 +129,10 @@ function DotPill({ active }: { active: boolean }) {
   const width = useSharedValue(active ? 20 : 6);
   const opacity = useSharedValue(active ? 1 : 0.6);
 
-  // Sync shared values with the prop on every render — Reanimated
-  // diffs the assignment internally so this is cheap.
-  width.value = withSpring(active ? 20 : 6, spring.gentle);
-  opacity.value = withTiming(active ? 1 : 0.6, { duration: duration.fast });
+  useEffect(() => {
+    width.value = withSpring(active ? 20 : 6, spring.gentle);
+    opacity.value = withTiming(active ? 1 : 0.6, { duration: duration.fast });
+  }, [active, width, opacity]);
 
   const style = useAnimatedStyle(() => ({
     width: width.value,

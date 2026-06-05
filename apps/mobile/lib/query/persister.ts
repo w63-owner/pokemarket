@@ -54,8 +54,13 @@ export const persistOptions = {
       if (scope === "listings" && subscope === "feed") {
         return false;
       }
-      // Don't persist queries currently in an error state — replaying
-      // them on next cold start would surface a stale error toast.
+      // Don't persist in-flight queries — if they're still pending when
+      // the app closes they'll be rehydrated and immediately re-executed
+      // on the next cold start, before the Supabase session is restored,
+      // causing spurious "Non authentifié" errors.
+      if (query.state.status === "pending") return false;
+      // Don't persist queries in error state — replaying a stale error
+      // on next cold start would surface a misleading toast.
       if (query.state.status === "error") return false;
       return true;
     },

@@ -12,6 +12,7 @@ import {
 import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import type { FeedItem } from "@/types";
 
 export function useFavoriteListings() {
   const { user } = useAuth();
@@ -48,9 +49,15 @@ export function useFavorites() {
       await queryClient.cancelQueries({
         queryKey: queryKeys.favorites.listingIds(),
       });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.favorites.listings(),
+      });
 
       const previousIds = queryClient.getQueryData<string[]>(
         queryKeys.favorites.listingIds(),
+      );
+      const previousListings = queryClient.getQueryData<FeedItem[]>(
+        queryKeys.favorites.listings(),
       );
 
       queryClient.setQueryData<string[]>(
@@ -61,7 +68,14 @@ export function useFavorites() {
             : [...old, listingId],
       );
 
-      return { previousIds };
+      if (isFavorite) {
+        queryClient.setQueryData<FeedItem[]>(
+          queryKeys.favorites.listings(),
+          (old = []) => old.filter((listing) => listing.id !== listingId),
+        );
+      }
+
+      return { previousIds, previousListings };
     },
 
     onError: (_error, _variables, context) => {
@@ -69,6 +83,12 @@ export function useFavorites() {
         queryClient.setQueryData(
           queryKeys.favorites.listingIds(),
           context.previousIds,
+        );
+      }
+      if (context?.previousListings) {
+        queryClient.setQueryData(
+          queryKeys.favorites.listings(),
+          context.previousListings,
         );
       }
       toast.error("Impossible de modifier les favoris. Réessayez.");

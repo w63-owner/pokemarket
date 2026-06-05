@@ -26,7 +26,7 @@ const FALLBACK_BLURHASH = "LEHV6nWB2yk8pyo0adR*.7kCMdnj";
 type Props = {
   item: FeedItem;
   isFavorite?: boolean;
-  onToggleFavorite?: (id: string) => void;
+  onToggleFavorite?: (id: string, isFavorite: boolean) => void;
 };
 
 function ListingCardComponent({ item, isFavorite, onToggleFavorite }: Props) {
@@ -66,7 +66,7 @@ function ListingCardComponent({ item, isFavorite, onToggleFavorite }: Props) {
               <HeartButton
                 isFavorite={!!isFavorite}
                 primary={primary}
-                onPress={() => onToggleFavorite(item.id)}
+                onPress={() => onToggleFavorite(item.id, !!isFavorite)}
               />
             ) : null}
           </View>

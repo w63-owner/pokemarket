@@ -68,6 +68,7 @@ export async function POST(request: Request) {
     );
   }
 
+  let handled = false;
   try {
     switch (event.type) {
       case "checkout.session.completed":
@@ -155,9 +156,37 @@ export async function POST(request: Request) {
       default:
         console.warn(`Unhandled event type: ${event.type}`);
     }
+    handled = true;
   } catch (err) {
     Sentry.captureException(err);
     console.error(`Error processing ${event.type}:`, err);
+  } finally {
+    // If the handler threw, release the idempotency claim so Stripe's
+    // automatic redelivery is re-processed instead of being swallowed as a
+    // duplicate. Without this, a transient failure (DB blip, Stripe API
+    // hiccup) would PERMANENTLY mark the event as processed while leaving the
+    // transaction / wallet in an inconsistent state — money captured by
+    // Stripe but the order never finalized, the seller never credited, or a
+    // failed payout never restored. All handlers are independently idempotent
+    // (atomic status guards), so re-processing on retry is safe.
+    if (!handled) {
+      const { error: cleanupError } = await admin
+        .from("stripe_webhooks_processed")
+        .delete()
+        .eq("stripe_event_id", event.id);
+      if (cleanupError) {
+        Sentry.captureException(cleanupError, {
+          extra: {
+            context: "webhook_idempotency_cleanup_failed",
+            stripe_event_id: event.id,
+            event_type: event.type,
+          },
+        });
+      }
+    }
+  }
+
+  if (!handled) {
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 },
@@ -314,9 +343,23 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
 }
 
 /**
- * Fired when a Stripe PaymentIntent (mobile PaymentSheet flow) fails
- * after being created. We release the listing lock so other buyers can
- * purchase it, mirroring the web checkout.session.expired behaviour.
+ * Fired when a Stripe PaymentIntent (mobile PaymentSheet flow) fails an
+ * attempt. CRITICAL: Stripe emits this on EVERY declined attempt (insufficient
+ * funds, wrong CVC, 3DS abandon…), and the PaymentIntent stays reusable — the
+ * buyer almost always retries in the same sheet and may then succeed.
+ *
+ * Therefore a failed attempt is NOT terminal: we must NOT cancel the
+ * transaction or free the listing here. Doing so created a money-loss path —
+ * the retry's `payment_intent.succeeded` would find the transaction already
+ * CANCELLED and short-circuit, charging the buyer with no order while the
+ * listing may have been resold.
+ *
+ * The PaymentIntent only becomes truly dead when its status is `canceled`
+ * (we never auto-cancel, so this is effectively unreachable today) — only then
+ * do we release the lock. Genuinely abandoned PENDING_PAYMENT transactions are
+ * reclaimed by the `release-expired` cron once the checkout lock elapses (that
+ * cron re-checks Stripe before expiring, so a paid intent is never wrongly
+ * expired).
  */
 async function handlePaymentIntentFailed(
   intent: Stripe.PaymentIntent,
@@ -326,6 +369,15 @@ async function handlePaymentIntentFailed(
   const listingId = intent.metadata?.listing_id;
 
   if (!transactionId || !listingId) return;
+
+  // Only a fully canceled PaymentIntent is terminal. A `requires_payment_method`
+  // status (the default after a decline) means the buyer can still retry.
+  if (intent.status !== "canceled") {
+    console.info(
+      `[webhook] payment_intent.payment_failed for tx ${transactionId} (status=${intent.status}) — retryable, keeping lock`,
+    );
+    return;
+  }
 
   await handleCheckoutFailed(
     // Construct a minimal session-like object reusing the existing helper.

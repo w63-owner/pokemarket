@@ -3,7 +3,13 @@
 import { useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { m } from "framer-motion";
-import { CheckCircle2, ShoppingBag, Home, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  ShoppingBag,
+  Home,
+  Sparkles,
+  MessageCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 
@@ -14,6 +20,7 @@ interface SuccessClientProps {
     total_amount: number;
     status: string;
   };
+  conversationId?: string | null;
 }
 
 function useConfetti(
@@ -147,7 +154,10 @@ function getStatusCopy(status: string) {
   );
 }
 
-export function SuccessClient({ transaction }: SuccessClientProps) {
+export function SuccessClient({
+  transaction,
+  conversationId,
+}: SuccessClientProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const isFresh = FRESH_STATUSES.has(transaction.status);
@@ -243,25 +253,38 @@ export function SuccessClient({ transaction }: SuccessClientProps) {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="flex flex-col gap-3 sm:flex-row sm:justify-center"
+          className="flex flex-col gap-3"
         >
-          <Button
-            render={<Link href="/profile/transactions" />}
-            size="lg"
-            className="flex-1 sm:flex-initial"
-          >
-            <ShoppingBag className="size-4" />
-            Voir mes achats
-          </Button>
-          <Button
-            render={<Link href="/" />}
-            variant="outline"
-            size="lg"
-            className="flex-1 sm:flex-initial"
-          >
-            <Home className="size-4" />
-            Retour à l&apos;accueil
-          </Button>
+          {conversationId && (
+            <Button
+              render={<Link href={`/messages/${conversationId}`} />}
+              size="lg"
+              className="w-full"
+            >
+              <MessageCircle className="size-4" />
+              Accéder à la conversation
+            </Button>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              render={<Link href="/profile/transactions" />}
+              variant="outline"
+              size="lg"
+              className="flex-1 sm:flex-initial"
+            >
+              <ShoppingBag className="size-4" />
+              Voir mes achats
+            </Button>
+            <Button
+              render={<Link href="/" />}
+              variant="outline"
+              size="lg"
+              className="flex-1 sm:flex-initial"
+            >
+              <Home className="size-4" />
+              Retour à l&apos;accueil
+            </Button>
+          </div>
         </m.div>
       </m.div>
     </div>

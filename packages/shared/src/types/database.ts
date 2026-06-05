@@ -480,6 +480,59 @@ export type Database = {
           },
         ];
       };
+      notifications_outbox: {
+        Row: {
+          attempts: number;
+          channel: string;
+          created_at: string;
+          id: string;
+          last_error: string | null;
+          max_attempts: number;
+          next_attempt_at: string;
+          payload: Json;
+          recipient_user_id: string;
+          sent_at: string | null;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          channel: string;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string;
+          payload?: Json;
+          recipient_user_id: string;
+          sent_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          channel?: string;
+          created_at?: string;
+          id?: string;
+          last_error?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string;
+          payload?: Json;
+          recipient_user_id?: string;
+          sent_at?: string | null;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_outbox_recipient_user_id_fkey";
+            columns: ["recipient_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ocr_attempts: {
         Row: {
           candidates: Json | null;

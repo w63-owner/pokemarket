@@ -5,7 +5,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MotiView } from "moti";
 import ConfettiCannon from "react-native-confetti-cannon";
-import { CheckCircle2, Home, ShoppingBag, Sparkles } from "lucide-react-native";
+import {
+  CheckCircle2,
+  Home,
+  MessageCircle,
+  ShoppingBag,
+  Sparkles,
+} from "lucide-react-native";
 import { formatPrice, queryKeys } from "@pokemarket/shared";
 
 import {
@@ -15,6 +21,7 @@ import {
 import { Button, Skeleton, Text } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
+import { supabase } from "@/lib/supabase";
 import { useThemeColors } from "@/lib/theme-colors";
 
 // Brand-tinted palette for the confetti burst — mirrors the web
@@ -85,6 +92,32 @@ export default function OrderSuccessScreen() {
       return pollCount > 6 ? false : 1500;
     },
   });
+
+  // The buyer↔seller conversation is created (or reused) server-side by
+  // `finalizePaidTransaction`. We look it up so the success screen can offer
+  // a direct "go to the conversation" CTA — the buyer's next step. The thread
+  // can land a beat after PAID (webhook/reconcile lag), so we poll until it
+  // resolves, then stop.
+  const conversationQuery = useQuery({
+    queryKey: ["order", "conversation", id],
+    enabled:
+      !!transaction?.listing_id &&
+      !!transaction?.buyer_id &&
+      !!transaction?.seller_id,
+    refetchInterval: (query) => (query.state.data ? false : 2000),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("listing_id", transaction!.listing_id)
+        .eq("buyer_id", transaction!.buyer_id)
+        .eq("seller_id", transaction!.seller_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+  });
+  const conversationId = conversationQuery.data ?? null;
 
   // Server-side reconcile fallback. The mobile PaymentSheet flow uses
   // direct PaymentIntents, so the `payment_intent.succeeded` webhook is
@@ -235,17 +268,27 @@ export default function OrderSuccessScreen() {
           ) : null}
 
           <View className="w-full gap-3">
+            {conversationId ? (
+              <Button
+                size="lg"
+                onPress={() => router.push(`/inbox/${conversationId}` as never)}
+                leftIcon={
+                  <MessageCircle size={18} color={colors.primaryForeground} />
+                }
+              >
+                Accéder à la conversation
+              </Button>
+            ) : null}
             <Button
+              variant="outline"
               size="lg"
               onPress={() => router.replace("/(tabs)/profile" as never)}
-              leftIcon={
-                <ShoppingBag size={18} color={colors.primaryForeground} />
-              }
+              leftIcon={<ShoppingBag size={18} color={colors.foreground} />}
             >
               Voir mes achats
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
               size="lg"
               onPress={() => router.replace("/(tabs)" as never)}
               leftIcon={<Home size={18} color={colors.foreground} />}

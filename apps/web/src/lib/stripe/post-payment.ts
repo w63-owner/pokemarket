@@ -1,13 +1,9 @@
-import { createElement } from "react";
 import * as Sentry from "@sentry/nextjs";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calcPriceSeller } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
-import { sendEmail } from "@/lib/emails/send";
-import { sendPushNotification } from "@/lib/push/send";
-import OrderConfirmationEmail from "@/emails/order-confirmation";
-import SaleNotificationEmail from "@/emails/sale-notification";
+import { enqueueNotification } from "@/lib/notifications/outbox";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -18,8 +14,8 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  *   - Credit seller wallet pending_balance
  *   - Expire all other PENDING offers on this listing
  *   - Insert "payment_completed" system message in the conversation
- *   - Send buyer + seller emails (best-effort)
- *   - Send push notification to seller (best-effort)
+ *   - Enqueue buyer + seller emails and the seller push into the durable
+ *     notifications outbox (drained + retried by a cron — see outbox.ts)
  *
  * Called from BOTH the Stripe webhook AND the success page reconcile path so
  * the user receives their confirmation regardless of which path lands first.
@@ -140,48 +136,104 @@ export async function finalizePaidTransaction(
     .eq("status", "PENDING");
   if (offerExpireError) throw offerExpireError;
 
-  const { data: conversation } = await admin
-    .from("conversations")
-    .select("id")
-    .eq("listing_id", transaction.listing_id)
-    .eq("buyer_id", transaction.buyer_id)
-    .eq("seller_id", transaction.seller_id)
-    .maybeSingle();
+  // Find (or create) the buyer↔seller conversation for this listing so we
+  // always have a thread in which to drop the payment confirmation +
+  // next-steps system message — even when the buyer purchased without ever
+  // messaging the seller first (e.g. a straight "Acheter" with no prior chat).
+  const conversation = await findOrCreateConversation(admin, {
+    listingId: transaction.listing_id,
+    buyerId: transaction.buyer_id,
+    sellerId: transaction.seller_id,
+  });
 
   if (conversation) {
     const { error: msgError } = await admin.from("messages").insert({
       conversation_id: conversation.id,
       sender_id: transaction.buyer_id,
-      content: "Paiement confirmé ! La commande est en attente d'expédition.",
+      content:
+        "Paiement confirmé ✅ Votre achat est validé et le vendeur vient d'être notifié. " +
+        "Prochaine étape : le vendeur prépare puis expédie la carte. Vous serez prévenu ici dès l'expédition, " +
+        "puis vous pourrez confirmer la réception du colis pour finaliser la transaction.",
       message_type: "payment_completed",
       metadata: { transaction_id: transactionId },
     });
     if (msgError) throw msgError;
   }
 
-  await sendTransactionEmails(
-    admin,
-    {
-      buyer_id: transaction.buyer_id,
-      seller_id: transaction.seller_id,
-      total_amount: transaction.total_amount,
-      shipping_cost: transaction.shipping_cost ?? 0,
-      listing_id: transaction.listing_id,
-    },
-    transactionId,
-  );
-
-  sendPushNotification(
-    transaction.seller_id,
-    "Paiement reçu 💰",
-    "L'acheteur a payé — expédiez le colis !",
-    `/messages/${conversation?.id ?? ""}`,
-  ).catch((err) => Sentry.captureException(err));
+  // Soft channels (push + email) go through the durable outbox. The whole
+  // block is best-effort: the transaction is already PAID and the in-app
+  // system message above is our strong guarantee, so a failure to enqueue
+  // (or to gather render data) must NOT roll back or fail finalization — we
+  // capture it and return PAID anyway.
+  try {
+    await enqueueTransactionNotifications(
+      admin,
+      {
+        buyer_id: transaction.buyer_id,
+        seller_id: transaction.seller_id,
+        total_amount: transaction.total_amount,
+        shipping_cost: transaction.shipping_cost ?? 0,
+        listing_id: transaction.listing_id,
+      },
+      transactionId,
+      conversation?.id ?? null,
+    );
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { component: "notifications-outbox" },
+      extra: { context: "finalizePaidTransaction", transactionId },
+    });
+    console.error(
+      "[finalizePaidTransaction] Failed to enqueue notifications:",
+      err,
+    );
+  }
 
   return "PAID";
 }
 
-async function sendTransactionEmails(
+/**
+ * Atomically finds the existing buyer↔seller conversation for a listing or
+ * creates it. Mirrors the `upsert_conversation` RPC but runs under the admin
+ * client (no auth context). The `(listing_id, buyer_id, seller_id)` unique
+ * constraint makes the INSERT race-safe: a concurrent caller that wins the
+ * race triggers a conflict here, after which we re-read the now-existing row.
+ */
+async function findOrCreateConversation(
+  admin: AdminClient,
+  params: { listingId: string; buyerId: string; sellerId: string },
+): Promise<{ id: string } | null> {
+  const lookup = () =>
+    admin
+      .from("conversations")
+      .select("id")
+      .eq("listing_id", params.listingId)
+      .eq("buyer_id", params.buyerId)
+      .eq("seller_id", params.sellerId)
+      .maybeSingle();
+
+  const { data: existing } = await lookup();
+  if (existing) return existing;
+
+  const { data: created, error: createError } = await admin
+    .from("conversations")
+    .insert({
+      listing_id: params.listingId,
+      buyer_id: params.buyerId,
+      seller_id: params.sellerId,
+    })
+    .select("id")
+    .single();
+
+  if (!createError) return created;
+
+  // Conflict (or any transient insert failure): fall back to a fresh read so
+  // we still surface the conversation a concurrent path may have just made.
+  const { data: afterConflict } = await lookup();
+  return afterConflict ?? null;
+}
+
+async function enqueueTransactionNotifications(
   admin: AdminClient,
   transaction: {
     buyer_id: string;
@@ -191,72 +243,87 @@ async function sendTransactionEmails(
     listing_id: string;
   },
   transactionId: string,
+  conversationId: string | null,
 ) {
-  try {
-    const [buyerAuth, sellerAuth, listing] = await Promise.all([
-      admin.auth.admin.getUserById(transaction.buyer_id),
-      admin.auth.admin.getUserById(transaction.seller_id),
-      admin
-        .from("listings")
-        .select("title, cover_image_url")
-        .eq("id", transaction.listing_id)
-        .single(),
-    ]);
+  const [buyerAuth, sellerAuth, listing] = await Promise.all([
+    admin.auth.admin.getUserById(transaction.buyer_id),
+    admin.auth.admin.getUserById(transaction.seller_id),
+    admin
+      .from("listings")
+      .select("title, cover_image_url")
+      .eq("id", transaction.listing_id)
+      .single(),
+  ]);
 
-    const buyerEmail = buyerAuth.data.user?.email;
-    const sellerEmail = sellerAuth.data.user?.email;
-    const title = listing.data?.title ?? "Carte Pokemon";
-    const coverUrl = listing.data?.cover_image_url ?? undefined;
+  const buyerEmail = buyerAuth.data.user?.email;
+  const sellerEmail = sellerAuth.data.user?.email;
+  const title = listing.data?.title ?? "Carte Pokemon";
+  const coverUrl = listing.data?.cover_image_url ?? null;
 
-    const [{ data: buyerProfile }, { data: sellerProfile }] = await Promise.all(
-      [
-        admin
-          .from("profiles")
-          .select("username")
-          .eq("id", transaction.buyer_id)
-          .single(),
-        admin
-          .from("profiles")
-          .select("username")
-          .eq("id", transaction.seller_id)
-          .single(),
-      ],
-    );
+  const [{ data: buyerProfile }, { data: sellerProfile }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("username")
+      .eq("id", transaction.buyer_id)
+      .single(),
+    admin
+      .from("profiles")
+      .select("username")
+      .eq("id", transaction.seller_id)
+      .single(),
+  ]);
 
-    const totalFormatted = formatPrice(transaction.total_amount);
-    const sellerNet = formatPrice(
-      calcPriceSeller(transaction.total_amount - transaction.shipping_cost),
-    );
+  const totalFormatted = formatPrice(transaction.total_amount);
+  const sellerNet = formatPrice(
+    calcPriceSeller(transaction.total_amount - transaction.shipping_cost),
+  );
 
-    if (buyerEmail) {
-      sendEmail(
-        buyerEmail,
-        `Confirmation de commande — ${title}`,
-        createElement(OrderConfirmationEmail, {
+  if (buyerEmail) {
+    await enqueueNotification(admin, {
+      channel: "email",
+      recipientUserId: transaction.buyer_id,
+      payload: {
+        template: "order-confirmation",
+        to: buyerEmail,
+        subject: `Confirmation de commande — ${title}`,
+        data: {
           buyerName: buyerProfile?.username ?? "Dresseur",
           listingTitle: title,
           totalAmount: totalFormatted,
           orderId: transactionId,
           coverImageUrl: coverUrl,
-        }),
-      );
-    }
+        },
+      },
+    });
+  }
 
-    if (sellerEmail) {
-      sendEmail(
-        sellerEmail,
-        `Vous avez vendu ${title} !`,
-        createElement(SaleNotificationEmail, {
+  if (sellerEmail) {
+    await enqueueNotification(admin, {
+      channel: "email",
+      recipientUserId: transaction.seller_id,
+      payload: {
+        template: "sale-notification",
+        to: sellerEmail,
+        subject: `Vous avez vendu ${title} !`,
+        data: {
           sellerName: sellerProfile?.username ?? "Vendeur",
           listingTitle: title,
           saleAmount: sellerNet,
           orderId: transactionId,
           coverImageUrl: coverUrl,
-        }),
-      );
-    }
-  } catch (err) {
-    Sentry.captureException(err);
-    console.error("[finalizePaidTransaction] Failed to send emails:", err);
+        },
+      },
+    });
   }
+
+  await enqueueNotification(admin, {
+    channel: "push",
+    recipientUserId: transaction.seller_id,
+    payload: {
+      title: "Paiement reçu 💰",
+      body: "L'acheteur a payé — expédiez le colis !",
+      url: `/messages/${conversationId ?? ""}`,
+      category: "commerce",
+    },
+  });
 }

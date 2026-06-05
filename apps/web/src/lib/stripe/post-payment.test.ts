@@ -1,27 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockDb } from "@/test-utils/db-mock";
+import { describe, it, expect, vi } from "vitest";
+import { createMockDb, type MockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
-const sentEmails: { to: string; subject: string }[] = [];
-const sentPushes: { userId: string; title: string }[] = [];
-let pushShouldThrow = false;
-
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/emails/send", () => ({
-  sendEmail: vi.fn(async (to: string, subject: string) => {
-    sentEmails.push({ to, subject });
-  }),
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
 }));
-vi.mock("@/lib/push/send", () => ({
-  sendPushNotification: vi.fn(async (userId: string, title: string) => {
-    if (pushShouldThrow) throw new Error("[chaos] push offline");
-    sentPushes.push({ userId, title });
-  }),
-}));
-vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
-vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -30,11 +16,17 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import { finalizePaidTransaction } from "./post-payment";
 
-beforeEach(() => {
-  sentEmails.length = 0;
-  sentPushes.length = 0;
-  pushShouldThrow = false;
-});
+// finalize now hands push + email to the durable outbox instead of sending
+// inline; assertions inspect the enqueued rows rather than send spies.
+function outbox(db: MockDb) {
+  return db.state.notifications_outbox ?? [];
+}
+function emailRows(db: MockDb) {
+  return outbox(db).filter((r) => r.channel === "email");
+}
+function pushRows(db: MockDb) {
+  return outbox(db).filter((r) => r.channel === "push");
+}
 
 // ─── QA: Happy path ──────────────────────────────────────────────────────────
 describe("finalizePaidTransaction — QA happy path", () => {
@@ -68,14 +60,25 @@ describe("finalizePaidTransaction — QA happy path", () => {
     expect(msg).toBeTruthy();
     expect(msg?.metadata?.transaction_id).toBe(IDS.TX);
 
-    // Both emails sent
-    expect(sentEmails).toHaveLength(2);
-    expect(sentEmails.some((e) => e.to === "buyer@example.com")).toBe(true);
-    expect(sentEmails.some((e) => e.to === "seller@example.com")).toBe(true);
+    // Both buyer + seller emails enqueued into the outbox
+    const emails = emailRows(db);
+    expect(emails).toHaveLength(2);
+    expect(emails.some((e) => e.payload.to === "buyer@example.com")).toBe(true);
+    expect(emails.some((e) => e.payload.to === "seller@example.com")).toBe(
+      true,
+    );
+    expect(
+      emails.some((e) => e.payload.template === "order-confirmation"),
+    ).toBe(true);
+    expect(emails.some((e) => e.payload.template === "sale-notification")).toBe(
+      true,
+    );
 
-    // Push sent to seller
-    expect(sentPushes).toHaveLength(1);
-    expect(sentPushes[0].userId).toBe(IDS.SELLER);
+    // Seller push enqueued
+    const pushes = pushRows(db);
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0].recipient_user_id).toBe(IDS.SELLER);
+    expect(pushes[0].payload.category).toBe("commerce");
   });
 });
 
@@ -85,7 +88,7 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     const db = createMockDb({ transactions: [] });
     mockClient = db.client;
     expect(await finalizePaidTransaction("nope")).toBe("NOT_FOUND");
-    expect(sentEmails).toHaveLength(0);
+    expect(outbox(db)).toHaveLength(0);
   });
 
   it("returns ALREADY_PROCESSED when status is already PAID", async () => {
@@ -94,7 +97,7 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     const db = createMockDb(scenario);
     mockClient = db.client;
     expect(await finalizePaidTransaction(IDS.TX)).toBe("ALREADY_PROCESSED");
-    expect(sentEmails).toHaveLength(0);
+    expect(outbox(db)).toHaveLength(0);
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "LOCKED",
     ); // unchanged
@@ -117,7 +120,7 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     await finalizePaidTransaction(IDS.TX);
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
     expect(wallet?.pending_balance).toBeCloseTo(100, 2);
-    expect(sentEmails).toHaveLength(2); // only first call sent
+    expect(emailRows(db)).toHaveLength(2); // only first call enqueued
   });
 
   it("handles transaction with shipping cost (sellerNet excludes shipping)", async () => {
@@ -133,14 +136,29 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     expect(wallet?.pending_balance).toBeLessThan(102);
   });
 
-  it("works even if no conversation exists (no system message)", async () => {
+  it("creates a conversation and posts the system message when none exists yet", async () => {
     const scenario = basicScenario();
     scenario.conversations = [];
     const db = createMockDb(scenario);
     mockClient = db.client;
     expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
-    expect(db.state.messages).toHaveLength(0);
-    expect(sentEmails).toHaveLength(2); // emails still sent
+
+    // A fresh buyer↔seller conversation is created so the buyer always has a
+    // thread, even when they purchased without messaging the seller first.
+    expect(db.state.conversations).toHaveLength(1);
+    const conv = db.state.conversations[0];
+    expect(conv.listing_id).toBe(IDS.LISTING);
+    expect(conv.buyer_id).toBe(IDS.BUYER);
+    expect(conv.seller_id).toBe(IDS.SELLER);
+
+    // The payment-completed system message lands in that new conversation.
+    const msg = db.state.messages.find(
+      (m) => m.message_type === "payment_completed",
+    );
+    expect(msg?.conversation_id).toBe(conv.id);
+    expect(msg?.metadata?.transaction_id).toBe(IDS.TX);
+
+    expect(emailRows(db)).toHaveLength(2); // emails still enqueued
   });
 
   it("works even if seller wallet does not exist (no crediting, no crash)", async () => {
@@ -168,7 +186,7 @@ describe("finalizePaidTransaction — STRESS concurrency", () => {
 
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
     expect(wallet?.pending_balance).toBeCloseTo(100, 2);
-    expect(sentEmails).toHaveLength(2); // exactly one set of confirmations
+    expect(emailRows(db)).toHaveLength(2); // exactly one set of confirmations
   });
 
   it("50 parallel callers: exactly one PAID, 49 ALREADY_PROCESSED, no double-credit", async () => {
@@ -184,8 +202,8 @@ describe("finalizePaidTransaction — STRESS concurrency", () => {
 
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
     expect(wallet?.pending_balance).toBeCloseTo(100, 2);
-    expect(sentEmails).toHaveLength(2); // not 100
-    expect(sentPushes).toHaveLength(1); // not 50
+    expect(emailRows(db)).toHaveLength(2); // not 100
+    expect(pushRows(db)).toHaveLength(1); // not 50
   });
 
   it("100 sequential calls: still idempotent", async () => {
@@ -196,35 +214,65 @@ describe("finalizePaidTransaction — STRESS concurrency", () => {
 
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
     expect(wallet?.pending_balance).toBeCloseTo(100, 2);
-    expect(sentEmails).toHaveLength(2);
+    expect(emailRows(db)).toHaveLength(2);
   });
 });
 
 // ─── CHAOS: failure injection ────────────────────────────────────────────────
 describe("finalizePaidTransaction — CHAOS failure injection", () => {
-  it("push notification failure does NOT roll back the transaction", async () => {
-    pushShouldThrow = true;
+  it("outbox enqueue failure does NOT roll back the transaction", async () => {
     const db = createMockDb(basicScenario());
     mockClient = db.client;
 
-    expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
+    // Simulate the outbox INSERT throwing (e.g. table unavailable). The
+    // transaction is already PAID, so finalize must swallow this and return
+    // PAID — the in-app system message remains the strong guarantee.
+    const originalFrom = db.client.from.bind(db.client);
+    db.client.from = (name: string) => {
+      const builder = originalFrom(name);
+      if (name === "notifications_outbox") {
+        builder.insert = () => {
+          throw new Error("[chaos] outbox offline");
+        };
+      }
+      return builder;
+    };
 
+    expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
       "PAID",
     );
-    // Email still went out, only push failed
-    expect(sentEmails).toHaveLength(2);
-    expect(sentPushes).toHaveLength(0);
+    const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
+    expect(wallet?.pending_balance).toBeCloseTo(100, 2);
+    // Nothing was enqueued, but the strong side-effects all committed.
+    expect(outbox(db)).toHaveLength(0);
+    expect(
+      db.state.messages.find((m) => m.message_type === "payment_completed"),
+    ).toBeTruthy();
   });
 
-  it("email throw does not break the transaction (Sentry-captured)", async () => {
-    const { sendEmail } = await import("@/lib/emails/send");
-    (sendEmail as any).mockImplementationOnce(() => {
-      throw new Error("[chaos] email provider down");
-    });
-
+  it("notification data-gathering failure does not break the transaction", async () => {
     const db = createMockDb(basicScenario());
     mockClient = db.client;
+
+    // The listing lookup used to build the email payloads throws. finalize
+    // must still return PAID (notifications are best-effort post-commit).
+    const originalFrom = db.client.from.bind(db.client);
+    db.client.from = (name: string) => {
+      const builder = originalFrom(name);
+      if (name === "listings") {
+        const origSelect = builder.select.bind(builder);
+        builder.select = (cols?: string) => {
+          if (cols && cols.includes("cover_image_url")) {
+            builder.single = () => {
+              throw new Error("[chaos] listing read failed");
+            };
+          }
+          return origSelect(cols);
+        };
+      }
+      return builder;
+    };
 
     expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
