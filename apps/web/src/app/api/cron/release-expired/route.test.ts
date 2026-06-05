@@ -4,7 +4,9 @@ import { createMockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
 let mockClient: any;
-const piRetrieve = vi.fn(async () => ({ status: "requires_payment_method" }));
+const piRetrieve = vi.fn<() => Promise<Record<string, any>>>(async () => ({
+  status: "requires_payment_method",
+}));
 const piCancel = vi.fn(async () => ({ id: "pi_test_1", status: "canceled" }));
 const sessionRetrieve = vi.fn(async () => ({
   id: "cs_test_1",
