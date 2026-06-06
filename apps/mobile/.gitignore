@@ -42,4 +42,4 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-google-services.json
+# google-services.json - committed for FCM push notifications (public identifiers only)

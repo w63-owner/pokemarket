@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "687865704840",
+    "project_id": "pokemarket-2daf6",
+    "storage_bucket": "pokemarket-2daf6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687865704840:android:2bfcbef8c2f8150c94ca3d",
+        "android_client_info": {
+          "package_name": "app.pokemarket.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtVVHUb_r8ndmzwePCT0HER8dVlmUcE98"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
