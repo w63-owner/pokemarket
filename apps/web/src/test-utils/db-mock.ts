@@ -400,10 +400,16 @@ export function createMockDb(
           };
         }
 
+        // Mirror Postgres NUMERIC(10,2): round to cents so float drift
+        // (e.g. 30 - 2.2 - 2.49 = 25.310000000000002) doesn't spuriously
+        // trip the balance check the way exact decimals never would in prod.
         const sellerNet =
-          (tx.total_amount ?? 0) -
-          (tx.fee_amount ?? 0) -
-          (tx.shipping_cost ?? 0);
+          Math.round(
+            ((tx.total_amount ?? 0) -
+              (tx.fee_amount ?? 0) -
+              (tx.shipping_cost ?? 0)) *
+              100,
+          ) / 100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 

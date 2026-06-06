@@ -201,7 +201,7 @@ export async function POST(request: Request) {
           metadata: {
             user_id: user.id,
             transfer_id: transfer.id,
-            payout_record_id: payoutRecord?.id,
+            payout_record_id: payoutRecord?.id ?? null,
           },
         },
         {

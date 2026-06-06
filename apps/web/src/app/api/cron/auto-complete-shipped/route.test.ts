@@ -139,12 +139,19 @@ describe("cron/auto-complete-shipped — QA", () => {
           buyer_id: "buyer1",
           seller_id: "seller1",
           listing_id: "L1",
-          conversation_id: "conv1",
           status: "SHIPPED",
           shipped_at: new Date(Date.now() - 15 * DAY).toISOString(),
           total_amount: 25.0,
           fee_amount: 2.5,
           shipping_cost: 2.49,
+        },
+      ],
+      conversations: [
+        {
+          id: "conv1",
+          listing_id: "L1",
+          buyer_id: "buyer1",
+          seller_id: "seller1",
         },
       ],
       wallets: [
@@ -156,7 +163,7 @@ describe("cron/auto-complete-shipped — QA", () => {
 
     await GET(authedReq());
     expect(db.state.messages.length).toBe(1);
-    expect(db.state.messages[0].message_type).toBe("sale_auto_completed");
+    expect(db.state.messages[0].message_type).toBe("sale_completed");
     expect(db.state.messages[0].metadata.auto_completed).toBe(true);
   });
 });

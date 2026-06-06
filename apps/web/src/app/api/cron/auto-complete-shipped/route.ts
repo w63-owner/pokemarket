@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotification } from "@/lib/push/send";
-import { enqueueNotification } from "@/lib/notifications/outbox";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,9 +38,7 @@ export async function GET(request: Request) {
     // Find all SHIPPED transactions where shipped_at is older than 14 days
     const { data: txs, error: fetchError } = await admin
       .from("transactions")
-      .select(
-        "id, buyer_id, seller_id, listing_id, listing_title, conversation_id",
-      )
+      .select("id, buyer_id, seller_id, listing_id, listing_title")
       .eq("status", "SHIPPED")
       .lt("shipped_at", cutoffDate.toISOString());
 
@@ -76,13 +73,23 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // Insert system message in conversation
-        if (tx.conversation_id) {
+        // `transactions` has no direct conversation FK, so resolve the
+        // buyer/seller conversation for this listing via the (listing, buyer,
+        // seller) tuple that uniquely identifies it, then drop a system card.
+        const { data: conversation } = await admin
+          .from("conversations")
+          .select("id")
+          .eq("listing_id", tx.listing_id)
+          .eq("buyer_id", tx.buyer_id)
+          .eq("seller_id", tx.seller_id)
+          .maybeSingle();
+
+        if (conversation?.id) {
           await admin.from("messages").insert({
-            conversation_id: tx.conversation_id,
+            conversation_id: conversation.id,
             sender_id: tx.buyer_id, // System message attributed to buyer
             content: "Vente finalisée automatiquement (14 jours écoulés)",
-            message_type: "sale_auto_completed",
+            message_type: "sale_completed",
             metadata: { auto_completed: true, days: AUTO_COMPLETE_AFTER_DAYS },
           });
         }
@@ -106,19 +113,6 @@ export async function GET(request: Request) {
           `/orders/${tx.id}`,
           { category: "commerce" },
         ).catch((err) => {
-          Sentry.captureException(err);
-        });
-
-        // Queue email to seller
-        await enqueueNotification({
-          channel: "email",
-          recipient_id: tx.seller_id,
-          template: "sale_auto_completed_seller",
-          payload: {
-            listing_title: tx.listing_title ?? "Votre carte",
-            transaction_id: tx.id,
-          },
-        }).catch((err) => {
           Sentry.captureException(err);
         });
 

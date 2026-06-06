@@ -675,6 +675,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      payouts: {
+        Row: {
+          amount: number;
+          completed_at: string | null;
+          created_at: string;
+          currency: string;
+          failure_code: string | null;
+          failure_message: string | null;
+          id: string;
+          requested_at: string;
+          status: Database["public"]["Enums"]["payout_status"];
+          stripe_payout_id: string | null;
+          stripe_transfer_id: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          amount: number;
+          completed_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          failure_code?: string | null;
+          failure_message?: string | null;
+          id?: string;
+          requested_at?: string;
+          status?: Database["public"]["Enums"]["payout_status"];
+          stripe_payout_id?: string | null;
+          stripe_transfer_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          amount?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          currency?: string;
+          failure_code?: string | null;
+          failure_message?: string | null;
+          id?: string;
+          requested_at?: string;
+          status?: Database["public"]["Enums"]["payout_status"];
+          stripe_payout_id?: string | null;
+          stripe_transfer_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payouts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           address_line: string | null;
@@ -1407,7 +1463,7 @@ export type Database = {
       };
     };
     Enums: {
-      [_ in never]: never;
+      payout_status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1537,6 +1593,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      payout_status: ["pending", "in_transit", "paid", "failed", "canceled"],
+    },
   },
 } as const;

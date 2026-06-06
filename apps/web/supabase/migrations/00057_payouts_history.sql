@@ -39,8 +39,8 @@ CREATE POLICY "Users can view their own payouts"
 -- Only service_role can insert/update (via API routes and webhooks)
 -- No direct insert/update policy for authenticated users
 
--- Trigger for updated_at
+-- Trigger for updated_at (uses the existing function from migration 00019)
 CREATE TRIGGER set_payouts_updated_at
   BEFORE UPDATE ON payouts
   FOR EACH ROW
-  EXECUTE FUNCTION public.moddatetime('updated_at');
+  EXECUTE FUNCTION update_updated_at_column();
