@@ -34,7 +34,7 @@
 type Row = Record<string, any>;
 
 interface Filter {
-  type: "eq" | "in" | "lt" | "gt";
+  type: "eq" | "in" | "lt" | "gt" | "gte" | "lte" | "is";
   col: string;
   val: any;
 }
@@ -367,6 +367,67 @@ export function createMockDb(
           return { data: { user: user ?? null }, error: null };
         },
       },
+    },
+    async rpc(name: string, params: Record<string, any>) {
+      bump(`rpc.${name}`);
+      await maybeChaos(`rpc.${name}`);
+
+      if (name === "release_escrow_funds") {
+        const { p_transaction_id, p_buyer_id } = params;
+        const tx = state.transactions.find((t) => t.id === p_transaction_id);
+
+        if (!tx) {
+          return {
+            data: null,
+            error: { code: "P0002", message: "Transaction not found" },
+          };
+        }
+
+        if (tx.status !== "SHIPPED") {
+          return {
+            data: null,
+            error: {
+              code: "P0001",
+              message: `INVALID_STATUS: expected SHIPPED but got ${tx.status}`,
+            },
+          };
+        }
+
+        if (tx.buyer_id !== p_buyer_id) {
+          return {
+            data: null,
+            error: { code: "42501", message: "FORBIDDEN: not the buyer" },
+          };
+        }
+
+        const sellerNet =
+          (tx.total_amount ?? 0) -
+          (tx.fee_amount ?? 0) -
+          (tx.shipping_cost ?? 0);
+
+        const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
+
+        if (!wallet || wallet.pending_balance < sellerNet) {
+          console.warn(
+            `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
+          );
+          tx.status = "COMPLETED";
+          return { data: false, error: null };
+        }
+
+        tx.status = "COMPLETED";
+        wallet.pending_balance =
+          Math.round((wallet.pending_balance - sellerNet) * 100) / 100;
+        wallet.available_balance =
+          Math.round((wallet.available_balance + sellerNet) * 100) / 100;
+
+        return { data: true, error: null };
+      }
+
+      return {
+        data: null,
+        error: { code: "42883", message: `Unknown RPC: ${name}` },
+      };
     },
   };
 

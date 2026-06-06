@@ -82,17 +82,20 @@ export async function handleChargeDisputeCreated(
     return;
   }
 
-  // Lock the contested funds in the seller's wallet. We move the seller
-  // share (calcPriceSeller of the disputed card amount) FROM pending_balance
-  // BACK to a "locked" pseudo-state. Since we don't have a dedicated locked
-  // column yet, we just decrement pending_balance — the funds become
-  // un-payable until the dispute closes (won → restore, lost → permanent debit).
-  const sharePerEur = (eur: number): number => calcPriceSeller(eur);
-  const cardAmountDisputed = Math.max(
-    0,
-    dispute.amount / 100 - Number(transaction.shipping_cost ?? 0),
-  );
-  const lockedShare = sharePerEur(cardAmountDisputed);
+  // Lock the contested funds in the seller's wallet. The seller received
+  // cardNet + shipping in finalizePaidTransaction, so we lock that same amount.
+  // Since we don't have a dedicated locked column yet, we just decrement
+  // pending_balance — the funds become un-payable until the dispute closes
+  // (won → restore, lost → permanent debit via charge.refunded).
+  const shippingTotal = Number(transaction.shipping_cost ?? 0);
+  const disputedAmountEur = dispute.amount / 100;
+
+  // How much of the disputed amount goes to shipping vs card?
+  const shippingDisputed = Math.min(disputedAmountEur, shippingTotal);
+  const cardAmountDisputed = Math.max(0, disputedAmountEur - shippingTotal);
+
+  // Seller share to lock = card earnings portion + shipping portion
+  const lockedShare = calcPriceSeller(cardAmountDisputed) + shippingDisputed;
 
   const { data: wallet } = await admin
     .from("wallets")
@@ -209,12 +212,15 @@ export async function handleChargeDisputeClosed(
   }
 
   if (dispute.status === "won" || dispute.status === "warning_closed") {
-    // Restore the funds we locked in dispute.created.
-    const cardAmountDisputed = Math.max(
-      0,
-      dispute.amount / 100 - Number(transaction.shipping_cost ?? 0),
-    );
-    const restoredShare = calcPriceSeller(cardAmountDisputed);
+    // Restore the funds we locked in dispute.created (cardNet + shipping).
+    const shippingTotal = Number(transaction.shipping_cost ?? 0);
+    const disputedAmountEur = dispute.amount / 100;
+
+    const shippingDisputed = Math.min(disputedAmountEur, shippingTotal);
+    const cardAmountDisputed = Math.max(0, disputedAmountEur - shippingTotal);
+
+    const restoredShare =
+      calcPriceSeller(cardAmountDisputed) + shippingDisputed;
 
     const { data: wallet } = await admin
       .from("wallets")

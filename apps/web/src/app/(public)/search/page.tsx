@@ -121,7 +121,7 @@ function SearchPageInner() {
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             autoFocus
-            placeholder="Nom de la carte, set..."
+            placeholder="Chercher une carte"
             value={filters.q ?? ""}
             onChange={(e) => updateFilter("q", e.target.value || undefined)}
             className="h-10 pr-8 pl-10 text-base"

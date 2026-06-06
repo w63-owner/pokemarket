@@ -71,6 +71,31 @@ export type OcrAttempt = Database["public"]["Tables"]["ocr_attempts"]["Row"];
 export type CardPriceHistory =
   Database["public"]["Tables"]["card_price_history"]["Row"];
 
+// Payout status enum (mirrors payout_status DB enum)
+export type PayoutStatus =
+  | "pending"
+  | "in_transit"
+  | "paid"
+  | "failed"
+  | "canceled";
+
+// Payout history record
+export type Payout = {
+  id: string;
+  user_id: string;
+  amount: number;
+  currency: string;
+  status: PayoutStatus;
+  stripe_transfer_id: string | null;
+  stripe_payout_id: string | null;
+  failure_code: string | null;
+  failure_message: string | null;
+  requested_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TcgdexCardTyped = Omit<
   TcgdexCard,
   | "attacks"

@@ -294,6 +294,14 @@ export async function sendImageMessage(
     throw new Error(error.message);
   }
 
+  // Image rows are inserted client-side (Storage upload + RLS insert), so the
+  // server never sees them — unlike text messages routed through
+  // `/api/messages/send`. Fire-and-forget a notify so the recipient still gets
+  // a push. Failures are swallowed: the message itself already succeeded.
+  api
+    .post("/api/messages/notify-image", { conversation_id: conversationId })
+    .catch(() => {});
+
   return data as Message;
 }
 

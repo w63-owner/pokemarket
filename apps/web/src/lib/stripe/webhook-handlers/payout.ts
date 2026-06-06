@@ -79,6 +79,23 @@ export async function handlePayoutFailed(
     }
   }
 
+  // Update payout record status to failed
+  const { error: payoutUpdateError } = await admin
+    .from("payouts")
+    .update({
+      status: "failed",
+      failure_code: payout.failure_code ?? null,
+      failure_message: payout.failure_message ?? null,
+      completed_at: new Date().toISOString(),
+    })
+    .eq("stripe_payout_id", payout.id);
+
+  if (payoutUpdateError) {
+    Sentry.captureException(payoutUpdateError, {
+      extra: { context: "payout_record_failed_update", payout_id: payout.id },
+    });
+  }
+
   Sentry.captureMessage(
     `Payout failed: ${payout.id} amount=${amountEur}€ user=${sellerId} reason=${payout.failure_message ?? payout.failure_code}`,
     { level: "warning", tags: { kind: "stripe_payout", action: "failed" } },
@@ -120,9 +137,22 @@ export async function handlePayoutPaid(
     sellerId = profile?.id ?? null;
   }
 
+  // Update payout record status to paid (even if no sellerId for notification)
+  const { error: payoutUpdateError } = await admin
+    .from("payouts")
+    .update({
+      status: "paid",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("stripe_payout_id", payout.id);
+
+  if (payoutUpdateError) {
+    Sentry.captureException(payoutUpdateError, {
+      extra: { context: "payout_record_paid_update", payout_id: payout.id },
+    });
+  }
+
   if (!sellerId) {
-    // Don't alert — paid payouts without metadata are usually admin-triggered
-    // legacy payouts. Just log a breadcrumb.
     Sentry.addBreadcrumb({
       category: "stripe_payout",
       level: "info",

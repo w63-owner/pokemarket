@@ -81,6 +81,7 @@ export const queryKeys = {
   wallet: {
     balance: () => ["wallet", "balance"] as const,
     movements: () => ["wallet", "movements"] as const,
+    payouts: () => ["wallet", "payouts"] as const,
   },
   paymentMethods: {
     list: () => ["paymentMethods", "list"] as const,

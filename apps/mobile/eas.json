@@ -24,7 +24,7 @@
         "key": "v1-dev-rn0.81-expo54"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
+        "EXPO_PUBLIC_API_URL": "https://pokemarket-staging.vercel.app",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EAS_USE_CACHE": "1"
       }
@@ -45,7 +45,7 @@
         "key": "v1-preview-rn0.81-expo54"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://staging.pokemarket.app",
+        "EXPO_PUBLIC_API_URL": "https://pokemarket-staging.vercel.app",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EAS_USE_CACHE": "1"
       }

@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
-import type { Wallet } from "@/types";
+import type { Payout, Wallet } from "@pokemarket/shared";
+
+export type PayoutHistoryResponse = {
+  payouts: Payout[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
 
 export async function fetchWalletBalance(): Promise<Wallet | null> {
   const supabase = createClient();
@@ -36,4 +42,21 @@ export async function getOnboardingUrl(): Promise<string> {
   }
   const data = await res.json();
   return data.url;
+}
+
+export async function fetchPayoutHistory(
+  cursor?: string | null,
+): Promise<PayoutHistoryResponse> {
+  const url = new URL("/api/stripe-connect/payouts", window.location.origin);
+  if (cursor) {
+    url.searchParams.set("cursor", cursor);
+  }
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Erreur lors du chargement de l'historique");
+  }
+
+  return res.json();
 }

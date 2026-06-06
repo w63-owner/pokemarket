@@ -6,7 +6,14 @@ import type { User } from "@supabase/supabase-js";
 import { LIMITS, formatPrice, queryKeys, type Offer } from "@pokemarket/shared";
 import { Check, ShoppingCart, Tag } from "lucide-react-native";
 
-import { Button, Input, Sheet, Text, toast } from "@/components/ui";
+import {
+  Button,
+  Input,
+  Sheet,
+  SheetScrollView,
+  Text,
+  toast,
+} from "@/components/ui";
 import {
   acceptOffer,
   cancelOffer,
@@ -284,57 +291,62 @@ function BuyerOfferEntry({
       </BarShell>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <View className="gap-4 pb-2">
-          <Text variant="h4">Faire une offre</Text>
-          <Text variant="muted">
-            Le vendeur recevra une notification et pourra accepter ou refuser
-            votre offre.
-          </Text>
-
-          <View className="gap-2">
-            <Text variant="small" className="font-medium">
-              Montant en euros
+        <SheetScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 24 }}
+        >
+          <View className="gap-4 pb-2">
+            <Text variant="h4">Faire une offre</Text>
+            <Text variant="muted">
+              Le vendeur recevra une notification et pourra accepter ou refuser
+              votre offre.
             </Text>
-            <Input
-              value={amount}
-              onChangeText={(v) => {
-                setAmount(v);
-                setError(null);
-              }}
-              keyboardType="decimal-pad"
-              placeholder={`Min. ${formatPrice(minOffer)}`}
-              autoFocus
-              error={!!error}
-            />
-            {error ? (
-              <Text variant="small" className="text-destructive">
-                {error}
-              </Text>
-            ) : null}
-          </View>
 
-          <View className="mt-2 flex-row gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onPress={() => setOpen(false)}
-              disabled={createMutation.isPending}
-            >
-              Annuler
-            </Button>
-            <Button
-              className="flex-1"
-              onPress={handleSubmit}
-              disabled={!amount || createMutation.isPending}
-            >
-              {createMutation.isPending ? (
-                <ActivityIndicator color={colors.primaryForeground} />
-              ) : (
-                "Envoyer"
-              )}
-            </Button>
+            <View className="gap-2">
+              <Text variant="small" className="font-medium">
+                Montant en euros
+              </Text>
+              <Input
+                value={amount}
+                onChangeText={(v) => {
+                  setAmount(v);
+                  setError(null);
+                }}
+                keyboardType="decimal-pad"
+                placeholder={`Min. ${formatPrice(minOffer)}`}
+                autoFocus
+                error={!!error}
+              />
+              {error ? (
+                <Text variant="small" className="text-destructive">
+                  {error}
+                </Text>
+              ) : null}
+            </View>
+
+            <View className="mt-2 flex-row gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onPress={() => setOpen(false)}
+                disabled={createMutation.isPending}
+              >
+                Annuler
+              </Button>
+              <Button
+                className="flex-1"
+                onPress={handleSubmit}
+                disabled={!amount || createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <ActivityIndicator color={colors.primaryForeground} />
+                ) : (
+                  "Envoyer"
+                )}
+              </Button>
+            </View>
           </View>
-        </View>
+        </SheetScrollView>
       </Sheet>
     </>
   );

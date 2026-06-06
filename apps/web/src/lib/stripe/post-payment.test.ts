@@ -123,7 +123,7 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     expect(emailRows(db)).toHaveLength(2); // only first call enqueued
   });
 
-  it("handles transaction with shipping cost (sellerNet excludes shipping)", async () => {
+  it("handles transaction with shipping cost (seller receives card net + shipping)", async () => {
     const scenario = basicScenario();
     scenario.transactions![0].total_amount = 116.2; // 100 item + 10 ship + ~6 fees
     scenario.transactions![0].shipping_cost = 10;
@@ -131,9 +131,10 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     mockClient = db.client;
     await finalizePaidTransaction(IDS.TX);
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
-    // calcPriceSeller(116.2 - 10) = calcPriceSeller(106.2) = (106.2 - 0.7)/1.05 ≈ 100.476
-    expect(wallet?.pending_balance).toBeGreaterThan(99);
-    expect(wallet?.pending_balance).toBeLessThan(102);
+    // cardNet = calcPriceSeller(116.2 - 10) = calcPriceSeller(106.2) = (106.2 - 0.7)/1.05 ≈ 100.476
+    // sellerNet = cardNet + shipping = 100.476 + 10 ≈ 110.476
+    expect(wallet?.pending_balance).toBeGreaterThan(109);
+    expect(wallet?.pending_balance).toBeLessThan(112);
   });
 
   it("creates a conversation and posts the system message when none exists yet", async () => {

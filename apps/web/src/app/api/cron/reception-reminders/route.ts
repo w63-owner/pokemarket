@@ -6,9 +6,28 @@ import { sendPushNotification } from "@/lib/push/send";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Fire the reminder on exactly day 7 after shipping (window of 24 h so the
-// daily cron catches each transaction exactly once).
-const REMINDER_AFTER_DAYS = 7;
+/**
+ * Send reception reminders to buyers at two points:
+ *   - Day 7: gentle reminder to confirm reception
+ *   - Day 12: warning that auto-completion happens in 2 days
+ *
+ * Each reminder fires in a 24h window so the daily cron catches
+ * each transaction exactly once per reminder point.
+ */
+const REMINDER_DAYS = [
+  {
+    days: 7,
+    title: "Avez-vous reçu votre commande ? 📦",
+    body: (title: string) =>
+      `Confirmez la réception de ${title} pour libérer le paiement au vendeur.`,
+  },
+  {
+    days: 12,
+    title: "⚠️ Confirmation automatique dans 2 jours",
+    body: (title: string) =>
+      `Sans action de votre part, la commande ${title} sera automatiquement confirmée le 14e jour.`,
+  },
+];
 
 function isAuthorized(request: Request): boolean {
   const auth = request.headers.get("authorization");
@@ -23,52 +42,51 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
 
   try {
-    const windowEnd = new Date();
-    windowEnd.setDate(windowEnd.getDate() - REMINDER_AFTER_DAYS);
+    let totalSent = 0;
+    const allErrors: string[] = [];
 
-    const windowStart = new Date(windowEnd);
-    windowStart.setDate(windowStart.getDate() - 1);
+    for (const reminder of REMINDER_DAYS) {
+      const windowEnd = new Date();
+      windowEnd.setDate(windowEnd.getDate() - reminder.days);
 
-    const { data: txs, error: fetchError } = await admin
-      .from("transactions")
-      .select("id, buyer_id, listing_title")
-      .eq("status", "SHIPPED")
-      .gte("shipped_at", windowStart.toISOString())
-      .lt("shipped_at", windowEnd.toISOString());
+      const windowStart = new Date(windowEnd);
+      windowStart.setDate(windowStart.getDate() - 1);
 
-    if (fetchError) throw fetchError;
+      const { data: txs, error: fetchError } = await admin
+        .from("transactions")
+        .select("id, buyer_id, listing_title")
+        .eq("status", "SHIPPED")
+        .gte("shipped_at", windowStart.toISOString())
+        .lt("shipped_at", windowEnd.toISOString());
 
-    if (!txs || txs.length === 0) {
-      return NextResponse.json({ reminders_sent: 0 });
+      if (fetchError) throw fetchError;
+
+      if (!txs || txs.length === 0) continue;
+
+      await Promise.allSettled(
+        txs.map(async (tx) => {
+          try {
+            await sendPushNotification(
+              tx.buyer_id,
+              reminder.title,
+              reminder.body(tx.listing_title ?? "votre carte"),
+              `/orders/${tx.id}`,
+              { category: "commerce" },
+            );
+            totalSent++;
+          } catch (err) {
+            Sentry.captureException(err);
+            allErrors.push(
+              `tx=${tx.id} (day ${reminder.days}): ${err instanceof Error ? err.message : "unknown"}`,
+            );
+          }
+        }),
+      );
     }
 
-    let sent = 0;
-    const errors: string[] = [];
-
-    await Promise.allSettled(
-      txs.map(async (tx) => {
-        try {
-          await sendPushNotification(
-            tx.buyer_id,
-            "Avez-vous reçu votre commande ? 📦",
-            `Confirmez la réception de ${tx.listing_title ?? "votre carte"} pour libérer le paiement au vendeur.`,
-            `/orders/${tx.id}`,
-            { category: "commerce" },
-          );
-          sent++;
-        } catch (err) {
-          Sentry.captureException(err);
-          errors.push(
-            `tx=${tx.id}: ${err instanceof Error ? err.message : "unknown"}`,
-          );
-        }
-      }),
-    );
-
     return NextResponse.json({
-      reminders_sent: sent,
-      total_eligible: txs.length,
-      ...(errors.length > 0 && { errors }),
+      reminders_sent: totalSent,
+      ...(allErrors.length > 0 && { errors: allErrors }),
     });
   } catch (err) {
     Sentry.captureException(err);

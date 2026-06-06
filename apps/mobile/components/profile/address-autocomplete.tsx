@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { MapPin, X } from "lucide-react-native";
 import { SHIPPING_COUNTRIES, type ShippingCountry } from "@pokemarket/shared";
 
-import { Input, Sheet, Text } from "@/components/ui";
+import { Input, Sheet, SheetScrollView, Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 const ALLOWED_COUNTRIES = SHIPPING_COUNTRIES as readonly string[];
@@ -202,64 +202,73 @@ function SearchSheetBody({
   };
 
   return (
-    <View style={{ minHeight: 380 }} className="gap-3">
-      <View className="flex-row items-center justify-between">
-        <Text variant="h4">Rechercher une adresse</Text>
-        <Pressable onPress={onClose} hitSlop={6}>
-          <X size={20} color={muted} />
-        </Pressable>
-      </View>
-
-      <Input
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Adresse, ville, code postal…"
-        autoFocus
-        autoCorrect={false}
-        autoCapitalize="words"
-      />
-
-      {loading ? (
-        <View className="flex-row items-center justify-center py-8">
-          <ActivityIndicator />
+    <SheetScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ paddingBottom: 24, minHeight: 380 }}
+    >
+      <View className="gap-3">
+        <View className="flex-row items-center justify-between">
+          <Text variant="h4">Rechercher une adresse</Text>
+          <Pressable onPress={onClose} hitSlop={6}>
+            <X size={20} color={muted} />
+          </Pressable>
         </View>
-      ) : suggestions.length === 0 ? (
-        <View className="items-center py-8">
-          <Text variant="muted">
-            {query.length < 3
-              ? "Tapez au moins 3 caractères"
-              : "Aucun résultat"}
-          </Text>
-        </View>
-      ) : (
-        <View className="gap-1">
-          {suggestions.map((feature, idx) => {
-            const p = feature.properties;
-            const primary = formatPrimary(p);
-            const secondary = formatSecondary(p);
-            return (
-              <Pressable
-                key={`${p.osm_id ?? idx}-${idx}`}
-                onPress={() => handlePick(feature)}
-                className="flex-row items-start gap-2 rounded-lg p-2 active:bg-muted"
-              >
-                <MapPin size={16} color={muted} />
-                <View className="min-w-0 flex-1">
-                  <Text className="font-medium" numberOfLines={1}>
-                    {primary}
-                  </Text>
-                  {secondary ? (
-                    <Text variant="muted" className="text-xs" numberOfLines={1}>
-                      {secondary}
+
+        <Input
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Adresse, ville, code postal…"
+          autoFocus
+          autoCorrect={false}
+          autoCapitalize="words"
+        />
+
+        {loading ? (
+          <View className="flex-row items-center justify-center py-8">
+            <ActivityIndicator />
+          </View>
+        ) : suggestions.length === 0 ? (
+          <View className="items-center py-8">
+            <Text variant="muted">
+              {query.length < 3
+                ? "Tapez au moins 3 caractères"
+                : "Aucun résultat"}
+            </Text>
+          </View>
+        ) : (
+          <View className="gap-1">
+            {suggestions.map((feature, idx) => {
+              const p = feature.properties;
+              const primary = formatPrimary(p);
+              const secondary = formatSecondary(p);
+              return (
+                <Pressable
+                  key={`${p.osm_id ?? idx}-${idx}`}
+                  onPress={() => handlePick(feature)}
+                  className="flex-row items-start gap-2 rounded-lg p-2 active:bg-muted"
+                >
+                  <MapPin size={16} color={muted} />
+                  <View className="min-w-0 flex-1">
+                    <Text className="font-medium" numberOfLines={1}>
+                      {primary}
                     </Text>
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </View>
+                    {secondary ? (
+                      <Text
+                        variant="muted"
+                        className="text-xs"
+                        numberOfLines={1}
+                      >
+                        {secondary}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    </SheetScrollView>
   );
 }
 

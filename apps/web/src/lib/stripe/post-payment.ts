@@ -106,9 +106,11 @@ export async function finalizePaidTransaction(
   // next navigation, and the buyer's own `/orders/:id` is the page being
   // rendered).
 
-  const sellerNet = calcPriceSeller(
-    transaction.total_amount - (transaction.shipping_cost ?? 0),
-  );
+  // Seller receives: net card earnings (after platform fee) + shipping
+  // (shipping is passed through to the seller, not subject to the fee).
+  const shippingCost = transaction.shipping_cost ?? 0;
+  const cardNet = calcPriceSeller(transaction.total_amount - shippingCost);
+  const sellerNet = cardNet + shippingCost;
 
   const { data: wallet, error: walletReadError } = await admin
     .from("wallets")

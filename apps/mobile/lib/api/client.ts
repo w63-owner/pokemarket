@@ -14,6 +14,41 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Extract a human-readable error message from an API response body.
+ * Handles multiple error formats:
+ *   - { error: "message" }
+ *   - { error: { message: "..." } }
+ *   - { message: "..." }
+ *   - plain string
+ */
+function extractErrorMessage(data: unknown): string | null {
+  if (!data) return null;
+
+  if (typeof data === "string") return data;
+
+  if (typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+
+    // { error: "..." } or { error: { message: "..." } }
+    if ("error" in obj) {
+      const err = obj.error;
+      if (typeof err === "string") return err;
+      if (typeof err === "object" && err && "message" in err) {
+        const msg = (err as { message: unknown }).message;
+        if (typeof msg === "string") return msg;
+      }
+    }
+
+    // { message: "..." }
+    if ("message" in obj && typeof obj.message === "string") {
+      return obj.message;
+    }
+  }
+
+  return null;
+}
+
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   searchParams?: Record<string, string | number | boolean | undefined | null>;
@@ -118,10 +153,7 @@ export async function apiFetch<TResponse = unknown>(
         : await response.text().catch(() => null);
 
       if (!response.ok) {
-        const message =
-          (typeof data === "object" && data && "error" in data
-            ? String((data as { error: unknown }).error)
-            : null) ?? `HTTP ${response.status}`;
+        const message = extractErrorMessage(data) ?? `HTTP ${response.status}`;
         span?.setStatus({ code: 2, message });
         throw new ApiError(response.status, message, data);
       }

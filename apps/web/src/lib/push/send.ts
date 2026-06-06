@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import type { PushNotificationCategory } from "@pokemarket/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendExpoPushNotification } from "@/lib/push/expo";
 
 export type SendPushOptions = {
   category?: PushNotificationCategory;
@@ -25,7 +26,29 @@ function ensureConfigured() {
   return true;
 }
 
+/**
+ * Deliver a push notification to every device the user owns — web (PWA via
+ * VAPID/web-push) AND mobile (React Native via Expo). Each transport is
+ * best-effort and isolated: a failure in one never blocks the other, so a
+ * single call from a webhook/Server Action fans out to all platforms.
+ */
 export async function sendPushNotification(
+  userId: string,
+  title: string,
+  body: string,
+  url?: string,
+  options?: SendPushOptions,
+): Promise<void> {
+  await Promise.allSettled([
+    sendWebPush(userId, title, body, url, options),
+    sendExpoPushNotification(userId, title, body, {
+      category: options?.category,
+      url,
+    }),
+  ]);
+}
+
+async function sendWebPush(
   userId: string,
   title: string,
   body: string,

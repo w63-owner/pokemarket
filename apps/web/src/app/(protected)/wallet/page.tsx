@@ -246,7 +246,14 @@ export default function WalletPage() {
               )}
             </m.div>
 
-            <div className="border-border border-t pt-4">
+            <div className="border-border space-y-1 border-t pt-4">
+              <Button
+                variant="ghost"
+                className="text-muted-foreground w-full justify-start text-sm"
+                render={<Link href="/wallet/payouts" />}
+              >
+                Voir l&apos;historique des virements →
+              </Button>
               <Button
                 variant="ghost"
                 className="text-muted-foreground w-full justify-start text-sm"

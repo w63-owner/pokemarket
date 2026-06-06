@@ -75,18 +75,26 @@ export async function handleChargeRefunded(
 
   const isFullyRefunded = (charge.amount_refunded ?? 0) >= (charge.amount ?? 0);
 
-  // The seller share of the refund = (refundedDelta - shipping_share) * (1 / (1 + fee%))
-  // For simplicity we use the same calcPriceSeller helper applied to the
-  // refunded card portion only (excluding the shipping portion of the delta
-  // proportionally). This is approximate for partial refunds but matches
-  // the credit logic in finalizePaidTransaction (00007/post-payment).
+  // The seller was credited cardNet + shipping in finalizePaidTransaction.
+  // On refund we must reverse that proportionally:
+  //   - shippingRefunded: the shipping portion of the refund (passed through 1:1)
+  //   - cardRefunded: the card portion → seller loses calcPriceSeller(cardRefunded)
+  //
+  // For full refunds: reverse everything (cardNet + shipping).
+  // For partial refunds: we assume shipping is refunded first, then card.
   const shippingTotal = Number(transaction.shipping_cost ?? 0);
   const cardTotal = Number(transaction.total_amount ?? 0) - shippingTotal;
+
+  // How much of the refund delta goes to shipping vs card?
+  const shippingRefunded = Math.min(newDelta, shippingTotal);
   const cardRefundedDelta = Math.max(
     0,
     Math.min(newDelta - shippingTotal, cardTotal),
   );
-  const sellerShareToReverse = calcPriceSeller(cardRefundedDelta);
+
+  // Seller share to reverse = card earnings portion + shipping portion
+  const sellerShareToReverse =
+    calcPriceSeller(cardRefundedDelta) + shippingRefunded;
 
   // Read the wallet, then debit pending first, then available.
   const { data: wallet } = await admin

@@ -173,6 +173,25 @@ export async function POST(request: Request) {
       throw stripeErr;
     }
 
+    // Insert payout record before triggering Stripe payout
+    const { data: payoutRecord, error: insertError } = await admin
+      .from("payouts")
+      .insert({
+        user_id: user.id,
+        amount: availableBalance,
+        currency: currency.toUpperCase(),
+        status: "pending",
+        stripe_transfer_id: transfer.id,
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      Sentry.captureException(insertError, {
+        extra: { context: "payout_record_insert", user_id: user.id },
+      });
+    }
+
     let payoutId: string | null = null;
     try {
       const payout = await stripe.payouts.create(
@@ -182,6 +201,7 @@ export async function POST(request: Request) {
           metadata: {
             user_id: user.id,
             transfer_id: transfer.id,
+            payout_record_id: payoutRecord?.id,
           },
         },
         {
@@ -190,6 +210,17 @@ export async function POST(request: Request) {
         },
       );
       payoutId = payout.id;
+
+      // Update payout record with Stripe payout ID and status
+      if (payoutRecord?.id) {
+        await admin
+          .from("payouts")
+          .update({
+            stripe_payout_id: payoutId,
+            status: "in_transit",
+          })
+          .eq("id", payoutRecord.id);
+      }
     } catch (payoutErr) {
       Sentry.captureException(payoutErr);
       console.warn(
@@ -198,15 +229,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Audit trail: the transactions table is scoped to marketplace purchases
-    // (listing_id FK). Stripe transfer/payout IDs serve as the primary audit
-    // record. A dedicated wallet_history table should be added for full
-    // on-platform payout traceability.
     console.info("[payout] Completed", {
       user_id: user.id,
       amount: availableBalance,
       stripe_transfer_id: transfer.id,
       stripe_payout_id: payoutId,
+      payout_record_id: payoutRecord?.id,
     });
 
     return NextResponse.json({
