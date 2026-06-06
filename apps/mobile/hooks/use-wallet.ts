@@ -1,7 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { queryKeys } from "@pokemarket/shared";
 
 import {
+  fetchPayoutHistory,
   fetchStripeConnectStatus,
   fetchWalletBalance,
   getOnboardingUrl,
@@ -63,3 +69,15 @@ export function useRequestPayout() {
 }
 
 export const stripeConnectStatusKey = STRIPE_CONNECT_STATUS_KEY;
+
+/**
+ * Infinite query for payout history with cursor-based pagination.
+ */
+export function usePayoutHistory() {
+  return useInfiniteQuery({
+    queryKey: queryKeys.wallet.payouts(),
+    queryFn: ({ pageParam }) => fetchPayoutHistory(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
+}

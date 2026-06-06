@@ -29,7 +29,10 @@ export default function RegisterScreen() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username } },
+      options: {
+        data: { username },
+        emailRedirectTo: "pokemarket://auth/confirm",
+      },
     });
     setSubmitting(false);
     if (error) {

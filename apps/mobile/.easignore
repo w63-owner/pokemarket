@@ -1,4 +1,4 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# EAS Build ignore file - differs from .gitignore to INCLUDE google-services.json
 
 # dependencies
 node_modules/
@@ -42,4 +42,5 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-google-services.json
+
+# NOTE: google-services.json is NOT ignored here (needed for FCM)

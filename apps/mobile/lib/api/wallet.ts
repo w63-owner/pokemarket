@@ -1,4 +1,4 @@
-import type { KycStatus, Wallet } from "@pokemarket/shared";
+import type { KycStatus, Payout, Wallet } from "@pokemarket/shared";
 
 import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
@@ -61,4 +61,20 @@ export async function getOnboardingUrl(): Promise<string> {
  */
 export async function requestPayout(): Promise<PayoutResult> {
   return api.post<PayoutResult>("/api/stripe-connect/payout");
+}
+
+export type PayoutHistoryResponse = {
+  payouts: Payout[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+/**
+ * Fetches the user's payout history with cursor-based pagination.
+ */
+export async function fetchPayoutHistory(
+  cursor?: string | null,
+): Promise<PayoutHistoryResponse> {
+  const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  return api.get<PayoutHistoryResponse>(`/api/stripe-connect/payouts${params}`);
 }

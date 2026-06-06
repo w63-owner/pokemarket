@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   BadgeCheck,
+  Banknote,
   ChevronRight,
   Clock,
   ExternalLink,
@@ -307,18 +308,33 @@ export default function WalletScreen() {
                 )}
               </MotiView>
 
-              <Pressable
-                onPress={() => router.push(transactionRoutes.list())}
-                className="mt-2 flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
-              >
-                <View className="flex-row items-center gap-3">
-                  <Receipt size={18} color={colors.foreground} />
-                  <Text className="font-medium">
-                    Historique des transactions
-                  </Text>
-                </View>
-                <ChevronRight size={18} color={colors.mutedForeground} />
-              </Pressable>
+              <View className="mt-2 gap-2">
+                <Pressable
+                  onPress={() => router.push("/wallet/payouts")}
+                  className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Banknote size={18} color={colors.foreground} />
+                    <Text className="font-medium">
+                      Historique des virements
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.mutedForeground} />
+                </Pressable>
+
+                <Pressable
+                  onPress={() => router.push(transactionRoutes.list())}
+                  className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Receipt size={18} color={colors.foreground} />
+                    <Text className="font-medium">
+                      Historique des transactions
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
             </MotiView>
           )}
         </ScrollView>

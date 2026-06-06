@@ -6,6 +6,7 @@ import { router } from "expo-router";
 
 import { api, apiFetch } from "@/lib/api/client";
 import { transactionRoutes } from "@/lib/routes/orders";
+import { supabase } from "@/lib/supabase";
 
 /**
  * Per-app notification handler — runs in foreground, decides whether to
@@ -215,12 +216,12 @@ export function setupNotificationListeners(): () => void {
   // Universal Links / custom scheme arriving outside of a notification
   // (e.g. shared link, KYC return). Mirrors the same routing logic.
   const linkingSub = Linking.addEventListener("url", ({ url }) => {
-    handleIncomingUrl(url);
+    void handleIncomingUrl(url);
   });
 
   // Cold start via deep link.
   Linking.getInitialURL().then((url) => {
-    if (url) handleIncomingUrl(url);
+    if (url) void handleIncomingUrl(url);
   });
 
   return () => {
@@ -234,24 +235,57 @@ export function setupNotificationListeners(): () => void {
  * a few screens (KYC return, OAuth callback) want to consume specific links
  * directly without going through the global router.
  */
-export function handleIncomingUrl(url: string) {
+export async function handleIncomingUrl(url: string) {
   if (!url) return;
 
   let path: string;
+  let searchParams: URLSearchParams;
   try {
     if (url.startsWith("http")) {
       // https://pokemarket.app/listing/123 → /listing/123
       const parsed = new URL(url);
       path = parsed.pathname + parsed.search;
+      searchParams = parsed.searchParams;
     } else if (url.startsWith("pokemarket://")) {
       // Custom scheme: pokemarket://wallet/return → /wallet/return
       const stripped = url.slice("pokemarket://".length);
-      path = "/" + stripped.replace(/^\/+/, "");
+      const [pathPart, queryPart] = stripped.split("?");
+      path =
+        "/" + pathPart.replace(/^\/+/, "") + (queryPart ? `?${queryPart}` : "");
+      searchParams = new URLSearchParams(queryPart ?? "");
     } else {
       return;
     }
   } catch {
     return;
+  }
+
+  // Handle Supabase auth token links (email confirmation, password reset).
+  // Supabase sends `token_hash` and `type` params that we need to verify
+  // manually since `detectSessionInUrl` is disabled in React Native.
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type");
+  if (tokenHash && type) {
+    const validTypes = [
+      "signup",
+      "email_change",
+      "recovery",
+      "invite",
+    ] as const;
+    if (validTypes.includes(type as (typeof validTypes)[number])) {
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: type as (typeof validTypes)[number],
+      });
+      if (!error) {
+        if (type === "recovery") {
+          router.replace("/(auth)/reset-password");
+        } else {
+          router.replace("/(tabs)");
+        }
+      }
+      return;
+    }
   }
 
   // Don't intercept links that already correspond to our own scheme returns
