@@ -41,7 +41,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-email": "^5.2.10",
-    "react-hook-form": "^7.72.0",
+    "react-hook-form": "^7.76.1",
     "react-intersection-observer": "^10.0.3",
     "recharts": "^3.8.0",
     "resend": "^6.9.4",
