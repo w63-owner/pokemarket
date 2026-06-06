@@ -29,7 +29,7 @@ web-build/
 *.key
 *.mobileprovision
 *.orig.*
-google-services.json
+# google-services.json - allowed in apps/mobile for FCM
 GoogleService-Info.plist
 
 # turborepo
