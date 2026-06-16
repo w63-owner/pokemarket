@@ -45,9 +45,12 @@ function resolveProjectId(): string | null {
   return null;
 }
 
-async function ensurePermissions(): Promise<"granted" | "denied"> {
+async function ensurePermissions(
+  requestPermissions: boolean,
+): Promise<"granted" | "denied"> {
   const { status: current } = await Notifications.getPermissionsAsync();
   if (current === "granted") return "granted";
+  if (!requestPermissions) return "denied";
 
   const { status: next } = await Notifications.requestPermissionsAsync({
     ios: {
@@ -84,14 +87,16 @@ async function ensureAndroidChannels() {
  * Mint an Expo push token, persist it on the backend so the API can target
  * this device, and return it. Idempotent — safe to call on every cold start.
  */
-export async function registerPushToken(): Promise<RegisterPushResult> {
+export async function registerPushToken(options?: {
+  requestPermissions?: boolean;
+}): Promise<RegisterPushResult> {
   // Expo Go SDK 53+ no longer supports remote push (Apple removed it). Skip
   // gracefully so the dev experience doesn't surface confusing errors.
   if (Constants.appOwnership === "expo") {
     return { ok: false, reason: "unsupported", message: "Expo Go" };
   }
 
-  const permission = await ensurePermissions();
+  const permission = await ensurePermissions(options?.requestPermissions ?? true);
   if (permission !== "granted") {
     return { ok: false, reason: "denied" };
   }

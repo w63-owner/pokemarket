@@ -62,6 +62,10 @@ export function initAuth() {
       loading: false,
     };
     emit();
+
+    if (data.session) {
+      void registerPushToken({ requestPermissions: false });
+    }
   });
 
   supabase.auth.onAuthStateChange((event, newSession) => {
@@ -74,9 +78,8 @@ export function initAuth() {
 
     // After a successful sign-in, register the device for push notifications
     // so the backend can target this install. Fire-and-forget; failures are
-    // logged internally and never block the auth flow. `INITIAL_SESSION` is
-    // intentionally excluded — that fires on every cold boot for already-
-    // signed-in users and would spam our token endpoint.
+    // logged internally and never block the auth flow. Cold starts refresh
+    // idempotently in getSession() above without prompting for permission.
     if (event === "SIGNED_IN" && newSession) {
       void registerPushToken();
     }
