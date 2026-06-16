@@ -2,7 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 
-const sendPushNotification = vi.fn().mockResolvedValue(undefined);
+const { sendPushNotification } = vi.hoisted(() => ({
+  sendPushNotification: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock("@/lib/push/send", () => ({
   sendPushNotification,
