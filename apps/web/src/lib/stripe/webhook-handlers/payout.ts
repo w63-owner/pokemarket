@@ -52,43 +52,64 @@ export async function handlePayoutFailed(
 
   const amountEur = (payout.amount ?? 0) / 100;
 
-  // Restore the available balance. CAUTION: if multiple payouts failed in
-  // parallel, this is non-idempotent at the row level. The webhook layer's
-  // event-id idempotency is what protects us.
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("available_balance")
-    .eq("user_id", sellerId)
-    .single();
+  const { data: payoutRecord } = await admin
+    .from("payouts")
+    .select("id, stripe_transfer_id")
+    .eq("stripe_payout_id", payout.id)
+    .maybeSingle();
 
-  if (wallet) {
-    const newAvailable =
-      Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
-    const { error } = await admin
+  const hasPlatformTransfer =
+    typeof payout.metadata?.transfer_id === "string" ||
+    Boolean(payoutRecord?.stripe_transfer_id);
+
+  if (!hasPlatformTransfer) {
+    // Legacy/admin payouts without a platform transfer represent funds that
+    // should return to the in-app wallet. App-created payouts already moved
+    // funds to the connected account before creating the bank payout; Stripe
+    // returns a failed payout to that connected balance, so restoring here
+    // would let the seller withdraw the same funds a second time.
+    const { data: wallet } = await admin
       .from("wallets")
-      .update({ available_balance: newAvailable })
-      .eq("user_id", sellerId);
-    if (error) {
-      Sentry.captureException(error, {
-        extra: {
-          context: "payout.failed_restore",
-          user_id: sellerId,
-          amount: amountEur,
-        },
-      });
+      .select("available_balance")
+      .eq("user_id", sellerId)
+      .single();
+
+    if (wallet) {
+      const newAvailable =
+        Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
+      const { error } = await admin
+        .from("wallets")
+        .update({ available_balance: newAvailable })
+        .eq("user_id", sellerId);
+      if (error) {
+        Sentry.captureException(error, {
+          extra: {
+            context: "payout.failed_restore",
+            user_id: sellerId,
+            amount: amountEur,
+          },
+        });
+      }
     }
+  } else {
+    Sentry.captureMessage(
+      `Payout failed after platform transfer: ${payout.id} amount=${amountEur}€ user=${sellerId}`,
+      { level: "warning", tags: { kind: "stripe_payout", action: "failed" } },
+    );
   }
 
   // Update payout record status to failed
-  const { error: payoutUpdateError } = await admin
+  const payoutUpdate = admin
     .from("payouts")
     .update({
       status: "failed",
       failure_code: payout.failure_code ?? null,
       failure_message: payout.failure_message ?? null,
       completed_at: new Date().toISOString(),
-    })
-    .eq("stripe_payout_id", payout.id);
+    });
+  const { error: payoutUpdateError } = payoutRecord?.id
+    ? await payoutUpdate.eq("id", payoutRecord.id)
+    : await payoutUpdate.eq("stripe_payout_id", payout.id);
 
   if (payoutUpdateError) {
     Sentry.captureException(payoutUpdateError, {
