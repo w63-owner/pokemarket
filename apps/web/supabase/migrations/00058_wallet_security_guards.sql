@@ -17,6 +17,25 @@ DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
 DROP POLICY IF EXISTS "Users cannot change their own role" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_admin" ON public.profiles;
 
+CREATE OR REPLACE FUNCTION public.is_profile_admin(p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+      FROM public.profiles
+     WHERE id = p_user_id
+       AND role = 'admin'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_profile_admin(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_profile_admin(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_profile_admin(UUID) TO service_role;
+
 CREATE POLICY "profiles_update_own" ON public.profiles
   FOR UPDATE
   USING ((SELECT auth.uid()) = id)
@@ -24,14 +43,7 @@ CREATE POLICY "profiles_update_own" ON public.profiles
 
 CREATE POLICY "profiles_update_admin" ON public.profiles
   FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1
-        FROM public.profiles admin_profile
-       WHERE admin_profile.id = (SELECT auth.uid())
-         AND admin_profile.role = 'admin'
-    )
-  )
+  USING (public.is_profile_admin((SELECT auth.uid())))
   WITH CHECK (true);
 
 CREATE OR REPLACE FUNCTION public.guard_profile_role_update()
@@ -53,10 +65,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT (role = 'admin')
-    INTO v_caller_is_admin
-    FROM public.profiles
-   WHERE id = v_caller_id;
+  v_caller_is_admin := public.is_profile_admin(v_caller_id);
 
   IF v_caller_is_admin IS NOT TRUE THEN
     RAISE EXCEPTION 'FORBIDDEN: users cannot change their own role'
@@ -101,10 +110,7 @@ BEGIN
   v_caller_id := auth.uid();
 
   IF v_caller_id IS NOT NULL THEN
-    SELECT (role = 'admin')
-      INTO v_is_admin
-      FROM public.profiles
-     WHERE id = v_caller_id;
+    v_is_admin := public.is_profile_admin(v_caller_id);
 
     IF NOT COALESCE(v_is_admin, FALSE) AND v_caller_id != p_buyer_id THEN
       RAISE EXCEPTION 'FORBIDDEN: caller % is not the buyer (%) or an admin',
