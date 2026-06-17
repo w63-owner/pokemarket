@@ -20,33 +20,19 @@ export async function createDispute(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  const { error: disputeError } = await supabase.from("disputes").insert({
-    transaction_id: transactionId,
-    opened_by: user.id,
-    reason,
-    description: description.trim(),
+  const trimmed = description.trim();
+  if (trimmed.length < 10) {
+    throw new Error("La description doit faire au moins 10 caractères");
+  }
+
+  const { error } = await supabase.rpc("create_dispute", {
+    p_transaction_id: transactionId,
+    p_reason: reason,
+    p_description: trimmed,
+    p_conversation_id: conversationId,
   });
 
-  if (disputeError) throw disputeError;
-
-  const { error: txError } = await supabase
-    .from("transactions")
-    .update({ status: "DISPUTED" })
-    .eq("id", transactionId)
-    .eq("buyer_id", user.id)
-    .eq("status", "SHIPPED");
-
-  if (txError) throw txError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Litige ouvert",
-    message_type: "dispute_opened",
-    metadata: { reason, description: description.trim() },
-  });
-
-  if (msgError) throw msgError;
+  if (error) throw error;
 }
 
 export async function fetchTransactionByListing(
@@ -81,39 +67,20 @@ export async function shipOrder(
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  const now = new Date().toISOString();
   const normalizedUrl =
     trackingUrl && !/^https?:\/\//i.test(trackingUrl)
       ? `https://${trackingUrl}`
       : trackingUrl;
 
   const { error: txError } = await supabase
-    .from("transactions")
-    .update({
-      status: "SHIPPED",
-      tracking_number: trackingNumber,
-      tracking_url: normalizedUrl,
-      shipped_at: now,
-    })
-    .eq("id", transactionId)
-    .eq("seller_id", user.id)
-    .eq("status", "PAID");
+    .rpc("ship_order", {
+      p_transaction_id: transactionId,
+      p_tracking_number: trackingNumber,
+      p_tracking_url: normalizedUrl as unknown as string,
+      p_conversation_id: conversationId,
+    });
 
   if (txError) throw txError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Colis expédié",
-    message_type: "order_shipped",
-    metadata: {
-      tracking_number: trackingNumber,
-      ...(normalizedUrl && { tracking_url: normalizedUrl }),
-      shipped_at: now,
-    },
-  });
-
-  if (msgError) throw msgError;
 
   fetch("/api/orders/shipped-notify", {
     method: "POST",
