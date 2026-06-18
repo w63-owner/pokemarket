@@ -1,74 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createMockDb } from "@/test-utils/db-mock";
-
-let currentUser: { id: string; email?: string } | null = {
-  id: "user-b",
-  email: "b@example.com",
-};
-
-vi.mock("@/lib/auth/api", () => ({
-  getRequestUser: vi.fn(async () => ({
-    user: currentUser,
-    source: "bearer" as const,
-  })),
-}));
-
-let mockClient: any;
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => mockClient,
-}));
-
-import { POST } from "./route";
-
-const token = "ExpoPushToken[shared-device-token]";
-
-beforeEach(() => {
-  currentUser = { id: "user-b", email: "b@example.com" };
-});
-
-function req(body: unknown) {
-  return new Request("http://localhost/api/push/expo-tokens", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-}
-
-describe("push/expo-tokens", () => {
-  it("reassigns an existing physical device token to the signed-in user", async () => {
-    const db = createMockDb({
-      expo_push_tokens: [
-        {
-          id: "token-1",
-          user_id: "user-a",
-          token,
-          platform: "ios",
-          device_id: null,
-          app_version: "1.0.0",
-          created_at: "2026-06-18T10:00:00.000Z",
-          updated_at: "2026-06-18T10:00:00.000Z",
-        },
-      ],
-    });
-    mockClient = db.client;
-
-    const res = await POST(
-      req({ token, platform: "android", app_version: "1.0.1" }),
-    );
-
-    expect(res.status).toBe(200);
-    expect(db.state.expo_push_tokens).toHaveLength(1);
-    expect(db.state.expo_push_tokens[0]).toMatchObject({
-      id: "token-1",
-      user_id: "user-b",
-      token,
-      platform: "android",
-      app_version: "1.0.1",
-    });
-  });
-});
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from "vitest";
 
 let currentUser: { id: string } | null = { id: "user-1" };
 
@@ -152,7 +83,7 @@ describe("POST /api/push/expo-tokens", () => {
         device_id: "PixelPro",
         app_version: "0.1.0",
       }),
-      expect.objectContaining({ onConflict: "user_id,token" }),
+      expect.objectContaining({ onConflict: "token" }),
     );
   });
 });
