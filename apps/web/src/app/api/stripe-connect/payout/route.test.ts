@@ -121,6 +121,41 @@ describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
     expect(db.state.wallets[0].available_balance).toBe(0);
   });
 
+  it("échec Stripe déterministe avant transfer → wallet restauré pour retry", async () => {
+    transfersCreate.mockRejectedValueOnce({
+      type: "StripeInvalidRequestError",
+      code: "balance_insufficient",
+      message: "Insufficient platform balance",
+      statusCode: 400,
+    });
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(400);
+    expect(db.state.wallets[0].available_balance).toBe(50);
+    expect(payoutsCreate).not.toHaveBeenCalled();
+  });
+
+  it("échec réseau ambigu après deduction → wallet reste réservé pour éviter un double transfer", async () => {
+    transfersCreate.mockRejectedValueOnce({
+      type: "StripeConnectionError",
+      message: "Connection timed out",
+    });
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    const res = await POST(req());
+    const retry = await POST(req());
+
+    expect(res.status).toBe(500);
+    expect(retry.status).toBe(400);
+    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(transfersCreate).toHaveBeenCalledTimes(1);
+    expect(payoutsCreate).not.toHaveBeenCalled();
+  });
+
   it("solde nul → 400, aucun transfer Stripe", async () => {
     const db = createMockDb(payoutScenario(0));
     mockClient = db.client;

@@ -52,10 +52,12 @@ export interface MockDbState {
   transactions: Row[];
   listings: Row[];
   wallets: Row[];
+  payouts: Row[];
   offers: Row[];
   conversations: Row[];
   messages: Row[];
   profiles: Row[];
+  expo_push_tokens: Row[];
   stripe_webhooks_processed: Row[];
   notifications_outbox: Row[];
   // simulated auth.users
@@ -67,10 +69,12 @@ export function makeEmptyState(): MockDbState {
     transactions: [],
     listings: [],
     wallets: [],
+    payouts: [],
     offers: [],
     conversations: [],
     messages: [],
     profiles: [],
+    expo_push_tokens: [],
     stripe_webhooks_processed: [],
     notifications_outbox: [],
     users: [],
@@ -165,6 +169,7 @@ export function createMockDb(
     let pendingOp:
       | { type: "select"; cols: string }
       | { type: "insert"; rows: Row[] }
+      | { type: "upsert"; rows: Row[]; onConflict: string[] }
       | { type: "update"; patch: Row }
       | { type: "delete" }
       | null = null;
@@ -184,6 +189,17 @@ export function createMockDb(
         pendingOp = {
           type: "insert",
           rows: Array.isArray(rows) ? rows : [rows],
+        };
+        return builder;
+      },
+      upsert(rows: Row | Row[], opts?: { onConflict?: string }) {
+        pendingOp = {
+          type: "upsert",
+          rows: Array.isArray(rows) ? rows : [rows],
+          onConflict: (opts?.onConflict ?? "id")
+            .split(",")
+            .map((col) => col.trim())
+            .filter(Boolean),
         };
         return builder;
       },
@@ -307,6 +323,44 @@ export function createMockDb(
           }));
           (state as any)[name].push(...rows);
           return rows;
+        });
+      }
+
+      if (pendingOp.type === "upsert") {
+        return withSerializedWrites(!!chaos.serializeWrites, async () => {
+          if (!(state as any)[name]) (state as any)[name] = [];
+          const tableRows = (state as any)[name] as Row[];
+          const upserted: Row[] = [];
+
+          for (const incoming of pendingOp!.type === "upsert"
+            ? pendingOp.rows
+            : []) {
+            const conflictCols =
+              pendingOp!.type === "upsert" ? pendingOp.onConflict : [];
+            const existing = tableRows.find((row) =>
+              conflictCols.every((col) => row[col] === incoming[col]),
+            );
+
+            if (existing) {
+              Object.assign(existing, incoming);
+              upserted.push({ ...existing });
+              continue;
+            }
+
+            const row = {
+              id:
+                incoming.id ??
+                `${name}_${tableRows.length + 1}_${Math.random()
+                  .toString(36)
+                  .slice(2, 8)}`,
+              created_at: incoming.created_at ?? new Date().toISOString(),
+              ...incoming,
+            };
+            tableRows.push(row);
+            upserted.push({ ...row });
+          }
+
+          return upserted;
         });
       }
 

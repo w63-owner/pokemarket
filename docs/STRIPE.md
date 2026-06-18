@@ -43,7 +43,8 @@ that handles every event type. Configure it in the Stripe dashboard at
 - `charge.dispute.created` — chargeback opened, lock funds + alert admin
 - `charge.dispute.updated` — keep our local dispute row in sync
 - `charge.dispute.closed` — final outcome (won / lost / charge_refunded)
-- `payout.failed` — restore seller's `available_balance`, notify
+- `payout.failed` — mark payout failed and notify (do not restore wallet; funds
+  remain on the connected account after the platform transfer)
 - `payout.paid` — confirmation push notification
 
 ### Optional / informational

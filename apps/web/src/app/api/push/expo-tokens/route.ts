@@ -58,7 +58,10 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    // A physical install's Expo token must belong to exactly one account.
+    // Reassigning on token conflict prevents stale rows from delivering a
+    // previous user's private notifications to a shared device.
+    { onConflict: "token" },
   );
 
   if (error) {
