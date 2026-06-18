@@ -79,6 +79,22 @@ function renderInner({
   }
 
   if (status === "LOCKED") {
+    const reservedForViewer = !!viewerId && viewerId === reservedFor;
+    if (reservedForViewer) {
+      const lockedDisplay =
+        listing.reserved_price ?? listing.display_price ?? 0;
+      return (
+        <View className="gap-2">
+          <Button onPress={() => router.push(`/checkout/${listing.id}`)}>
+            {`Reprendre le paiement ${formatPrice(lockedDisplay)}`}
+          </Button>
+          <Button variant="outline" onPress={onContact}>
+            Contacter
+          </Button>
+        </View>
+      );
+    }
+
     return (
       <View className="gap-2">
         <Badge variant="warning">Paiement en cours</Badge>
