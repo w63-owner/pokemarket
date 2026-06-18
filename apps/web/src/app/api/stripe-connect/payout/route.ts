@@ -142,35 +142,62 @@ export async function POST(request: Request) {
         { idempotencyKey: transferIdempotencyKey },
       );
     } catch (stripeErr) {
-      // Stripe rejected the transfer — restore the wallet so the seller
-      // can try again. If this restore fails we log a critical alert since
-      // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
+      if (shouldRestoreWalletAfterTransferFailure(stripeErr)) {
+        // Stripe deterministically rejected the transfer before funds moved,
+        // so the seller can safely retry once we restore the app ledger.
+        const { error: restoreError } = await admin
+          .from("wallets")
+          .update({ available_balance: availableBalance })
+          .eq("user_id", user.id)
+          .eq("available_balance", 0);
 
-      if (restoreError) {
-        Sentry.captureException(restoreError, {
-          extra: {
-            context: "wallet_restore_failed_after_stripe_error",
-            user_id: user.id,
-            amount: availableBalance,
-          },
-        });
-        console.error(
-          "[payout] CRITICAL: wallet restore failed after Stripe error",
-          {
-            user_id: user.id,
-            amount: availableBalance,
-            restoreError,
-            stripeErr,
-          },
-        );
+        if (restoreError) {
+          Sentry.captureException(restoreError, {
+            extra: {
+              context: "wallet_restore_failed_after_stripe_error",
+              user_id: user.id,
+              amount: availableBalance,
+            },
+          });
+          console.error(
+            "[payout] CRITICAL: wallet restore failed after Stripe error",
+            {
+              user_id: user.id,
+              amount: availableBalance,
+              restoreError,
+              stripeErr,
+            },
+          );
+        }
+
+        throw stripeErr;
       }
 
-      throw stripeErr;
+      Sentry.captureException(stripeErr, {
+        extra: {
+          context: "payout_transfer_ambiguous_failure",
+          user_id: user.id,
+          amount: availableBalance,
+          transferIdempotencyKey,
+        },
+      });
+      console.error(
+        "[payout] CRITICAL: transfer outcome unknown; wallet left reserved",
+        {
+          user_id: user.id,
+          amount: availableBalance,
+          transferIdempotencyKey,
+          stripeErr,
+        },
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Virement en cours de vérification. Contacte le support avant de réessayer.",
+        },
+        { status: 500 },
+      );
     }
 
     // Insert payout record before triggering Stripe payout
@@ -268,13 +295,33 @@ export async function POST(request: Request) {
   }
 }
 
-function isStripeError(
-  err: unknown,
-): err is { type: string; code?: string; message: string } {
+type StripeErrorLike = {
+  type: string;
+  code?: string;
+  message?: string;
+  statusCode?: number;
+};
+
+function isStripeError(err: unknown): err is StripeErrorLike {
   return (
     typeof err === "object" &&
     err !== null &&
     "type" in err &&
     typeof (err as Record<string, unknown>).type === "string"
   );
+}
+
+function shouldRestoreWalletAfterTransferFailure(err: unknown): boolean {
+  if (!isStripeError(err)) return false;
+
+  if (typeof err.statusCode === "number" && err.statusCode >= 500) {
+    return false;
+  }
+
+  return ![
+    "StripeAPIError",
+    "StripeConnectionError",
+    "StripeIdempotencyError",
+    "StripeRateLimitError",
+  ].includes(err.type);
 }
