@@ -327,16 +327,14 @@ export function createMockDb(
       }
 
       if (pendingOp.type === "upsert") {
+        const op = pendingOp;
         return withSerializedWrites(!!chaos.serializeWrites, async () => {
           if (!(state as any)[name]) (state as any)[name] = [];
           const tableRows = (state as any)[name] as Row[];
           const upserted: Row[] = [];
 
-          for (const incoming of pendingOp!.type === "upsert"
-            ? pendingOp.rows
-            : []) {
-            const conflictCols =
-              pendingOp!.type === "upsert" ? pendingOp.onConflict : [];
+          for (const incoming of op.rows) {
+            const conflictCols = op.onConflict;
             const existing = tableRows.find((row) =>
               conflictCols.every((col) => row[col] === incoming[col]),
             );
