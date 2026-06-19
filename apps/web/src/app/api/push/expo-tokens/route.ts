@@ -58,7 +58,10 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    // The token itself identifies a physical app install. If another account
+    // previously owned it (for example logout cleanup failed offline), transfer
+    // ownership so this device stops receiving the old user's notifications.
+    { onConflict: "token" },
   );
 
   if (error) {

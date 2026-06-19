@@ -65,7 +65,7 @@ describe("POST /api/push/expo-tokens", () => {
     expect(res.status).toBe(400);
   });
 
-  it("upserts a valid token with user_id derived from auth", async () => {
+  it("upserts a valid token with ownership transferred by token", async () => {
     const res = await POST(
       makeReq({
         token: "ExponentPushToken[deviceA]",
@@ -83,7 +83,7 @@ describe("POST /api/push/expo-tokens", () => {
         device_id: "PixelPro",
         app_version: "0.1.0",
       }),
-      expect.objectContaining({ onConflict: "user_id,token" }),
+      expect.objectContaining({ onConflict: "token" }),
     );
   });
 });
