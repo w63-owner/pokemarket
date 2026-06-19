@@ -72,12 +72,11 @@ export function initAuth() {
     };
     emit();
 
-    // After a successful sign-in, register the device for push notifications
-    // so the backend can target this install. Fire-and-forget; failures are
-    // logged internally and never block the auth flow. `INITIAL_SESSION` is
-    // intentionally excluded — that fires on every cold boot for already-
-    // signed-in users and would spam our token endpoint.
-    if (event === "SIGNED_IN" && newSession) {
+    // Register on sign-in and restored sessions so token rotation/reinstall
+    // cannot leave a logged-in device with a stale server-side token. The
+    // backend upsert is idempotent and also transfers ownership on shared
+    // devices.
+    if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && newSession) {
       void registerPushToken();
     }
 

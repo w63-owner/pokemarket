@@ -34,6 +34,7 @@ import { queryClient } from "@/lib/query/client";
 import { setupQueryManagers } from "@/lib/query/setup";
 import { persistOptions } from "@/lib/query/persister";
 import { getActiveChannelCount } from "@/hooks/use-realtime";
+import { setupNotificationListeners } from "@/lib/notifications";
 
 // Captured as early as possible during JS bundle evaluation so the
 // cold-start metric measures "JS eval -> usable UI" — the latency the
@@ -71,6 +72,8 @@ function RootLayout() {
   // and the conversations list, regardless of whether the user has
   // opened the inbox yet.
   useInboxChannel(user?.id ?? null);
+
+  useEffect(() => setupNotificationListeners(), []);
 
   // Coordinate splash hiding with font loading so the first paint
   // always renders with the design system fonts (Inter + Plus Jakarta
