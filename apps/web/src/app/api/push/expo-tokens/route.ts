@@ -58,7 +58,10 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    // A push token identifies one physical app install. If another account
+    // registers the same device, transfer ownership instead of keeping stale
+    // rows that would leak notifications across users.
+    { onConflict: "token" },
   );
 
   if (error) {
