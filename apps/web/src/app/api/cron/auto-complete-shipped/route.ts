@@ -60,9 +60,13 @@ export async function GET(request: Request) {
         );
 
         if (rpcError) {
-          // Skip if already completed (race condition) or other issue
-          if (rpcError.code === "P0001") {
-            // Status mismatch — likely already completed
+          // Skip status mismatches from a race with manual confirmation, but
+          // surface wallet/ledger mismatches so operations can reconcile them.
+          if (
+            rpcError.code === "P0001" &&
+            typeof rpcError.message === "string" &&
+            rpcError.message.startsWith("INVALID_STATUS:")
+          ) {
             continue;
           }
           throw rpcError;
