@@ -145,20 +145,21 @@ export async function POST(request: Request) {
       // Stripe rejected the transfer — restore the wallet so the seller
       // can try again. If this restore fails we log a critical alert since
       // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
+      const { restored, error: restoreError } =
+        await restoreWalletAvailableBalance(admin, user.id, availableBalance);
 
-      if (restoreError) {
-        Sentry.captureException(restoreError, {
-          extra: {
-            context: "wallet_restore_failed_after_stripe_error",
-            user_id: user.id,
-            amount: availableBalance,
+      if (restoreError || !restored) {
+        Sentry.captureException(
+          restoreError ?? new Error("No wallet restored"),
+          {
+            extra: {
+              context: "wallet_restore_failed_after_stripe_error",
+              user_id: user.id,
+              amount: availableBalance,
+              restored,
+            },
           },
-        });
+        );
         console.error(
           "[payout] CRITICAL: wallet restore failed after Stripe error",
           {
@@ -266,6 +267,19 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+async function restoreWalletAvailableBalance(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  amount: number,
+): Promise<{ restored: boolean; error: unknown }> {
+  const { data, error } = await admin.rpc("restore_wallet_available_balance", {
+    p_user_id: userId,
+    p_amount: amount,
+  });
+
+  return { restored: data === true, error };
 }
 
 function isStripeError(

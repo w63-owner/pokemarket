@@ -241,6 +241,8 @@ describe("cron/auto-complete-shipped — edge cases", () => {
 
     expect(json.auto_completed).toBe(1);
     expect(json.total_eligible).toBe(2);
+    expect(json.errors).toHaveLength(1);
+    expect(db.state.transactions[0].status).toBe("SHIPPED");
     expect(db.state.transactions[1].status).toBe("COMPLETED");
   });
 });
