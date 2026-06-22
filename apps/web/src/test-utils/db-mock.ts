@@ -56,6 +56,7 @@ export interface MockDbState {
   conversations: Row[];
   messages: Row[];
   profiles: Row[];
+  payouts: Row[];
   stripe_webhooks_processed: Row[];
   notifications_outbox: Row[];
   // simulated auth.users
@@ -71,6 +72,7 @@ export function makeEmptyState(): MockDbState {
     conversations: [],
     messages: [],
     profiles: [],
+    payouts: [],
     stripe_webhooks_processed: [],
     notifications_outbox: [],
     users: [],
@@ -414,11 +416,13 @@ export function createMockDb(
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
         if (!wallet || wallet.pending_balance < sellerNet) {
-          console.warn(
-            `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
-          );
-          tx.status = "COMPLETED";
-          return { data: false, error: null };
+          return {
+            data: null,
+            error: {
+              code: "23514",
+              message: `ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
+            },
+          };
         }
 
         tx.status = "COMPLETED";
@@ -426,6 +430,20 @@ export function createMockDb(
           Math.round((wallet.pending_balance - sellerNet) * 100) / 100;
         wallet.available_balance =
           Math.round((wallet.available_balance + sellerNet) * 100) / 100;
+
+        return { data: true, error: null };
+      }
+
+      if (name === "restore_wallet_available_balance") {
+        const { p_user_id, p_amount } = params;
+        const wallet = state.wallets.find((w) => w.user_id === p_user_id);
+
+        if (!wallet) {
+          return { data: false, error: null };
+        }
+
+        wallet.available_balance =
+          Math.round((wallet.available_balance + p_amount) * 100) / 100;
 
         return { data: true, error: null };
       }

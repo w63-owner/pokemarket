@@ -1406,6 +1406,10 @@ export type Database = {
         Args: { p_buyer_id: string; p_transaction_id: string };
         Returns: boolean;
       };
+      restore_wallet_available_balance: {
+        Args: { p_amount: number; p_user_id: string };
+        Returns: boolean;
+      };
       search_listings_feed: {
         Args: {
           p_card_number?: string;
