@@ -60,9 +60,12 @@ export async function GET(request: Request) {
         );
 
         if (rpcError) {
-          // Skip if already completed (race condition) or other issue
-          if (rpcError.code === "P0001") {
-            // Status mismatch — likely already completed
+          // Skip status races only. Balance mismatches must be surfaced so the
+          // order stays SHIPPED and operations can reconcile the seller wallet.
+          if (
+            rpcError.code === "P0001" &&
+            rpcError.message?.includes("INVALID_STATUS")
+          ) {
             continue;
           }
           throw rpcError;
