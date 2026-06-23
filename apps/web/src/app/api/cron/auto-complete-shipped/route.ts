@@ -60,9 +60,12 @@ export async function GET(request: Request) {
         );
 
         if (rpcError) {
-          // Skip if already completed (race condition) or other issue
-          if (rpcError.code === "P0001") {
-            // Status mismatch — likely already completed
+          // Skip status races only. Balance mismatches must be surfaced so the
+          // order stays SHIPPED and operations can reconcile the seller wallet.
+          if (
+            rpcError.code === "P0001" &&
+            rpcError.message?.includes("INVALID_STATUS")
+          ) {
             continue;
           }
           throw rpcError;
@@ -119,9 +122,7 @@ export async function GET(request: Request) {
         completed++;
       } catch (err) {
         Sentry.captureException(err);
-        errors.push(
-          `tx=${tx.id}: ${err instanceof Error ? err.message : "unknown"}`,
-        );
+        errors.push(`tx=${tx.id}: ${getErrorMessage(err)}`);
       }
     }
 
@@ -138,4 +139,17 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (
+    err &&
+    typeof err === "object" &&
+    "message" in err &&
+    typeof err.message === "string"
+  ) {
+    return err.message;
+  }
+  return "unknown";
 }
