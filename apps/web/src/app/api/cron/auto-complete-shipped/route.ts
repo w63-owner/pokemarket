@@ -122,9 +122,7 @@ export async function GET(request: Request) {
         completed++;
       } catch (err) {
         Sentry.captureException(err);
-        errors.push(
-          `tx=${tx.id}: ${err instanceof Error ? err.message : "unknown"}`,
-        );
+        errors.push(`tx=${tx.id}: ${getErrorMessage(err)}`);
       }
     }
 
@@ -141,4 +139,17 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (
+    err &&
+    typeof err === "object" &&
+    "message" in err &&
+    typeof err.message === "string"
+  ) {
+    return err.message;
+  }
+  return "unknown";
 }

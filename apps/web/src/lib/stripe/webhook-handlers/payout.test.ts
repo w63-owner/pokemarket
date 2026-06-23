@@ -1,9 +1,27 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
 
-const sendPushNotification = vi.fn(async () => undefined);
-vi.mock("@/lib/push/send", () => ({ sendPushNotification }));
+const mocks = vi.hoisted(() => {
+  const sendPushNotification = vi.fn(async () => undefined);
+  const payoutEq = vi.fn(async () => ({ error: null }));
+  const payoutUpdate = vi.fn(() => ({ eq: payoutEq }));
+  const fromSpy = vi.fn((table: string) => {
+    if (table === "wallets") {
+      throw new Error("payout.failed must not restore app wallet balance");
+    }
+    if (table === "payouts") {
+      return { update: payoutUpdate };
+    }
+    throw new Error(`Unexpected table ${table}`);
+  });
+
+  return { fromSpy, payoutEq, payoutUpdate, sendPushNotification };
+});
+
+vi.mock("@/lib/push/send", () => ({
+  sendPushNotification: mocks.sendPushNotification,
+}));
 
 vi.mock("@sentry/nextjs", () => ({
   addBreadcrumb: vi.fn(),
@@ -11,20 +29,8 @@ vi.mock("@sentry/nextjs", () => ({
   captureMessage: vi.fn(),
 }));
 
-const payoutEq = vi.fn(async () => ({ error: null }));
-const payoutUpdate = vi.fn(() => ({ eq: payoutEq }));
-const fromSpy = vi.fn((table: string) => {
-  if (table === "wallets") {
-    throw new Error("payout.failed must not restore app wallet balance");
-  }
-  if (table === "payouts") {
-    return { update: payoutUpdate };
-  }
-  throw new Error(`Unexpected table ${table}`);
-});
-
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({ from: fromSpy }),
+  createAdminClient: () => ({ from: mocks.fromSpy }),
 }));
 
 import { handlePayoutFailed } from "./payout";
@@ -45,16 +51,19 @@ describe("handlePayoutFailed", () => {
 
     await handlePayoutFailed(payout, "acct_seller");
 
-    expect(fromSpy).not.toHaveBeenCalledWith("wallets");
-    expect(payoutUpdate).toHaveBeenCalledWith(
+    expect(mocks.fromSpy).not.toHaveBeenCalledWith("wallets");
+    expect(mocks.payoutUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "failed",
         failure_code: "account_closed",
         failure_message: "Bank account closed",
       }),
     );
-    expect(payoutEq).toHaveBeenCalledWith("stripe_payout_id", "po_failed");
-    expect(sendPushNotification).toHaveBeenCalledWith(
+    expect(mocks.payoutEq).toHaveBeenCalledWith(
+      "stripe_payout_id",
+      "po_failed",
+    );
+    expect(mocks.sendPushNotification).toHaveBeenCalledWith(
       "seller-1",
       "Virement échoué",
       expect.stringContaining("support"),
