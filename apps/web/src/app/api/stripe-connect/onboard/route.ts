@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { onboardRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import { getAppUrl } from "@/lib/env";
+import { getRequestUser } from "@/lib/auth/api";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await getRequestUser(request);
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -37,6 +34,8 @@ export async function GET() {
 
     const stripe = getStripe();
     const appUrl = getAppUrl();
+    const isMobileClient =
+      new URL(request.url).searchParams.get("client") === "mobile";
     let stripeAccountId = profile.stripe_account_id;
 
     if (!stripeAccountId) {
@@ -115,8 +114,10 @@ export async function GET() {
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
       type: "account_onboarding",
-      return_url: `${appUrl}/wallet/return`,
-      refresh_url: `${appUrl}/wallet`,
+      return_url: isMobileClient
+        ? "pokemarket://wallet/return"
+        : `${appUrl}/wallet/return`,
+      refresh_url: isMobileClient ? "pokemarket://wallet" : `${appUrl}/wallet`,
     });
 
     return NextResponse.json({ url: accountLink.url });
