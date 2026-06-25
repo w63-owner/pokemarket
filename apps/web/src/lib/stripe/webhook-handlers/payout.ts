@@ -9,14 +9,17 @@ import { sendPushNotification } from "@/lib/push/send";
  * (invalid IBAN, closed account, name mismatch, etc.).
  *
  * Critical action items:
- *   1. RESTORE the seller's available_balance — our /api/stripe-connect/payout
- *      route deducts the wallet BEFORE asking Stripe to transfer. If Stripe
- *      then fails to land the funds, the seller is short until we restore.
+ *   1. Mark the payout record as failed for history/support visibility.
  *   2. Notify the seller with a clear next-step ("update your IBAN").
  *
+ * IMPORTANT: Do NOT restore the app wallet here. Our payout route first moves
+ * funds from the platform Stripe balance to the connected account, then creates
+ * the connected-account bank payout. When that bank payout fails, Stripe returns
+ * the funds to the connected account balance, not to the platform wallet. Re-
+ * crediting the app wallet would let the seller withdraw the same funds again.
+ *
  * Identification:
- *   The payout route stores `metadata.user_id` on every transfer it creates
- *   (see src/app/api/stripe-connect/payout/route.ts ~line 134). We read it
+ *   The payout route stores `metadata.user_id` on explicit payouts. We read it
  *   back here to find the seller. If the metadata is missing (e.g. legacy
  *   payout from an admin), we fall back to looking up via stripe_account_id.
  */
@@ -51,33 +54,6 @@ export async function handlePayoutFailed(
   }
 
   const amountEur = (payout.amount ?? 0) / 100;
-
-  // Restore the available balance. CAUTION: if multiple payouts failed in
-  // parallel, this is non-idempotent at the row level. The webhook layer's
-  // event-id idempotency is what protects us.
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("available_balance")
-    .eq("user_id", sellerId)
-    .single();
-
-  if (wallet) {
-    const newAvailable =
-      Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
-    const { error } = await admin
-      .from("wallets")
-      .update({ available_balance: newAvailable })
-      .eq("user_id", sellerId);
-    if (error) {
-      Sentry.captureException(error, {
-        extra: {
-          context: "payout.failed_restore",
-          user_id: sellerId,
-          amount: amountEur,
-        },
-      });
-    }
-  }
 
   // Update payout record status to failed
   const { error: payoutUpdateError } = await admin
