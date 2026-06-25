@@ -49,7 +49,7 @@ describe("stripe payout webhook handlers", () => {
         metadata: { user_id: "seller-1" },
         failure_code: "account_closed",
         failure_message: "Bank account closed",
-      } as Stripe.Payout,
+      } as unknown as Stripe.Payout,
       "acct_seller_1",
     );
 
