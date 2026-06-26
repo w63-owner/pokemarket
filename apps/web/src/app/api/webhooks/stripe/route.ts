@@ -167,8 +167,8 @@ export async function POST(request: Request) {
     // hiccup) would PERMANENTLY mark the event as processed while leaving the
     // transaction / wallet in an inconsistent state — money captured by
     // Stripe but the order never finalized, the seller never credited, or a
-    // failed payout never restored. All handlers are independently idempotent
-    // (atomic status guards), so re-processing on retry is safe.
+    // failed payout never recorded/notified. All handlers are independently
+    // idempotent (atomic status guards), so re-processing on retry is safe.
     if (!handled) {
       const { error: cleanupError } = await admin
         .from("stripe_webhooks_processed")
