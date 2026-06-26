@@ -2,10 +2,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 
-const sendPushNotification = vi.fn(async () => undefined);
+const mocks = vi.hoisted(() => ({
+  sendPushNotification: vi.fn(async () => undefined),
+}));
 
 vi.mock("@/lib/push/send", () => ({
-  sendPushNotification,
+  sendPushNotification: mocks.sendPushNotification,
 }));
 
 vi.mock("@sentry/nextjs", () => ({
@@ -68,7 +70,7 @@ describe("stripe payout webhook handlers", () => {
       failure_code: "account_closed",
       failure_message: "Bank account closed",
     });
-    expect(sendPushNotification).toHaveBeenCalledWith(
+    expect(mocks.sendPushNotification).toHaveBeenCalledWith(
       "seller-1",
       "Virement échoué",
       expect.any(String),
