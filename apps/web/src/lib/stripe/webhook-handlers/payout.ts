@@ -9,9 +9,7 @@ import { sendPushNotification } from "@/lib/push/send";
  * (invalid IBAN, closed account, name mismatch, etc.).
  *
  * Critical action items:
- *   1. RESTORE the seller's available_balance — our /api/stripe-connect/payout
- *      route deducts the wallet BEFORE asking Stripe to transfer. If Stripe
- *      then fails to land the funds, the seller is short until we restore.
+ *   1. Mark the payout history row as failed.
  *   2. Notify the seller with a clear next-step ("update your IBAN").
  *
  * Identification:
@@ -52,30 +50,48 @@ export async function handlePayoutFailed(
 
   const amountEur = (payout.amount ?? 0) / 100;
 
-  // Restore the available balance. CAUTION: if multiple payouts failed in
-  // parallel, this is non-idempotent at the row level. The webhook layer's
-  // event-id idempotency is what protects us.
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("available_balance")
-    .eq("user_id", sellerId)
-    .single();
+  const { data: payoutRecord, error: payoutLookupError } = await admin
+    .from("payouts")
+    .select("id, stripe_transfer_id")
+    .eq("stripe_payout_id", payout.id)
+    .maybeSingle();
 
-  if (wallet) {
-    const newAvailable =
-      Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
-    const { error } = await admin
+  if (payoutLookupError) {
+    Sentry.captureException(payoutLookupError, {
+      extra: { context: "payout_record_failed_lookup", payout_id: payout.id },
+    });
+  }
+
+  const transferAlreadyMovedFunds =
+    Boolean(payoutRecord?.stripe_transfer_id) ||
+    Boolean(connectedAccountId) ||
+    Boolean(payoutLookupError);
+
+  if (!transferAlreadyMovedFunds) {
+    // Legacy/platform payout fallback: only restore when this failure is not a
+    // connected-account bank payout following a successful platform transfer.
+    const { data: wallet } = await admin
       .from("wallets")
-      .update({ available_balance: newAvailable })
-      .eq("user_id", sellerId);
-    if (error) {
-      Sentry.captureException(error, {
-        extra: {
-          context: "payout.failed_restore",
-          user_id: sellerId,
-          amount: amountEur,
-        },
-      });
+      .select("available_balance")
+      .eq("user_id", sellerId)
+      .single();
+
+    if (wallet) {
+      const newAvailable =
+        Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
+      const { error } = await admin
+        .from("wallets")
+        .update({ available_balance: newAvailable })
+        .eq("user_id", sellerId);
+      if (error) {
+        Sentry.captureException(error, {
+          extra: {
+            context: "payout.failed_restore",
+            user_id: sellerId,
+            amount: amountEur,
+          },
+        });
+      }
     }
   }
 
