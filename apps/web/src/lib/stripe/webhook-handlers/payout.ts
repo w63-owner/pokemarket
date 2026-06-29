@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotification } from "@/lib/push/send";
+import type { Database } from "@/types/database";
 
 /**
  * `payout.failed` — the SEPA / bank wire to the seller's IBAN failed
@@ -130,11 +131,12 @@ export async function handlePayoutPaid(
 }
 
 type AdminClient = ReturnType<typeof createAdminClient>;
+type PayoutUpdate = Database["public"]["Tables"]["payouts"]["Update"];
 
 async function updatePayoutRecord(
   admin: AdminClient,
   payout: Stripe.Payout,
-  patch: Record<string, string | null>,
+  patch: PayoutUpdate,
 ) {
   const payoutRecordId =
     typeof payout.metadata?.payout_record_id === "string" &&
