@@ -123,6 +123,45 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: payoutRecord, error: insertError } = await admin
+      .from("payouts")
+      .insert({
+        user_id: user.id,
+        amount: availableBalance,
+        currency: currency.toUpperCase(),
+        status: "pending",
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !payoutRecord) {
+      Sentry.captureException(insertError ?? new Error("Missing payout row"), {
+        extra: { context: "payout_record_insert", user_id: user.id },
+      });
+
+      const restoreError = await restoreReservedWalletBalance(
+        admin,
+        user.id,
+        availableBalance,
+        "payout_record_insert_failed",
+      );
+
+      if (restoreError) {
+        Sentry.captureException(restoreError, {
+          extra: {
+            context: "wallet_restore_failed_after_payout_insert_error",
+            user_id: user.id,
+            amount: availableBalance,
+          },
+        });
+      }
+
+      return NextResponse.json(
+        { error: "Erreur lors de l'enregistrement du virement" },
+        { status: 500 },
+      );
+    }
+
     let transfer: Awaited<ReturnType<typeof stripe.transfers.create>> | null =
       null;
 
@@ -137,6 +176,7 @@ export async function POST(request: Request) {
             type: "seller_payout",
             amount_eur: (amountInCents / 100).toFixed(2),
             stripe_account_id: profile.stripe_account_id,
+            payout_record_id: payoutRecord.id,
           },
         },
         { idempotencyKey: transferIdempotencyKey },
@@ -145,11 +185,12 @@ export async function POST(request: Request) {
       // Stripe rejected the transfer — restore the wallet so the seller
       // can try again. If this restore fails we log a critical alert since
       // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
+      const restoreError = await restoreReservedWalletBalance(
+        admin,
+        user.id,
+        availableBalance,
+        "stripe_transfer_failed",
+      );
 
       if (restoreError) {
         Sentry.captureException(restoreError, {
@@ -173,22 +214,19 @@ export async function POST(request: Request) {
       throw stripeErr;
     }
 
-    // Insert payout record before triggering Stripe payout
-    const { data: payoutRecord, error: insertError } = await admin
+    const { error: transferRecordError } = await admin
       .from("payouts")
-      .insert({
-        user_id: user.id,
-        amount: availableBalance,
-        currency: currency.toUpperCase(),
-        status: "pending",
-        stripe_transfer_id: transfer.id,
-      })
-      .select("id")
-      .single();
+      .update({ stripe_transfer_id: transfer.id })
+      .eq("id", payoutRecord.id);
 
-    if (insertError) {
-      Sentry.captureException(insertError, {
-        extra: { context: "payout_record_insert", user_id: user.id },
+    if (transferRecordError) {
+      Sentry.captureException(transferRecordError, {
+        extra: {
+          context: "payout_record_transfer_update",
+          user_id: user.id,
+          payout_record_id: payoutRecord.id,
+          stripe_transfer_id: transfer.id,
+        },
       });
     }
 
@@ -201,7 +239,7 @@ export async function POST(request: Request) {
           metadata: {
             user_id: user.id,
             transfer_id: transfer.id,
-            payout_record_id: payoutRecord?.id ?? null,
+            payout_record_id: payoutRecord.id,
           },
         },
         {
@@ -212,14 +250,23 @@ export async function POST(request: Request) {
       payoutId = payout.id;
 
       // Update payout record with Stripe payout ID and status
-      if (payoutRecord?.id) {
-        await admin
-          .from("payouts")
-          .update({
+      const { error: payoutUpdateError } = await admin
+        .from("payouts")
+        .update({
+          stripe_payout_id: payoutId,
+          status: "in_transit",
+        })
+        .eq("id", payoutRecord.id);
+
+      if (payoutUpdateError) {
+        Sentry.captureException(payoutUpdateError, {
+          extra: {
+            context: "payout_record_payout_update",
+            user_id: user.id,
+            payout_record_id: payoutRecord.id,
             stripe_payout_id: payoutId,
-            status: "in_transit",
-          })
-          .eq("id", payoutRecord.id);
+          },
+        });
       }
     } catch (payoutErr) {
       Sentry.captureException(payoutErr);
@@ -234,7 +281,7 @@ export async function POST(request: Request) {
       amount: availableBalance,
       stripe_transfer_id: transfer.id,
       stripe_payout_id: payoutId,
-      payout_record_id: payoutRecord?.id,
+      payout_record_id: payoutRecord.id,
     });
 
     return NextResponse.json({
@@ -266,6 +313,29 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function restoreReservedWalletBalance(
+  admin: AdminClient,
+  userId: string,
+  amount: number,
+  context: string,
+): Promise<unknown | null> {
+  const { error } = await admin.rpc("add_wallet_available_balance", {
+    p_user_id: userId,
+    p_amount: amount,
+  });
+
+  if (error) {
+    return Object.assign(new Error(error.message), {
+      cause: error,
+      context,
+    });
+  }
+
+  return null;
 }
 
 function isStripeError(

@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    { onConflict: "token" },
   );
 
   if (error) {
