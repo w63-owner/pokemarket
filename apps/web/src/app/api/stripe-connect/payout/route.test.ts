@@ -128,4 +128,51 @@ describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
     expect(res.status).toBe(400);
     expect(transfersCreate).not.toHaveBeenCalled();
   });
+
+  it("échec création ledger payout → solde restauré et aucun transfer Stripe", async () => {
+    const db = createMockDb(payoutScenario(50));
+    const from = db.client.from.bind(db.client);
+    mockClient = {
+      ...db.client,
+      from(table: string) {
+        if (table !== "payouts") return from(table);
+        return {
+          insert: () => ({
+            select: () => ({
+              single: async () => ({
+                data: null,
+                error: { message: "synthetic insert failure" },
+              }),
+            }),
+          }),
+        };
+      },
+    };
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(500);
+    expect(transfersCreate).not.toHaveBeenCalled();
+    expect(payoutsCreate).not.toHaveBeenCalled();
+    expect(db.state.wallets[0].available_balance).toBe(50);
+  });
+
+  it("crée le ledger payout avant Stripe et transmet son id dans les metadata", async () => {
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(200);
+    expect(db.state.payouts).toHaveLength(1);
+    expect(db.state.payouts[0].stripe_transfer_id).toEqual(
+      expect.stringMatching(/^tr_/),
+    );
+    expect(transfersCreate.mock.calls[0][0].metadata.payout_record_id).toBe(
+      db.state.payouts[0].id,
+    );
+    expect(payoutsCreate.mock.calls[0][0].metadata.payout_record_id).toBe(
+      db.state.payouts[0].id,
+    );
+  });
 });

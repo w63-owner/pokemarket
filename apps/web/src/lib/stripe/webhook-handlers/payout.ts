@@ -9,10 +9,14 @@ import { sendPushNotification } from "@/lib/push/send";
  * (invalid IBAN, closed account, name mismatch, etc.).
  *
  * Critical action items:
- *   1. RESTORE the seller's available_balance — our /api/stripe-connect/payout
- *      route deducts the wallet BEFORE asking Stripe to transfer. If Stripe
- *      then fails to land the funds, the seller is short until we restore.
+ *   1. Mark the local payout record as failed so payout history and support
+ *      tooling reflect the bank failure.
  *   2. Notify the seller with a clear next-step ("update your IBAN").
+ *
+ * Do NOT restore the app wallet here. These events are emitted by the connected
+ * account after the platform transfer succeeded; Stripe returns failed bank
+ * payouts to the connected account balance. Re-crediting the app wallet would
+ * let the seller withdraw the same funds a second time from the platform.
  *
  * Identification:
  *   The payout route stores `metadata.user_id` on every transfer it creates
@@ -52,49 +56,13 @@ export async function handlePayoutFailed(
 
   const amountEur = (payout.amount ?? 0) / 100;
 
-  // Restore the available balance. CAUTION: if multiple payouts failed in
-  // parallel, this is non-idempotent at the row level. The webhook layer's
-  // event-id idempotency is what protects us.
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("available_balance")
-    .eq("user_id", sellerId)
-    .single();
-
-  if (wallet) {
-    const newAvailable =
-      Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
-    const { error } = await admin
-      .from("wallets")
-      .update({ available_balance: newAvailable })
-      .eq("user_id", sellerId);
-    if (error) {
-      Sentry.captureException(error, {
-        extra: {
-          context: "payout.failed_restore",
-          user_id: sellerId,
-          amount: amountEur,
-        },
-      });
-    }
-  }
-
   // Update payout record status to failed
-  const { error: payoutUpdateError } = await admin
-    .from("payouts")
-    .update({
-      status: "failed",
-      failure_code: payout.failure_code ?? null,
-      failure_message: payout.failure_message ?? null,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("stripe_payout_id", payout.id);
-
-  if (payoutUpdateError) {
-    Sentry.captureException(payoutUpdateError, {
-      extra: { context: "payout_record_failed_update", payout_id: payout.id },
-    });
-  }
+  await updatePayoutRecord(admin, payout, {
+    status: "failed",
+    failure_code: payout.failure_code ?? null,
+    failure_message: payout.failure_message ?? null,
+    completed_at: new Date().toISOString(),
+  });
 
   Sentry.captureMessage(
     `Payout failed: ${payout.id} amount=${amountEur}€ user=${sellerId} reason=${payout.failure_message ?? payout.failure_code}`,
@@ -137,20 +105,11 @@ export async function handlePayoutPaid(
     sellerId = profile?.id ?? null;
   }
 
-  // Update payout record status to paid (even if no sellerId for notification)
-  const { error: payoutUpdateError } = await admin
-    .from("payouts")
-    .update({
-      status: "paid",
-      completed_at: new Date().toISOString(),
-    })
-    .eq("stripe_payout_id", payout.id);
-
-  if (payoutUpdateError) {
-    Sentry.captureException(payoutUpdateError, {
-      extra: { context: "payout_record_paid_update", payout_id: payout.id },
-    });
-  }
+  // Update payout record status to paid (even if no sellerId for notification).
+  await updatePayoutRecord(admin, payout, {
+    status: "paid",
+    completed_at: new Date().toISOString(),
+  });
 
   if (!sellerId) {
     Sentry.addBreadcrumb({
@@ -168,4 +127,48 @@ export async function handlePayoutPaid(
     `${amountEur.toFixed(2)} € sont arrivés sur ton compte bancaire.`,
     "/wallet",
   ).catch((err) => Sentry.captureException(err));
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function updatePayoutRecord(
+  admin: AdminClient,
+  payout: Stripe.Payout,
+  patch: Record<string, string | null>,
+) {
+  const payoutRecordId =
+    typeof payout.metadata?.payout_record_id === "string" &&
+    payout.metadata.payout_record_id.length > 0
+      ? payout.metadata.payout_record_id
+      : null;
+
+  const query = admin.from("payouts").update(patch).select("id");
+  const { data, error } = payoutRecordId
+    ? await query.eq("id", payoutRecordId)
+    : await query.eq("stripe_payout_id", payout.id);
+
+  if (error) {
+    Sentry.captureException(error, {
+      extra: {
+        context: "payout_record_status_update",
+        payout_id: payout.id,
+        payout_record_id: payoutRecordId,
+      },
+    });
+    throw error;
+  }
+
+  if (!data || data.length === 0) {
+    const err = new Error(
+      `No payout record found for Stripe payout ${payout.id}`,
+    );
+    Sentry.captureException(err, {
+      extra: {
+        context: "payout_record_status_update_missing",
+        payout_id: payout.id,
+        payout_record_id: payoutRecordId,
+      },
+    });
+    throw err;
+  }
 }
