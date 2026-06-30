@@ -26,8 +26,8 @@ interface ConfirmReceptionInput {
  * The RPC atomically:
  *   1. Locks the transaction row (FOR UPDATE)
  *   2. Validates buyer ownership + SHIPPED status
- *   3. Sets status → COMPLETED
- *   4. Moves seller_net from pending_balance → available_balance
+ *   3. Moves seller_net from pending_balance → available_balance
+ *   4. Sets status → COMPLETED
  *
  * Review insertion and system message are done here (outside the RPC) because
  * they are non-financial and can tolerate a separate statement.

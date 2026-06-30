@@ -1,0 +1,179 @@
+-- 00058: Harden escrow release and connected-account payout accounting.
+--
+-- 1. release_escrow_funds must release the exact amount credited at payment
+--    finalization: seller card net plus shipping pass-through. Since
+--    fee_amount is computed only on the card display price, that amount is
+--    total_amount - fee_amount.
+-- 2. The seller wallet movement must happen before COMPLETED is persisted.
+--    If the wallet row is missing or underfunded, leave the transaction in
+--    SHIPPED so the release can be retried after reconciliation.
+-- 3. Authenticated buyers must not be able to bypass the RPC by directly
+--    updating transactions.status to COMPLETED through PostgREST.
+
+CREATE OR REPLACE FUNCTION public.guard_transaction_status_transition()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  caller_id UUID;
+  caller_is_admin BOOLEAN := FALSE;
+  escrow_release_marker TEXT;
+BEGIN
+  caller_id := auth.uid();
+
+  -- service_role: auth.uid() is NULL -> unrestricted (webhooks, cron, admin).
+  IF caller_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT (role = 'admin') INTO caller_is_admin
+  FROM public.profiles
+  WHERE id = caller_id;
+
+  IF caller_is_admin IS TRUE THEN
+    RETURN NEW;
+  END IF;
+
+  -- PAID -> SHIPPED: only the seller can mark a package as shipped.
+  IF NEW.status = 'SHIPPED' AND OLD.status = 'PAID' THEN
+    IF caller_id IS DISTINCT FROM NEW.seller_id THEN
+      RAISE EXCEPTION 'Unauthorized: only the seller can mark a transaction as shipped'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  -- SHIPPED -> COMPLETED: buyers must go through release_escrow_funds so the
+  -- wallet release and status change remain one database transaction.
+  IF NEW.status = 'COMPLETED' AND OLD.status = 'SHIPPED' THEN
+    IF caller_id IS DISTINCT FROM NEW.buyer_id THEN
+      RAISE EXCEPTION 'Unauthorized: only the buyer can confirm reception'
+        USING ERRCODE = '42501';
+    END IF;
+
+    escrow_release_marker := current_setting(
+      'pokemarket.release_escrow_transaction_id',
+      true
+    );
+
+    IF escrow_release_marker IS DISTINCT FROM NEW.id::TEXT THEN
+      RAISE EXCEPTION 'Unauthorized: completion must use release_escrow_funds'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  -- SHIPPED -> DISPUTED: only the buyer can open a dispute.
+  IF NEW.status = 'DISPUTED' AND OLD.status = 'SHIPPED' THEN
+    IF caller_id IS DISTINCT FROM NEW.buyer_id THEN
+      RAISE EXCEPTION 'Unauthorized: only the buyer can open a dispute'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.release_escrow_funds(
+  p_transaction_id UUID,
+  p_buyer_id       UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_caller_id   UUID;
+  v_is_admin    BOOLEAN := FALSE;
+  v_tx          RECORD;
+  v_seller_net  NUMERIC(10,2);
+  v_rows_wallet INTEGER;
+BEGIN
+  v_caller_id := auth.uid();
+
+  IF v_caller_id IS NOT NULL THEN
+    SELECT (role = 'admin')
+      INTO v_is_admin
+      FROM public.profiles
+     WHERE id = v_caller_id;
+
+    IF NOT COALESCE(v_is_admin, FALSE) AND v_caller_id != p_buyer_id THEN
+      RAISE EXCEPTION 'FORBIDDEN: caller % is not the buyer (%) or an admin',
+        v_caller_id, p_buyer_id
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  SELECT *
+    INTO v_tx
+    FROM public.transactions
+   WHERE id = p_transaction_id
+     FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'NOT_FOUND: transaction % does not exist', p_transaction_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  IF NOT COALESCE(v_is_admin, FALSE) AND v_caller_id IS NOT NULL
+     AND v_tx.buyer_id != p_buyer_id THEN
+    RAISE EXCEPTION 'FORBIDDEN: transaction % does not belong to buyer %',
+      p_transaction_id, p_buyer_id
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF v_tx.status != 'SHIPPED' THEN
+    RAISE EXCEPTION 'INVALID_STATUS: expected SHIPPED but got % for transaction %',
+      v_tx.status, p_transaction_id
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Payment finalization credits seller card net plus shipping. Because
+  -- fee_amount excludes shipping, total_amount - fee_amount includes that
+  -- shipping pass-through exactly once.
+  v_seller_net := ROUND(
+    COALESCE(v_tx.total_amount, 0::NUMERIC)
+    - COALESCE(v_tx.fee_amount, 0::NUMERIC),
+    2
+  );
+
+  IF v_seller_net <= 0 THEN
+    RAISE EXCEPTION 'INVALID_AMOUNT: seller_net is % (must be > 0) for transaction %',
+      v_seller_net, p_transaction_id
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  UPDATE public.wallets
+     SET pending_balance   = ROUND(pending_balance   - v_seller_net, 2),
+         available_balance = ROUND(available_balance + v_seller_net, 2)
+   WHERE user_id           = v_tx.seller_id
+     AND pending_balance  >= v_seller_net;
+
+  GET DIAGNOSTICS v_rows_wallet = ROW_COUNT;
+
+  IF v_rows_wallet = 0 THEN
+    RAISE EXCEPTION
+      'ESCROW_BALANCE_MISMATCH: seller % wallet has insufficient pending_balance for transaction % (seller_net = %)',
+      v_tx.seller_id, p_transaction_id, v_seller_net
+      USING ERRCODE = 'P0004';
+  END IF;
+
+  PERFORM set_config(
+    'pokemarket.release_escrow_transaction_id',
+    p_transaction_id::TEXT,
+    true
+  );
+
+  UPDATE public.transactions
+     SET status = 'COMPLETED'
+   WHERE id = p_transaction_id;
+
+  RETURN TRUE;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.release_escrow_funds(UUID, UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.release_escrow_funds(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.release_escrow_funds(UUID, UUID) TO service_role;
