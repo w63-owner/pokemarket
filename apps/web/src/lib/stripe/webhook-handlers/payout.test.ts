@@ -3,7 +3,9 @@ import type Stripe from "stripe";
 import { describe, expect, it, vi } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 
-const sendPushNotification = vi.fn(async () => undefined);
+const { sendPushNotification } = vi.hoisted(() => ({
+  sendPushNotification: vi.fn(async () => undefined),
+}));
 
 vi.mock("@/lib/push/send", () => ({
   sendPushNotification,
