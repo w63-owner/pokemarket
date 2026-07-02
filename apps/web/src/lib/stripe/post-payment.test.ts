@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { createMockDb, type MockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
+import { calcPriceSeller } from "@/lib/pricing";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@sentry/nextjs", () => ({
@@ -135,6 +136,39 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     // sellerNet = cardNet + shipping = 100.476 + 10 ≈ 110.476
     expect(wallet?.pending_balance).toBeGreaterThan(109);
     expect(wallet?.pending_balance).toBeLessThan(112);
+  });
+
+  it("releases the full credited amount for a transaction with shipping", async () => {
+    const scenario = basicScenario();
+    const totalAmount = 116.2;
+    const shippingCost = 10;
+    const sellerNet =
+      Math.round(
+        (calcPriceSeller(totalAmount - shippingCost) + shippingCost) * 100,
+      ) / 100;
+    scenario.transactions![0].total_amount = totalAmount;
+    scenario.transactions![0].shipping_cost = shippingCost;
+    scenario.transactions![0].fee_amount =
+      Math.round((totalAmount - sellerNet) * 100) / 100;
+
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    await finalizePaidTransaction(IDS.TX);
+
+    const tx = db.state.transactions.find((t) => t.id === IDS.TX)!;
+    tx.status = "SHIPPED";
+    const release = await mockClient.rpc("release_escrow_funds", {
+      p_transaction_id: IDS.TX,
+      p_buyer_id: IDS.BUYER,
+    });
+
+    const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
+    expect(release.error).toBeNull();
+    expect(release.data).toBe(true);
+    expect(tx.status).toBe("COMPLETED");
+    expect(wallet?.pending_balance).toBe(0);
+    expect(wallet?.available_balance).toBeCloseTo(sellerNet, 2);
   });
 
   it("creates a conversation and posts the system message when none exists yet", async () => {
