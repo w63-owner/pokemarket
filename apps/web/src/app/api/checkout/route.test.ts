@@ -183,6 +183,7 @@ describe("checkout — listing-status guards", () => {
     stripeRetrieve.mockResolvedValueOnce({ payment_status: "paid" } as any);
     const sc = activeListingScenario();
     sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-1";
     (sc.transactions as any[]).push({
       id: "tx-existing",
       listing_id: LISTING_ID,

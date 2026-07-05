@@ -24,6 +24,19 @@ function isAuthorized(request: Request): boolean {
   return auth === `Bearer ${process.env.CRON_SECRET}`;
 }
 
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof err.message === "string"
+  ) {
+    return err.message;
+  }
+  return "unknown";
+}
+
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -119,9 +132,7 @@ export async function GET(request: Request) {
         completed++;
       } catch (err) {
         Sentry.captureException(err);
-        errors.push(
-          `tx=${tx.id}: ${err instanceof Error ? err.message : "unknown"}`,
-        );
+        errors.push(`tx=${tx.id}: ${getErrorMessage(err)}`);
       }
     }
 
