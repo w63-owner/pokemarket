@@ -45,8 +45,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Use the admin client so we can upsert without re-checking RLS — we've
-  // already verified that the user owns the row via `getRequestUser`.
+  // Upsert by token (not by user+token): if logout cleanup failed on a shared
+  // device, the next signed-in user must take ownership of the physical token
+  // so notification previews are not delivered to the old account.
   const admin = createAdminClient();
 
   const { error } = await admin.from("expo_push_tokens").upsert(
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    { onConflict: "token" },
   );
 
   if (error) {

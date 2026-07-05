@@ -143,13 +143,12 @@ export async function POST(request: Request) {
       );
     } catch (stripeErr) {
       // Stripe rejected the transfer — restore the wallet so the seller
-      // can try again. If this restore fails we log a critical alert since
-      // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
+      // can try again. Use an atomic increment rather than writing the old
+      // snapshot because new earnings may have arrived while Stripe was down.
+      const { error: restoreError } = await admin.rpc(
+        "add_wallet_available_balance",
+        { p_user_id: user.id, p_amount: availableBalance },
+      );
 
       if (restoreError) {
         Sentry.captureException(restoreError, {
