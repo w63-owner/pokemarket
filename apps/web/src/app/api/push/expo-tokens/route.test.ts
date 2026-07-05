@@ -83,7 +83,27 @@ describe("POST /api/push/expo-tokens", () => {
         device_id: "PixelPro",
         app_version: "0.1.0",
       }),
-      expect.objectContaining({ onConflict: "user_id,token" }),
+      expect.objectContaining({ onConflict: "token" }),
+    );
+  });
+
+  it("uses token-level conflict so shared-device registration transfers ownership", async () => {
+    currentUser = { id: "user-2" };
+
+    const res = await POST(
+      makeReq({
+        token: "ExponentPushToken[sharedDevice]",
+        platform: "ios",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(upsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: "user-2",
+        token: "ExponentPushToken[sharedDevice]",
+      }),
+      { onConflict: "token" },
     );
   });
 });

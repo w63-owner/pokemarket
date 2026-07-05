@@ -72,12 +72,14 @@ export function initAuth() {
     };
     emit();
 
-    // After a successful sign-in, register the device for push notifications
-    // so the backend can target this install. Fire-and-forget; failures are
-    // logged internally and never block the auth flow. `INITIAL_SESSION` is
-    // intentionally excluded — that fires on every cold boot for already-
-    // signed-in users and would spam our token endpoint.
-    if (event === "SIGNED_IN" && newSession) {
+    // Register on restored and refreshed sessions too: Expo/FCM tokens can
+    // rotate while a user remains signed in, and the endpoint is idempotent.
+    if (
+      (event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED") &&
+      newSession
+    ) {
       void registerPushToken();
     }
 
