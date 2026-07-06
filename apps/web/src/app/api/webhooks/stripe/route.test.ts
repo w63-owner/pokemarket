@@ -482,3 +482,46 @@ describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal"
     );
   });
 });
+
+describe("webhooks/stripe — payout.failed", () => {
+  it("marks the payout failed without restoring the platform wallet", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_failed_connected",
+      type: "payout.failed",
+      account: "acct_seller",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 5000,
+          metadata: { user_id: IDS.SELLER },
+          failure_code: "account_closed",
+          failure_message: "Bank account closed",
+        },
+      },
+    });
+
+    const scenario = basicScenario();
+    scenario.wallets![0].available_balance = 0;
+    scenario.profiles![1].stripe_account_id = "acct_seller";
+    scenario.payouts = [
+      {
+        id: "payout-row-1",
+        user_id: IDS.SELLER,
+        amount: 50,
+        status: "in_transit",
+        stripe_payout_id: "po_failed_1",
+      },
+    ];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(db.state.payouts[0]).toMatchObject({
+      status: "failed",
+      failure_code: "account_closed",
+      failure_message: "Bank account closed",
+    });
+  });
+});

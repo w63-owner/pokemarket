@@ -26,6 +26,10 @@ export type RegisterPushResult =
   | { ok: true; token: string }
   | { ok: false; reason: "denied" | "unsupported" | "error"; message?: string };
 
+type RegisterPushOptions = {
+  requestPermissions?: boolean;
+};
+
 /**
  * Resolves the Expo `projectId` configured in `app.json` (`extra.eas.projectId`).
  * Without it, `getExpoPushTokenAsync` cannot mint a token.
@@ -45,9 +49,12 @@ function resolveProjectId(): string | null {
   return null;
 }
 
-async function ensurePermissions(): Promise<"granted" | "denied"> {
+async function ensurePermissions(
+  requestPermissions = true,
+): Promise<"granted" | "denied"> {
   const { status: current } = await Notifications.getPermissionsAsync();
   if (current === "granted") return "granted";
+  if (!requestPermissions) return "denied";
 
   const { status: next } = await Notifications.requestPermissionsAsync({
     ios: {
@@ -84,14 +91,18 @@ async function ensureAndroidChannels() {
  * Mint an Expo push token, persist it on the backend so the API can target
  * this device, and return it. Idempotent — safe to call on every cold start.
  */
-export async function registerPushToken(): Promise<RegisterPushResult> {
+export async function registerPushToken(
+  options: RegisterPushOptions = {},
+): Promise<RegisterPushResult> {
   // Expo Go SDK 53+ no longer supports remote push (Apple removed it). Skip
   // gracefully so the dev experience doesn't surface confusing errors.
   if (Constants.appOwnership === "expo") {
     return { ok: false, reason: "unsupported", message: "Expo Go" };
   }
 
-  const permission = await ensurePermissions();
+  const permission = await ensurePermissions(
+    options.requestPermissions ?? true,
+  );
   if (permission !== "granted") {
     return { ok: false, reason: "denied" };
   }
@@ -230,6 +241,20 @@ export function setupNotificationListeners(): () => void {
   };
 }
 
+function mergeSearchAndHashParams(
+  url: string,
+  searchParams: URLSearchParams,
+): URLSearchParams {
+  const merged = new URLSearchParams(searchParams);
+  const hashIndex = url.indexOf("#");
+  if (hashIndex === -1) return merged;
+
+  const hash = url.slice(hashIndex + 1).replace(/^\?/, "");
+  const hashParams = new URLSearchParams(hash);
+  hashParams.forEach((value, key) => merged.set(key, value));
+  return merged;
+}
+
 /**
  * Resolve a deep link or universal link to a router route. Exported because
  * a few screens (KYC return, OAuth callback) want to consume specific links
@@ -249,7 +274,8 @@ export async function handleIncomingUrl(url: string) {
     } else if (url.startsWith("pokemarket://")) {
       // Custom scheme: pokemarket://wallet/return → /wallet/return
       const stripped = url.slice("pokemarket://".length);
-      const [pathPart, queryPart] = stripped.split("?");
+      const [beforeHash] = stripped.split("#");
+      const [pathPart, queryPart] = beforeHash.split("?");
       path =
         "/" + pathPart.replace(/^\/+/, "") + (queryPart ? `?${queryPart}` : "");
       searchParams = new URLSearchParams(queryPart ?? "");
@@ -260,11 +286,48 @@ export async function handleIncomingUrl(url: string) {
     return;
   }
 
+  const authParams = mergeSearchAndHashParams(url, searchParams);
+  const accessToken = authParams.get("access_token");
+  const refreshToken = authParams.get("refresh_token");
+  if (accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (!error) {
+      if (
+        path.includes("reset-password") ||
+        authParams.get("type") === "recovery"
+      ) {
+        router.replace("/(auth)/reset-password");
+      } else {
+        router.replace("/(tabs)");
+      }
+    }
+    return;
+  }
+
+  const code = authParams.get("code");
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      if (
+        path.includes("reset-password") ||
+        authParams.get("type") === "recovery"
+      ) {
+        router.replace("/(auth)/reset-password");
+      } else {
+        router.replace("/(tabs)");
+      }
+    }
+    return;
+  }
+
   // Handle Supabase auth token links (email confirmation, password reset).
   // Supabase sends `token_hash` and `type` params that we need to verify
   // manually since `detectSessionInUrl` is disabled in React Native.
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type");
+  const tokenHash = authParams.get("token_hash");
+  const type = authParams.get("type");
   if (tokenHash && type) {
     const validTypes = [
       "signup",
