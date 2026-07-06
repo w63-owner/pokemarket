@@ -34,6 +34,7 @@ import { queryClient } from "@/lib/query/client";
 import { setupQueryManagers } from "@/lib/query/setup";
 import { persistOptions } from "@/lib/query/persister";
 import { getActiveChannelCount } from "@/hooks/use-realtime";
+import { setupNotificationListeners } from "@/lib/notifications";
 
 // Captured as early as possible during JS bundle evaluation so the
 // cold-start metric measures "JS eval -> usable UI" — the latency the
@@ -82,6 +83,8 @@ function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => setupNotificationListeners(), []);
 
   // Cold-start metric: fired exactly once when fonts have resolved
   // (the same condition that hides the splash). `fontError` still

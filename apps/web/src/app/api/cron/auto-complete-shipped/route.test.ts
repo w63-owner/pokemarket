@@ -62,7 +62,7 @@ describe("cron/auto-complete-shipped — QA", () => {
         },
       ],
       wallets: [
-        { user_id: "seller1", pending_balance: 20.01, available_balance: 0 },
+        { user_id: "seller1", pending_balance: 22.5, available_balance: 0 },
       ],
       messages: [],
     });
@@ -74,7 +74,7 @@ describe("cron/auto-complete-shipped — QA", () => {
     expect(json.auto_completed).toBe(1);
     expect(db.state.transactions[0].status).toBe("COMPLETED");
     expect(db.state.wallets[0].pending_balance).toBe(0);
-    expect(db.state.wallets[0].available_balance).toBe(20.01);
+    expect(db.state.wallets[0].available_balance).toBe(22.5);
   });
 
   it("does not auto-complete transactions shipped less than 14 days ago", async () => {
@@ -93,7 +93,7 @@ describe("cron/auto-complete-shipped — QA", () => {
         },
       ],
       wallets: [
-        { user_id: "seller1", pending_balance: 20.01, available_balance: 0 },
+        { user_id: "seller1", pending_balance: 22.5, available_balance: 0 },
       ],
     });
     mockClient = db.client;
@@ -155,7 +155,7 @@ describe("cron/auto-complete-shipped — QA", () => {
         },
       ],
       wallets: [
-        { user_id: "seller1", pending_balance: 20.01, available_balance: 0 },
+        { user_id: "seller1", pending_balance: 22.5, available_balance: 0 },
       ],
       messages: [],
     });
@@ -183,7 +183,7 @@ describe("cron/auto-complete-shipped — STRESS", () => {
     }));
     const wallets = Array.from({ length: 30 }, (_, i) => ({
       user_id: `seller${i}`,
-      pending_balance: 15.81,
+      pending_balance: 18.3,
       available_balance: 0,
     }));
     const db = createMockDb({ transactions, wallets, messages: [] });
@@ -197,7 +197,7 @@ describe("cron/auto-complete-shipped — STRESS", () => {
     );
     expect(
       db.state.wallets.every(
-        (w) => w.pending_balance === 0 && w.available_balance === 15.81,
+        (w) => w.pending_balance === 0 && w.available_balance === 18.3,
       ),
     ).toBe(true);
   });
@@ -230,7 +230,7 @@ describe("cron/auto-complete-shipped — edge cases", () => {
       ],
       wallets: [
         { user_id: "seller1", pending_balance: 0, available_balance: 0 },
-        { user_id: "seller2", pending_balance: 25.31, available_balance: 0 },
+        { user_id: "seller2", pending_balance: 27.8, available_balance: 0 },
       ],
       messages: [],
     });
@@ -241,6 +241,12 @@ describe("cron/auto-complete-shipped — edge cases", () => {
 
     expect(json.auto_completed).toBe(1);
     expect(json.total_eligible).toBe(2);
+    expect(json.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("ESCROW_BALANCE_MISMATCH"),
+      ]),
+    );
+    expect(db.state.transactions[0].status).toBe("SHIPPED");
     expect(db.state.transactions[1].status).toBe("COMPLETED");
   });
 });
