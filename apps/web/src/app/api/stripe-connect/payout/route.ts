@@ -143,13 +143,13 @@ export async function POST(request: Request) {
       );
     } catch (stripeErr) {
       // Stripe rejected the transfer — restore the wallet so the seller
-      // can try again. If this restore fails we log a critical alert since
-      // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
+      // can try again. Use an additive RPC instead of setting the previous
+      // balance back: a new sale may have credited available_balance while the
+      // Stripe request was in flight, and overwriting it would lose that credit.
+      const { error: restoreError } = await admin.rpc(
+        "add_wallet_available_balance",
+        { p_user_id: user.id, p_amount: availableBalance },
+      );
 
       if (restoreError) {
         Sentry.captureException(restoreError, {

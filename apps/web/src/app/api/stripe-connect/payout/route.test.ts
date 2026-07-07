@@ -128,4 +128,25 @@ describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
     expect(res.status).toBe(400);
     expect(transfersCreate).not.toHaveBeenCalled();
   });
+
+  it("échec Stripe avant transfer → restaure le wallet par addition sans écraser un crédit concurrent", async () => {
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+    transfersCreate.mockImplementationOnce(async () => {
+      // A sale completes while the Stripe transfer request is in flight. The
+      // restore must add 50 back on top of this new credit, not set balance=50.
+      db.state.wallets[0].available_balance = 20;
+      throw {
+        type: "StripeInvalidRequestError",
+        code: "balance_insufficient",
+        message: "Insufficient platform balance",
+      };
+    });
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(400);
+    expect(db.state.wallets[0].available_balance).toBe(70);
+    expect(payoutsCreate).not.toHaveBeenCalled();
+  });
 });
