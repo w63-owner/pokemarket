@@ -62,6 +62,9 @@ export function initAuth() {
       loading: false,
     };
     emit();
+    if (data.session) {
+      void registerPushToken();
+    }
   });
 
   supabase.auth.onAuthStateChange((event, newSession) => {
@@ -72,12 +75,10 @@ export function initAuth() {
     };
     emit();
 
-    // After a successful sign-in, register the device for push notifications
-    // so the backend can target this install. Fire-and-forget; failures are
-    // logged internally and never block the auth flow. `INITIAL_SESSION` is
-    // intentionally excluded — that fires on every cold boot for already-
-    // signed-in users and would spam our token endpoint.
-    if (event === "SIGNED_IN" && newSession) {
+    // Register on both fresh sign-in and restored sessions so token ownership
+    // moves when a shared device switches accounts. The backend upsert is
+    // idempotent and keyed by the physical Expo token.
+    if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && newSession) {
       void registerPushToken();
     }
 
@@ -86,6 +87,7 @@ export function initAuth() {
     // React Query cache AND the persisted snapshot so we never replay
     // a previous user's data on the next launch.
     if (event === "SIGNED_OUT") {
+      void unregisterPushToken();
       queryClient.clear();
       void persister.removeClient();
     }
