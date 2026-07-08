@@ -128,6 +128,17 @@ export async function registerPushToken(): Promise<RegisterPushResult> {
 }
 
 /**
+ * Re-register an existing device token only if the user has already granted
+ * notification permission. Used on cold boot/session restore so we do not
+ * surprise users with an OS permission prompt outside an explicit opt-in.
+ */
+export async function registerPushTokenIfPermissionGranted(): Promise<void> {
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== "granted") return;
+  await registerPushToken();
+}
+
+/**
  * Best-effort backend cleanup — invoked when the user signs out or disables
  * notifications. Silently swallows network errors so logout never blocks.
  */
