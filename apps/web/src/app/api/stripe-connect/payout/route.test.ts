@@ -52,9 +52,19 @@ import { POST } from "./route";
 
 beforeEach(() => {
   currentUser = { id: "seller-1", email: "seller@example.com" };
-  transfersCreate.mockClear();
-  payoutsCreate.mockClear();
-  accountsRetrieve.mockClear();
+  transfersCreate.mockReset();
+  transfersCreate.mockImplementation(async () => ({
+    id: `tr_${Math.random().toString(36).slice(2)}`,
+  }));
+  payoutsCreate.mockReset();
+  payoutsCreate.mockImplementation(async () => ({
+    id: `po_${Math.random().toString(36).slice(2)}`,
+  }));
+  accountsRetrieve.mockReset();
+  accountsRetrieve.mockImplementation(async () => ({
+    charges_enabled: true,
+    payouts_enabled: true,
+  }));
 });
 
 function req() {
@@ -127,5 +137,25 @@ describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
     const res = await POST(req());
     expect(res.status).toBe(400);
     expect(transfersCreate).not.toHaveBeenCalled();
+  });
+
+  it("échec Stripe pré-transfer → restaure en additionnant sans écraser un crédit concurrent", async () => {
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    transfersCreate.mockImplementationOnce(async () => {
+      // A sale is released while the payout request is in flight, after the
+      // wallet was reserved to 0. The restore must preserve this new credit.
+      db.state.wallets[0].available_balance = 10;
+      throw {
+        type: "StripeInvalidRequestError",
+        code: "balance_insufficient",
+        message: "Insufficient Stripe balance",
+      };
+    });
+
+    const res = await POST(req());
+    expect(res.status).toBe(400);
+    expect(db.state.wallets[0].available_balance).toBe(60);
   });
 });
