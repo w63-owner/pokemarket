@@ -30,7 +30,11 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  addBreadcrumb: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -41,6 +45,15 @@ import { POST } from "./route";
 
 beforeEach(() => {
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  stripeConstructEventImpl = () => ({
+    id: "evt_1",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+      },
+    },
+  });
 });
 
 function makeReq(body = "{}", sig: string | null = "t=1,v1=test") {
@@ -480,5 +493,54 @@ describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal"
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "RESERVED",
     );
+  });
+});
+
+describe("webhooks/stripe — payout.failed wallet accounting", () => {
+  it("connected-account bank payout failure does not restore platform wallet balance", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_failed",
+      type: "payout.failed",
+      account: "acct_seller_1",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 5000,
+          currency: "eur",
+          failure_code: "account_closed",
+          failure_message: "Bank account closed",
+          metadata: {
+            user_id: IDS.SELLER,
+            transfer_id: "tr_1",
+            payout_record_id: "payout_1",
+          },
+        },
+      },
+    });
+
+    const scenario = basicScenario();
+    scenario.profiles![1].stripe_account_id = "acct_seller_1";
+    scenario.wallets![0].available_balance = 0;
+    scenario.payouts = [
+      {
+        id: "payout_1",
+        user_id: IDS.SELLER,
+        amount: 50,
+        currency: "EUR",
+        status: "in_transit",
+        stripe_transfer_id: "tr_1",
+        stripe_payout_id: "po_failed_1",
+      },
+    ];
+
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+
+    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(db.state.payouts[0].status).toBe("failed");
+    expect(db.state.payouts[0].failure_code).toBe("account_closed");
   });
 });

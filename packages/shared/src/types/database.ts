@@ -1384,6 +1384,10 @@ export type Database = {
           review_count: number;
         }[];
       };
+      add_wallet_available_balance: {
+        Args: { p_amount: number; p_user_id: string };
+        Returns: boolean;
+      };
       match_tcgdex_cards: {
         Args: { p_language?: string; p_local_id?: string; p_name: string };
         Returns: {
