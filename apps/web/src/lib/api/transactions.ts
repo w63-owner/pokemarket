@@ -14,39 +14,14 @@ export async function createDispute(
   conversationId: string,
 ): Promise<void> {
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  const { error: disputeError } = await supabase.from("disputes").insert({
-    transaction_id: transactionId,
-    opened_by: user.id,
-    reason,
-    description: description.trim(),
+  const { error } = await supabase.rpc("create_dispute", {
+    p_transaction_id: transactionId,
+    p_reason: reason,
+    p_description: description.trim(),
+    p_conversation_id: conversationId,
   });
 
-  if (disputeError) throw disputeError;
-
-  const { error: txError } = await supabase
-    .from("transactions")
-    .update({ status: "DISPUTED" })
-    .eq("id", transactionId)
-    .eq("buyer_id", user.id)
-    .eq("status", "SHIPPED");
-
-  if (txError) throw txError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Litige ouvert",
-    message_type: "dispute_opened",
-    metadata: { reason, description: description.trim() },
-  });
-
-  if (msgError) throw msgError;
+  if (error) throw error;
 }
 
 export async function fetchTransactionByListing(

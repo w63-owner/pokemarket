@@ -30,7 +30,10 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -479,6 +482,69 @@ describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal"
     );
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "RESERVED",
+    );
+  });
+});
+
+describe("webhooks/stripe — payout.failed accounting", () => {
+  it("connected-account payout.failed marks payout failed without restoring platform wallet", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_failed_no_restore",
+      type: "payout.failed",
+      account: "acct_seller_1",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 5000,
+          failure_code: "account_closed",
+          failure_message: "The bank account has been closed.",
+          metadata: {
+            user_id: IDS.SELLER,
+            transfer_id: "tr_seller_1",
+            payout_record_id: "payout-1",
+          },
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.profiles = [
+      ...(scenario.profiles ?? []).filter((p) => p.id !== IDS.SELLER),
+      {
+        id: IDS.SELLER,
+        username: "seller-sue",
+        stripe_account_id: "acct_seller_1",
+      },
+    ];
+    scenario.wallets = [
+      {
+        user_id: IDS.SELLER,
+        pending_balance: 0,
+        available_balance: 0,
+      },
+    ];
+    scenario.payouts = [
+      {
+        id: "payout-1",
+        user_id: IDS.SELLER,
+        amount: 50,
+        currency: "EUR",
+        status: "in_transit",
+        stripe_transfer_id: "tr_seller_1",
+        stripe_payout_id: "po_failed_1",
+        requested_at: new Date().toISOString(),
+      },
+    ];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(db.state.payouts[0].status).toBe("failed");
+    expect(db.state.payouts[0].failure_code).toBe("account_closed");
+    expect(db.state.payouts[0].failure_message).toBe(
+      "The bank account has been closed.",
     );
   });
 });
