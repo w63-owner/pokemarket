@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getRequestUser } from "@/lib/auth/api";
 
 const PAGE_SIZE = 20;
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await getRequestUser(request);
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -18,8 +15,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
+    const admin = createAdminClient();
 
-    let query = supabase
+    let query = admin
       .from("payouts")
       .select("*")
       .eq("user_id", user.id)

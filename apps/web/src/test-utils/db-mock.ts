@@ -52,6 +52,7 @@ export interface MockDbState {
   transactions: Row[];
   listings: Row[];
   wallets: Row[];
+  payouts: Row[];
   offers: Row[];
   conversations: Row[];
   messages: Row[];
@@ -67,6 +68,7 @@ export function makeEmptyState(): MockDbState {
     transactions: [],
     listings: [],
     wallets: [],
+    payouts: [],
     offers: [],
     conversations: [],
     messages: [],
@@ -404,21 +406,19 @@ export function createMockDb(
         // (e.g. 30 - 2.2 - 2.49 = 25.310000000000002) doesn't spuriously
         // trip the balance check the way exact decimals never would in prod.
         const sellerNet =
-          Math.round(
-            ((tx.total_amount ?? 0) -
-              (tx.fee_amount ?? 0) -
-              (tx.shipping_cost ?? 0)) *
-              100,
-          ) / 100;
+          Math.round(((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100) /
+          100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
         if (!wallet || wallet.pending_balance < sellerNet) {
-          console.warn(
-            `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
-          );
-          tx.status = "COMPLETED";
-          return { data: false, error: null };
+          return {
+            data: null,
+            error: {
+              code: "P0004",
+              message: `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
+            },
+          };
         }
 
         tx.status = "COMPLETED";
@@ -426,6 +426,33 @@ export function createMockDb(
           Math.round((wallet.pending_balance - sellerNet) * 100) / 100;
         wallet.available_balance =
           Math.round((wallet.available_balance + sellerNet) * 100) / 100;
+
+        return { data: true, error: null };
+      }
+
+      if (name === "add_wallet_available_balance") {
+        const { p_user_id, p_amount } = params;
+
+        if (p_amount == null || p_amount <= 0) {
+          return {
+            data: null,
+            error: {
+              code: "P0001",
+              message: `INVALID_AMOUNT: amount must be > 0 (got ${p_amount})`,
+            },
+          };
+        }
+
+        const wallet = state.wallets.find((w) => w.user_id === p_user_id);
+        if (!wallet) {
+          return {
+            data: null,
+            error: { code: "P0002", message: "Wallet not found" },
+          };
+        }
+
+        wallet.available_balance =
+          Math.round(((wallet.available_balance ?? 0) + p_amount) * 100) / 100;
 
         return { data: true, error: null };
       }

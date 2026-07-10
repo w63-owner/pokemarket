@@ -72,13 +72,16 @@ export function initAuth() {
     };
     emit();
 
-    // After a successful sign-in, register the device for push notifications
-    // so the backend can target this install. Fire-and-forget; failures are
-    // logged internally and never block the auth flow. `INITIAL_SESSION` is
-    // intentionally excluded — that fires on every cold boot for already-
-    // signed-in users and would spam our token endpoint.
-    if (event === "SIGNED_IN" && newSession) {
-      void registerPushToken();
+    // Keep the backend's device-token ownership aligned with the current
+    // session. Fresh sign-ins may prompt for permission; restored sessions and
+    // token refreshes only re-register when permission was already granted.
+    if (
+      newSession &&
+      (event === "SIGNED_IN" ||
+        event === "INITIAL_SESSION" ||
+        event === "TOKEN_REFRESHED")
+    ) {
+      void registerPushToken({ requestPermission: event === "SIGNED_IN" });
     }
 
     // Belt-and-suspenders: if the session vanishes for any reason
