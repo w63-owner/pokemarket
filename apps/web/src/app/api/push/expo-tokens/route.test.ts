@@ -83,7 +83,7 @@ describe("POST /api/push/expo-tokens", () => {
         device_id: "PixelPro",
         app_version: "0.1.0",
       }),
-      expect.objectContaining({ onConflict: "user_id,token" }),
+      expect.objectContaining({ onConflict: "token" }),
     );
   });
 });

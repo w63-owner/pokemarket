@@ -128,4 +128,24 @@ describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
     expect(res.status).toBe(400);
     expect(transfersCreate).not.toHaveBeenCalled();
   });
+
+  it("échec Stripe avant transfer → restaure le solde par addition sans écraser un nouveau crédit", async () => {
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    transfersCreate.mockImplementationOnce(async () => {
+      // A new sale is finalized after the payout reservation zeroes the wallet
+      // but before Stripe rejects the transfer. The restore must add 50 on top.
+      db.state.wallets[0].available_balance = 10;
+      throw {
+        type: "StripeInvalidRequestError",
+        code: "balance_insufficient",
+        message: "Insufficient funds",
+      };
+    });
+
+    const res = await POST(req());
+    expect(res.status).toBe(400);
+    expect(db.state.wallets[0].available_balance).toBe(60);
+  });
 });
