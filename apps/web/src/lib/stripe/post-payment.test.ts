@@ -45,7 +45,7 @@ describe("finalizePaidTransaction — QA happy path", () => {
     expect(listing?.status).toBe("SOLD");
 
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
-    // 105.7 total, 0 shipping, calcPriceSeller of 105.7 ≈ (105.7 - 0.7)/1.05 = 100
+    // 105.7 total - 5.7 platform fee = 100 seller net.
     expect(wallet?.pending_balance).toBeCloseTo(100, 2);
 
     // Other PENDING offers on this listing → EXPIRED
@@ -126,15 +126,14 @@ describe("finalizePaidTransaction — QA edge cases", () => {
   it("handles transaction with shipping cost (seller receives card net + shipping)", async () => {
     const scenario = basicScenario();
     scenario.transactions![0].total_amount = 116.2; // 100 item + 10 ship + ~6 fees
+    scenario.transactions![0].fee_amount = 5.72;
     scenario.transactions![0].shipping_cost = 10;
     const db = createMockDb(scenario);
     mockClient = db.client;
     await finalizePaidTransaction(IDS.TX);
     const wallet = db.state.wallets.find((w) => w.user_id === IDS.SELLER);
-    // cardNet = calcPriceSeller(116.2 - 10) = calcPriceSeller(106.2) = (106.2 - 0.7)/1.05 ≈ 100.476
-    // sellerNet = cardNet + shipping = 100.476 + 10 ≈ 110.476
-    expect(wallet?.pending_balance).toBeGreaterThan(109);
-    expect(wallet?.pending_balance).toBeLessThan(112);
+    // 116.2 total - 5.72 fee = 110.48, including the shipping pass-through.
+    expect(wallet?.pending_balance).toBeCloseTo(110.48, 2);
   });
 
   it("creates a conversation and posts the system message when none exists yet", async () => {
@@ -162,12 +161,17 @@ describe("finalizePaidTransaction — QA edge cases", () => {
     expect(emailRows(db)).toHaveLength(2); // emails still enqueued
   });
 
-  it("works even if seller wallet does not exist (no crediting, no crash)", async () => {
+  it("fails before marking PAID if the seller wallet does not exist", async () => {
     const scenario = basicScenario();
     scenario.wallets = [];
     const db = createMockDb(scenario);
     mockClient = db.client;
-    expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
+    await expect(finalizePaidTransaction(IDS.TX)).rejects.toMatchObject({
+      code: "P0004",
+    });
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
   });
 });
 
@@ -322,50 +326,34 @@ describe("finalizePaidTransaction — CHAOS failure injection", () => {
     expect(["LOCKED", "SOLD"]).toContain(listing?.status);
   });
 
-  it("KNOWN-LIMITATION: side-effect failure after PAID transition is NOT auto-recovered", async () => {
-    // We use an atomic-gate concurrency model to GUARANTEE no double-credit.
-    // The trade-off is that if the winner crashes after the PAID transition
-    // but before completing all side-effects, the transaction can end up in
-    // a partial state. Recovery requires manual replay or the buyer hitting
-    // the success page reconcile path.
-    //
-    // Tracked in audit report as a follow-up: introduce a recovery cron or
-    // wrap the entire flow in a Postgres RPC.
+  it("finalization core failure leaves the transaction retryable instead of orphaned PAID", async () => {
     const db = createMockDb(basicScenario());
     mockClient = db.client;
 
-    const originalFrom = db.client.from.bind(db.client);
-    let walletWriteAttempts = 0;
-    db.client.from = (name: string) => {
-      const builder = originalFrom(name);
-      if (name === "wallets") {
-        const origUpdate = builder.update.bind(builder);
-        builder.update = (patch: any) => {
-          walletWriteAttempts++;
-          if (walletWriteAttempts === 1) {
-            throw new Error("[chaos] wallet write failed");
-          }
-          return origUpdate(patch);
-        };
+    const originalRpc = db.client.rpc.bind(db.client);
+    let rpcAttempts = 0;
+    db.client.rpc = (name: string, params: Record<string, unknown>) => {
+      if (name === "finalize_paid_transaction_core") {
+        rpcAttempts++;
+        if (rpcAttempts === 1) {
+          throw new Error("[chaos] finalize core failed before commit");
+        }
       }
-      return builder;
+      return originalRpc(name, params);
     };
 
     await expect(finalizePaidTransaction(IDS.TX)).rejects.toThrow();
 
-    // Tx is PAID but wallet not credited — partial state
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
-      "PAID",
+      "PENDING_PAYMENT",
     );
     expect(
       db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
     ).toBe(0);
 
-    // Retry: short-circuits because tx is already PAID. The orphan persists
-    // until manual recovery — but importantly, NO double-credit happens.
-    expect(await finalizePaidTransaction(IDS.TX)).toBe("ALREADY_PROCESSED");
+    expect(await finalizePaidTransaction(IDS.TX)).toBe("PAID");
     expect(
       db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
-    ).toBe(0);
+    ).toBeCloseTo(100, 2);
   });
 });

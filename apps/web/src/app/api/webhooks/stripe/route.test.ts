@@ -482,3 +482,63 @@ describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal"
     );
   });
 });
+
+describe("webhooks/stripe — refunds", () => {
+  it("charge.refunded debits the seller wallet before marking the transaction REFUNDED", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_refund_ok",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_refund_ok",
+          amount: 10_570,
+          amount_refunded: 10_570,
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.transactions![0].status = "PAID";
+    scenario.transactions![0].stripe_charge_id = "ch_refund_ok";
+    scenario.transactions![0].refunded_amount = 0;
+    scenario.wallets![0].pending_balance = 100;
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.wallets[0].pending_balance).toBe(0);
+    expect(db.state.transactions[0].status).toBe("REFUNDED");
+    expect(db.state.transactions[0].refunded_amount).toBe(105.7);
+  });
+
+  it("wallet debit failure returns 500 and releases idempotency for Stripe retry", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_refund_retry",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_refund_retry",
+          amount: 10_570,
+          amount_refunded: 10_570,
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.transactions![0].status = "PAID";
+    scenario.transactions![0].stripe_charge_id = "ch_refund_retry";
+    scenario.transactions![0].refunded_amount = 0;
+    scenario.wallets = [];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(500);
+    expect(db.state.transactions[0].status).toBe("PAID");
+    expect(db.state.transactions[0].refunded_amount).toBe(0);
+    expect(
+      db.state.stripe_webhooks_processed.filter(
+        (e) => e.stripe_event_id === "evt_refund_retry",
+      ),
+    ).toHaveLength(0);
+  });
+});

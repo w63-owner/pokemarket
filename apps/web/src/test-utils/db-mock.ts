@@ -401,33 +401,108 @@ export function createMockDb(
         }
 
         // Mirror Postgres NUMERIC(10,2): round to cents so float drift
-        // (e.g. 30 - 2.2 - 2.49 = 25.310000000000002) doesn't spuriously
-        // trip the balance check the way exact decimals never would in prod.
+        // doesn't spuriously trip the balance check the way exact decimals
+        // never would in prod. Escrow releases the same amount payment
+        // finalization credited: total_amount - fee_amount.
         const sellerNet =
           Math.round(
-            ((tx.total_amount ?? 0) -
-              (tx.fee_amount ?? 0) -
-              (tx.shipping_cost ?? 0)) *
-              100,
+            ((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100,
           ) / 100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
         if (!wallet || wallet.pending_balance < sellerNet) {
-          console.warn(
-            `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
-          );
-          tx.status = "COMPLETED";
-          return { data: false, error: null };
+          return {
+            data: null,
+            error: {
+              code: "P0004",
+              message: `ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
+            },
+          };
         }
 
-        tx.status = "COMPLETED";
         wallet.pending_balance =
           Math.round((wallet.pending_balance - sellerNet) * 100) / 100;
         wallet.available_balance =
           Math.round((wallet.available_balance + sellerNet) * 100) / 100;
+        tx.status = "COMPLETED";
 
         return { data: true, error: null };
+      }
+
+      if (name === "finalize_paid_transaction_core") {
+        const { p_transaction_id, p_payment_intent_id, p_charge_id } = params;
+        const tx = state.transactions.find((t) => t.id === p_transaction_id);
+
+        if (!tx) {
+          return {
+            data: [
+              {
+                result: "NOT_FOUND",
+                id: null,
+                listing_id: null,
+                buyer_id: null,
+                seller_id: null,
+                total_amount: null,
+                shipping_cost: null,
+              },
+            ],
+            error: null,
+          };
+        }
+
+        const payload = (result: string) => ({
+          result,
+          id: tx.id,
+          listing_id: tx.listing_id,
+          buyer_id: tx.buyer_id,
+          seller_id: tx.seller_id,
+          total_amount: tx.total_amount,
+          shipping_cost: tx.shipping_cost ?? 0,
+        });
+
+        if (tx.status !== "PENDING_PAYMENT") {
+          return { data: [payload("ALREADY_PROCESSED")], error: null };
+        }
+
+        const sellerNet =
+          Math.round(((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100) /
+          100;
+        if (sellerNet <= 0) {
+          return {
+            data: null,
+            error: {
+              code: "P0001",
+              message: `INVALID_AMOUNT: seller_net is ${sellerNet}`,
+            },
+          };
+        }
+
+        const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
+        if (!wallet) {
+          return {
+            data: null,
+            error: {
+              code: "P0004",
+              message: `WALLET_NOT_FOUND: seller ${tx.seller_id} wallet is missing`,
+            },
+          };
+        }
+
+        const listing = state.listings.find((l) => l.id === tx.listing_id);
+        if (listing) listing.status = "SOLD";
+        wallet.pending_balance =
+          Math.round((wallet.pending_balance + sellerNet) * 100) / 100;
+        state.offers
+          .filter((o) => o.listing_id === tx.listing_id && o.status === "PENDING")
+          .forEach((o) => {
+            o.status = "EXPIRED";
+          });
+        tx.status = "PAID";
+        if (p_payment_intent_id) tx.stripe_payment_intent_id = p_payment_intent_id;
+        if (p_charge_id) tx.stripe_charge_id = p_charge_id;
+
+        return { data: [payload("PAID")], error: null };
       }
 
       return {

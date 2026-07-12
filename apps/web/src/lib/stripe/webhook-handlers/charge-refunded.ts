@@ -97,11 +97,24 @@ export async function handleChargeRefunded(
     calcPriceSeller(cardRefundedDelta) + shippingRefunded;
 
   // Read the wallet, then debit pending first, then available.
-  const { data: wallet } = await admin
+  const { data: wallet, error: walletReadError } = await admin
     .from("wallets")
     .select("pending_balance, available_balance")
     .eq("user_id", transaction.seller_id)
     .single();
+
+  if (walletReadError || !wallet) {
+    const err =
+      walletReadError ??
+      new Error(`Seller wallet not found for ${transaction.seller_id}`);
+    Sentry.captureException(err, {
+      extra: {
+        context: "charge.refunded_wallet_read",
+        transaction_id: transaction.id,
+      },
+    });
+    throw err;
+  }
 
   let pendingBefore = Number(wallet?.pending_balance ?? 0);
   let availableBefore = Number(wallet?.available_balance ?? 0);
@@ -115,23 +128,22 @@ export async function handleChargeRefunded(
   toDebit -= fromAvailable;
   availableBefore -= fromAvailable;
 
-  if (wallet) {
-    const { error: walletError } = await admin
-      .from("wallets")
-      .update({
-        pending_balance: round2(pendingBefore),
-        available_balance: round2(availableBefore),
-      })
-      .eq("user_id", transaction.seller_id);
-    if (walletError) {
-      Sentry.captureException(walletError, {
-        extra: {
-          context: "charge.refunded_wallet_debit",
-          transaction_id: transaction.id,
-          to_debit: sellerShareToReverse,
-        },
-      });
-    }
+  const { error: walletError } = await admin
+    .from("wallets")
+    .update({
+      pending_balance: round2(pendingBefore),
+      available_balance: round2(availableBefore),
+    })
+    .eq("user_id", transaction.seller_id);
+  if (walletError) {
+    Sentry.captureException(walletError, {
+      extra: {
+        context: "charge.refunded_wallet_debit",
+        transaction_id: transaction.id,
+        to_debit: sellerShareToReverse,
+      },
+    });
+    throw walletError;
   }
 
   if (toDebit > 0) {
