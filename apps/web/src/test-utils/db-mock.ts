@@ -405,9 +405,8 @@ export function createMockDb(
         // never would in prod. Escrow releases the same amount payment
         // finalization credited: total_amount - fee_amount.
         const sellerNet =
-          Math.round(
-            ((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100,
-          ) / 100;
+          Math.round(((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100) /
+          100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
@@ -494,12 +493,15 @@ export function createMockDb(
         wallet.pending_balance =
           Math.round((wallet.pending_balance + sellerNet) * 100) / 100;
         state.offers
-          .filter((o) => o.listing_id === tx.listing_id && o.status === "PENDING")
+          .filter(
+            (o) => o.listing_id === tx.listing_id && o.status === "PENDING",
+          )
           .forEach((o) => {
             o.status = "EXPIRED";
           });
         tx.status = "PAID";
-        if (p_payment_intent_id) tx.stripe_payment_intent_id = p_payment_intent_id;
+        if (p_payment_intent_id)
+          tx.stripe_payment_intent_id = p_payment_intent_id;
         if (p_charge_id) tx.stripe_charge_id = p_charge_id;
 
         return { data: [payload("PAID")], error: null };
