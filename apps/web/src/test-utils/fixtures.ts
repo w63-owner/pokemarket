@@ -43,6 +43,7 @@ export function basicScenario(): Partial<MockDbState> {
         seller_id: SELLER,
         status: "PENDING_PAYMENT",
         total_amount: 105.7,
+        fee_amount: 5.7,
         shipping_cost: 0,
         stripe_checkout_session_id: "cs_test_1",
         expiration_date: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
