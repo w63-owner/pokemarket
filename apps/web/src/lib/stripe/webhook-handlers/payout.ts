@@ -9,10 +9,15 @@ import { sendPushNotification } from "@/lib/push/send";
  * (invalid IBAN, closed account, name mismatch, etc.).
  *
  * Critical action items:
- *   1. RESTORE the seller's available_balance — our /api/stripe-connect/payout
- *      route deducts the wallet BEFORE asking Stripe to transfer. If Stripe
- *      then fails to land the funds, the seller is short until we restore.
+ *   1. Mark the payout record failed for seller-visible history.
  *   2. Notify the seller with a clear next-step ("update your IBAN").
+ *
+ * Important accounting note:
+ *   Our payout route first transfers money from the platform to the connected
+ *   account, then creates a connected-account bank payout. A later
+ *   `payout.failed` means the bank payout failed after the platform transfer
+ *   succeeded; the funds remain on the connected account. Re-crediting the
+ *   platform wallet here would let the seller withdraw the same balance again.
  *
  * Identification:
  *   The payout route stores `metadata.user_id` on every transfer it creates
@@ -51,33 +56,6 @@ export async function handlePayoutFailed(
   }
 
   const amountEur = (payout.amount ?? 0) / 100;
-
-  // Restore the available balance. CAUTION: if multiple payouts failed in
-  // parallel, this is non-idempotent at the row level. The webhook layer's
-  // event-id idempotency is what protects us.
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("available_balance")
-    .eq("user_id", sellerId)
-    .single();
-
-  if (wallet) {
-    const newAvailable =
-      Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
-    const { error } = await admin
-      .from("wallets")
-      .update({ available_balance: newAvailable })
-      .eq("user_id", sellerId);
-    if (error) {
-      Sentry.captureException(error, {
-        extra: {
-          context: "payout.failed_restore",
-          user_id: sellerId,
-          amount: amountEur,
-        },
-      });
-    }
-  }
 
   // Update payout record status to failed
   const { error: payoutUpdateError } = await admin

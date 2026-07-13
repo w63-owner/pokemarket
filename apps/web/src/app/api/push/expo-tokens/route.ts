@@ -45,8 +45,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Use the admin client so we can upsert without re-checking RLS — we've
-  // already verified that the user owns the row via `getRequestUser`.
+  // Use the admin client so a physical device token can transfer ownership
+  // from a previous signed-out user to the currently authenticated user.
   const admin = createAdminClient();
 
   const { error } = await admin.from("expo_push_tokens").upsert(
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    { onConflict: "token" },
   );
 
   if (error) {
