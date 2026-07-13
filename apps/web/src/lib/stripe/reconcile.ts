@@ -20,12 +20,19 @@ export async function reconcileCheckoutSession(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, status, stripe_checkout_session_id")
     .eq("id", transactionId)
     .single();
 
   if (!transaction) return "PENDING_PAYMENT";
   if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
+
+  if (
+    transaction.stripe_checkout_session_id &&
+    transaction.stripe_checkout_session_id !== stripeSessionId
+  ) {
+    return "PENDING_PAYMENT";
+  }
 
   // Confirm the buyer actually paid before triggering side-effects.
   // Expand `payment_intent.latest_charge` so we get both IDs in a single
@@ -36,6 +43,19 @@ export async function reconcileCheckoutSession(
     expand: ["payment_intent.latest_charge"],
   });
   if (session.payment_status !== "paid") return "PENDING_PAYMENT";
+
+  const sessionTransactionId =
+    typeof session.metadata?.transaction_id === "string"
+      ? session.metadata.transaction_id
+      : null;
+
+  if (sessionTransactionId !== null && sessionTransactionId !== transactionId) {
+    return "PENDING_PAYMENT";
+  }
+
+  if (!transaction.stripe_checkout_session_id && !sessionTransactionId) {
+    return "PENDING_PAYMENT";
+  }
 
   const paymentIntent =
     typeof session.payment_intent === "object" &&
@@ -84,12 +104,19 @@ export async function reconcilePaymentIntent(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, status, stripe_payment_intent_id")
     .eq("id", transactionId)
     .single();
 
   if (!transaction) return "PENDING_PAYMENT";
   if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
+
+  if (
+    transaction.stripe_payment_intent_id &&
+    transaction.stripe_payment_intent_id !== stripePaymentIntentId
+  ) {
+    return "PENDING_PAYMENT";
+  }
 
   // Expand `latest_charge` so we get both IDs in a single round-trip — same
   // shape used by the webhook path for refund / dispute downstream lookups.
@@ -99,6 +126,19 @@ export async function reconcilePaymentIntent(
   });
 
   if (intent.status !== "succeeded") return "PENDING_PAYMENT";
+
+  const intentTransactionId =
+    typeof intent.metadata?.transaction_id === "string"
+      ? intent.metadata.transaction_id
+      : null;
+
+  if (intentTransactionId !== null && intentTransactionId !== transactionId) {
+    return "PENDING_PAYMENT";
+  }
+
+  if (!transaction.stripe_payment_intent_id && !intentTransactionId) {
+    return "PENDING_PAYMENT";
+  }
 
   const chargeId =
     typeof intent.latest_charge === "string"

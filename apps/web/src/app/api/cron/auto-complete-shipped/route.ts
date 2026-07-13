@@ -65,7 +65,10 @@ export async function GET(request: Request) {
             // Status mismatch — likely already completed
             continue;
           }
-          throw rpcError;
+          throw new Error(
+            rpcError.message ??
+              `release_escrow_funds failed with code ${rpcError.code}`,
+          );
         }
 
         if (!released) {
