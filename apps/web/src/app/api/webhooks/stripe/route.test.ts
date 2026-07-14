@@ -30,7 +30,10 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -227,6 +230,71 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
     );
     expect(responses.every((r) => r.status === 200)).toBe(true);
     expect(db.state.stripe_webhooks_processed).toHaveLength(100);
+  });
+});
+
+describe("webhooks/stripe — payout.failed wallet accounting", () => {
+  it("does not restore platform wallet after a connected-account bank payout fails", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_failed_transfer_backed",
+      type: "payout.failed",
+      account: "acct_seller_1",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 5000,
+          currency: "eur",
+          failure_code: "account_closed",
+          failure_message: "Compte bancaire fermé",
+          metadata: {
+            user_id: IDS.SELLER,
+            transfer_id: "tr_seller_1",
+            payout_record_id: "payout_1",
+          },
+        },
+      },
+    });
+
+    const scenario = basicScenario() as any;
+    scenario.profiles = [
+      { id: IDS.SELLER, stripe_account_id: "acct_seller_1" },
+    ];
+    scenario.wallets = [
+      {
+        user_id: IDS.SELLER,
+        pending_balance: 0,
+        available_balance: 0,
+        version: 0,
+      },
+    ];
+    scenario.payouts = [
+      {
+        id: "payout_1",
+        user_id: IDS.SELLER,
+        amount: 50,
+        currency: "EUR",
+        status: "in_transit",
+        stripe_transfer_id: "tr_seller_1",
+        stripe_payout_id: "po_failed_1",
+      },
+    ];
+
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+
+    expect(
+      db.state.wallets.find((w) => w.user_id === IDS.SELLER),
+    ).toMatchObject({
+      available_balance: 0,
+    });
+    expect((db.state as any).payouts[0]).toMatchObject({
+      status: "failed",
+      failure_code: "account_closed",
+      failure_message: "Compte bancaire fermé",
+    });
   });
 });
 
