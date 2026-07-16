@@ -9,10 +9,16 @@ import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export function useConversations() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: queryKeys.conversations.list(),
+    // Scope cached inbox data to the authenticated account. The public
+    // /messages route stays mounted across sign-out/sign-in, so a shared key
+    // could briefly render the previous user's conversation previews.
+    queryKey: [...queryKeys.conversations.list(), user?.id ?? null],
     queryFn: fetchConversations,
     staleTime: 30_000,
+    enabled: !!user,
   });
 }
 

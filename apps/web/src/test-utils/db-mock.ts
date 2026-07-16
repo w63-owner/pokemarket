@@ -404,12 +404,8 @@ export function createMockDb(
         // (e.g. 30 - 2.2 - 2.49 = 25.310000000000002) doesn't spuriously
         // trip the balance check the way exact decimals never would in prod.
         const sellerNet =
-          Math.round(
-            ((tx.total_amount ?? 0) -
-              (tx.fee_amount ?? 0) -
-              (tx.shipping_cost ?? 0)) *
-              100,
-          ) / 100;
+          Math.round(((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100) /
+          100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
@@ -417,15 +413,20 @@ export function createMockDb(
           console.warn(
             `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
           );
-          tx.status = "COMPLETED";
-          return { data: false, error: null };
+          return {
+            data: null,
+            error: {
+              code: "P0004",
+              message: `ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
+            },
+          };
         }
 
-        tx.status = "COMPLETED";
         wallet.pending_balance =
           Math.round((wallet.pending_balance - sellerNet) * 100) / 100;
         wallet.available_balance =
           Math.round((wallet.available_balance + sellerNet) * 100) / 100;
+        tx.status = "COMPLETED";
 
         return { data: true, error: null };
       }
