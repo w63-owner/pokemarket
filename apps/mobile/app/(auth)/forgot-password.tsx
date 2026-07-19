@@ -26,7 +26,7 @@ export default function ForgotPasswordScreen() {
     }
     setSubmitting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `pokemarket://auth/reset-password`,
+      redirectTo: "pokemarket://reset-password",
     });
     setSubmitting(false);
     if (error) {
