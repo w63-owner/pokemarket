@@ -113,6 +113,16 @@ export async function POST(request: Request) {
             { status: 400 },
           );
         }
+
+        if (existingSession.status === "open") {
+          return NextResponse.json(
+            {
+              error:
+                "Un paiement est déjà en cours pour cet article. Termine-le ou attends l'expiration du lien avant de réessayer.",
+            },
+            { status: 409 },
+          );
+        }
       }
 
       // Mirror the same paid-PaymentIntent guard for the mobile flow so a
@@ -128,6 +138,21 @@ export async function POST(request: Request) {
           return NextResponse.json(
             { error: "Le paiement a déjà été effectué pour cet article" },
             { status: 400 },
+          );
+        }
+
+        // Every non-cancelled PaymentIntent remains capable of succeeding:
+        // even `requires_payment_method` still has a live client secret in an
+        // already-open PaymentSheet. Never expire its transaction and mint a
+        // replacement, or the old intent can later charge against an EXPIRED
+        // order while the replacement charges the buyer a second time.
+        if (existingPi.status !== "canceled") {
+          return NextResponse.json(
+            {
+              error:
+                "Un paiement est déjà en cours pour cet article. Termine-le ou attends l'expiration avant de réessayer.",
+            },
+            { status: 409 },
           );
         }
       }
