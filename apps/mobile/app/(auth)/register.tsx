@@ -31,7 +31,7 @@ export default function RegisterScreen() {
       password,
       options: {
         data: { username },
-        emailRedirectTo: "pokemarket://auth/confirm",
+        emailRedirectTo: "pokemarket://login",
       },
     });
     setSubmitting(false);
