@@ -9,10 +9,8 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 /**
  * Side-effects that must run exactly once after a checkout session is paid:
- *   - Mark transaction as PAID (atomic transition guard)
- *   - Mark listing as SOLD
- *   - Credit seller wallet pending_balance
- *   - Expire all other PENDING offers on this listing
+ *   - Mark transaction as PAID, mark listing SOLD, credit seller wallet, and
+ *     expire competing offers in one SQL transaction
  *   - Insert "payment_completed" system message in the conversation
  *   - Enqueue buyer + seller emails and the seller push into the durable
  *     notifications outbox (drained + retried by a cron — see outbox.ts)
@@ -20,16 +18,10 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  * Called from BOTH the Stripe webhook AND the success page reconcile path so
  * the user receives their confirmation regardless of which path lands first.
  *
- * Concurrency model: the side-effects (wallet credit, message insert) are
- * only run by the caller that successfully transitions PENDING_PAYMENT → PAID.
- * Any concurrent caller will see the row already PAID and short-circuit with
- * ALREADY_PROCESSED, guaranteeing exactly-once execution under contention.
- *
- * Known limitation: if the winner crashes between the PAID transition and the
- * end of side-effects, partial state can result. Stripe webhook idempotency
- * (`stripe_webhooks_processed`) prevents auto-retry by us; recovery is
- * possible via the success page reconcile path or a future ledger-based
- * recovery cron. Tracked as a follow-up — see audit report.
+ * Concurrency model: the financial side-effects run inside
+ * `finalize_paid_transaction_core`, which locks the transaction row. Only the
+ * caller that sees PENDING_PAYMENT performs the irreversible writes; concurrent
+ * callers return ALREADY_PROCESSED without crediting twice.
  */
 /**
  * Optional Stripe identifiers captured from the Checkout Session. Passing
@@ -42,60 +34,57 @@ export type StripeFinalizeIds = {
   chargeId: string | null;
 };
 
+type FinalizeCoreRow = {
+  result: "PAID" | "ALREADY_PROCESSED" | "NOT_FOUND";
+  id: string | null;
+  listing_id: string | null;
+  buyer_id: string | null;
+  seller_id: string | null;
+  total_amount: number | null;
+  shipping_cost: number | null;
+};
+
 export async function finalizePaidTransaction(
   transactionId: string,
   stripeIds?: StripeFinalizeIds,
 ): Promise<"PAID" | "ALREADY_PROCESSED" | "NOT_FOUND"> {
   const admin = createAdminClient();
 
-  const { data: transaction, error: txFetchError } = await admin
-    .from("transactions")
-    .select("*")
-    .eq("id", transactionId)
-    .single();
+  const { data: finalizedRows, error: finalizeError } = await admin.rpc(
+    "finalize_paid_transaction_core",
+    {
+      p_transaction_id: transactionId,
+      p_payment_intent_id: stripeIds?.paymentIntentId ?? null,
+      p_charge_id: stripeIds?.chargeId ?? null,
+    },
+  );
 
-  if (txFetchError || !transaction) return "NOT_FOUND";
-  if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
+  if (finalizeError) throw finalizeError;
 
-  // Atomic transition guard — only one caller wins this race. The losing
-  // callers (e.g. webhook + reconcile firing simultaneously) will receive
-  // 0 rows and bail out without re-running any side-effects.
-  //
-  // We co-write the Stripe identifiers in the same UPDATE so a partial
-  // crash leaves us with consistent state: either the row is still
-  // PENDING_PAYMENT (no IDs), or PAID (with IDs available for downstream
-  // refund / dispute webhooks).
-  const txUpdate: {
-    status: "PAID";
-    stripe_payment_intent_id?: string | null;
-    stripe_charge_id?: string | null;
-  } = { status: "PAID" };
-  if (stripeIds?.paymentIntentId) {
-    txUpdate.stripe_payment_intent_id = stripeIds.paymentIntentId;
-  }
-  if (stripeIds?.chargeId) {
-    txUpdate.stripe_charge_id = stripeIds.chargeId;
+  const finalized = finalizedRows?.[0] as FinalizeCoreRow | undefined;
+  if (!finalized || finalized.result === "NOT_FOUND") return "NOT_FOUND";
+  if (finalized.result === "ALREADY_PROCESSED") return "ALREADY_PROCESSED";
+
+  if (
+    !finalized.id ||
+    !finalized.listing_id ||
+    !finalized.buyer_id ||
+    !finalized.seller_id ||
+    finalized.total_amount == null
+  ) {
+    throw new Error(
+      `finalize_paid_transaction_core returned incomplete payload for ${transactionId}`,
+    );
   }
 
-  const { data: updated, error: txUpdateError } = await admin
-    .from("transactions")
-    .update(txUpdate)
-    .eq("id", transactionId)
-    .eq("status", "PENDING_PAYMENT")
-    .select("id");
-
-  if (txUpdateError) throw txUpdateError;
-  if (!updated || updated.length === 0) return "ALREADY_PROCESSED";
-
-  // ── From here on we are the EXCLUSIVE owner of this transaction's
-  //    side-effects. Every step throws on error so a failure surfaces to
-  //    the caller (webhook returns 500, success page surfaces an error).
-
-  const { error: listingUpdateError } = await admin
-    .from("listings")
-    .update({ status: "SOLD" })
-    .eq("id", transaction.listing_id);
-  if (listingUpdateError) throw listingUpdateError;
+  const transaction = {
+    id: finalized.id,
+    listing_id: finalized.listing_id,
+    buyer_id: finalized.buyer_id,
+    seller_id: finalized.seller_id,
+    total_amount: Number(finalized.total_amount),
+    shipping_cost: Number(finalized.shipping_cost ?? 0),
+  };
 
   // NOTE: revalidatePath() is intentionally NOT called here. This function is
   // invoked from BOTH the Stripe webhook (a route handler — safe) and the
@@ -105,38 +94,6 @@ export async function finalizePaidTransaction(
   // the success page doesn't need to (the listing detail page reloads fresh on
   // next navigation, and the buyer's own `/orders/:id` is the page being
   // rendered).
-
-  // Seller receives: net card earnings (after platform fee) + shipping
-  // (shipping is passed through to the seller, not subject to the fee).
-  const shippingCost = transaction.shipping_cost ?? 0;
-  const cardNet = calcPriceSeller(transaction.total_amount - shippingCost);
-  const sellerNet = cardNet + shippingCost;
-
-  const { data: wallet, error: walletReadError } = await admin
-    .from("wallets")
-    .select("pending_balance")
-    .eq("user_id", transaction.seller_id)
-    .single();
-  if (walletReadError && walletReadError.code !== "PGRST116") {
-    throw walletReadError;
-  }
-
-  if (wallet) {
-    const newPending =
-      Math.round((Number(wallet.pending_balance) + sellerNet) * 100) / 100;
-    const { error: walletWriteError } = await admin
-      .from("wallets")
-      .update({ pending_balance: newPending })
-      .eq("user_id", transaction.seller_id);
-    if (walletWriteError) throw walletWriteError;
-  }
-
-  const { error: offerExpireError } = await admin
-    .from("offers")
-    .update({ status: "EXPIRED" })
-    .eq("listing_id", transaction.listing_id)
-    .eq("status", "PENDING");
-  if (offerExpireError) throw offerExpireError;
 
   // Find (or create) the buyer↔seller conversation for this listing so we
   // always have a thread in which to drop the payment confirmation +
