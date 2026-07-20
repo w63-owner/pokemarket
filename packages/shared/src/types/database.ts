@@ -1355,6 +1355,22 @@ export type Database = {
         };
         Returns: undefined;
       };
+      finalize_paid_transaction_core: {
+        Args: {
+          p_charge_id?: string | null;
+          p_payment_intent_id?: string | null;
+          p_transaction_id: string;
+        };
+        Returns: {
+          buyer_id: string | null;
+          id: string | null;
+          listing_id: string | null;
+          result: string;
+          seller_id: string | null;
+          shipping_cost: number | null;
+          total_amount: number | null;
+        }[];
+      };
       get_inbox: {
         Args: { p_user_id: string };
         Returns: {
