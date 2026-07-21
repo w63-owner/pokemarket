@@ -1339,6 +1339,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      add_wallet_available_balance: {
+        Args: { p_delta: number; p_user_id: string };
+        Returns: undefined;
+      };
       count_new_for_saved_searches: {
         Args: never;
         Returns: {
