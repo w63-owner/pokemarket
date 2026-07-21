@@ -30,7 +30,11 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  addBreadcrumb: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -41,6 +45,15 @@ import { POST } from "./route";
 
 beforeEach(() => {
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  stripeConstructEventImpl = () => ({
+    id: "evt_1",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+      },
+    },
+  });
 });
 
 function makeReq(body = "{}", sig: string | null = "t=1,v1=test") {
@@ -113,6 +126,49 @@ describe("webhooks/stripe — QA happy path", () => {
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "ACTIVE",
     );
+  });
+
+  it("checkout expiration losing a race to payment cannot overwrite PAID or unlock the listing", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_expired_racing_paid",
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    const baseClient = db.client;
+    let injectedRace = false;
+
+    mockClient = {
+      ...baseClient,
+      from(name: string) {
+        const builder = baseClient.from(name);
+        if (name === "transactions" && !injectedRace) {
+          const originalSingle = builder.single.bind(builder);
+          builder.single = async () => {
+            const result = await originalSingle();
+            injectedRace = true;
+            db.state.transactions[0].status = "PAID";
+            return {
+              ...result,
+              data: result.data
+                ? { ...result.data, status: "PENDING_PAYMENT" }
+                : null,
+            };
+          };
+        }
+        return builder;
+      },
+    };
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.transactions[0].status).toBe("PAID");
+    expect(db.state.listings[0].status).toBe("LOCKED");
   });
 
   it("checkout.session.expired with ACCEPTED offer → listing reverts to RESERVED, not ACTIVE", async () => {
@@ -227,6 +283,53 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
     );
     expect(responses.every((r) => r.status === 200)).toBe(true);
     expect(db.state.stripe_webhooks_processed).toHaveLength(100);
+  });
+});
+
+describe("webhooks/stripe — payout.failed accounting", () => {
+  it("does not restore the app wallet after the platform transfer succeeded", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_failed_no_wallet_restore",
+      type: "payout.failed",
+      account: "acct_seller_1",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 5000,
+          currency: "eur",
+          metadata: { user_id: IDS.SELLER },
+          failure_code: "account_closed",
+          failure_message: "Bank account closed",
+        },
+      },
+    });
+
+    const scenario = basicScenario();
+    const seller = scenario.profiles?.find((p) => p.id === IDS.SELLER);
+    if (seller) seller.stripe_account_id = "acct_seller_1";
+    scenario.payouts = [
+      {
+        id: "payout-record-1",
+        user_id: IDS.SELLER,
+        amount: 50,
+        currency: "EUR",
+        status: "in_transit",
+        stripe_transfer_id: "tr_1",
+        stripe_payout_id: "po_failed_1",
+      },
+    ];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(db.state.payouts[0]).toMatchObject({
+      status: "failed",
+      failure_code: "account_closed",
+      failure_message: "Bank account closed",
+    });
   });
 });
 
