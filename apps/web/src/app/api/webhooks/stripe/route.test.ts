@@ -128,6 +128,49 @@ describe("webhooks/stripe — QA happy path", () => {
     );
   });
 
+  it("checkout expiration losing a race to payment cannot overwrite PAID or unlock the listing", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_expired_racing_paid",
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    const baseClient = db.client;
+    let injectedRace = false;
+
+    mockClient = {
+      ...baseClient,
+      from(name: string) {
+        const builder = baseClient.from(name);
+        if (name === "transactions" && !injectedRace) {
+          const originalSingle = builder.single.bind(builder);
+          builder.single = async () => {
+            const result = await originalSingle();
+            injectedRace = true;
+            db.state.transactions[0].status = "PAID";
+            return {
+              ...result,
+              data: result.data
+                ? { ...result.data, status: "PENDING_PAYMENT" }
+                : null,
+            };
+          };
+        }
+        return builder;
+      },
+    };
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.transactions[0].status).toBe("PAID");
+    expect(db.state.listings[0].status).toBe("LOCKED");
+  });
+
   it("checkout.session.expired with ACCEPTED offer → listing reverts to RESERVED, not ACTIVE", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_3",

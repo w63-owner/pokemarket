@@ -281,10 +281,23 @@ async function handleCheckoutFailed(
     return;
   }
 
-  await admin
+  const { data: transitioned, error: transitionError } = await admin
     .from("transactions")
     .update({ status: targetStatus })
-    .eq("id", transactionId);
+    .eq("id", transactionId)
+    .eq("status", "PENDING_PAYMENT")
+    .select("id");
+
+  if (transitionError) throw transitionError;
+
+  // Payment completion may have won after the status read above. Only release
+  // the listing when this handler actually performed the terminal transition.
+  if (!transitioned || transitioned.length === 0) {
+    console.warn(
+      `Transaction ${transactionId} changed before ${targetStatus}, skipping listing unlock`,
+    );
+    return;
+  }
 
   const { data: acceptedOffer } = await admin
     .from("offers")
