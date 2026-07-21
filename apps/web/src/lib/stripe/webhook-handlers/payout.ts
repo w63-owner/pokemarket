@@ -9,16 +9,19 @@ import { sendPushNotification } from "@/lib/push/send";
  * (invalid IBAN, closed account, name mismatch, etc.).
  *
  * Critical action items:
- *   1. RESTORE the seller's available_balance — our /api/stripe-connect/payout
- *      route deducts the wallet BEFORE asking Stripe to transfer. If Stripe
- *      then fails to land the funds, the seller is short until we restore.
+ *   1. Mark the payout record failed.
  *   2. Notify the seller with a clear next-step ("update your IBAN").
  *
  * Identification:
- *   The payout route stores `metadata.user_id` on every transfer it creates
- *   (see src/app/api/stripe-connect/payout/route.ts ~line 134). We read it
- *   back here to find the seller. If the metadata is missing (e.g. legacy
- *   payout from an admin), we fall back to looking up via stripe_account_id.
+ *   The payout route stores `metadata.user_id` on every connected-account
+ *   payout it creates. We read it back here to find the seller. If the metadata
+ *   is missing (e.g. legacy payout from an admin), we fall back to looking up
+ *   via stripe_account_id.
+ *
+ * IMPORTANT: Do not restore the app wallet here. The platform transfer has
+ * already succeeded, and Stripe returns a failed bank payout to the connected
+ * account balance. Re-crediting our ledger would let the seller withdraw the
+ * same funds twice.
  */
 export async function handlePayoutFailed(
   payout: Stripe.Payout,
@@ -50,35 +53,6 @@ export async function handlePayoutFailed(
     return;
   }
 
-  const amountEur = (payout.amount ?? 0) / 100;
-
-  // Restore the available balance. CAUTION: if multiple payouts failed in
-  // parallel, this is non-idempotent at the row level. The webhook layer's
-  // event-id idempotency is what protects us.
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("available_balance")
-    .eq("user_id", sellerId)
-    .single();
-
-  if (wallet) {
-    const newAvailable =
-      Math.round((Number(wallet.available_balance) + amountEur) * 100) / 100;
-    const { error } = await admin
-      .from("wallets")
-      .update({ available_balance: newAvailable })
-      .eq("user_id", sellerId);
-    if (error) {
-      Sentry.captureException(error, {
-        extra: {
-          context: "payout.failed_restore",
-          user_id: sellerId,
-          amount: amountEur,
-        },
-      });
-    }
-  }
-
   // Update payout record status to failed
   const { error: payoutUpdateError } = await admin
     .from("payouts")
@@ -95,6 +69,8 @@ export async function handlePayoutFailed(
       extra: { context: "payout_record_failed_update", payout_id: payout.id },
     });
   }
+
+  const amountEur = (payout.amount ?? 0) / 100;
 
   Sentry.captureMessage(
     `Payout failed: ${payout.id} amount=${amountEur}€ user=${sellerId} reason=${payout.failure_message ?? payout.failure_code}`,
