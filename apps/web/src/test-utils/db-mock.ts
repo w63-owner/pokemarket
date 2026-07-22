@@ -405,9 +405,8 @@ export function createMockDb(
         // Mirror Postgres NUMERIC(10,2). total_amount - fee_amount is the
         // amount credited at payment finalization, including shipping.
         const sellerNet =
-          Math.round(
-            ((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100,
-          ) / 100;
+          Math.round(((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100) /
+          100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
