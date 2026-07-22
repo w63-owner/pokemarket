@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
+import { getRequestUserClient } from "@/lib/auth/api";
 
 const PAGE_SIZE = 20;
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
+    const { user, supabase } = await getRequestUserClient(request);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    if (!user || !supabase) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 

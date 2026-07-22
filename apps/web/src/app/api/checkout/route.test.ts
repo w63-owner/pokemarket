@@ -183,6 +183,7 @@ describe("checkout — listing-status guards", () => {
     stripeRetrieve.mockResolvedValueOnce({ payment_status: "paid" } as any);
     const sc = activeListingScenario();
     sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-1";
     (sc.transactions as any[]).push({
       id: "tx-existing",
       listing_id: LISTING_ID,
@@ -194,6 +195,57 @@ describe("checkout — listing-status guards", () => {
     mockClient = createMockDb(sc).client;
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(400);
+  });
+
+  it("keeps an open Checkout Session bound to its pending transaction", async () => {
+    stripeRetrieve.mockResolvedValueOnce({
+      payment_status: "unpaid",
+      status: "open",
+    } as any);
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-1";
+    (sc.transactions as any[]).push({
+      id: "tx-existing",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_open",
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(409);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a payable PaymentIntent bound to its pending transaction", async () => {
+    piRetrieve.mockResolvedValueOnce({
+      status: "requires_payment_method",
+    } as any);
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-1";
+    (sc.transactions as any[]).push({
+      id: "tx-existing",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_payment_intent_id: "pi_payable",
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+
+    expect(res.status).toBe(409);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(piCreate).not.toHaveBeenCalled();
   });
 });
 
