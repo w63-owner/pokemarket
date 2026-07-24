@@ -20,7 +20,7 @@ export async function reconcileCheckoutSession(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, status, total_amount")
     .eq("id", transactionId)
     .single();
 
@@ -36,6 +36,15 @@ export async function reconcileCheckoutSession(
     expand: ["payment_intent.latest_charge"],
   });
   if (session.payment_status !== "paid") return "PENDING_PAYMENT";
+
+  const expectedAmount = Math.round(transaction.total_amount * 100);
+  if (
+    session.metadata?.transaction_id !== transactionId ||
+    session.amount_total !== expectedAmount ||
+    session.currency?.toLowerCase() !== "eur"
+  ) {
+    return "PENDING_PAYMENT";
+  }
 
   const paymentIntent =
     typeof session.payment_intent === "object" &&
@@ -84,7 +93,7 @@ export async function reconcilePaymentIntent(
 
   const { data: transaction } = await admin
     .from("transactions")
-    .select("id, status")
+    .select("id, status, total_amount")
     .eq("id", transactionId)
     .single();
 
@@ -99,6 +108,15 @@ export async function reconcilePaymentIntent(
   });
 
   if (intent.status !== "succeeded") return "PENDING_PAYMENT";
+
+  const expectedAmount = Math.round(transaction.total_amount * 100);
+  if (
+    intent.metadata?.transaction_id !== transactionId ||
+    intent.amount !== expectedAmount ||
+    intent.currency.toLowerCase() !== "eur"
+  ) {
+    return "PENDING_PAYMENT";
+  }
 
   const chargeId =
     typeof intent.latest_charge === "string"
