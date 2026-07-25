@@ -77,6 +77,15 @@ export async function POST(request: Request) {
         );
         break;
 
+      // Delayed-notification methods (SEPA Debit, etc.) fire
+      // `checkout.session.completed` with payment_status=unpaid first, then
+      // this event once the bank confirms. Finalize only here / when paid.
+      case "checkout.session.async_payment_succeeded":
+        await handleCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session,
+        );
+        break;
+
       case "checkout.session.expired":
         await handleCheckoutFailed(
           event.data.object as Stripe.Checkout.Session,
@@ -206,6 +215,55 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
+  // Async methods (SEPA Debit, etc.) emit `checkout.session.completed` with
+  // payment_status=unpaid before the bank confirms. Finalizing here would
+  // credit the seller for money we never captured; wait for
+  // `checkout.session.async_payment_succeeded` (or a later completed event
+  // that already carries payment_status=paid).
+  if (session.payment_status !== "paid") {
+    console.info(
+      `[webhook] checkout session ${session.id} completed but payment_status=${session.payment_status}; deferring finalization`,
+    );
+    return;
+  }
+
+  // Bind the Stripe object to the expected order before side-effects.
+  // Without this, a session whose metadata was tampered with (or reused)
+  // could finalize an unrelated PENDING_PAYMENT transaction.
+  const admin = createAdminClient();
+  const { data: transaction } = await admin
+    .from("transactions")
+    .select("id, status, total_amount")
+    .eq("id", transactionId)
+    .single();
+
+  if (!transaction) {
+    throw new Error(`Transaction ${transactionId} not found`);
+  }
+  if (transaction.status !== "PENDING_PAYMENT") {
+    return;
+  }
+
+  const expectedAmount = Math.round(Number(transaction.total_amount) * 100);
+  if (
+    session.amount_total !== expectedAmount ||
+    session.currency?.toLowerCase() !== "eur"
+  ) {
+    Sentry.captureMessage(
+      `checkout session amount/currency mismatch for tx=${transactionId}`,
+      {
+        level: "error",
+        extra: {
+          session_id: session.id,
+          amount_total: session.amount_total,
+          currency: session.currency,
+          expected_amount: expectedAmount,
+        },
+      },
+    );
+    return;
+  }
+
   // Capture the Payment Intent + Charge IDs so refund / dispute webhooks
   // (which only carry charge IDs, not session IDs) can find this row.
   // payment_intent can be a string id, an expanded object, or null for
@@ -268,23 +326,25 @@ async function handleCheckoutFailed(
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
-  const { data: transaction } = await admin
+  // Atomic status guard: a concurrent checkout.session.completed /
+  // payment_intent.succeeded may flip PENDING_PAYMENT → PAID between our
+  // read and write. The .eq("status", "PENDING_PAYMENT") prevents overwriting
+  // a paid order with EXPIRED/CANCELLED (and then relisting a sold card).
+  const { data: updated, error: txError } = await admin
     .from("transactions")
-    .select("status")
+    .update({ status: targetStatus })
     .eq("id", transactionId)
-    .single();
+    .eq("status", "PENDING_PAYMENT")
+    .select("id");
 
-  if (!transaction || transaction.status !== "PENDING_PAYMENT") {
+  if (txError) throw txError;
+
+  if (!updated || updated.length === 0) {
     console.warn(
-      `Transaction ${transactionId} not in PENDING_PAYMENT, skipping`,
+      `Transaction ${transactionId} not in PENDING_PAYMENT, skipping ${targetStatus}`,
     );
     return;
   }
-
-  await admin
-    .from("transactions")
-    .update({ status: targetStatus })
-    .eq("id", transactionId);
 
   const { data: acceptedOffer } = await admin
     .from("offers")

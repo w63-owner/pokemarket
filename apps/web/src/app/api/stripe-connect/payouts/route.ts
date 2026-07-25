@@ -1,25 +1,26 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getRequestUser } from "@/lib/auth/api";
 
 const PAGE_SIZE = 20;
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Accept cookie (web) OR Bearer (mobile) — same auth helper as
+    // /api/stripe-connect/payout. Cookie-only auth left mobile callers on a
+    // permanent 401 despite a valid access token.
+    const { user } = await getRequestUser(request);
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
+    const admin = createAdminClient();
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get("cursor");
 
-    let query = supabase
+    let query = admin
       .from("payouts")
       .select("*")
       .eq("user_id", user.id)
@@ -40,8 +41,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const hasMore = data.length > PAGE_SIZE;
-    const payouts = hasMore ? data.slice(0, PAGE_SIZE) : data;
+    const hasMore = (data?.length ?? 0) > PAGE_SIZE;
+    const payouts = hasMore ? data!.slice(0, PAGE_SIZE) : (data ?? []);
     const nextCursor = hasMore
       ? payouts[payouts.length - 1]?.requested_at
       : null;

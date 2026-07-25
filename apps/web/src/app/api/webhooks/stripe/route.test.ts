@@ -3,13 +3,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
+/** Paid checkout session payload matching basicScenario total_amount=105.7 */
+function paidCheckoutSession(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "cs_test_1",
+    payment_status: "paid",
+    amount_total: 10570,
+    currency: "eur",
+    metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+    ...overrides,
+  };
+}
+
 let stripeConstructEventImpl: () => any = () => ({
   id: "evt_1",
   type: "checkout.session.completed",
   data: {
-    object: {
-      metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-    },
+    object: paidCheckoutSession(),
   },
 });
 
@@ -30,7 +40,11 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  addBreadcrumb: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -41,6 +55,13 @@ import { POST } from "./route";
 
 beforeEach(() => {
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  stripeConstructEventImpl = () => ({
+    id: "evt_1",
+    type: "checkout.session.completed",
+    data: {
+      object: paidCheckoutSession(),
+    },
+  });
 });
 
 function makeReq(body = "{}", sig: string | null = "t=1,v1=test") {
@@ -85,11 +106,88 @@ describe("webhooks/stripe — QA happy path", () => {
       id: "evt_1",
       type: "checkout.session.completed",
       data: {
+        object: paidCheckoutSession(),
+      },
+    });
+  });
+
+  it("checkout.session.completed with unpaid async method → does NOT finalize", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_async_unpaid",
+      type: "checkout.session.completed",
+      data: {
+        object: paidCheckoutSession({ payment_status: "unpaid" }),
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(
+      db.state.wallets.find((w) => w.user_id === IDS.SELLER)?.pending_balance,
+    ).toBe(0);
+  });
+
+  it("checkout.session.async_payment_succeeded → finalizes after bank confirm", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_async_ok",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: paidCheckoutSession({ payment_status: "paid" }),
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
+  it("checkout.session.completed with amount mismatch → does NOT finalize", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_amt_mismatch",
+      type: "checkout.session.completed",
+      data: {
+        object: paidCheckoutSession({ amount_total: 1 }),
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("checkout.session.expired does not overwrite a concurrently PAID order", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_expire_race",
+      type: "checkout.session.expired",
+      data: {
         object: {
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
     });
+    const scenario = basicScenario();
+    scenario.transactions![0].status = "PAID";
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
   });
 
   it("checkout.session.expired → marks transaction EXPIRED, listing ACTIVE", async () => {
@@ -183,9 +281,7 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
       id: "evt_dup",
       type: "checkout.session.completed",
       data: {
-        object: {
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession(),
       },
     });
     const db = createMockDb(basicScenario());
@@ -230,6 +326,53 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
   });
 });
 
+describe("webhooks/stripe — payout.failed accounting", () => {
+  it("does not restore the app wallet after the platform transfer succeeded", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_payout_failed_no_wallet_restore",
+      type: "payout.failed",
+      account: "acct_seller_1",
+      data: {
+        object: {
+          id: "po_failed_1",
+          amount: 5000,
+          currency: "eur",
+          metadata: { user_id: IDS.SELLER },
+          failure_code: "account_closed",
+          failure_message: "Bank account closed",
+        },
+      },
+    });
+
+    const scenario = basicScenario();
+    const seller = scenario.profiles?.find((p) => p.id === IDS.SELLER);
+    if (seller) seller.stripe_account_id = "acct_seller_1";
+    scenario.payouts = [
+      {
+        id: "payout-record-1",
+        user_id: IDS.SELLER,
+        amount: 50,
+        currency: "EUR",
+        status: "in_transit",
+        stripe_transfer_id: "tr_1",
+        stripe_payout_id: "po_failed_1",
+      },
+    ];
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(db.state.payouts[0]).toMatchObject({
+      status: "failed",
+      failure_code: "account_closed",
+      failure_message: "Bank account closed",
+    });
+  });
+});
+
 describe("webhooks/stripe — CHAOS", () => {
   it("missing transaction_id metadata → returns 500 (caller will retry)", async () => {
     stripeConstructEventImpl = () => ({
@@ -248,9 +391,7 @@ describe("webhooks/stripe — CHAOS", () => {
       id: "evt_chaos",
       type: "checkout.session.completed",
       data: {
-        object: {
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession(),
       },
     });
     const db = createMockDb(basicScenario(), { errorRate: 0.5 });
@@ -295,9 +436,7 @@ describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", (
       id: "evt_redeliv_A",
       type: "checkout.session.completed",
       data: {
-        object: {
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession(),
       },
     });
 
@@ -339,9 +478,7 @@ describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", (
       id: "evt_happy_A",
       type: "checkout.session.completed",
       data: {
-        object: {
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession(),
       },
     });
     const db = createMockDb(basicScenario());

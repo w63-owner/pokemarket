@@ -142,14 +142,12 @@ export async function POST(request: Request) {
         { idempotencyKey: transferIdempotencyKey },
       );
     } catch (stripeErr) {
-      // Stripe rejected the transfer — restore the wallet so the seller
-      // can try again. If this restore fails we log a critical alert since
-      // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
+      // No money moved externally. Add the reservation back atomically so a
+      // concurrent sale credit cannot be overwritten or prevent restoration.
+      const { error: restoreError } = await admin.rpc(
+        "add_wallet_available_balance",
+        { p_user_id: user.id, p_delta: availableBalance },
+      );
 
       if (restoreError) {
         Sentry.captureException(restoreError, {
