@@ -20,8 +20,15 @@ BEGIN
   caller_id := auth.uid();
   release_marker := current_setting('app.release_escrow_funds', TRUE);
 
-  -- Every SHIPPED -> COMPLETED transition must include the wallet movement,
-  -- including service-role and admin updates.
+  -- COMPLETED is only legal from SHIPPED, and only via release_escrow_funds
+  -- (which sets the transaction-local marker). Without this, a buyer/seller
+  -- with a permissive UPDATE RLS policy can forge PAID/PENDING → COMPLETED
+  -- and strand escrow in pending_balance forever.
+  IF NEW.status = 'COMPLETED' AND OLD.status IS DISTINCT FROM 'SHIPPED' THEN
+    RAISE EXCEPTION 'INVALID_COMPLETION: transactions can only complete from SHIPPED'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF NEW.status = 'COMPLETED' AND OLD.status = 'SHIPPED'
      AND release_marker IS DISTINCT FROM 'on' THEN
     RAISE EXCEPTION 'INVALID_COMPLETION: use release_escrow_funds to complete shipped transactions'
@@ -193,3 +200,36 @@ $$;
 
 REVOKE ALL ON FUNCTION public.add_wallet_available_balance(UUID, NUMERIC) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.add_wallet_available_balance(UUID, NUMERIC) TO service_role;
+
+-- Financial amounts on a transaction are immutable for end users. Seller/buyer
+-- UPDATE RLS policies otherwise let a participant inflate total_amount after
+-- Stripe charged the real (lower) amount, causing finalizePaidTransaction to
+-- credit more pending_balance than was captured.
+CREATE OR REPLACE FUNCTION public.guard_transaction_financial_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  -- service_role (auth.uid() IS NULL) may correct rows during ops/refunds.
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.total_amount IS DISTINCT FROM OLD.total_amount
+     OR NEW.fee_amount IS DISTINCT FROM OLD.fee_amount
+     OR NEW.shipping_cost IS DISTINCT FROM OLD.shipping_cost THEN
+    RAISE EXCEPTION 'IMMUTABLE_FIELDS: total_amount, fee_amount, and shipping_cost cannot be changed'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS transactions_financial_fields_guard ON public.transactions;
+CREATE TRIGGER transactions_financial_fields_guard
+  BEFORE UPDATE OF total_amount, fee_amount, shipping_cost ON public.transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION public.guard_transaction_financial_fields();
