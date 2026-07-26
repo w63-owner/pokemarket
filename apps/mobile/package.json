@@ -19,6 +19,9 @@
     "build:production": "eas build --profile production --platform all",
     "submit:ios": "eas submit --platform ios --profile production",
     "submit:android": "eas submit --platform android --profile production",
+    "metadata:generate": "node scripts/generate-store-config.mjs",
+    "metadata:push": "node scripts/generate-store-config.mjs && eas metadata:push --profile production",
+    "metadata:lint": "node scripts/generate-store-config.mjs && eas metadata:lint --profile production",
     "update": "eas update",
     "update:preview": "eas update --branch preview --message",
     "update:production": "eas update --branch production --message"

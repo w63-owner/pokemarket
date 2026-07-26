@@ -43,3 +43,5 @@ yarn-error.*
 /ios
 /android
 # google-services.json - committed for FCM push notifications (public identifiers only)
+firebase-adminsdk*.json
+fcm-service-account.json
