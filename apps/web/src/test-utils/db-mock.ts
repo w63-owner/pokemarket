@@ -34,7 +34,7 @@
 type Row = Record<string, any>;
 
 interface Filter {
-  type: "eq" | "in" | "lt" | "gt" | "gte" | "lte" | "is";
+  type: "eq" | "neq" | "in" | "lt" | "gt" | "gte" | "lte" | "is";
   col: string;
   val: any;
 }
@@ -57,6 +57,7 @@ export interface MockDbState {
   messages: Row[];
   profiles: Row[];
   stripe_webhooks_processed: Row[];
+  stripe_disputes: Row[];
   notifications_outbox: Row[];
   // simulated auth.users
   users: { id: string; email?: string }[];
@@ -72,6 +73,7 @@ export function makeEmptyState(): MockDbState {
     messages: [],
     profiles: [],
     stripe_webhooks_processed: [],
+    stripe_disputes: [],
     notifications_outbox: [],
     users: [],
   };
@@ -112,9 +114,20 @@ function matches(row: Row, filters: Filter[]): boolean {
   for (const f of filters) {
     const v = resolveColumn(row, f.col);
     if (f.type === "eq" && v !== f.val) return false;
+    if (f.type === "neq" && v === f.val) return false;
     if (f.type === "in" && !f.val.includes(v)) return false;
     if (f.type === "lt" && !(v != null && (v as any) < f.val)) return false;
     if (f.type === "gt" && !(v != null && (v as any) > f.val)) return false;
+    if (f.type === "gte" && !(v != null && (v as any) >= f.val)) return false;
+    if (f.type === "lte" && !(v != null && (v as any) <= f.val)) return false;
+    if (f.type === "is") {
+      // PostgREST `.is(col, null)` matches SQL NULL; also support boolean.
+      if (f.val === null) {
+        if (v !== null && v !== undefined) return false;
+      } else if (v !== f.val) {
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -199,6 +212,10 @@ export function createMockDb(
         filters.push({ type: "eq", col, val });
         return builder;
       },
+      neq(col: string, val: any) {
+        filters.push({ type: "neq", col, val });
+        return builder;
+      },
       in(col: string, vals: any[]) {
         filters.push({ type: "in", col, val: vals });
         return builder;
@@ -209,6 +226,18 @@ export function createMockDb(
       },
       gt(col: string, val: any) {
         filters.push({ type: "gt", col, val });
+        return builder;
+      },
+      gte(col: string, val: any) {
+        filters.push({ type: "gte", col, val });
+        return builder;
+      },
+      lte(col: string, val: any) {
+        filters.push({ type: "lte", col, val });
+        return builder;
+      },
+      is(col: string, val: any) {
+        filters.push({ type: "is", col, val });
         return builder;
       },
       order(col: string, opts?: { ascending?: boolean }) {
@@ -286,6 +315,24 @@ export function createMockDb(
               if (
                 state.stripe_webhooks_processed.some(
                   (existing) => existing.stripe_event_id === r.stripe_event_id,
+                )
+              ) {
+                throw Object.assign(
+                  new Error("duplicate key value violates unique constraint"),
+                  { code: "23505" },
+                );
+              }
+            }
+          }
+          // unique-constraint emulation for stripe_disputes.stripe_dispute_id
+          if (name === "stripe_disputes") {
+            for (const r of pendingOp!.type === "insert"
+              ? (pendingOp as any).rows
+              : []) {
+              if (
+                (state.stripe_disputes ?? []).some(
+                  (existing) =>
+                    existing.stripe_dispute_id === r.stripe_dispute_id,
                 )
               ) {
                 throw Object.assign(
