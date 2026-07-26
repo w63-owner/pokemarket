@@ -30,10 +30,12 @@ import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useAppFonts } from "@/lib/fonts";
 import { initAuth, useAuth } from "@/hooks/use-auth";
 import { useInboxChannel } from "@/hooks/use-inbox-channel";
+import { usePushRegistration } from "@/hooks/use-push-registration";
 import { queryClient } from "@/lib/query/client";
 import { setupQueryManagers } from "@/lib/query/setup";
 import { persistOptions } from "@/lib/query/persister";
 import { getActiveChannelCount } from "@/hooks/use-realtime";
+import { setupNotificationListeners } from "@/lib/notifications";
 
 // Captured as early as possible during JS bundle evaluation so the
 // cold-start metric measures "JS eval -> usable UI" — the latency the
@@ -71,6 +73,17 @@ function RootLayout() {
   // and the conversations list, regardless of whether the user has
   // opened the inbox yet.
   useInboxChannel(user?.id ?? null);
+
+  // Auto-register push token when the user logs in (once per session).
+  // Silent — no toasts or prompts unless they open /profile/notifications.
+  usePushRegistration();
+
+  // Wire push notification tap handlers + deep link listeners. Runs once
+  // at mount and cleans up on unmount. Handles both cold-start taps
+  // (app launched from notification) and warm taps (app already running).
+  useEffect(() => {
+    return setupNotificationListeners();
+  }, []);
 
   // Coordinate splash hiding with font loading so the first paint
   // always renders with the design system fonts (Inter + Plus Jakarta
