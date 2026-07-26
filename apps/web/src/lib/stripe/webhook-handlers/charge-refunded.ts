@@ -47,7 +47,7 @@ export async function handleChargeRefunded(
     Sentry.captureException(txError, {
       extra: { context: "charge.refunded_tx_lookup", charge_id: charge.id },
     });
-    return;
+    throw txError;
   }
   if (!transaction) {
     // Could be a charge from a checkout we don't track (e.g. test mode
@@ -63,10 +63,9 @@ export async function handleChargeRefunded(
   // charge. We use it as the source of truth instead of summing webhook
   // payloads (which would break under retries).
   const cumulativeRefundedEur = (charge.amount_refunded ?? 0) / 100;
+  const alreadyRefunded = Number(transaction.refunded_amount ?? 0);
   const newDelta =
-    Math.round(
-      (cumulativeRefundedEur - Number(transaction.refunded_amount ?? 0)) * 100,
-    ) / 100;
+    Math.round((cumulativeRefundedEur - alreadyRefunded) * 100) / 100;
 
   if (newDelta <= 0) {
     // Replay or out-of-order delivery — no new refund to process.
@@ -82,26 +81,50 @@ export async function handleChargeRefunded(
   //
   // For full refunds: reverse everything (cardNet + shipping).
   // For partial refunds: we assume shipping is refunded first, then card.
+  // Important: allocate only the *remaining* unrefunded shipping against this
+  // delta — otherwise every subsequent partial refund re-treats shipping as
+  // still fully available and under-debits the seller's card earnings.
   const shippingTotal = Number(transaction.shipping_cost ?? 0);
   const cardTotal = Number(transaction.total_amount ?? 0) - shippingTotal;
+  const remainingShipping = Math.max(
+    0,
+    round2(shippingTotal - alreadyRefunded),
+  );
+  const alreadyCardRefunded = Math.max(
+    0,
+    round2(alreadyRefunded - shippingTotal),
+  );
+  const remainingCard = Math.max(0, round2(cardTotal - alreadyCardRefunded));
 
-  // How much of the refund delta goes to shipping vs card?
-  const shippingRefunded = Math.min(newDelta, shippingTotal);
+  const shippingRefunded = Math.min(newDelta, remainingShipping);
   const cardRefundedDelta = Math.max(
     0,
-    Math.min(newDelta - shippingTotal, cardTotal),
+    Math.min(newDelta - shippingRefunded, remainingCard),
   );
 
-  // Seller share to reverse = card earnings portion + shipping portion
+  // Seller share to reverse = card earnings portion + shipping portion.
+  // Guard calcPriceSeller(0): pricing floors at 0.01, which would invent a
+  // phantom 1¢ debit on shipping-only refunds.
   const sellerShareToReverse =
-    calcPriceSeller(cardRefundedDelta) + shippingRefunded;
+    (cardRefundedDelta > 0 ? calcPriceSeller(cardRefundedDelta) : 0) +
+    shippingRefunded;
 
   // Read the wallet, then debit pending first, then available.
-  const { data: wallet } = await admin
+  const { data: wallet, error: walletReadError } = await admin
     .from("wallets")
     .select("pending_balance, available_balance")
     .eq("user_id", transaction.seller_id)
     .single();
+
+  if (walletReadError) {
+    Sentry.captureException(walletReadError, {
+      extra: {
+        context: "charge.refunded_wallet_read",
+        transaction_id: transaction.id,
+      },
+    });
+    throw walletReadError;
+  }
 
   let pendingBefore = Number(wallet?.pending_balance ?? 0);
   let availableBefore = Number(wallet?.available_balance ?? 0);
@@ -131,6 +154,9 @@ export async function handleChargeRefunded(
           to_debit: sellerShareToReverse,
         },
       });
+      // Throw so the webhook route releases the idempotency claim and Stripe
+      // retries. Safe because refunded_amount has not been advanced yet.
+      throw walletError;
     }
   }
 
@@ -157,16 +183,26 @@ export async function handleChargeRefunded(
     txUpdate.status = "REFUNDED";
   }
 
-  const { error: txUpdateError } = await admin
-    .from("transactions")
-    .update(txUpdate)
-    .eq("id", transaction.id);
+  // Do not throw after a successful wallet debit: releasing the webhook
+  // idempotency claim would re-run this handler and double-debit. Retry the
+  // transaction update inline instead, then page on persistent failure.
+  let txUpdateError: { message?: string } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { error } = await admin
+      .from("transactions")
+      .update(txUpdate)
+      .eq("id", transaction.id);
+    txUpdateError = error;
+    if (!error) break;
+  }
 
   if (txUpdateError) {
     Sentry.captureException(txUpdateError, {
       extra: {
         context: "charge.refunded_tx_update",
         transaction_id: transaction.id,
+        wallet_debited: sellerShareToReverse,
+        cumulative_refunded_eur: cumulativeRefundedEur,
       },
     });
   }
