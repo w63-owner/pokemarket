@@ -55,6 +55,17 @@ export async function executeSellerTransfer(
     throw new Error(`Transfer ${transactionId} is missing Stripe references`);
   }
 
+  const { data: executable, error: executionError } = await admin.rpc(
+    "confirm_seller_transfer_execution",
+    { p_transaction_id: prepared.transaction_id },
+  );
+  if (executionError) throw executionError;
+  if (!executable) {
+    throw new Error(
+      `Transfer ${transactionId} was canceled by a refund or dispute`,
+    );
+  }
+
   const stripe = getStripe();
 
   try {

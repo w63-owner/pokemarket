@@ -832,6 +832,21 @@ export function createMockDb(
         return { data: true, error: null };
       }
 
+      if (name === "confirm_seller_transfer_execution") {
+        const transfer = state.seller_transfers.find(
+          (row) => row.transaction_id === params.p_transaction_id,
+        );
+        if (
+          !transfer ||
+          transfer.status !== "processing" ||
+          transfer.cancellation_requested_at
+        ) {
+          return { data: false, error: null };
+        }
+        transfer.execution_started_at ??= new Date().toISOString();
+        return { data: true, error: null };
+      }
+
       if (name === "reserve_seller_payout") {
         return withSerializedWrites(!!chaos.serializeWrites, async () => {
           const config = state.financial_payout_config[0] ?? {

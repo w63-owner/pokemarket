@@ -83,4 +83,17 @@ describe("executeSellerTransfer", () => {
     await expect(executeSellerTransfer("tx-1")).resolves.toBe("tr_existing");
     expect(mocks.transfersCreate).not.toHaveBeenCalled();
   });
+
+  it("does not call Stripe after financial recovery cancels execution", async () => {
+    const data = scenario();
+    data.seller_transfers[0].cancellation_requested_at =
+      "2026-07-28T00:00:00.000Z";
+    const db = createMockDb(data);
+    client = db.client;
+
+    await expect(executeSellerTransfer("tx-1")).rejects.toThrow(
+      "canceled by a refund or dispute",
+    );
+    expect(mocks.transfersCreate).not.toHaveBeenCalled();
+  });
 });

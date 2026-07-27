@@ -227,6 +227,9 @@ livraison n'est donc jamais réappliquée lors de remboursements partiels
 successifs. Avant transfert, elle débite le ledger. Après transfert, elle crée
 une `financial_recovery` et un job durable de transfer reversal. Après payout,
 elle comptabilise une dette vendeur et bloque tout nouveau retrait.
+Si le transfert est encore en file, la transaction annule atomiquement son job.
+Un handshake juste avant l'appel Stripe force le webhook à réessayer plutôt que
+de laisser échapper un transfert dont l'issue réseau est encore inconnue.
 
 `charge.dispute.created` place la part contestée dans `seller_locked`, ou
 demande une reversal si les fonds sont déjà chez le compte connecté. Un litige

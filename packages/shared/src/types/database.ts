@@ -1645,7 +1645,9 @@ export type Database = {
         Row: {
           amount_minor: number;
           amount_reversed_minor: number;
+          cancellation_requested_at: string | null;
           created_at: string;
+          execution_started_at: string | null;
           currency: string;
           failure_code: string | null;
           failure_message: string | null;
@@ -1668,7 +1670,9 @@ export type Database = {
         Insert: {
           amount_minor: number;
           amount_reversed_minor?: number;
+          cancellation_requested_at?: string | null;
           created_at?: string;
+          execution_started_at?: string | null;
           currency?: string;
           failure_code?: string | null;
           failure_message?: string | null;
@@ -1691,7 +1695,9 @@ export type Database = {
         Update: {
           amount_minor?: number;
           amount_reversed_minor?: number;
+          cancellation_requested_at?: string | null;
           created_at?: string;
+          execution_started_at?: string | null;
           currency?: string;
           failure_code?: string | null;
           failure_message?: string | null;
@@ -2013,6 +2019,10 @@ export type Database = {
       };
       complete_notifications_outbox: {
         Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      confirm_seller_transfer_execution: {
+        Args: { p_transaction_id: string };
         Returns: boolean;
       };
       count_new_for_saved_searches: {

@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(12);
+SELECT plan(14);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -60,6 +60,40 @@ SELECT is(
   'payment creates the seller pending credit'
 );
 
+INSERT INTO public.seller_transfers (
+  transaction_id,
+  seller_id,
+  amount_minor,
+  currency,
+  stripe_account_id,
+  source_charge_id,
+  transfer_group,
+  idempotency_key
+)
+VALUES (
+  '53000000-0000-4000-8000-000000000001',
+  '51000000-0000-4000-8000-000000000002',
+  10500,
+  'EUR',
+  'acct_sprint5',
+  'ch_sprint5',
+  'order_53000000-0000-4000-8000-000000000001',
+  'transfer:53000000-0000-4000-8000-000000000001'
+);
+
+INSERT INTO public.financial_outbox (
+  event_type,
+  aggregate_id,
+  idempotency_key,
+  payload
+)
+VALUES (
+  'transfer_requested',
+  '53000000-0000-4000-8000-000000000001',
+  'transfer-requested:53000000-0000-4000-8000-000000000001',
+  '{"transaction_id":"53000000-0000-4000-8000-000000000001"}'::jsonb
+);
+
 SELECT lives_ok(
   $$ SELECT * FROM public.apply_stripe_refund('ch_sprint5', 500, 're_sprint5_1') $$,
   'first cumulative refund is applied'
@@ -72,6 +106,25 @@ SELECT is(
   ),
   500::bigint,
   'the first five euros reverse shipping exactly once'
+);
+SELECT isnt(
+  (
+    SELECT cancellation_requested_at
+    FROM public.seller_transfers
+    WHERE transaction_id = '53000000-0000-4000-8000-000000000001'
+  ),
+  NULL::timestamptz,
+  'refund before Stripe execution cancels the queued seller transfer'
+);
+SELECT is(
+  (
+    SELECT status
+    FROM public.financial_outbox
+    WHERE idempotency_key =
+      'transfer-requested:53000000-0000-4000-8000-000000000001'
+  ),
+  'COMPLETED',
+  'canceled transfer job cannot be reclaimed by the worker'
 );
 
 SELECT lives_ok(
