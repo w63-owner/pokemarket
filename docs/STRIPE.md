@@ -40,7 +40,7 @@ go-live.
 
 Le backend et les ephemeral keys PaymentSheet utilisent l'unique constante
 `STRIPE_API_VERSION` dans `apps/web/src/lib/env.ts`, actuellement
-`2026-02-25.clover`, version typée par `stripe@20.4.1`.
+`2026-06-24.dahlia`, version typée par `stripe@22.3.2`.
 
 Les SDK mobiles Stripe sont compatibles avec les versions API backend sauf
 mention contraire. Toute montée de version Node ou React Native doit mettre à
@@ -58,9 +58,19 @@ Aucun override de version par environnement n'est autorisé.
 - Transfert : différé jusqu'à la réception
 - Payout : seulement après transfert réussi
 
-Pendant la transition Accounts v1, `capabilities.transfers === "active"` est
-toléré. `charges_enabled` et `payouts_enabled` ne sont jamais des signaux de
-readiness métier pour un compte recipient.
+La readiness métier provient exclusivement de
+`configuration.recipient.capabilities.stripe_balance.stripe_transfers.status`.
+`charges_enabled`, `payouts_enabled` et `capabilities.transfers` ne sont jamais
+consultés.
+
+Le web expose `notification_banner`, `account_management` et `payouts` par une
+Account Session courte durée, et utilise l'onboarding hébergé. Le mobile reste
+sur l'onboarding hébergé afin de conserver la version Stripe officiellement
+compatible avec Expo SDK 54 ; les retours HTTPS sont relayés vers
+`pokemarket://wallet/return` et les liens expirés vers
+`pokemarket://wallet/refresh`. L'accès mobile au Dashboard Express utilise un
+login link à usage unique. Les URLs et secrets temporaires ne sont ni
+persistés ni journalisés.
 
 ## Vérification sandbox
 
@@ -97,8 +107,8 @@ d'exigences et d'afficher le composant Connect `notification_banner`.
 | ------------------------------------ | ----------------------------------------------------------- |
 | `STRIPE_SECRET_KEY`                  | Clé serveur ; préférer une restricted key `rk_` minimale    |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Clé publique Stripe.js                                      |
-| `STRIPE_WEBHOOK_SECRET`              | Secret de signature `whsec_`                                |
-| `STRIPE_CONNECT_DEFAULT_COUNTRY`     | Pays ISO alpha-2, `FR` par défaut                           |
+| `STRIPE_WEBHOOK_SECRET`              | Secret du webhook paiements v1                              |
+| `STRIPE_CONNECT_WEBHOOK_SECRET`      | Secret de l'event destination Accounts v2                   |
 | `SUPPORT_EMAIL`                      | Adresse surveillée affichée pendant l'onboarding            |
 | `NEXT_PUBLIC_APP_URL`                | Origine canonique HTTPS                                     |
 | `CHECKOUT_ALLOWED_ORIGINS`           | Origines supplémentaires exactes, séparées par des virgules |
@@ -111,7 +121,11 @@ exemples du dépôt ne contiennent que des placeholders.
 
 ## Webhook
 
-Endpoint unique : `POST /api/webhooks/stripe`.
+Endpoints :
+
+- `POST /api/webhooks/stripe` pour les événements paiements v1 ;
+- `POST /api/webhooks/stripe/accounts-v2` pour les event notifications
+  Accounts v2.
 
 Événements actuellement requis :
 
@@ -122,16 +136,37 @@ Endpoint unique : `POST /api/webhooks/stripe`.
 - `payment_intent.succeeded`
 - `payment_intent.payment_failed`
 - `payment_intent.canceled`
-- `account.updated` pendant la transition Accounts v1
 - `charge.refunded`
 - `charge.dispute.created`
 - `charge.dispute.updated`
 - `charge.dispute.closed`
+- `transfer.created`
+- `transfer.reversed`
+- `payout.created`
+- `payout.updated`
 - `payout.paid`
 - `payout.failed`
+- `payout.canceled`
 
-La signature Stripe est toujours vérifiée sur le corps brut. Les événements
-Accounts v2 seront ajoutés après leur vérification effective en sandbox.
+L'event destination Accounts v2 doit livrer :
+
+- `v2.core.account.created`
+- `v2.core.account.updated`
+- `v2.core.account[configuration.recipient].updated`
+- `v2.core.account[configuration.recipient].capability_status_updated`
+- `v2.core.account[requirements].updated`
+
+Chaque signature est vérifiée sur le corps brut avec le secret de son endpoint.
+Le handler relit ensuite l'Account v2 avec `configuration.recipient` et
+`requirements` inclus avant de mettre à jour le statut KYC local.
+
+### Recréation sandbox
+
+Il n'existe aucun compte Connect réel à migrer. Avant de valider ce sprint,
+fermer les anciens comptes v1 de la sandbox, remettre
+`profiles.stripe_account_id` à `NULL` pour les profils de test, puis refaire un
+parcours particulier et un parcours professionnel. Ne jamais exécuter cette
+procédure sur un environnement contenant des vendeurs réels.
 
 ## Ledger et reprise financière
 
@@ -147,8 +182,8 @@ ainsi enrichir la transaction sans modifier son journal comptable.
 à `PAID`, la vente de l'annonce, l'expiration des offres, le crédit pending et
 l'événement durable `payment_finalized`. `release_escrow_funds` déplace le
 montant du compte pending vers available et crée atomiquement
-`transfer_requested`. La table `wallets` est uniquement une projection lisible
-par l'utilisateur.
+`transfer_requested` ainsi qu'une ligne `seller_transfers` à l'état `queued`.
+La table `wallets` est uniquement une projection lisible par l'utilisateur.
 
 Le cron `GET /api/cron/reconcile-financial-ledger` :
 
@@ -157,13 +192,52 @@ Le cron `GET /api/cron/reconcile-financial-ledger` :
 2. matérialise les messages et notifications avec des clés idempotentes ;
 3. réessaie avec backoff sans recréditer le vendeur.
 
+Le cron `GET /api/cron/process-transfer-requests` réclame séparément les jobs
+`transfer_requested`. Il crée exactement un Transfer Stripe par commande avec
+`source_transaction=ch_*`, `transfer_group=order_<transaction_id>`, metadata
+métier et clé `order-transfer-<transaction_id>`. Le succès déplace le ledger de
+`seller_available` vers `seller_connected` sans changer le solde retirable, et
+persiste `stripe_transfer_id` sur le journal immuable. Une erreur remet le job
+dans l'outbox avec lease et backoff ; une reprise réseau réutilise la même clé
+Stripe.
+
+Un retrait bancaire est une opération distincte. `reserve_seller_payout`
+sélectionne uniquement des transferts déjà réussis et arrivés à maturité,
+insère `payouts` et `payout_items`, puis déplace atomiquement les montants vers
+`seller_payout_pending` avant tout appel Stripe. Les réglages par défaut sont :
+
+- calendrier Stripe `manual` ;
+- délai de risque de 2 jours après le transfert ;
+- minimum de retrait de 10 EUR ;
+- réserve permanente de 5 EUR.
+
+Ils vivent dans `financial_payout_config` et se modifient par migration
+contrôlée. Un `payout.failed` ou `payout.canceled` restaure les fonds via une RPC
+idempotente ; `payout.paid` les clôture. Les événements terminaux tardifs ne
+peuvent pas rétrograder un payout déjà finalisé. `transfer.reversed` produit un
+journal équilibré et passe la commande à `reversed` en attendant le
+recouvrement complet du sprint 5.
+
 Les soldes éventuellement présents lors de la migration deviennent des
 journaux d'ouverture. Tant que les flux refund, dispute et payout ne sont pas
-encore migrés vers leurs RPC dédiées (sprints 4 et 5), un trigger de compatibilité
-convertit chaque mutation backend de `wallets` en journal équilibré. Une
-reconstruction ne peut donc pas ressusciter un débit. Les événements
-`transfer_requested` restent volontairement en attente jusqu'au worker Stripe
-du sprint 4.
+encore tous migrés vers leurs RPC dédiées (sprint 5), un trigger de
+compatibilité convertit chaque mutation backend restante de `wallets` en
+journal équilibré. Une reconstruction ne peut donc pas ressusciter un débit.
+
+### Runbook transferts et payouts
+
+1. Lister les `financial_outbox` `transfer_requested` en `FAILED` ou dont le
+   lease `PROCESSING` est expiré, puis contrôler la ligne `seller_transfers`.
+2. Si Stripe contient déjà `stripe_transfer_id`, relancer le cron : la clé
+   déterministe récupère le même objet et finalise la base sans double débit.
+3. Pour un payout `pending` sans identifiant après une erreur réseau, ne pas
+   créer un nouvel objet manuellement : le cron rejoue `executeReservedPayout`
+   avec `seller-payout-<payout_id>`.
+4. Comparer le montant de chaque Transfer à la charge `source_transaction`, à
+   `seller_transfers.amount_minor`, aux `payout_items` et aux journaux ledger.
+5. Ne jamais corriger `wallets` directement. En cas d'écart, suspendre les
+   payouts, conserver les identifiants Stripe/Sentry, puis corriger par une RPC
+   et un journal compensatoire.
 
 Une commande déjà `PAID` ou `SHIPPED` sans journal de paiement est bloquée avec
 `MISSING_PAYMENT_LEDGER` plutôt que reconstituée heuristiquement. Comme aucune

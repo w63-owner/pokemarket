@@ -1,15 +1,29 @@
-import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
+
 import { getRequestUser } from "@/lib/auth/api";
-import { getStripe } from "@/lib/stripe/server";
-import { payoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
+import { applyRateLimit, payoutRateLimit } from "@/lib/rate-limit";
+import {
+  getStripePayoutCapability,
+  retrieveStripeRecipientAccount,
+} from "@/lib/stripe/connect-account";
 import { isStripeRecipientReady } from "@/lib/stripe/connect-readiness";
+import { executeReservedPayout } from "@/lib/stripe/execute-payout";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+type ReservedPayout = {
+  payout_id: string;
+  amount_minor: number;
+  currency: string;
+  risk_reserve_minor: number;
+  payout_delay_days: number;
+};
 
 export async function POST(request: Request) {
+  let reserved: ReservedPayout | null = null;
+
   try {
     const { user } = await getRequestUser(request);
-
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
@@ -18,12 +32,6 @@ export async function POST(request: Request) {
     if (rateLimitResponse) return rateLimitResponse;
 
     const admin = createAdminClient();
-    const stripe = getStripe();
-
-    // Explicit ownership assertion: every downstream query is scoped to user.id,
-    // so a caller can only ever touch their own wallet and their own Stripe account.
-    // Any attempt to pass a different user's data would require a forged JWT,
-    // which Supabase Auth already rejects at the getUser() step above.
     const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("stripe_account_id")
@@ -47,8 +55,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const account = await stripe.accounts.retrieve(profile.stripe_account_id);
-
+    const account = await retrieveStripeRecipientAccount(
+      profile.stripe_account_id,
+    );
     if (!isStripeRecipientReady(account)) {
       return NextResponse.json(
         {
@@ -59,7 +68,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!account.payouts_enabled) {
+    if (getStripePayoutCapability(account)?.status !== "active") {
       return NextResponse.json(
         {
           error:
@@ -69,205 +78,60 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: wallet, error: walletError } = await admin
-      .from("wallets")
-      .select("available_balance, currency")
-      .eq("user_id", user.id)
-      .single();
-
-    if (walletError || !wallet) {
-      return NextResponse.json(
-        { error: "Portefeuille introuvable" },
-        { status: 404 },
-      );
-    }
-
-    const availableBalance = wallet.available_balance ?? 0;
-
-    if (availableBalance <= 0) {
-      return NextResponse.json(
-        { error: "Solde insuffisant pour effectuer un virement" },
-        { status: 400 },
-      );
-    }
-
-    const amountInCents = Math.round(availableBalance * 100);
-    const currency = wallet.currency ?? "eur";
-
-    // Idempotency keys MUST be unique per payout attempt — NOT scoped to
-    // amount+day. A seller legitimately withdrawing the same amount twice in
-    // one day (e.g. two sales of identical-priced cards) would otherwise hit
-    // the same Stripe idempotency window: the second `transfers.create` would
-    // return the FIRST transfer (no money moved) while the wallet was zeroed a
-    // second time — silently losing the seller's funds.
-    //
-    // True network-level double-submits are already blocked by the optimistic
-    // lock below (a retry finds available_balance = 0 and 409s before reaching
-    // Stripe), so a fresh per-attempt token is the correct dedup scope.
-    const payoutToken = crypto.randomUUID();
-    const transferIdempotencyKey = `payout-transfer-${user.id}-${payoutToken}`;
-    const payoutIdempotencyKey = `payout-explicit-${user.id}-${payoutToken}`;
-
-    // Atomically deduct the wallet BEFORE calling Stripe.
-    // The extra .eq("available_balance", availableBalance) acts as an optimistic
-    // lock: if a concurrent request already deducted this balance (or it changed),
-    // PostgREST returns 0 rows and we bail early — preventing a double-payout.
-    const { data: deducted, error: deductError } = await admin
-      .from("wallets")
-      .update({ available_balance: 0 })
-      .eq("user_id", user.id)
-      .eq("available_balance", availableBalance)
-      .select("available_balance");
-
-    if (deductError) {
-      Sentry.captureException(deductError);
-      return NextResponse.json(
-        { error: "Erreur lors de la réservation du solde" },
-        { status: 500 },
-      );
-    }
-
-    if (!deducted || deducted.length === 0) {
-      return NextResponse.json(
-        { error: "Solde insuffisant ou virement déjà en cours" },
-        { status: 409 },
-      );
-    }
-
-    let transfer: Awaited<ReturnType<typeof stripe.transfers.create>> | null =
-      null;
-
-    try {
-      transfer = await stripe.transfers.create(
-        {
-          amount: amountInCents,
-          currency,
-          destination: profile.stripe_account_id,
-          metadata: {
-            user_id: user.id,
-            type: "seller_payout",
-            amount_eur: (amountInCents / 100).toFixed(2),
-            stripe_account_id: profile.stripe_account_id,
-          },
-        },
-        { idempotencyKey: transferIdempotencyKey },
-      );
-    } catch (stripeErr) {
-      // Stripe rejected the transfer — restore the wallet so the seller
-      // can try again. If this restore fails we log a critical alert since
-      // the ledger and Stripe are now out of sync.
-      const { error: restoreError } = await admin
-        .from("wallets")
-        .update({ available_balance: availableBalance })
-        .eq("user_id", user.id)
-        .eq("available_balance", 0);
-
-      if (restoreError) {
-        Sentry.captureException(restoreError, {
-          extra: {
-            context: "wallet_restore_failed_after_stripe_error",
-            user_id: user.id,
-            amount: availableBalance,
-          },
-        });
-        console.error(
-          "[payout] CRITICAL: wallet restore failed after Stripe error",
-          {
-            user_id: user.id,
-            amount: availableBalance,
-            restoreError,
-            stripeErr,
-          },
-        );
-      }
-
-      throw stripeErr;
-    }
-
-    // Insert payout record before triggering Stripe payout
-    const { data: payoutRecord, error: insertError } = await admin
-      .from("payouts")
-      .insert({
-        user_id: user.id,
-        amount: availableBalance,
-        currency: currency.toUpperCase(),
-        status: "pending",
-        stripe_transfer_id: transfer.id,
-      })
-      .select("id")
-      .single();
-
-    if (insertError) {
-      Sentry.captureException(insertError, {
-        extra: { context: "payout_record_insert", user_id: user.id },
-      });
-    }
-
-    let payoutId: string | null = null;
-    try {
-      const payout = await stripe.payouts.create(
-        {
-          amount: amountInCents,
-          currency,
-          metadata: {
-            user_id: user.id,
-            transfer_id: transfer.id,
-            payout_record_id: payoutRecord?.id ?? null,
-          },
-        },
-        {
-          stripeAccount: profile.stripe_account_id,
-          idempotencyKey: payoutIdempotencyKey,
-        },
-      );
-      payoutId = payout.id;
-
-      // Update payout record with Stripe payout ID and status
-      if (payoutRecord?.id) {
-        await admin
-          .from("payouts")
-          .update({
-            stripe_payout_id: payoutId,
-            status: "in_transit",
-          })
-          .eq("id", payoutRecord.id);
-      }
-    } catch (payoutErr) {
-      Sentry.captureException(payoutErr);
-      console.warn(
-        "[payout] Explicit payout creation failed, auto-payout will handle it:",
-        payoutErr,
-      );
-    }
-
-    console.info("[payout] Completed", {
-      user_id: user.id,
-      amount: availableBalance,
-      stripe_transfer_id: transfer.id,
-      stripe_payout_id: payoutId,
-      payout_record_id: payoutRecord?.id,
+    const { data, error } = await admin.rpc("reserve_seller_payout", {
+      p_seller_id: user.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      payout_amount: availableBalance,
-      stripe_transfer_id: transfer.id,
-      stripe_payout_id: payoutId,
-    });
-  } catch (err) {
-    Sentry.captureException(err);
-    console.error("[payout] Error:", err);
-
-    if (isStripeError(err)) {
-      if (err.code === "balance_insufficient") {
+    if (error) {
+      if (error.message.includes("PAYOUT_BELOW_MINIMUM")) {
         return NextResponse.json(
-          { error: "Fonds insuffisants sur le compte plateforme" },
+          {
+            error:
+              "Le solde éligible n'atteint pas encore le minimum de retrait après délai et réserve de sécurité.",
+          },
           { status: 400 },
         );
       }
+      throw error;
+    }
 
+    reserved = (data?.[0] as ReservedPayout | undefined) ?? null;
+    if (!reserved) {
+      throw new Error("La réservation du virement n'a retourné aucun résultat");
+    }
+
+    const payout = await executeReservedPayout(reserved.payout_id);
+
+    return NextResponse.json({
+      success: true,
+      payout_id: reserved.payout_id,
+      payout_amount: reserved.amount_minor / 100,
+      stripe_payout_id: payout.id,
+      status: payout.status,
+      risk_reserve: reserved.risk_reserve_minor / 100,
+      payout_delay_days: reserved.payout_delay_days,
+    });
+  } catch (cause) {
+    Sentry.captureException(cause, {
+      extra: { payout_id: reserved?.payout_id },
+    });
+    console.error("[payout] Error:", cause);
+
+    if (isAmbiguousStripeFailure(cause) && reserved) {
       return NextResponse.json(
-        { error: err.message ?? "Erreur Stripe lors du virement" },
+        {
+          error:
+            "Le virement est enregistré et sera automatiquement réconcilié. Ne relancez pas la demande.",
+          payout_id: reserved.payout_id,
+          status: "pending",
+        },
+        { status: 503 },
+      );
+    }
+
+    if (isStripeError(cause)) {
+      return NextResponse.json(
+        { error: cause.message ?? "Erreur Stripe lors du virement" },
         { status: 400 },
       );
     }
@@ -280,12 +144,21 @@ export async function POST(request: Request) {
 }
 
 function isStripeError(
-  err: unknown,
-): err is { type: string; code?: string; message: string } {
+  cause: unknown,
+): cause is { type: string; code?: string; message: string } {
   return (
-    typeof err === "object" &&
-    err !== null &&
-    "type" in err &&
-    typeof (err as Record<string, unknown>).type === "string"
+    typeof cause === "object" &&
+    cause !== null &&
+    "type" in cause &&
+    typeof (cause as { type?: unknown }).type === "string"
   );
+}
+
+function isAmbiguousStripeFailure(cause: unknown): boolean {
+  if (!isStripeError(cause)) return false;
+  return [
+    "StripeConnectionError",
+    "StripeAPIError",
+    "StripeRateLimitError",
+  ].includes(cause.type);
 }

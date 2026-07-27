@@ -1,30 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createMockDb } from "@/test-utils/db-mock";
 
-// ── Fix D: la clé d'idempotence transfer/payout doit être UNIQUE par tentative
-//    (crypto.randomUUID()), pas amount+jour. Sinon un 2e virement du même
-//    montant le même jour serait avalé par la fenêtre d'idempotence Stripe
-//    (no-op) alors que le wallet est zéroté → perte de fonds du vendeur. ───────
-
-const transfersCreate = vi.fn(async (_params: any, _opts: any) => ({
-  id: `tr_${Math.random().toString(36).slice(2)}`,
-}));
-const payoutsCreate = vi.fn(async (_params: any, _opts: any) => ({
-  id: `po_${Math.random().toString(36).slice(2)}`,
-}));
-const accountsRetrieve = vi.fn(async () => ({
-  charges_enabled: false,
-  payouts_enabled: true,
-  capabilities: { transfers: "active" },
+const mocks = vi.hoisted(() => ({
+  accountsRetrieve: vi.fn(),
+  executeReservedPayout: vi.fn(),
 }));
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
-    transfers: { create: transfersCreate },
-    payouts: { create: payoutsCreate },
-    accounts: { retrieve: accountsRetrieve },
+    v2: { core: { accounts: { retrieve: mocks.accountsRetrieve } } },
   }),
+}));
+vi.mock("@/lib/stripe/execute-payout", () => ({
+  executeReservedPayout: mocks.executeReservedPayout,
 }));
 
 let currentUser: { id: string; email?: string } | null = {
@@ -37,7 +27,6 @@ vi.mock("@/lib/auth/api", () => ({
     source: "bearer" as const,
   })),
 }));
-
 vi.mock("@/lib/rate-limit", () => ({
   applyRateLimit: vi.fn(async () => null),
   payoutRateLimit: {} as any,
@@ -53,9 +42,24 @@ import { POST } from "./route";
 
 beforeEach(() => {
   currentUser = { id: "seller-1", email: "seller@example.com" };
-  transfersCreate.mockClear();
-  payoutsCreate.mockClear();
-  accountsRetrieve.mockClear();
+  mocks.accountsRetrieve.mockReset();
+  mocks.accountsRetrieve.mockResolvedValue({
+    configuration: {
+      recipient: {
+        capabilities: {
+          stripe_balance: {
+            stripe_transfers: { status: "active", status_details: [] },
+            payouts: { status: "active", status_details: [] },
+          },
+        },
+      },
+    },
+  });
+  mocks.executeReservedPayout.mockReset();
+  mocks.executeReservedPayout.mockImplementation(async (payoutId: string) => ({
+    id: `po_${payoutId}`,
+    status: "pending",
+  }));
 });
 
 function req() {
@@ -64,109 +68,109 @@ function req() {
   });
 }
 
-function payoutScenario(balance = 50) {
+function payoutScenario(amountMinor = 5_000) {
   return {
     profiles: [{ id: "seller-1", stripe_account_id: "acct_seller_1" }],
     wallets: [
       {
         user_id: "seller-1",
-        available_balance: balance,
-        currency: "eur",
-        version: 0,
+        available_balance: amountMinor / 100,
+        currency: "EUR",
+      },
+    ],
+    seller_transfers: [
+      {
+        id: "st-1",
+        transaction_id: "tx-1",
+        seller_id: "seller-1",
+        amount_minor: amountMinor,
+        amount_reversed_minor: 0,
+        payout_reserved_minor: 0,
+        paid_minor: 0,
+        currency: "EUR",
+        status: "transferred",
+        transferred_at: "2026-07-01T00:00:00.000Z",
+      },
+    ],
+    financial_payout_config: [
+      {
+        minimum_payout_minor: 1_000,
+        risk_reserve_minor: 500,
+        payout_delay_days: 2,
       },
     ],
   };
 }
 
-describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
-  it("autorise un compte recipient transfer-only sans charges_enabled", async () => {
-    const db = createMockDb(payoutScenario(50));
+describe("payout — transfers and bank payout are separate", () => {
+  it("durably reserves eligible transferred orders before creating a payout", async () => {
+    const db = createMockDb(payoutScenario());
     mockClient = db.client;
 
-    const res = await POST(req());
-    expect(res.status).toBe(200);
-    expect(transfersCreate).toHaveBeenCalledTimes(1);
-  });
+    const response = await POST(req());
 
-  it("refuse un compte dont la capability transfers est inactive", async () => {
-    accountsRetrieve.mockResolvedValueOnce({
-      charges_enabled: true,
-      payouts_enabled: true,
-      capabilities: { transfers: "inactive" },
+    expect(response.status).toBe(200);
+    expect(db.state.payouts).toHaveLength(1);
+    expect(db.state.payouts[0]).toMatchObject({
+      amount_minor: 4_500,
+      status: "pending",
     });
-    const db = createMockDb(payoutScenario(50));
-    mockClient = db.client;
-
-    const res = await POST(req());
-    expect(res.status).toBe(400);
-    expect(transfersCreate).not.toHaveBeenCalled();
-  });
-
-  it("refuse un compte dont les payouts bancaires sont désactivés", async () => {
-    accountsRetrieve.mockResolvedValueOnce({
-      charges_enabled: false,
-      payouts_enabled: false,
-      capabilities: { transfers: "active" },
+    expect(db.state.seller_transfers[0]).toMatchObject({
+      status: "payout_pending",
+      payout_reserved_minor: 4_500,
     });
-    const db = createMockDb(payoutScenario(50));
-    mockClient = db.client;
-
-    const res = await POST(req());
-
-    expect(res.status).toBe(400);
-    expect(transfersCreate).not.toHaveBeenCalled();
-    expect(payoutsCreate).not.toHaveBeenCalled();
-    expect(db.state.wallets[0].available_balance).toBe(50);
+    expect(db.state.wallets[0].available_balance).toBe(5);
+    expect(mocks.executeReservedPayout).toHaveBeenCalledWith("payout-1");
   });
 
-  it("deux virements successifs du MÊME montant → deux idempotencyKey DIFFÉRENTS pour transfers.create", async () => {
-    const db = createMockDb(payoutScenario(50));
+  it("enforces minimum payout and risk reserve before Stripe", async () => {
+    const db = createMockDb(payoutScenario(1_200));
     mockClient = db.client;
 
-    const res1 = await POST(req());
-    expect(res1.status).toBe(200);
+    const response = await POST(req());
 
-    // Le wallet est re-crédité du même montant entre les deux virements.
-    db.state.wallets[0].available_balance = 50;
-
-    const res2 = await POST(req());
-    expect(res2.status).toBe(200);
-
-    expect(transfersCreate).toHaveBeenCalledTimes(2);
-    const key1 = transfersCreate.mock.calls[0][1].idempotencyKey;
-    const key2 = transfersCreate.mock.calls[1][1].idempotencyKey;
-    expect(key1).toBeTruthy();
-    expect(key2).toBeTruthy();
-    // Cœur du fix : sinon le 2e transfer serait un no-op et le vendeur
-    // perdrait l'argent.
-    expect(key1).not.toBe(key2);
-
-    // Les clés payout suivent le même token unique → différentes elles aussi.
-    const payoutKey1 = payoutsCreate.mock.calls[0][1].idempotencyKey;
-    const payoutKey2 = payoutsCreate.mock.calls[1][1].idempotencyKey;
-    expect(payoutKey1).not.toBe(payoutKey2);
+    expect(response.status).toBe(400);
+    expect(db.state.payouts).toHaveLength(0);
+    expect(db.state.wallets[0].available_balance).toBe(12);
+    expect(mocks.executeReservedPayout).not.toHaveBeenCalled();
   });
 
-  it("verrou optimiste : un double-submit concurrent → un 200, un 409, transfers.create appelé une seule fois", async () => {
-    const db = createMockDb(payoutScenario(50), { serializeWrites: true });
+  it("refuses an inactive transfer capability without reserving funds", async () => {
+    mocks.accountsRetrieve.mockResolvedValueOnce({
+      configuration: {
+        recipient: {
+          capabilities: {
+            stripe_balance: {
+              stripe_transfers: {
+                status: "restricted",
+                status_details: [],
+              },
+              payouts: { status: "active", status_details: [] },
+            },
+          },
+        },
+      },
+    });
+    const db = createMockDb(payoutScenario());
     mockClient = db.client;
 
-    const [a, b] = await Promise.all([POST(req()), POST(req())]);
-    const codes = [a.status, b.status];
+    const response = await POST(req());
 
-    expect(codes.filter((c) => c === 200)).toHaveLength(1);
-    expect(codes.filter((c) => c === 409)).toHaveLength(1);
-    // Le perdant du verrou (available_balance déjà déduit) n'atteint JAMAIS Stripe.
-    expect(transfersCreate).toHaveBeenCalledTimes(1);
-    // Le wallet a été déduit exactement une fois.
-    expect(db.state.wallets[0].available_balance).toBe(0);
+    expect(response.status).toBe(400);
+    expect(db.state.payouts).toHaveLength(0);
+    expect(mocks.executeReservedPayout).not.toHaveBeenCalled();
   });
 
-  it("solde nul → 400, aucun transfer Stripe", async () => {
-    const db = createMockDb(payoutScenario(0));
+  it("serializes concurrent requests so only one reservation wins", async () => {
+    const db = createMockDb(payoutScenario(), { serializeWrites: true });
     mockClient = db.client;
-    const res = await POST(req());
-    expect(res.status).toBe(400);
-    expect(transfersCreate).not.toHaveBeenCalled();
+
+    const responses = await Promise.all([POST(req()), POST(req())]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      200, 400,
+    ]);
+    expect(db.state.payouts).toHaveLength(1);
+    expect(mocks.executeReservedPayout).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
-import { router, Stack } from "expo-router";
+import { router, Stack, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MotiView } from "moti";
@@ -12,13 +12,18 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  Settings,
   Receipt,
   ShieldCheck,
-  Wallet as WalletIcon,
 } from "lucide-react-native";
-import { formatPrice, type KycStatus } from "@pokemarket/shared";
+import {
+  formatPrice,
+  type KycStatus,
+  type StripeConnectEntityType,
+} from "@pokemarket/shared";
 
 import { ApiError } from "@/lib/api/client";
+import { getStripeDashboardUrl } from "@/lib/api/wallet";
 import { fadeInUp, useReducedMotionSafe } from "@/lib/motion";
 import {
   useRequestPayout,
@@ -34,6 +39,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Input,
+  Select,
   Skeleton,
   Text,
   toast,
@@ -94,13 +101,18 @@ function useKycConfig(): Record<KycStatus, KycConfigEntry> {
 }
 
 export default function WalletScreen() {
-  const { balanceQuery, kycQuery, refetchAll } = useWalletData();
+  const { balanceQuery, kycQuery, payoutPolicyQuery, refetchAll } =
+    useWalletData();
   const onboardMutation = useStripeConnectOnboarding();
   const payoutMutation = useRequestPayout();
   const colors = useThemeColors();
 
   const [refreshing, setRefreshing] = useState(false);
   const [confirmPayoutOpen, setConfirmPayoutOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [entityType, setEntityType] =
+    useState<StripeConnectEntityType>("individual");
+  const [country, setCountry] = useState("FR");
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -111,21 +123,29 @@ export default function WalletScreen() {
     }
   }, [refetchAll]);
 
-  const handleOnboard = useCallback(async () => {
-    try {
-      const url = await onboardMutation.mutateAsync();
-      // `WebBrowser.openAuthSessionAsync` blocks until either Stripe
-      // redirects to our `pokemarket://wallet/return` deep link, or the
-      // user dismisses the in-app browser. Either way we land on the
-      // return screen which polls the new KYC status.
-      const result = await WebBrowser.openAuthSessionAsync(
-        url,
-        "pokemarket://wallet/return",
-      );
+  const openHostedOnboarding = useCallback(async (url: string) => {
+    const result = await WebBrowser.openAuthSessionAsync(
+      url,
+      "pokemarket://wallet/return",
+    );
+    if (result.type !== "success" && result.type !== "dismiss") return;
 
-      if (result.type === "success" || result.type === "dismiss") {
-        router.push("/wallet/return");
-      }
+    if (result.type === "success" && result.url.includes("/refresh")) {
+      router.push("/wallet/refresh" as Href);
+      return;
+    }
+    router.push("/wallet/return");
+  }, []);
+
+  const handleOnboard = useCallback(async () => {
+    if (!kycQuery.data?.has_account) {
+      setOnboardingOpen(true);
+      return;
+    }
+
+    try {
+      const url = await onboardMutation.mutateAsync({});
+      await openHostedOnboarding(url);
     } catch (err) {
       haptic("error");
       toast.error(
@@ -133,7 +153,36 @@ export default function WalletScreen() {
         err instanceof Error ? err.message : undefined,
       );
     }
-  }, [onboardMutation]);
+  }, [kycQuery.data?.has_account, onboardMutation, openHostedOnboarding]);
+
+  const handleOnboardConfirm = useCallback(async () => {
+    try {
+      const url = await onboardMutation.mutateAsync({
+        entity_type: entityType,
+        country,
+      });
+      setOnboardingOpen(false);
+      await openHostedOnboarding(url);
+    } catch (err) {
+      haptic("error");
+      toast.error(
+        "Impossible de créer le compte vendeur",
+        err instanceof Error ? err.message : undefined,
+      );
+    }
+  }, [country, entityType, onboardMutation, openHostedOnboarding]);
+
+  const handleStripeDashboard = useCallback(async () => {
+    try {
+      const url = await getStripeDashboardUrl();
+      await WebBrowser.openBrowserAsync(url);
+    } catch (err) {
+      toast.error(
+        "Espace Stripe indisponible",
+        err instanceof Error ? err.message : undefined,
+      );
+    }
+  }, []);
 
   const handlePayout = useCallback(async () => {
     try {
@@ -157,14 +206,25 @@ export default function WalletScreen() {
     }
   }, [payoutMutation]);
 
-  const isLoading = balanceQuery.isLoading || kycQuery.isLoading;
+  const isLoading =
+    balanceQuery.isLoading || kycQuery.isLoading || payoutPolicyQuery.isLoading;
   const wallet = balanceQuery.data;
   const kycStatus: KycStatus = (kycQuery.data?.kyc_status ??
     "UNVERIFIED") as KycStatus;
   const isVerified = kycStatus === "VERIFIED";
   const availableBalance = wallet?.available_balance ?? 0;
+  const payoutPolicy = payoutPolicyQuery.data;
+  const minimumRequired = payoutPolicy
+    ? (payoutPolicy.minimum_payout_minor + payoutPolicy.risk_reserve_minor) /
+      100
+    : Number.POSITIVE_INFINITY;
+  const estimatedPayout = payoutPolicy
+    ? Math.max(0, availableBalance - payoutPolicy.risk_reserve_minor / 100)
+    : 0;
   const canPayout =
-    isVerified && availableBalance > 0 && !payoutMutation.isPending;
+    isVerified &&
+    availableBalance >= minimumRequired &&
+    !payoutMutation.isPending;
   const reduceMotion = useReducedMotionSafe();
 
   return (
@@ -293,7 +353,7 @@ export default function WalletScreen() {
                   }
                 >
                   {availableBalance > 0
-                    ? `Virer ${formatPrice(availableBalance)}`
+                    ? `Virer jusqu'à ${formatPrice(estimatedPayout)}`
                     : "Demander un virement"}
                 </Button>
                 {!isVerified && (
@@ -306,9 +366,33 @@ export default function WalletScreen() {
                     Aucun solde disponible pour le moment
                   </Text>
                 )}
+                {isVerified && payoutPolicy ? (
+                  <Text variant="caption" className="mt-2 text-center">
+                    Minimum{" "}
+                    {formatPrice(payoutPolicy.minimum_payout_minor / 100)}
+                    {" · "}réserve{" "}
+                    {formatPrice(payoutPolicy.risk_reserve_minor / 100)}
+                    {" · "}disponible {payoutPolicy.payout_delay_days} j après
+                    transfert
+                  </Text>
+                ) : null}
               </MotiView>
 
               <View className="mt-2 gap-2">
+                {kycQuery.data?.has_account ? (
+                  <Pressable
+                    onPress={handleStripeDashboard}
+                    className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <Settings size={18} color={colors.foreground} />
+                      <Text className="font-medium">
+                        Gérer mon compte Stripe
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </Pressable>
+                ) : null}
                 <Pressable
                   onPress={() => router.push("/wallet/payouts")}
                   className="flex-row items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 active:bg-muted"
@@ -341,6 +425,58 @@ export default function WalletScreen() {
       </SafeAreaView>
 
       <Dialog
+        open={onboardingOpen}
+        onOpenChange={(open) => {
+          if (onboardMutation.isPending) return;
+          setOnboardingOpen(open);
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Configurer votre compte vendeur</DialogTitle>
+          <DialogDescription>
+            Stripe adapte la vérification à votre statut et à votre pays.
+          </DialogDescription>
+        </DialogHeader>
+        <View className="gap-4">
+          <View className="gap-2">
+            <Text className="text-sm font-medium">Type de vendeur</Text>
+            <Select
+              value={entityType}
+              onValueChange={(value) =>
+                setEntityType(value as StripeConnectEntityType)
+              }
+              title="Type de vendeur"
+              options={[
+                { value: "individual", label: "Particulier" },
+                { value: "company", label: "Professionnel" },
+              ]}
+            />
+          </View>
+          <View className="gap-2">
+            <Text className="text-sm font-medium">Pays (code ISO)</Text>
+            <Input
+              value={country}
+              onChangeText={(value) =>
+                setCountry(value.toUpperCase().slice(0, 2))
+              }
+              autoCapitalize="characters"
+              maxLength={2}
+              placeholder="FR"
+            />
+          </View>
+        </View>
+        <DialogFooter>
+          <Button
+            onPress={handleOnboardConfirm}
+            loading={onboardMutation.isPending}
+            disabled={country.length !== 2}
+          >
+            Continuer avec Stripe
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
         open={confirmPayoutOpen}
         onOpenChange={(open) => {
           // Block dismiss while the mutation is in-flight so the
@@ -353,9 +489,9 @@ export default function WalletScreen() {
         <DialogHeader>
           <DialogTitle>Demander un virement</DialogTitle>
           <DialogDescription>
-            {`Vous allez recevoir ${formatPrice(
-              availableBalance,
-            )} sur votre compte bancaire sous 1 à 3 jours ouvrés.`}
+            {`Vous recevrez jusqu'à ${formatPrice(
+              estimatedPayout,
+            )} selon les commandes devenues éligibles, sous 1 à 3 jours ouvrés.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

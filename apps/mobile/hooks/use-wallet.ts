@@ -8,6 +8,7 @@ import { queryKeys } from "@pokemarket/shared";
 
 import {
   fetchPayoutHistory,
+  fetchPayoutPolicy,
   fetchStripeConnectStatus,
   fetchWalletBalance,
   getOnboardingUrl,
@@ -34,11 +35,22 @@ export function useWalletData() {
     staleTime: 15_000,
   });
 
+  const payoutPolicyQuery = useQuery({
+    queryKey: ["wallet", "payout-policy"],
+    queryFn: fetchPayoutPolicy,
+    staleTime: 60_000,
+  });
+
   return {
     balanceQuery,
     kycQuery,
+    payoutPolicyQuery,
     refetchAll: async () => {
-      await Promise.all([balanceQuery.refetch(), kycQuery.refetch()]);
+      await Promise.all([
+        balanceQuery.refetch(),
+        kycQuery.refetch(),
+        payoutPolicyQuery.refetch(),
+      ]);
     },
   };
 }

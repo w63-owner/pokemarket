@@ -83,13 +83,39 @@ export type PushNotificationRequest = {
 
 /**
  * Stripe Connect onboarding flow.
- * Backend renvoie une URL hébergée que le client ouvre en WebView (mobile)
- * ou en redirect plein écran (web).
+ * Identity choices are required only while creating the connected account.
+ * Subsequent calls can omit them to renew an onboarding session.
  */
+export type StripeConnectEntityType = "individual" | "company";
+
+export type StripeConnectOnboardingRequest = {
+  client: "web" | "mobile";
+  country?: string;
+  entity_type?: StripeConnectEntityType;
+};
+
 export type OnboardingResponse = {
   provider: PaymentProvider;
-  url: string;
-  return_url: string;
+  account_id: string;
+  url?: string;
+};
+
+export type StripeConnectAccountSessionResponse = {
+  client_secret: string;
+};
+
+export type StripeConnectStatusResponse = {
+  kyc_status: "UNVERIFIED" | "PENDING" | "REQUIRED" | "VERIFIED" | "REJECTED";
+  has_account: boolean;
+  transfers_status: "active" | "pending" | "restricted" | "unsupported" | null;
+  payouts_status: "active" | "pending" | "restricted" | "unsupported" | null;
+};
+
+export type PayoutPolicy = {
+  minimum_payout_minor: number;
+  risk_reserve_minor: number;
+  payout_delay_days: number;
+  schedule_interval: "manual";
 };
 
 /**

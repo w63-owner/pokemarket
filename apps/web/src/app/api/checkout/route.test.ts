@@ -178,6 +178,9 @@ describe("checkout — listing-status guards", () => {
     expect(json.url).toBeTruthy();
     expect(json.transaction_id).toBeTruthy();
     expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(stripeCreate.mock.calls[0][0].payment_intent_data).toEqual({
+      transfer_group: `order_${json.transaction_id}`,
+    });
     expect(db.state.transactions).toHaveLength(1);
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
     expect(stripeCreate.mock.calls[0][0]).not.toHaveProperty(
@@ -418,6 +421,7 @@ describe("checkout — mobile (?client=mobile)", () => {
     expect(piArgs.metadata.transaction_id).toBeTruthy();
     expect(piArgs.metadata.listing_id).toBe(LISTING_ID);
     expect(piArgs.metadata.source).toBe("mobile");
+    expect(piArgs.transfer_group).toBe(`order_${db.state.transactions[0].id}`);
 
     // Listing was locked exactly once and the transaction is PENDING_PAYMENT
     // until the webhook fires.

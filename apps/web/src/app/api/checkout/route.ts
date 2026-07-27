@@ -361,6 +361,9 @@ export async function POST(request: Request) {
           transaction_id: transaction.id,
           listing_id,
         },
+        payment_intent_data: {
+          transfer_group: `order_${transaction.id}`,
+        },
         success_url: `${appUrl!}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl!}/listing/${listing_id}?checkout=cancelled`,
         expires_at:
@@ -451,6 +454,7 @@ async function createMobileStripeIntent(input: {
       customer: customerId,
       automatic_payment_methods: { enabled: true },
       description: input.listingTitle,
+      transfer_group: `order_${input.transactionId}`,
       // The same metadata pattern the Checkout Session uses, so the existing
       // `payment_intent.succeeded` webhook handler can finalize the
       // transaction without branching on session vs PI.

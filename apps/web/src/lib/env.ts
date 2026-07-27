@@ -14,7 +14,7 @@ import { z } from "zod";
 
 const isProd = process.env.NODE_ENV === "production";
 
-export const STRIPE_API_VERSION = "2026-02-25.clover" as const;
+export const STRIPE_API_VERSION = "2026-06-24.dahlia" as const;
 
 const optionalNonEmpty = z.preprocess(
   (value) =>
@@ -42,10 +42,11 @@ const stripeEnvSchema = z.object({
       typeof value === "string" && value.trim() === "" ? undefined : value,
     z.string().startsWith("whsec_"),
   ),
-  connectDefaultCountry: z
-    .string()
-    .regex(/^[A-Z]{2}$/)
-    .default("FR"),
+  connectWebhookSecret: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().startsWith("whsec_"),
+  ),
   supportEmail: z.email(),
   allowedOrigins: optionalNonEmpty,
 });
@@ -57,7 +58,7 @@ export function getStripeEnv(): StripeEnv {
     secretKey: process.env.STRIPE_SECRET_KEY,
     publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-    connectDefaultCountry: process.env.STRIPE_CONNECT_DEFAULT_COUNTRY,
+    connectWebhookSecret: process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
     supportEmail: process.env.SUPPORT_EMAIL,
     allowedOrigins: process.env.CHECKOUT_ALLOWED_ORIGINS,
   });

@@ -84,10 +84,15 @@ export type Payout = {
   id: string;
   user_id: string;
   amount: number;
+  amount_minor: number;
   currency: string;
   status: PayoutStatus;
+  stripe_account_id: string | null;
   stripe_transfer_id: string | null;
   stripe_payout_id: string | null;
+  idempotency_key: string;
+  risk_reserve_minor: number;
+  payout_delay_days: number;
   failure_code: string | null;
   failure_message: string | null;
   requested_at: string;
@@ -95,6 +100,11 @@ export type Payout = {
   created_at: string;
   updated_at: string;
 };
+
+export type SellerTransferStatus =
+  Database["public"]["Enums"]["seller_transfer_status"];
+export type SellerTransfer =
+  Database["public"]["Tables"]["seller_transfers"]["Row"];
 
 export type TcgdexCardTyped = Omit<
   TcgdexCard,

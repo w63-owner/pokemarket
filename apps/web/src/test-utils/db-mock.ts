@@ -63,6 +63,10 @@ export interface MockDbState {
   ledger_transactions: Row[];
   ledger_entries: Row[];
   stripe_object_bindings: Row[];
+  seller_transfers: Row[];
+  payouts: Row[];
+  payout_items: Row[];
+  financial_payout_config: Row[];
   // simulated auth.users
   users: { id: string; email?: string }[];
 }
@@ -83,6 +87,10 @@ export function makeEmptyState(): MockDbState {
     ledger_transactions: [],
     ledger_entries: [],
     stripe_object_bindings: [],
+    seller_transfers: [],
+    payouts: [],
+    payout_items: [],
+    financial_payout_config: [],
     users: [],
   };
 }
@@ -737,7 +745,170 @@ export function createMockDb(
         wallet.available_balance =
           Math.round((wallet.available_balance + sellerNet) * 100) / 100;
 
+        if (
+          !state.financial_outbox.some(
+            (row) => row.idempotency_key === `transfer-requested:${tx.id}`,
+          )
+        ) {
+          state.financial_outbox.push({
+            id: `transfer-requested:${tx.id}`,
+            event_type: "transfer_requested",
+            aggregate_id: tx.id,
+            idempotency_key: `transfer-requested:${tx.id}`,
+            status: "PENDING",
+            attempts: 0,
+            max_attempts: 12,
+            next_attempt_at: new Date().toISOString(),
+            lease_token: null,
+            lease_expires_at: null,
+          });
+          state.seller_transfers.push({
+            id: `seller-transfer:${tx.id}`,
+            transaction_id: tx.id,
+            seller_id: tx.seller_id,
+            amount_minor: Math.round(sellerNet * 100),
+            currency: "EUR",
+            status: "queued",
+            stripe_account_id:
+              state.profiles.find((profile) => profile.id === tx.seller_id)
+                ?.stripe_account_id ?? null,
+            source_charge_id: tx.stripe_charge_id ?? null,
+            transfer_group: `order_${tx.id}`,
+            idempotency_key: `transfer:${tx.id}`,
+            stripe_transfer_id: null,
+            amount_reversed_minor: 0,
+            payout_reserved_minor: 0,
+            paid_minor: 0,
+            transferred_at: null,
+          });
+        }
+
         return { data: true, error: null };
+      }
+
+      if (name === "prepare_seller_transfer") {
+        const transfer = state.seller_transfers.find(
+          (row) => row.transaction_id === params.p_transaction_id,
+        );
+        if (!transfer) {
+          return {
+            data: null,
+            error: { code: "P0002", message: "TRANSFER_NOT_FOUND" },
+          };
+        }
+        if (["queued", "processing", "failed"].includes(transfer.status)) {
+          transfer.status = "processing";
+        }
+        return { data: [transfer], error: null };
+      }
+
+      if (name === "record_seller_transfer_success") {
+        const transfer = state.seller_transfers.find(
+          (row) => row.transaction_id === params.p_transaction_id,
+        );
+        if (!transfer) return { data: false, error: null };
+        transfer.status = "transferred";
+        transfer.stripe_transfer_id = params.p_stripe_transfer_id;
+        transfer.source_charge_id = params.p_source_charge_id;
+        transfer.transfer_group = params.p_transfer_group;
+        transfer.transferred_at ??= new Date().toISOString();
+        return { data: true, error: null };
+      }
+
+      if (name === "record_seller_transfer_failure") {
+        const transfer = state.seller_transfers.find(
+          (row) => row.transaction_id === params.p_transaction_id,
+        );
+        if (!transfer) return { data: false, error: null };
+        transfer.status = "failed";
+        transfer.failure_code = params.p_failure_code;
+        transfer.failure_message = params.p_failure_message;
+        return { data: true, error: null };
+      }
+
+      if (name === "reserve_seller_payout") {
+        return withSerializedWrites(!!chaos.serializeWrites, async () => {
+          const config = state.financial_payout_config[0] ?? {
+            minimum_payout_minor: 1000,
+            risk_reserve_minor: 500,
+            payout_delay_days: 2,
+          };
+          const eligible = state.seller_transfers.filter(
+            (row) =>
+              row.seller_id === params.p_seller_id &&
+              ["transferred", "paid"].includes(row.status),
+          );
+          const total = eligible.reduce(
+            (sum, row) =>
+              sum +
+              row.amount_minor -
+              (row.amount_reversed_minor ?? 0) -
+              (row.payout_reserved_minor ?? 0) -
+              (row.paid_minor ?? 0),
+            0,
+          );
+          const amount = Math.max(0, total - config.risk_reserve_minor);
+          if (amount < config.minimum_payout_minor) {
+            return {
+              data: null,
+              error: { code: "P0001", message: "PAYOUT_BELOW_MINIMUM" },
+            };
+          }
+
+          const id = `payout-${state.payouts.length + 1}`;
+          const profile = state.profiles.find(
+            (row) => row.id === params.p_seller_id,
+          );
+          state.payouts.push({
+            id,
+            user_id: params.p_seller_id,
+            amount: amount / 100,
+            amount_minor: amount,
+            currency: "EUR",
+            status: "pending",
+            stripe_account_id: profile?.stripe_account_id ?? null,
+            stripe_payout_id: null,
+            requested_at: new Date().toISOString(),
+          });
+
+          let remaining = amount;
+          for (const transfer of eligible) {
+            if (remaining === 0) break;
+            const available =
+              transfer.amount_minor -
+              (transfer.amount_reversed_minor ?? 0) -
+              (transfer.payout_reserved_minor ?? 0) -
+              (transfer.paid_minor ?? 0);
+            const allocated = Math.min(remaining, available);
+            transfer.payout_reserved_minor =
+              (transfer.payout_reserved_minor ?? 0) + allocated;
+            transfer.status = "payout_pending";
+            state.payout_items.push({
+              payout_id: id,
+              seller_transfer_id: transfer.id,
+              transaction_id: transfer.transaction_id,
+              amount_minor: allocated,
+            });
+            remaining -= allocated;
+          }
+          const wallet = state.wallets.find(
+            (row) => row.user_id === params.p_seller_id,
+          );
+          if (wallet) wallet.available_balance -= amount / 100;
+
+          return {
+            data: [
+              {
+                payout_id: id,
+                amount_minor: amount,
+                currency: "EUR",
+                risk_reserve_minor: config.risk_reserve_minor,
+                payout_delay_days: config.payout_delay_days,
+              },
+            ],
+            error: null,
+          };
+        });
       }
 
       return {

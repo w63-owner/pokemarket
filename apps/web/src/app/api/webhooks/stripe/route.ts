@@ -6,7 +6,6 @@ import * as Sentry from "@sentry/nextjs";
 import { getStripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
-import { handleAccountUpdated } from "@/lib/stripe/webhook-handlers/account-updated";
 import { handleChargeRefunded } from "@/lib/stripe/webhook-handlers/charge-refunded";
 import {
   handleChargeDisputeClosed,
@@ -14,9 +13,15 @@ import {
   handleChargeDisputeUpdated,
 } from "@/lib/stripe/webhook-handlers/charge-dispute";
 import {
+  handlePayoutCanceled,
   handlePayoutFailed,
   handlePayoutPaid,
+  handlePayoutUpdated,
 } from "@/lib/stripe/webhook-handlers/payout";
+import {
+  handleTransferCreated,
+  handleTransferReversed,
+} from "@/lib/stripe/webhook-handlers/transfer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,14 +121,6 @@ export async function POST(request: Request) {
         );
         break;
 
-      // ── Connect account lifecycle ───────────────────────────────────────
-      // Fired whenever a connected account's KYC state changes. We rely on
-      // this push instead of polling /api/stripe-connect/status from the
-      // wallet page on every load.
-      case "account.updated":
-        await handleAccountUpdated(event.data.object as Stripe.Account);
-        break;
-
       // ── Refunds ─────────────────────────────────────────────────────────
       // Fires for both admin-initiated refunds and bank-initiated ones.
       // The handler reverses the seller's wallet credit and notifies both
@@ -143,11 +140,32 @@ export async function POST(request: Request) {
         await handleChargeDisputeClosed(event.data.object as Stripe.Dispute);
         break;
 
+      // ── Transfers (platform → connected account, one per order) ────────
+      case "transfer.created":
+        await handleTransferCreated(event.data.object as Stripe.Transfer);
+        break;
+      case "transfer.reversed":
+        await handleTransferReversed(event.data.object as Stripe.Transfer);
+        break;
+
       // ── Payouts (seller bank wires) ────────────────────────────────────
       // payout.* events are emitted on the CONNECTED account, not the
       // platform — Stripe sets `event.account` to the connected account id.
+      case "payout.created":
+      case "payout.updated":
+        await handlePayoutUpdated(
+          event.data.object as Stripe.Payout,
+          event.account ?? null,
+        );
+        break;
       case "payout.failed":
         await handlePayoutFailed(
+          event.data.object as Stripe.Payout,
+          event.account ?? null,
+        );
+        break;
+      case "payout.canceled":
+        await handlePayoutCanceled(
           event.data.object as Stripe.Payout,
           event.account ?? null,
         );

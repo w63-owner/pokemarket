@@ -1,46 +1,39 @@
-import type Stripe from "stripe";
-
-type RecipientCapabilityAccount = Pick<
-  Stripe.Account,
-  "capabilities" | "requirements"
-> & {
-  configuration?: {
-    recipient?: {
-      capabilities?: {
-        stripe_balance?: {
-          stripe_transfers?: {
-            status?: string | null;
-          } | null;
-        } | null;
-      } | null;
-    } | null;
-  } | null;
-};
+import {
+  getStripeRecipientCapability,
+  type StripeRecipientAccount,
+} from "@/lib/stripe/connect-account";
 
 /**
- * Recipient accounts only need the transfer capability. During the Accounts
- * v1 → v2 transition, accept either capability path without treating
- * `charges_enabled` or `payouts_enabled` as marketplace readiness signals.
+ * Recipient accounts only need the Accounts v2 transfer capability.
+ * Legacy `charges_enabled`, `payouts_enabled`, and v1 `transfers` fields are
+ * deliberately not accepted as business readiness signals.
  */
 export function isStripeRecipientReady(
-  account: RecipientCapabilityAccount,
+  account: StripeRecipientAccount,
 ): boolean {
-  const v2Status =
-    account.configuration?.recipient?.capabilities?.stripe_balance
-      ?.stripe_transfers?.status;
-
-  if (v2Status !== undefined && v2Status !== null) {
-    return v2Status === "active";
-  }
-
-  return account.capabilities?.transfers === "active";
+  return getStripeRecipientCapability(account)?.status === "active";
 }
 
 export function deriveRecipientKycStatus(
-  account: RecipientCapabilityAccount,
+  account: StripeRecipientAccount,
 ): "VERIFIED" | "REQUIRED" | "REJECTED" | "PENDING" {
-  if (isStripeRecipientReady(account)) return "VERIFIED";
-  if ((account.requirements?.currently_due?.length ?? 0) > 0) return "REQUIRED";
-  if (account.requirements?.disabled_reason) return "REJECTED";
+  const capability = getStripeRecipientCapability(account);
+  if (capability?.status === "active") return "VERIFIED";
+  if (capability?.status === "unsupported") return "REJECTED";
+
+  const statusCodes = new Set(
+    capability?.status_details.map((detail) => detail.code) ?? [],
+  );
+
+  if (statusCodes.has("requirements_past_due")) return "REQUIRED";
+  if (
+    statusCodes.has("unsupported_business") ||
+    statusCodes.has("unsupported_country") ||
+    statusCodes.has("unsupported_entity_type") ||
+    statusCodes.has("restricted_other")
+  ) {
+    return "REJECTED";
+  }
+  if ((account.requirements?.entries?.length ?? 0) > 0) return "REQUIRED";
   return "PENDING";
 }

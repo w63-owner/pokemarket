@@ -296,6 +296,33 @@ export type Database = {
           },
         ];
       };
+      financial_payout_config: {
+        Row: {
+          minimum_payout_minor: number;
+          payout_delay_days: number;
+          risk_reserve_minor: number;
+          schedule_interval: string;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          minimum_payout_minor?: number;
+          payout_delay_days?: number;
+          risk_reserve_minor?: number;
+          schedule_interval?: string;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          minimum_payout_minor?: number;
+          payout_delay_days?: number;
+          risk_reserve_minor?: number;
+          schedule_interval?: string;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       favorite_listings: {
         Row: {
           created_at: string | null;
@@ -453,6 +480,8 @@ export type Database = {
           metadata: Json;
           stripe_charge_id: string | null;
           stripe_payment_intent_id: string | null;
+          stripe_payout_id: string | null;
+          stripe_transfer_id: string | null;
           transaction_id: string | null;
         };
         Insert: {
@@ -464,6 +493,8 @@ export type Database = {
           metadata?: Json;
           stripe_charge_id?: string | null;
           stripe_payment_intent_id?: string | null;
+          stripe_payout_id?: string | null;
+          stripe_transfer_id?: string | null;
           transaction_id?: string | null;
         };
         Update: {
@@ -475,6 +506,8 @@ export type Database = {
           metadata?: Json;
           stripe_charge_id?: string | null;
           stripe_payment_intent_id?: string | null;
+          stripe_payout_id?: string | null;
+          stripe_transfer_id?: string | null;
           transaction_id?: string | null;
         };
         Relationships: [
@@ -877,14 +910,19 @@ export type Database = {
       payouts: {
         Row: {
           amount: number;
+          amount_minor: number;
           completed_at: string | null;
           created_at: string;
           currency: string;
           failure_code: string | null;
           failure_message: string | null;
           id: string;
+          idempotency_key: string;
+          payout_delay_days: number;
           requested_at: string;
+          risk_reserve_minor: number;
           status: Database["public"]["Enums"]["payout_status"];
+          stripe_account_id: string | null;
           stripe_payout_id: string | null;
           stripe_transfer_id: string | null;
           updated_at: string;
@@ -892,14 +930,19 @@ export type Database = {
         };
         Insert: {
           amount: number;
+          amount_minor: number;
           completed_at?: string | null;
           created_at?: string;
           currency?: string;
           failure_code?: string | null;
           failure_message?: string | null;
           id?: string;
+          idempotency_key: string;
+          payout_delay_days?: number;
           requested_at?: string;
+          risk_reserve_minor?: number;
           status?: Database["public"]["Enums"]["payout_status"];
+          stripe_account_id?: string | null;
           stripe_payout_id?: string | null;
           stripe_transfer_id?: string | null;
           updated_at?: string;
@@ -907,14 +950,19 @@ export type Database = {
         };
         Update: {
           amount?: number;
+          amount_minor?: number;
           completed_at?: string | null;
           created_at?: string;
           currency?: string;
           failure_code?: string | null;
           failure_message?: string | null;
           id?: string;
+          idempotency_key?: string;
+          payout_delay_days?: number;
           requested_at?: string;
+          risk_reserve_minor?: number;
           status?: Database["public"]["Enums"]["payout_status"];
+          stripe_account_id?: string | null;
           stripe_payout_id?: string | null;
           stripe_transfer_id?: string | null;
           updated_at?: string;
@@ -926,6 +974,52 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payout_items: {
+        Row: {
+          amount_minor: number;
+          created_at: string;
+          payout_id: string;
+          seller_transfer_id: string;
+          transaction_id: string;
+        };
+        Insert: {
+          amount_minor: number;
+          created_at?: string;
+          payout_id: string;
+          seller_transfer_id: string;
+          transaction_id: string;
+        };
+        Update: {
+          amount_minor?: number;
+          created_at?: string;
+          payout_id?: string;
+          seller_transfer_id?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payout_items_payout_id_fkey";
+            columns: ["payout_id"];
+            isOneToOne: false;
+            referencedRelation: "payouts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payout_items_seller_transfer_id_fkey";
+            columns: ["seller_transfer_id"];
+            isOneToOne: false;
+            referencedRelation: "seller_transfers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payout_items_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
             referencedColumns: ["id"];
           },
         ];
@@ -1401,6 +1495,93 @@ export type Database = {
         };
         Relationships: [];
       };
+      seller_transfers: {
+        Row: {
+          amount_minor: number;
+          amount_reversed_minor: number;
+          created_at: string;
+          currency: string;
+          failure_code: string | null;
+          failure_message: string | null;
+          id: string;
+          idempotency_key: string;
+          paid_minor: number;
+          payout_reserved_minor: number;
+          processing_started_at: string | null;
+          reversed_at: string | null;
+          seller_id: string;
+          source_charge_id: string | null;
+          status: Database["public"]["Enums"]["seller_transfer_status"];
+          stripe_account_id: string | null;
+          stripe_transfer_id: string | null;
+          transaction_id: string;
+          transfer_group: string;
+          transferred_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          amount_minor: number;
+          amount_reversed_minor?: number;
+          created_at?: string;
+          currency?: string;
+          failure_code?: string | null;
+          failure_message?: string | null;
+          id?: string;
+          idempotency_key: string;
+          paid_minor?: number;
+          payout_reserved_minor?: number;
+          processing_started_at?: string | null;
+          reversed_at?: string | null;
+          seller_id: string;
+          source_charge_id?: string | null;
+          status?: Database["public"]["Enums"]["seller_transfer_status"];
+          stripe_account_id?: string | null;
+          stripe_transfer_id?: string | null;
+          transaction_id: string;
+          transfer_group: string;
+          transferred_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          amount_minor?: number;
+          amount_reversed_minor?: number;
+          created_at?: string;
+          currency?: string;
+          failure_code?: string | null;
+          failure_message?: string | null;
+          id?: string;
+          idempotency_key?: string;
+          paid_minor?: number;
+          payout_reserved_minor?: number;
+          processing_started_at?: string | null;
+          reversed_at?: string | null;
+          seller_id?: string;
+          source_charge_id?: string | null;
+          status?: Database["public"]["Enums"]["seller_transfer_status"];
+          stripe_account_id?: string | null;
+          stripe_transfer_id?: string | null;
+          transaction_id?: string;
+          transfer_group?: string;
+          transferred_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "seller_transfers_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "seller_transfers_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: true;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       stripe_object_bindings: {
         Row: {
           created_at: string;
@@ -1580,6 +1761,30 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      apply_stripe_payout_transition: {
+        Args: {
+          p_failure_code?: string;
+          p_failure_message?: string;
+          p_stripe_payout_id: string;
+          p_target_status: Database["public"]["Enums"]["payout_status"];
+        };
+        Returns: boolean;
+      };
+      apply_stripe_transfer_reversal: {
+        Args: {
+          p_amount_reversed_minor: number;
+          p_stripe_transfer_id: string;
+        };
+        Returns: boolean;
+      };
+      attach_stripe_payout: {
+        Args: {
+          p_payout_id: string;
+          p_stripe_account_id: string;
+          p_stripe_payout_id: string;
+        };
+        Returns: boolean;
+      };
       claim_notifications_outbox: {
         Args: { p_lease_seconds?: number; p_limit?: number };
         Returns: {
@@ -1657,6 +1862,14 @@ export type Database = {
         Args: { p_error: string; p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      fail_reserved_payout: {
+        Args: {
+          p_failure_code: string;
+          p_failure_message: string;
+          p_payout_id: string;
+        };
+        Returns: boolean;
+      };
       finalize_paid_transaction: {
         Args: {
           p_stripe_charge_id?: string;
@@ -1720,6 +1933,37 @@ export type Database = {
         Args: { p_user_id?: string };
         Returns: number;
       };
+      prepare_seller_transfer: {
+        Args: { p_transaction_id: string };
+        Returns: Database["public"]["Tables"]["seller_transfers"]["Row"][];
+      };
+      record_seller_transfer_failure: {
+        Args: {
+          p_failure_code: string;
+          p_failure_message: string;
+          p_transaction_id: string;
+        };
+        Returns: boolean;
+      };
+      record_seller_transfer_success: {
+        Args: {
+          p_source_charge_id: string;
+          p_stripe_transfer_id: string;
+          p_transaction_id: string;
+          p_transfer_group: string;
+        };
+        Returns: boolean;
+      };
+      reserve_seller_payout: {
+        Args: { p_seller_id: string };
+        Returns: {
+          amount_minor: number;
+          currency: string;
+          payout_delay_days: number;
+          payout_id: string;
+          risk_reserve_minor: number;
+        }[];
+      };
       search_listings_feed: {
         Args: {
           p_card_number?: string;
@@ -1778,6 +2022,14 @@ export type Database = {
     };
     Enums: {
       payout_status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
+      seller_transfer_status:
+        | "queued"
+        | "processing"
+        | "transferred"
+        | "payout_pending"
+        | "paid"
+        | "failed"
+        | "reversed";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1909,6 +2161,15 @@ export const Constants = {
   public: {
     Enums: {
       payout_status: ["pending", "in_transit", "paid", "failed", "canceled"],
+      seller_transfer_status: [
+        "queued",
+        "processing",
+        "transferred",
+        "payout_pending",
+        "paid",
+        "failed",
+        "reversed",
+      ],
     },
   },
 } as const;

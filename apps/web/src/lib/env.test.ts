@@ -5,7 +5,7 @@ const stripeEnvKeys = [
   "STRIPE_SECRET_KEY",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_CONNECT_DEFAULT_COUNTRY",
+  "STRIPE_CONNECT_WEBHOOK_SECRET",
   "SUPPORT_EMAIL",
   "CHECKOUT_ALLOWED_ORIGINS",
 ] as const;
@@ -21,7 +21,7 @@ describe("Stripe environment", () => {
     process.env.STRIPE_SECRET_KEY = "rk_test_placeholder";
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_placeholder";
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_placeholder";
-    process.env.STRIPE_CONNECT_DEFAULT_COUNTRY = "FR";
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET = "whsec_connect_placeholder";
     process.env.SUPPORT_EMAIL = "support@example.com";
     delete process.env.CHECKOUT_ALLOWED_ORIGINS;
   });
@@ -39,10 +39,10 @@ describe("Stripe environment", () => {
       secretKey: "rk_test_placeholder",
       publishableKey: "pk_test_placeholder",
       webhookSecret: "whsec_placeholder",
-      connectDefaultCountry: "FR",
+      connectWebhookSecret: "whsec_connect_placeholder",
       supportEmail: "support@example.com",
     });
-    expect(STRIPE_API_VERSION).toBe("2026-02-25.clover");
+    expect(STRIPE_API_VERSION).toBe("2026-06-24.dahlia");
   });
 
   it("rejects missing or malformed payment credentials", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { m } from "framer-motion";
 import {
@@ -14,14 +15,30 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import type {
+  StripeConnectEntityType,
+  StripeConnectStatusResponse,
+} from "@pokemarket/shared";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { queryKeys } from "@/lib/query-keys";
 import {
   fetchWalletBalance,
+  fetchPayoutPolicy,
   getOnboardingUrl,
   requestPayout,
 } from "@/lib/api/wallet";
@@ -39,15 +56,16 @@ function useWalletData() {
     queryFn: async () => {
       const res = await fetch("/api/stripe-connect/status");
       if (!res.ok) throw new Error("Erreur KYC");
-      return res.json() as Promise<{
-        kyc_status: KycStatus;
-        charges_enabled: boolean;
-        payouts_enabled: boolean;
-      }>;
+      return res.json() as Promise<StripeConnectStatusResponse>;
     },
   });
 
-  return { balanceQuery, kycQuery };
+  const payoutPolicyQuery = useQuery({
+    queryKey: ["wallet", "payout-policy"],
+    queryFn: fetchPayoutPolicy,
+  });
+
+  return { balanceQuery, kycQuery, payoutPolicyQuery };
 }
 
 const KYC_CONFIG: Record<
@@ -74,12 +92,18 @@ const KYC_CONFIG: Record<
 };
 
 export default function WalletPage() {
-  const { balanceQuery, kycQuery } = useWalletData();
+  const { balanceQuery, kycQuery, payoutPolicyQuery } = useWalletData();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [entityType, setEntityType] =
+    useState<StripeConnectEntityType>("individual");
+  const [country, setCountry] = useState("FR");
 
   const onboardMutation = useMutation({
     mutationFn: getOnboardingUrl,
     onSuccess: (url) => {
+      setOnboardingOpen(false);
       window.location.href = url;
     },
     onError: () => {
@@ -100,16 +124,46 @@ export default function WalletPage() {
     },
   });
 
-  const isLoading = balanceQuery.isLoading || kycQuery.isLoading;
+  const isLoading =
+    balanceQuery.isLoading || kycQuery.isLoading || payoutPolicyQuery.isLoading;
   const wallet = balanceQuery.data;
   const kycData = kycQuery.data;
   const kycStatus = (kycData?.kyc_status ?? "UNVERIFIED") as KycStatus;
   const isVerified = kycStatus === "VERIFIED";
+  const payoutPolicy = payoutPolicyQuery.data;
+  const minimumRequired = payoutPolicy
+    ? (payoutPolicy.minimum_payout_minor + payoutPolicy.risk_reserve_minor) /
+      100
+    : Number.POSITIVE_INFINITY;
+  const estimatedPayout = payoutPolicy
+    ? Math.max(
+        0,
+        (wallet?.available_balance ?? 0) -
+          payoutPolicy.risk_reserve_minor / 100,
+      )
+    : 0;
   const canPayout =
     isVerified &&
     wallet != null &&
-    (wallet.available_balance ?? 0) > 0 &&
+    (wallet.available_balance ?? 0) >= minimumRequired &&
     !payoutMutation.isPending;
+
+  useEffect(() => {
+    if (searchParams.get("stripe_connect") !== "refresh") return;
+    window.history.replaceState(null, "", "/wallet");
+    onboardMutation.mutate({});
+    // This callback intentionally runs once for Stripe's single-use refresh
+    // redirect; mutation state updates must not generate another Account Link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  function handleOnboardingStart() {
+    if (kycData?.has_account) {
+      onboardMutation.mutate({});
+      return;
+    }
+    setOnboardingOpen(true);
+  }
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -186,7 +240,7 @@ export default function WalletPage() {
                 transition={{ delay: 0.15 }}
               >
                 <Button
-                  onClick={() => onboardMutation.mutate()}
+                  onClick={handleOnboardingStart}
                   disabled={onboardMutation.isPending}
                   className="w-full"
                   size="lg"
@@ -229,7 +283,7 @@ export default function WalletPage() {
                   <>
                     <ArrowUpRight className="mr-2 size-4" />
                     {wallet?.available_balance && wallet.available_balance > 0
-                      ? `Virer ${formatPrice(wallet.available_balance)}`
+                      ? `Virer jusqu'à ${formatPrice(estimatedPayout)}`
                       : "Demander un virement"}
                   </>
                 )}
@@ -244,9 +298,27 @@ export default function WalletPage() {
                   Aucun solde disponible pour le moment
                 </p>
               )}
+              {isVerified && payoutPolicy && (
+                <p className="text-muted-foreground mt-1.5 text-center text-xs">
+                  Minimum {formatPrice(payoutPolicy.minimum_payout_minor / 100)}
+                  {" · "}réserve{" "}
+                  {formatPrice(payoutPolicy.risk_reserve_minor / 100)}
+                  {" · "}disponible {payoutPolicy.payout_delay_days} j après
+                  transfert
+                </p>
+              )}
             </m.div>
 
             <div className="border-border space-y-1 border-t pt-4">
+              {kycData?.has_account && (
+                <Button
+                  variant="ghost"
+                  className="text-muted-foreground w-full justify-start text-sm"
+                  render={<Link href="/wallet/stripe" />}
+                >
+                  Gérer mon compte Stripe →
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 className="text-muted-foreground w-full justify-start text-sm"
@@ -265,6 +337,63 @@ export default function WalletPage() {
           </div>
         )}
       </m.div>
+
+      <Dialog open={onboardingOpen} onOpenChange={setOnboardingOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configurer votre compte vendeur</DialogTitle>
+            <DialogDescription>
+              Stripe adapte la vérification à votre statut et à votre pays.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Type de vendeur</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={entityType === "individual" ? "default" : "outline"}
+                  onClick={() => setEntityType("individual")}
+                >
+                  Particulier
+                </Button>
+                <Button
+                  type="button"
+                  variant={entityType === "company" ? "default" : "outline"}
+                  onClick={() => setEntityType("company")}
+                >
+                  Professionnel
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="connect-country">Pays (code ISO)</Label>
+              <Input
+                id="connect-country"
+                value={country}
+                onChange={(event) =>
+                  setCountry(event.target.value.toUpperCase().slice(0, 2))
+                }
+                maxLength={2}
+                autoComplete="country"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() =>
+                onboardMutation.mutate({
+                  entity_type: entityType,
+                  country,
+                })
+              }
+              disabled={country.length !== 2 || onboardMutation.isPending}
+            >
+              Continuer avec Stripe
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

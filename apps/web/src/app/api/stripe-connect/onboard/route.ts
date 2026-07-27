@@ -1,17 +1,32 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+
+import type {
+  OnboardingResponse,
+  StripeConnectOnboardingRequest,
+} from "@pokemarket/shared";
+
+import { getRequestUser } from "@/lib/auth/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { onboardRateLimit, applyRateLimit } from "@/lib/rate-limit";
-import { getAppUrl } from "@/lib/env";
+import { getAllowedCheckoutOrigin } from "@/lib/env";
+import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 
-export async function GET() {
+const onboardingSchema = z.object({
+  client: z.enum(["web", "mobile"]).default("web"),
+  country: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z]{2}$/)
+    .optional(),
+  entity_type: z.enum(["individual", "company"]).optional(),
+});
+
+export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { user } = await getRequestUser(request);
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -24,7 +39,7 @@ export async function GET() {
 
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("stripe_account_id, kyc_status")
+      .select("stripe_account_id, kyc_status, username, country_code")
       .eq("id", user.id)
       .single();
 
@@ -36,62 +51,85 @@ export async function GET() {
     }
 
     const stripe = getStripe();
-    const appUrl = getAppUrl();
+    const requestOrigin = getAllowedCheckoutOrigin(
+      request.headers.get("origin"),
+    );
+    if (!requestOrigin) {
+      return NextResponse.json(
+        { error: "Origin non autorisée" },
+        { status: 403 },
+      );
+    }
+
+    const rawBody = await request.json().catch(() => ({}));
+    const parsed = onboardingSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Paramètres d’onboarding invalides" },
+        { status: 400 },
+      );
+    }
+
+    const input = parsed.data satisfies StripeConnectOnboardingRequest;
     let stripeAccountId = profile.stripe_account_id;
 
     if (!stripeAccountId) {
-      // Controller properties replace the deprecated type:"express" enum.
-      // "stripe" requirement_collection = Stripe hosts the onboarding UI.
-      // "application" fees payer = platform is responsible for Stripe fees.
-      //
-      // Country defaults to "FR" but can be overridden per deployment via
-      // STRIPE_CONNECT_DEFAULT_COUNTRY (ISO 3166-1 alpha-2). For a multi-
-      // country marketplace, replace this with a value pulled from the user
-      // profile collected during signup.
-      const country =
-        process.env.STRIPE_CONNECT_DEFAULT_COUNTRY?.toUpperCase() ?? "FR";
+      if (!input.country || !input.entity_type) {
+        return NextResponse.json(
+          {
+            error:
+              "Le pays et le type de vendeur sont requis avant de créer le compte Stripe.",
+            code: "ONBOARDING_DETAILS_REQUIRED",
+          },
+          { status: 422 },
+        );
+      }
 
-      // We hard-code business_type: "individual" because 95 % of PokeMarket
-      // sellers are private collectors (vente occasionnelle de cartes
-      // personnelles). Pre-declaring this skips the "Type d'entreprise" page
-      // in Stripe's hosted onboarding, which used to scare casual sellers
-      // into thinking they had to register as auto-entrepreneur.
-      //
-      // When we add a "compte vendeur professionnel" toggle in the profile
-      // settings, this will be replaced by `profile.seller_type === "pro"
-      // ? "company" : "individual"`. Tracked separately.
-      //
-      // We also drop card_payments capability — PokeMarket uses the
-      // separate-charges-and-transfers escrow pattern, so charges are
-      // created on the platform account, never on the connected account.
-      // Keeping only `transfers` reduces KYC requirements for sellers.
-      //
-      // business_profile: MCC 5945 = Hobby/Toy/Game Shops (the same code
-      // used by Vinted, eBay collectibles, and other card marketplaces).
-      // Without an MCC, some payments get flagged for review or refused
-      // outright by issuing banks.
-      const account = await stripe.accounts.create({
-        controller: {
-          stripe_dashboard: { type: "express" },
-          fees: { payer: "application" },
-          losses: { payments: "application" },
-          requirement_collection: "stripe",
+      const country = input.country.toUpperCase();
+      const account = await stripe.v2.core.accounts.create(
+        {
+          contact_email: user.email,
+          display_name: profile.username,
+          dashboard: "express",
+          defaults: {
+            currency: "eur",
+            locales: ["fr-FR"],
+            profile: {
+              business_url: `${requestOrigin}/profile/${user.id}`,
+              doing_business_as: profile.username,
+              product_description:
+                "Vente de cartes Pokémon entre collectionneurs sur PokeMarket",
+            },
+            responsibilities: {
+              fees_collector: "application",
+              losses_collector: "application",
+            },
+          },
+          identity: {
+            country,
+            entity_type: input.entity_type,
+          },
+          configuration: {
+            recipient: {
+              capabilities: {
+                stripe_balance: {
+                  stripe_transfers: { requested: true },
+                },
+              },
+            },
+          },
+          include: [
+            "configuration.recipient",
+            "defaults",
+            "identity",
+            "requirements",
+          ],
+          metadata: { user_id: user.id },
         },
-        capabilities: {
-          transfers: { requested: true },
+        {
+          idempotencyKey: stripeIdempotencyKeys.connectAccount(user.id),
         },
-        country,
-        email: user.email,
-        business_type: "individual",
-        business_profile: {
-          mcc: "5945",
-          product_description:
-            "Vente de cartes Pokemon entre collectionneurs (marketplace C2C)",
-          url: `${appUrl}/profile/${user.id}`,
-          support_email: process.env.SUPPORT_EMAIL ?? "support@pokemarket.fr",
-        },
-        metadata: { user_id: user.id },
-      });
+      );
 
       stripeAccountId = account.id;
 
@@ -100,6 +138,7 @@ export async function GET() {
         .update({
           stripe_account_id: stripeAccountId,
           kyc_status: "PENDING",
+          country_code: country,
         })
         .eq("id", user.id);
 
@@ -112,14 +151,36 @@ export async function GET() {
       }
     }
 
-    const accountLink = await stripe.accountLinks.create({
+    const mobileReturnUrl = `${requestOrigin}/api/stripe-connect/mobile-redirect?target=return`;
+    const mobileRefreshUrl = `${requestOrigin}/api/stripe-connect/mobile-redirect?target=refresh`;
+    const accountLink = await stripe.v2.core.accountLinks.create({
       account: stripeAccountId,
-      type: "account_onboarding",
-      return_url: `${appUrl}/wallet/return`,
-      refresh_url: `${appUrl}/wallet`,
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          configurations: ["recipient"],
+          collection_options: {
+            fields: "eventually_due",
+            future_requirements: "include",
+          },
+          return_url:
+            input.client === "mobile"
+              ? mobileReturnUrl
+              : `${requestOrigin}/wallet/return`,
+          refresh_url:
+            input.client === "mobile"
+              ? mobileRefreshUrl
+              : `${requestOrigin}/wallet?stripe_connect=refresh`,
+        },
+      },
     });
 
-    return NextResponse.json({ url: accountLink.url });
+    const response: OnboardingResponse = {
+      provider: "stripe",
+      account_id: stripeAccountId,
+      url: accountLink.url,
+    };
+    return NextResponse.json(response);
   } catch (err) {
     Sentry.captureException(err);
     console.error("Stripe Connect onboard error:", err);

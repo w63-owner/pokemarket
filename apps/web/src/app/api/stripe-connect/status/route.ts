@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import type { StripeConnectStatusResponse } from "@pokemarket/shared";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
-import { getStripe } from "@/lib/stripe/server";
+import { deriveRecipientKycStatus } from "@/lib/stripe/connect-readiness";
 import {
-  deriveRecipientKycStatus,
-  isStripeRecipientReady,
-} from "@/lib/stripe/connect-readiness";
+  getStripePayoutCapability,
+  getStripeRecipientCapability,
+  retrieveStripeRecipientAccount,
+} from "@/lib/stripe/connect-account";
 import type { KycStatus } from "@/lib/constants";
 
 export async function GET(request: Request) {
@@ -33,19 +36,23 @@ export async function GET(request: Request) {
     }
 
     if (!profile.stripe_account_id) {
-      return NextResponse.json({
+      const response: StripeConnectStatusResponse = {
         kyc_status: "UNVERIFIED" as KycStatus,
-        charges_enabled: false,
-        payouts_enabled: false,
-        transfers_enabled: false,
-      });
+        has_account: false,
+        transfers_status: null,
+        payouts_status: null,
+      };
+      return NextResponse.json(response);
     }
 
-    const stripe = getStripe();
-    const account = await stripe.accounts.retrieve(profile.stripe_account_id);
+    const account = await retrieveStripeRecipientAccount(
+      profile.stripe_account_id,
+    );
 
     const kycStatus: KycStatus = deriveRecipientKycStatus(account);
-    const transfersEnabled = isStripeRecipientReady(account);
+    const transfersStatus =
+      getStripeRecipientCapability(account)?.status ?? null;
+    const payoutsStatus = getStripePayoutCapability(account)?.status ?? null;
 
     if (profile.kyc_status !== kycStatus) {
       await admin
@@ -54,14 +61,13 @@ export async function GET(request: Request) {
         .eq("id", user.id);
     }
 
-    return NextResponse.json({
+    const response: StripeConnectStatusResponse = {
       kyc_status: kycStatus,
-      // Retained for backwards-compatible clients during the Accounts v2
-      // migration. Business readiness is `transfers_enabled`, not these flags.
-      charges_enabled: account.charges_enabled,
-      payouts_enabled: account.payouts_enabled,
-      transfers_enabled: transfersEnabled,
-    });
+      has_account: true,
+      transfers_status: transfersStatus,
+      payouts_status: payoutsStatus,
+    };
+    return NextResponse.json(response);
   } catch (err) {
     Sentry.captureException(err);
     console.error("Stripe Connect status error:", err);

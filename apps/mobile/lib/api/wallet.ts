@@ -1,20 +1,26 @@
-import type { KycStatus, Payout, Wallet } from "@pokemarket/shared";
+import type {
+  OnboardingResponse,
+  Payout,
+  PayoutPolicy,
+  StripeConnectOnboardingRequest,
+  StripeConnectStatusResponse,
+  Wallet,
+} from "@pokemarket/shared";
 
 import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 import { api } from "./client";
 
-export type StripeConnectStatus = {
-  kyc_status: KycStatus;
-  charges_enabled: boolean;
-  payouts_enabled: boolean;
-};
+export type StripeConnectStatus = StripeConnectStatusResponse;
 
 export type PayoutResult = {
   success: true;
+  payout_id: string;
   payout_amount: number;
-  stripe_transfer_id: string;
-  stripe_payout_id: string | null;
+  stripe_payout_id: string;
+  status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
+  risk_reserve: number;
+  payout_delay_days: number;
 };
 
 /**
@@ -34,6 +40,17 @@ export async function fetchWalletBalance(): Promise<Wallet | null> {
   return (data as Wallet | null) ?? null;
 }
 
+export async function fetchPayoutPolicy(): Promise<PayoutPolicy> {
+  const { data, error } = await supabase
+    .from("financial_payout_config")
+    .select(
+      "minimum_payout_minor, risk_reserve_minor, payout_delay_days, schedule_interval",
+    )
+    .single();
+  if (error) throw error;
+  return data as PayoutPolicy;
+}
+
 /**
  * Returns the current Stripe Connect KYC + capabilities snapshot. The
  * backend re-syncs the cached `kyc_status` on the profile each call, so
@@ -48,16 +65,25 @@ export async function fetchStripeConnectStatus(): Promise<StripeConnectStatus> {
  * Stripe to use deep-link return / refresh URLs (`pokemarket://wallet/return`,
  * `pokemarket://wallet`) instead of bouncing through web pages.
  */
-export async function getOnboardingUrl(): Promise<string> {
-  const res = await api.get<{ url: string }>(
-    "/api/stripe-connect/onboard?client=mobile",
+export async function getOnboardingUrl(
+  input: Omit<StripeConnectOnboardingRequest, "client"> = {},
+): Promise<string> {
+  const res = await api.post<OnboardingResponse>(
+    "/api/stripe-connect/onboard",
+    { ...input, client: "mobile" },
   );
+  if (!res.url) throw new Error("Lien Stripe Connect manquant");
+  return res.url;
+}
+
+export async function getStripeDashboardUrl(): Promise<string> {
+  const res = await api.post<{ url: string }>("/api/stripe-connect/dashboard");
   return res.url;
 }
 
 /**
- * Triggers a Stripe payout for the seller's full available balance.
- * Idempotent within a 24h window per (user, amount, day).
+ * Requests a bank payout from funds already transferred order-by-order to the
+ * connected account. The backend durably reserves eligible funds first.
  */
 export async function requestPayout(): Promise<PayoutResult> {
   return api.post<PayoutResult>("/api/stripe-connect/payout");

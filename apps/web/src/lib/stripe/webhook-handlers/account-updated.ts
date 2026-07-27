@@ -6,8 +6,8 @@ import { sendPushNotification } from "@/lib/push/send";
 import { deriveRecipientKycStatus } from "@/lib/stripe/connect-readiness";
 
 /**
- * `account.updated` — fired whenever a connected account's KYC state, payouts
- * capability, or requirements list changes.
+ * Accounts v2 requirement/capability events call this handler after fetching
+ * the related Account with its recipient configuration included.
  *
  * What we do:
  *   1. Derive readiness from the recipient transfer capability and
@@ -23,13 +23,13 @@ import { deriveRecipientKycStatus } from "@/lib/stripe/connect-readiness";
  *   transition.
  */
 export async function handleAccountUpdated(
-  account: Stripe.Account,
+  account: Stripe.V2.Core.Account,
 ): Promise<void> {
   const admin = createAdminClient();
 
   const kycStatus = deriveRecipientKycStatus(account);
 
-  const { data: profile, error: profileError } = await admin
+  const { data: linkedProfile, error: profileError } = await admin
     .from("profiles")
     .select("id, kyc_status")
     .eq("stripe_account_id", account.id)
@@ -38,18 +38,43 @@ export async function handleAccountUpdated(
   if (profileError) {
     Sentry.captureException(profileError, {
       extra: {
-        context: "account.updated_profile_lookup",
+        context: "account_v2_updated_profile_lookup",
         account_id: account.id,
       },
     });
     return;
   }
 
+  let profile = linkedProfile;
+  if (!profile && account.metadata?.user_id) {
+    // Recover the narrow failure window where Stripe created the account but
+    // the following profile UPDATE failed. The deterministic idempotency key
+    // covers immediate retries; the signed account.created event repairs the
+    // durable link even after Stripe's idempotency window has elapsed.
+    const { data: recoveredProfile, error: recoveryError } = await admin
+      .from("profiles")
+      .select("id, kyc_status, stripe_account_id")
+      .eq("id", account.metadata.user_id)
+      .maybeSingle();
+
+    if (recoveryError) throw recoveryError;
+    if (recoveredProfile && !recoveredProfile.stripe_account_id) {
+      const { error: linkError } = await admin
+        .from("profiles")
+        .update({
+          stripe_account_id: account.id,
+          kyc_status: kycStatus,
+        })
+        .eq("id", recoveredProfile.id)
+        .is("stripe_account_id", null);
+      if (linkError) throw linkError;
+      profile = { id: recoveredProfile.id, kyc_status: kycStatus };
+    }
+  }
+
   if (!profile) {
-    // Could be a Connect account orphaned from a deleted profile, or one we
-    // never created (unexpected). Log and move on — no row to update.
     Sentry.captureMessage(
-      `account.updated webhook received for unknown stripe_account_id ${account.id}`,
+      `Accounts v2 event received for unknown stripe_account_id ${account.id}`,
       { level: "warning" },
     );
     return;
@@ -67,7 +92,7 @@ export async function handleAccountUpdated(
   if (updateError) {
     Sentry.captureException(updateError, {
       extra: {
-        context: "account.updated_kyc_persist",
+        context: "account_v2_updated_kyc_persist",
         account_id: account.id,
         from: profile.kyc_status,
         to: kycStatus,
