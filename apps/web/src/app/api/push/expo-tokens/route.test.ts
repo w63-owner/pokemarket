@@ -83,7 +83,28 @@ describe("POST /api/push/expo-tokens", () => {
         device_id: "PixelPro",
         app_version: "0.1.0",
       }),
-      expect.objectContaining({ onConflict: "user_id,token" }),
+      expect.objectContaining({ onConflict: "token" }),
+    );
+  });
+
+  it("reassigns an existing device token to the authenticated user", async () => {
+    // Same physical Expo token registering under a different account must
+    // upsert on `token` (not user_id+token) so the previous owner's row is
+    // overwritten and they stop receiving this device's pushes.
+    currentUser = { id: "user-2" };
+    const res = await POST(
+      makeReq({
+        token: "ExponentPushToken[shared-device]",
+        platform: "ios",
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(upsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: "user-2",
+        token: "ExponentPushToken[shared-device]",
+      }),
+      expect.objectContaining({ onConflict: "token" }),
     );
   });
 });
