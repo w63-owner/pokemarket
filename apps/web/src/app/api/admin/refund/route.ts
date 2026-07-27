@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe/server";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { adminActionRateLimit, applyRateLimit } from "@/lib/rate-limit";
+import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,9 @@ export const dynamic = "force-dynamic";
  */
 const refundSchema = z.object({
   transaction_id: z.string().uuid(),
+  // Generated once by the admin client and reused verbatim for network
+  // retries. A new intentional refund must use a new request_id.
+  request_id: z.string().uuid(),
   /**
    * Amount in EUR. Omit for a full refund of the remaining unrefunded
    * portion. Must not exceed (total_amount - already refunded).
@@ -43,9 +47,8 @@ const refundSchema = z.object({
  * `stripe.refunds.create` and our DB mutate cannot leave us inconsistent.
  *
  * Idempotency:
- *   We send `Idempotency-Key: refund-{tx}-{ts}` so a network retry from
- *   the admin's browser within 24h lands the same Stripe refund instead
- *   of creating a duplicate.
+ *   We send `Idempotency-Key: refund-{tx}-{request_id}`. The caller persists
+ *   request_id across retries, making the key stable even after a timeout.
  */
 export async function POST(request: Request) {
   try {
@@ -64,7 +67,8 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const { transaction_id, amount, reason, internal_note } = validation.data;
+    const { transaction_id, request_id, amount, reason, internal_note } =
+      validation.data;
 
     const admin = createAdminClient();
 
@@ -129,7 +133,10 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const idempotencyKey = `refund-${transaction.id}-${Date.now()}`;
+    const idempotencyKey = stripeIdempotencyKeys.refund(
+      transaction.id,
+      request_id,
+    );
 
     const refund = await stripe.refunds.create(
       {
@@ -138,6 +145,7 @@ export async function POST(request: Request) {
         reason,
         metadata: {
           transaction_id: transaction.id,
+          request_id,
           admin_id: user.id,
           internal_note: internal_note.slice(0, 500),
         },
@@ -155,6 +163,7 @@ export async function POST(request: Request) {
       payload: {
         stripe_refund_id: refund.id,
         stripe_payment_intent_id: transaction.stripe_payment_intent_id,
+        request_id,
         amount_eur: requestedAmount,
         reason,
         internal_note,

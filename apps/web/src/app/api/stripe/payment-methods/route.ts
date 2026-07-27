@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getAppUrl } from "@/lib/env";
+import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
@@ -86,11 +87,14 @@ export async function POST() {
         .eq("id", user.id)
         .single();
 
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: profileWithName?.username ?? undefined,
-        metadata: { supabase_user_id: user.id },
-      });
+      const customer = await stripe.customers.create(
+        {
+          email: user.email,
+          name: profileWithName?.username ?? undefined,
+          metadata: { supabase_user_id: user.id },
+        },
+        { idempotencyKey: stripeIdempotencyKeys.customer(user.id) },
+      );
       customerId = customer.id;
 
       await supabase

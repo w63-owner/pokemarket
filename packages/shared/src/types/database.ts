@@ -231,6 +231,71 @@ export type Database = {
           },
         ];
       };
+      financial_outbox: {
+        Row: {
+          aggregate_id: string;
+          aggregate_type: string;
+          attempts: number;
+          completed_at: string | null;
+          created_at: string;
+          event_type: string;
+          id: string;
+          idempotency_key: string;
+          last_error: string | null;
+          lease_expires_at: string | null;
+          lease_token: string | null;
+          max_attempts: number;
+          next_attempt_at: string;
+          payload: Json;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          aggregate_id: string;
+          aggregate_type?: string;
+          attempts?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          idempotency_key: string;
+          last_error?: string | null;
+          lease_expires_at?: string | null;
+          lease_token?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string;
+          payload?: Json;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          aggregate_id?: string;
+          aggregate_type?: string;
+          attempts?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          idempotency_key?: string;
+          last_error?: string | null;
+          lease_expires_at?: string | null;
+          lease_token?: string | null;
+          max_attempts?: number;
+          next_attempt_at?: string;
+          payload?: Json;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "financial_outbox_aggregate_id_fkey";
+            columns: ["aggregate_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       favorite_listings: {
         Row: {
           created_at: string | null;
@@ -293,6 +358,131 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ledger_accounts: {
+        Row: {
+          account_type: string;
+          created_at: string;
+          currency: string;
+          id: string;
+          owner_user_id: string | null;
+          transaction_id: string | null;
+        };
+        Insert: {
+          account_type: string;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          owner_user_id?: string | null;
+          transaction_id?: string | null;
+        };
+        Update: {
+          account_type?: string;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          owner_user_id?: string | null;
+          transaction_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ledger_accounts_owner_user_id_fkey";
+            columns: ["owner_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ledger_accounts_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ledger_entries: {
+        Row: {
+          account_id: string;
+          amount_minor: number;
+          created_at: string;
+          id: string;
+          ledger_transaction_id: string;
+        };
+        Insert: {
+          account_id: string;
+          amount_minor: number;
+          created_at?: string;
+          id?: string;
+          ledger_transaction_id: string;
+        };
+        Update: {
+          account_id?: string;
+          amount_minor?: number;
+          created_at?: string;
+          id?: string;
+          ledger_transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "ledger_accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ledger_entries_ledger_transaction_id_fkey";
+            columns: ["ledger_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "ledger_transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ledger_transactions: {
+        Row: {
+          business_reference: string;
+          created_at: string;
+          id: string;
+          idempotency_key: string;
+          journal_type: string;
+          metadata: Json;
+          stripe_charge_id: string | null;
+          stripe_payment_intent_id: string | null;
+          transaction_id: string | null;
+        };
+        Insert: {
+          business_reference: string;
+          created_at?: string;
+          id?: string;
+          idempotency_key: string;
+          journal_type: string;
+          metadata?: Json;
+          stripe_charge_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          transaction_id?: string | null;
+        };
+        Update: {
+          business_reference?: string;
+          created_at?: string;
+          id?: string;
+          idempotency_key?: string;
+          journal_type?: string;
+          metadata?: Json;
+          stripe_charge_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          transaction_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ledger_transactions_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
             referencedColumns: ["id"];
           },
         ];
@@ -486,7 +676,10 @@ export type Database = {
           channel: string;
           created_at: string;
           id: string;
+          idempotency_key: string | null;
           last_error: string | null;
+          lease_expires_at: string | null;
+          lease_token: string | null;
           max_attempts: number;
           next_attempt_at: string;
           payload: Json;
@@ -500,7 +693,10 @@ export type Database = {
           channel: string;
           created_at?: string;
           id?: string;
+          idempotency_key?: string | null;
           last_error?: string | null;
+          lease_expires_at?: string | null;
+          lease_token?: string | null;
           max_attempts?: number;
           next_attempt_at?: string;
           payload?: Json;
@@ -514,7 +710,10 @@ export type Database = {
           channel?: string;
           created_at?: string;
           id?: string;
+          idempotency_key?: string | null;
           last_error?: string | null;
+          lease_expires_at?: string | null;
+          lease_token?: string | null;
           max_attempts?: number;
           next_attempt_at?: string;
           payload?: Json;
@@ -1202,6 +1401,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      stripe_object_bindings: {
+        Row: {
+          created_at: string;
+          id: string;
+          ledger_transaction_id: string;
+          stripe_object_id: string;
+          stripe_object_type: string;
+          transaction_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          ledger_transaction_id: string;
+          stripe_object_id: string;
+          stripe_object_type: string;
+          transaction_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          ledger_transaction_id?: string;
+          stripe_object_id?: string;
+          stripe_object_type?: string;
+          transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stripe_object_bindings_ledger_transaction_id_fkey";
+            columns: ["ledger_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "ledger_transactions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stripe_object_bindings_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       transactions: {
         Row: {
           buyer_id: string;
@@ -1339,6 +1580,59 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_notifications_outbox: {
+        Args: { p_lease_seconds?: number; p_limit?: number };
+        Returns: {
+          attempts: number;
+          channel: string;
+          created_at: string;
+          id: string;
+          idempotency_key: string | null;
+          last_error: string | null;
+          lease_expires_at: string | null;
+          lease_token: string | null;
+          max_attempts: number;
+          next_attempt_at: string;
+          payload: Json;
+          recipient_user_id: string;
+          sent_at: string | null;
+          status: string;
+          updated_at: string;
+        }[];
+      };
+      claim_financial_outbox: {
+        Args: {
+          p_event_types: string[];
+          p_lease_seconds?: number;
+          p_limit?: number;
+        };
+        Returns: {
+          aggregate_id: string;
+          aggregate_type: string;
+          attempts: number;
+          completed_at: string | null;
+          created_at: string;
+          event_type: string;
+          id: string;
+          idempotency_key: string;
+          last_error: string | null;
+          lease_expires_at: string | null;
+          lease_token: string | null;
+          max_attempts: number;
+          next_attempt_at: string;
+          payload: Json;
+          status: string;
+          updated_at: string;
+        }[];
+      };
+      complete_financial_outbox: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      complete_notifications_outbox: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
       count_new_for_saved_searches: {
         Args: never;
         Returns: {
@@ -1354,6 +1648,22 @@ export type Database = {
           p_transaction_id: string;
         };
         Returns: undefined;
+      };
+      fail_financial_outbox: {
+        Args: { p_error: string; p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      fail_notifications_outbox: {
+        Args: { p_error: string; p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      finalize_paid_transaction: {
+        Args: {
+          p_stripe_charge_id?: string;
+          p_stripe_payment_intent_id?: string;
+          p_transaction_id: string;
+        };
+        Returns: string;
       };
       get_inbox: {
         Args: { p_user_id: string };
@@ -1405,6 +1715,10 @@ export type Database = {
       release_escrow_funds: {
         Args: { p_buyer_id: string; p_transaction_id: string };
         Returns: boolean;
+      };
+      rebuild_wallet_projections: {
+        Args: { p_user_id?: string };
+        Returns: number;
       };
       search_listings_feed: {
         Args: {

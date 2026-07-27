@@ -9,14 +9,31 @@ let currentUser: { id: string; email?: string } | null = {
 
 let mockClient: any;
 
-const stripeCreate = vi.fn(async (params: any) => ({
+const stripeCreate = vi.fn(async (params: any, _options?: any) => ({
   id: `cs_test_${Date.now()}_${Math.random().toString(36).slice(2)}`,
   url: "https://checkout.stripe.com/...",
+  status: "open",
+  payment_status: "unpaid",
   metadata: params.metadata,
 }));
-const stripeRetrieve = vi.fn(async () => ({ payment_status: "unpaid" }));
-const piRetrieve = vi.fn(async () => ({ status: "requires_confirmation" }));
-const piCreate = vi.fn(async (params: any) => ({
+const stripeRetrieve = vi.fn(async () => ({
+  id: "cs_existing",
+  url: "https://checkout.stripe.com/existing",
+  status: "open",
+  payment_status: "unpaid",
+}));
+const stripeExpire = vi.fn(async () => ({
+  id: "cs_existing",
+  status: "expired",
+}));
+const piRetrieve = vi.fn(async () => ({
+  id: "pi_existing",
+  status: "requires_confirmation",
+  client_secret: "pi_existing_secret",
+  customer: "cus_existing",
+}));
+const piCancel = vi.fn(async () => ({ id: "pi_existing", status: "canceled" }));
+const piCreate = vi.fn(async (params: any, _options?: any) => ({
   id: `pi_test_${Date.now()}_${Math.random().toString(36).slice(2)}`,
   client_secret: `pi_test_secret_${Math.random().toString(36).slice(2)}`,
   metadata: params.metadata,
@@ -34,9 +51,17 @@ const ephemeralKeyCreate = vi.fn(async () => ({
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
     checkout: {
-      sessions: { create: stripeCreate, retrieve: stripeRetrieve },
+      sessions: {
+        create: stripeCreate,
+        retrieve: stripeRetrieve,
+        expire: stripeExpire,
+      },
     },
-    paymentIntents: { create: piCreate, retrieve: piRetrieve },
+    paymentIntents: {
+      create: piCreate,
+      retrieve: piRetrieve,
+      cancel: piCancel,
+    },
     customers: { create: customerCreate },
     ephemeralKeys: { create: ephemeralKeyCreate },
   }),
@@ -63,20 +88,28 @@ beforeEach(() => {
   currentUser = { id: "buyer-1", email: "buyer@example.com" };
   stripeCreate.mockClear();
   stripeRetrieve.mockClear();
+  stripeExpire.mockClear();
   piCreate.mockClear();
   piRetrieve.mockClear();
+  piCancel.mockClear();
   customerCreate.mockClear();
   ephemeralKeyCreate.mockClear();
 });
 
-function makeReq(body: any, options: { client?: "mobile" | "web" } = {}) {
+function makeReq(
+  body: any,
+  options: { client?: "mobile" | "web"; origin?: string } = {},
+) {
   const url =
     options.client === "mobile"
       ? "http://localhost/api/checkout?client=mobile"
       : "http://localhost/api/checkout";
   return new Request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(options.origin ? { origin: options.origin } : {}),
+    },
     body: JSON.stringify(body),
   });
 }
@@ -122,6 +155,17 @@ describe("checkout — auth + validation", () => {
     const res = await POST(makeReq({ listing_id: "L1" })); // missing fields
     expect(res.status).toBe(400);
   });
+
+  it("rejects an Origin outside the checkout allowlist before locking", async () => {
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+    const res = await POST(
+      makeReq(validBody, { origin: "https://checkout.evil.example" }),
+    );
+    expect(res.status).toBe(403);
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("checkout — listing-status guards", () => {
@@ -136,6 +180,12 @@ describe("checkout — listing-status guards", () => {
     expect(db.state.listings[0].status).toBe("LOCKED");
     expect(db.state.transactions).toHaveLength(1);
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(stripeCreate.mock.calls[0][0]).not.toHaveProperty(
+      "payment_method_types",
+    );
+    expect(stripeCreate.mock.calls[0][1].idempotencyKey).toBe(
+      `checkout-session-${json.transaction_id}`,
+    );
   });
 
   it("blocks buying your own listing", async () => {
@@ -194,6 +244,83 @@ describe("checkout — listing-status guards", () => {
     mockClient = createMockDb(sc).client;
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(400);
+  });
+
+  it("reuses an open Checkout Session instead of creating another payable object", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-existing",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    mockClient = createMockDb(sc).client;
+
+    const res = await POST(makeReq(validBody));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      url: "https://checkout.stripe.com/existing",
+      transaction_id: "tx-existing",
+    });
+    expect(stripeCreate).not.toHaveBeenCalled();
+    expect(stripeExpire).not.toHaveBeenCalled();
+  });
+
+  it("keeps a completed unpaid asynchronous session pending", async () => {
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_async_pending",
+      status: "complete",
+      payment_status: "unpaid",
+      url: null,
+    } as any);
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-async-pending",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_async_pending",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(409);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(stripeCreate).not.toHaveBeenCalled();
+    expect(stripeExpire).not.toHaveBeenCalled();
+  });
+
+  it("expires an open web session before replacing it with a mobile intent", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-web",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(res.status).toBe(200);
+    expect(stripeExpire).toHaveBeenCalledWith("cs_existing");
+    expect(db.state.transactions.find((tx) => tx.id === "tx-web")?.status).toBe(
+      "EXPIRED",
+    );
+    expect(piCreate).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -312,17 +439,22 @@ describe("checkout — mobile (?client=mobile)", () => {
     expect(db.state.profiles[0].stripe_customer_id).toMatch(/^cus_test_/);
   });
 
-  it("rolls back LOCKED + transaction when PaymentIntent creation fails", async () => {
+  it("keeps and reuses the active transaction after an uncertain PaymentIntent failure", async () => {
     piCreate.mockRejectedValueOnce(new Error("[chaos] PI down"));
     const db = createMockDb(activeListingScenario());
     mockClient = db.client;
 
-    const res = await POST(makeReq(validBody, { client: "mobile" }));
-    expect(res.status).toBe(500);
+    const first = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(first.status).toBe(500);
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
 
-    // Mobile path explicitly rolls back so the buyer can retry without
-    // being told the listing is "verrouillée".
-    expect(db.state.listings[0].status).toBe("ACTIVE");
-    expect(db.state.transactions[0].status).toBe("EXPIRED");
+    const second = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(second.status).toBe(200);
+    expect(db.state.transactions).toHaveLength(1);
+    expect(piCreate).toHaveBeenCalledTimes(2);
+    expect(piCreate.mock.calls[0][1].idempotencyKey).toBe(
+      piCreate.mock.calls[1][1].idempotencyKey,
+    );
   });
 });

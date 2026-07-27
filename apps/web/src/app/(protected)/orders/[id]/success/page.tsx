@@ -60,9 +60,8 @@ export default async function OrderSuccessPage({
     }
   }
 
-  // The conversation is created (or reused) by `finalizePaidTransaction`, so
-  // by the time we render a PAID order the thread exists. We look it up to
-  // offer a direct "go to the conversation" CTA — the next step for the buyer.
+  // The durable post-payment worker creates or reuses the conversation. It may
+  // still be pending during the first render, so the CTA is optional.
   let conversationId: string | null = null;
   if (transaction.listing_id) {
     const { data: conversation } = await supabase

@@ -12,7 +12,3 @@ export * from "./lib/country";
 export * from "./lib/reputation";
 export * from "./lib/feed-filters";
 export * from "./content/legal";
-
-// Mangopay types live on a subpath (@pokemarket/shared/mangopay) to avoid
-// naming collisions with database row types like Wallet, Dispute.
-export * as Mangopay from "./lib/mangopay";

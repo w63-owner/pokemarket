@@ -7,13 +7,13 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
-PokeMarket est une marketplace C2C (Customer to Customer) ultra-moderne dédiée à l'achat et la revente de cartes Pokémon (TCG). Conçue comme une Progressive Web App (PWA) "mobile-first", elle intègre des fonctionnalités avancées comme la reconnaissance de cartes par intelligence artificielle, un système de paiement sous séquestre, et une messagerie en temps réel.
+PokeMarket est une marketplace C2C (Customer to Customer) ultra-moderne dédiée à l'achat et la revente de cartes Pokémon (TCG). Conçue comme une Progressive Web App (PWA) "mobile-first", elle intègre des fonctionnalités avancées comme la reconnaissance de cartes par intelligence artificielle, un paiement Stripe à transfert différé, et une messagerie en temps réel.
 
 ## ✨ Fonctionnalités Principales
 
 - **🤖 Vente assistée par IA (OCR) :** Prenez votre carte en photo, l'IA d'OpenAI (Vision) reconnaît la carte, ses points de vie, son édition, et trouve le match parfait dans le catalogue officiel (TCGdex).
 - **💬 Messagerie Temps Réel :** Négociez directement avec les vendeurs grâce à un chat instantané (Supabase Realtime) intégrant des "Rich Bubbles" pour les offres et le suivi de colis.
-- **💳 Paiement Sécurisé & Escrow :** Intégration de Stripe Connect. L'argent de l'acheteur est bloqué sous séquestre jusqu'à la confirmation de réception du colis.
+- **💳 Paiement sécurisé :** Intégration Stripe Connect. Le montant vendeur reste indisponible jusqu'à la confirmation de réception du colis.
 - **⚡ Optimistic UI :** Les interactions (comme l'ajout aux favoris ou l'envoi de messages) paraissent instantanées grâce à la mise à jour optimiste du cache avec TanStack Query.
 - **📱 Progressive Web App (PWA) :** Installable sur iOS et Android, avec gestion du mode hors-ligne et des performances optimisées (Core Web Vitals).
 - **🔍 Recherche Avancée :** Filtrage ultra-rapide avec synchronisation URL, permettant le partage de recherches complexes (état, prix, édition, cartes gradées).

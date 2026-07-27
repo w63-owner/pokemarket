@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// Coerce empty strings to undefined so that `.optional()` fields don't
-// trip on `EXPO_PUBLIC_FOO=` lines in `.env` (zod treats "" as defined).
+// Coerce empty strings to undefined so optional fields don't trip on blank
+// `EXPO_PUBLIC_FOO=` lines in `.env` (Zod treats "" as defined).
 const emptyToUndefined = (v: unknown) =>
   typeof v === "string" && v.trim() === "" ? undefined : v;
 
@@ -9,7 +9,9 @@ const envSchema = z.object({
   API_URL: z.string().url(),
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(20),
-  STRIPE_PUBLISHABLE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  STRIPE_PUBLISHABLE_KEY: z
+    .string()
+    .regex(/^pk_(?:test|live)_[A-Za-z0-9]+$/, "Invalid Stripe publishable key"),
   SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
 });
 

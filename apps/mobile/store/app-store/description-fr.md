@@ -7,7 +7,7 @@ POURQUOI POKEMARKET ?
 • Vendez vos cartes en moins de 30 secondes grâce au scan IA. Pointez votre appareil photo, l'OCR détecte automatiquement le nom, le set et le numéro de votre carte.
 • Paiement instantané avec Apple Pay et Face ID. Pas de carte à saisir, pas de mot de passe à retenir.
 • Frais réduits : 4 % seulement par vente, contre 5 à 10 % sur les marketplaces généralistes.
-• Paiement sous séquestre. Le vendeur n'est crédité que lorsque l'acheteur confirme la réception.
+• Paiement à transfert différé. Le vendeur n'est crédité que lorsque l'acheteur confirme la réception.
 • Authentification automatique des cartes gradées (PSA, BGS, CGC, ARS) avec affichage du numéro de certificat.
 
 POUR LES ACHETEURS

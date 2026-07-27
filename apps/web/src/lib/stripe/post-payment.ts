@@ -1,36 +1,9 @@
-import * as Sentry from "@sentry/nextjs";
-
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calcPriceSeller } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 import { enqueueNotification } from "@/lib/notifications/outbox";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-/**
- * Side-effects that must run exactly once after a checkout session is paid:
- *   - Mark transaction as PAID (atomic transition guard)
- *   - Mark listing as SOLD
- *   - Credit seller wallet pending_balance
- *   - Expire all other PENDING offers on this listing
- *   - Insert "payment_completed" system message in the conversation
- *   - Enqueue buyer + seller emails and the seller push into the durable
- *     notifications outbox (drained + retried by a cron — see outbox.ts)
- *
- * Called from BOTH the Stripe webhook AND the success page reconcile path so
- * the user receives their confirmation regardless of which path lands first.
- *
- * Concurrency model: the side-effects (wallet credit, message insert) are
- * only run by the caller that successfully transitions PENDING_PAYMENT → PAID.
- * Any concurrent caller will see the row already PAID and short-circuit with
- * ALREADY_PROCESSED, guaranteeing exactly-once execution under contention.
- *
- * Known limitation: if the winner crashes between the PAID transition and the
- * end of side-effects, partial state can result. Stripe webhook idempotency
- * (`stripe_webhooks_processed`) prevents auto-retry by us; recovery is
- * possible via the success page reconcile path or a future ledger-based
- * recovery cron. Tracked as a follow-up — see audit report.
- */
 /**
  * Optional Stripe identifiers captured from the Checkout Session. Passing
  * them lets us index transactions by Payment Intent / Charge so that
@@ -47,151 +20,89 @@ export async function finalizePaidTransaction(
   stripeIds?: StripeFinalizeIds,
 ): Promise<"PAID" | "ALREADY_PROCESSED" | "NOT_FOUND"> {
   const admin = createAdminClient();
+  const { data, error } = await admin.rpc("finalize_paid_transaction", {
+    p_transaction_id: transactionId,
+    p_stripe_payment_intent_id: stripeIds?.paymentIntentId ?? undefined,
+    p_stripe_charge_id: stripeIds?.chargeId ?? undefined,
+  });
 
-  const { data: transaction, error: txFetchError } = await admin
+  if (error) throw error;
+  return data as "PAID" | "ALREADY_PROCESSED" | "NOT_FOUND";
+}
+
+/**
+ * Replays all non-financial effects for a paid transaction. Every enqueue has
+ * a deterministic key, so a crash can be retried by the financial outbox
+ * worker without duplicating messages, emails, or push notifications.
+ */
+export async function processPaidTransactionEffects(
+  transactionId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: transaction, error } = await admin
     .from("transactions")
-    .select("*")
+    .select(
+      "id, buyer_id, seller_id, listing_id, total_amount, fee_amount, shipping_cost, status",
+    )
     .eq("id", transactionId)
     .single();
 
-  if (txFetchError || !transaction) return "NOT_FOUND";
-  if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
-
-  // Atomic transition guard — only one caller wins this race. The losing
-  // callers (e.g. webhook + reconcile firing simultaneously) will receive
-  // 0 rows and bail out without re-running any side-effects.
-  //
-  // We co-write the Stripe identifiers in the same UPDATE so a partial
-  // crash leaves us with consistent state: either the row is still
-  // PENDING_PAYMENT (no IDs), or PAID (with IDs available for downstream
-  // refund / dispute webhooks).
-  const txUpdate: {
-    status: "PAID";
-    stripe_payment_intent_id?: string | null;
-    stripe_charge_id?: string | null;
-  } = { status: "PAID" };
-  if (stripeIds?.paymentIntentId) {
-    txUpdate.stripe_payment_intent_id = stripeIds.paymentIntentId;
-  }
-  if (stripeIds?.chargeId) {
-    txUpdate.stripe_charge_id = stripeIds.chargeId;
+  if (error || !transaction) {
+    throw error ?? new Error(`Transaction ${transactionId} not found`);
   }
 
-  const { data: updated, error: txUpdateError } = await admin
-    .from("transactions")
-    .update(txUpdate)
-    .eq("id", transactionId)
-    .eq("status", "PENDING_PAYMENT")
-    .select("id");
-
-  if (txUpdateError) throw txUpdateError;
-  if (!updated || updated.length === 0) return "ALREADY_PROCESSED";
-
-  // ── From here on we are the EXCLUSIVE owner of this transaction's
-  //    side-effects. Every step throws on error so a failure surfaces to
-  //    the caller (webhook returns 500, success page surfaces an error).
-
-  const { error: listingUpdateError } = await admin
-    .from("listings")
-    .update({ status: "SOLD" })
-    .eq("id", transaction.listing_id);
-  if (listingUpdateError) throw listingUpdateError;
-
-  // NOTE: revalidatePath() is intentionally NOT called here. This function is
-  // invoked from BOTH the Stripe webhook (a route handler — safe) and the
-  // /orders/:id/success page (a Server Component render — `revalidatePath`
-  // throws there in Next 16). Each caller is responsible for its own cache
-  // invalidation: the webhook revalidates `/listing/:id` after this returns;
-  // the success page doesn't need to (the listing detail page reloads fresh on
-  // next navigation, and the buyer's own `/orders/:id` is the page being
-  // rendered).
-
-  // Seller receives: net card earnings (after platform fee) + shipping
-  // (shipping is passed through to the seller, not subject to the fee).
-  const shippingCost = transaction.shipping_cost ?? 0;
-  const cardNet = calcPriceSeller(transaction.total_amount - shippingCost);
-  const sellerNet = cardNet + shippingCost;
-
-  const { data: wallet, error: walletReadError } = await admin
-    .from("wallets")
-    .select("pending_balance")
-    .eq("user_id", transaction.seller_id)
-    .single();
-  if (walletReadError && walletReadError.code !== "PGRST116") {
-    throw walletReadError;
+  if (transaction.status === "REFUNDED" || transaction.status === "CANCELLED") {
+    return;
   }
 
-  if (wallet) {
-    const newPending =
-      Math.round((Number(wallet.pending_balance) + sellerNet) * 100) / 100;
-    const { error: walletWriteError } = await admin
-      .from("wallets")
-      .update({ pending_balance: newPending })
-      .eq("user_id", transaction.seller_id);
-    if (walletWriteError) throw walletWriteError;
+  if (!["PAID", "SHIPPED", "COMPLETED"].includes(transaction.status ?? "")) {
+    throw new Error(
+      `Transaction ${transactionId} is not paid (status=${transaction.status})`,
+    );
   }
 
-  const { error: offerExpireError } = await admin
-    .from("offers")
-    .update({ status: "EXPIRED" })
-    .eq("listing_id", transaction.listing_id)
-    .eq("status", "PENDING");
-  if (offerExpireError) throw offerExpireError;
-
-  // Find (or create) the buyer↔seller conversation for this listing so we
-  // always have a thread in which to drop the payment confirmation +
-  // next-steps system message — even when the buyer purchased without ever
-  // messaging the seller first (e.g. a straight "Acheter" with no prior chat).
   const conversation = await findOrCreateConversation(admin, {
     listingId: transaction.listing_id,
     buyerId: transaction.buyer_id,
     sellerId: transaction.seller_id,
   });
 
-  if (conversation) {
-    const { error: msgError } = await admin.from("messages").insert({
-      conversation_id: conversation.id,
-      sender_id: transaction.buyer_id,
+  if (!conversation) {
+    throw new Error(`Unable to create conversation for ${transactionId}`);
+  }
+
+  const messageResult = await enqueueNotification(admin, {
+    channel: "in_app",
+    recipientUserId: transaction.buyer_id,
+    idempotencyKey: `payment-message:${transactionId}`,
+    payload: {
+      conversationId: conversation.id,
+      senderId: transaction.buyer_id,
       content:
         "Paiement confirmé ✅ Votre achat est validé et le vendeur vient d'être notifié. " +
         "Prochaine étape : le vendeur prépare puis expédie la carte. Vous serez prévenu ici dès l'expédition, " +
         "puis vous pourrez confirmer la réception du colis pour finaliser la transaction.",
-      message_type: "payment_completed",
+      messageType: "payment_completed",
       metadata: { transaction_id: transactionId },
-    });
-    if (msgError) throw msgError;
+    },
+  });
+  if (!messageResult.ok) {
+    throw new Error(`Unable to enqueue payment message for ${transactionId}`);
   }
 
-  // Soft channels (push + email) go through the durable outbox. The whole
-  // block is best-effort: the transaction is already PAID and the in-app
-  // system message above is our strong guarantee, so a failure to enqueue
-  // (or to gather render data) must NOT roll back or fail finalization — we
-  // capture it and return PAID anyway.
-  try {
-    await enqueueTransactionNotifications(
-      admin,
-      {
-        buyer_id: transaction.buyer_id,
-        seller_id: transaction.seller_id,
-        total_amount: transaction.total_amount,
-        shipping_cost: transaction.shipping_cost ?? 0,
-        listing_id: transaction.listing_id,
-      },
-      transactionId,
-      conversation?.id ?? null,
-    );
-  } catch (err) {
-    Sentry.captureException(err, {
-      tags: { component: "notifications-outbox" },
-      extra: { context: "finalizePaidTransaction", transactionId },
-    });
-    console.error(
-      "[finalizePaidTransaction] Failed to enqueue notifications:",
-      err,
-    );
-  }
-
-  return "PAID";
+  await enqueueTransactionNotifications(
+    admin,
+    {
+      buyer_id: transaction.buyer_id,
+      seller_id: transaction.seller_id,
+      total_amount: transaction.total_amount,
+      fee_amount: transaction.fee_amount,
+      shipping_cost: transaction.shipping_cost ?? 0,
+      listing_id: transaction.listing_id,
+    },
+    transactionId,
+    conversation.id,
+  );
 }
 
 /**
@@ -228,10 +139,10 @@ async function findOrCreateConversation(
     .single();
 
   if (!createError) return created;
+  if (createError.code !== "23505") throw createError;
 
-  // Conflict (or any transient insert failure): fall back to a fresh read so
-  // we still surface the conversation a concurrent path may have just made.
-  const { data: afterConflict } = await lookup();
+  const { data: afterConflict, error: lookupError } = await lookup();
+  if (lookupError) throw lookupError;
   return afterConflict ?? null;
 }
 
@@ -241,6 +152,7 @@ async function enqueueTransactionNotifications(
     buyer_id: string;
     seller_id: string;
     total_amount: number;
+    fee_amount: number;
     shipping_cost: number;
     listing_id: string;
   },
@@ -277,13 +189,14 @@ async function enqueueTransactionNotifications(
 
   const totalFormatted = formatPrice(transaction.total_amount);
   const sellerNet = formatPrice(
-    calcPriceSeller(transaction.total_amount - transaction.shipping_cost),
+    transaction.total_amount - transaction.fee_amount,
   );
 
   if (buyerEmail) {
-    await enqueueNotification(admin, {
+    const result = await enqueueNotification(admin, {
       channel: "email",
       recipientUserId: transaction.buyer_id,
+      idempotencyKey: `payment-email-buyer:${transactionId}`,
       payload: {
         template: "order-confirmation",
         to: buyerEmail,
@@ -297,12 +210,14 @@ async function enqueueTransactionNotifications(
         },
       },
     });
+    if (!result.ok) throw new Error("Unable to enqueue buyer email");
   }
 
   if (sellerEmail) {
-    await enqueueNotification(admin, {
+    const result = await enqueueNotification(admin, {
       channel: "email",
       recipientUserId: transaction.seller_id,
+      idempotencyKey: `payment-email-seller:${transactionId}`,
       payload: {
         template: "sale-notification",
         to: sellerEmail,
@@ -316,11 +231,13 @@ async function enqueueTransactionNotifications(
         },
       },
     });
+    if (!result.ok) throw new Error("Unable to enqueue seller email");
   }
 
-  await enqueueNotification(admin, {
+  const pushResult = await enqueueNotification(admin, {
     channel: "push",
     recipientUserId: transaction.seller_id,
+    idempotencyKey: `payment-push-seller:${transactionId}`,
     payload: {
       title: "Paiement reçu 💰",
       body: "L'acheteur a payé — expédiez le colis !",
@@ -328,4 +245,5 @@ async function enqueueTransactionNotifications(
       category: "commerce",
     },
   });
+  if (!pushResult.ok) throw new Error("Unable to enqueue seller push");
 }

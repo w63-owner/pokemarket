@@ -7,7 +7,7 @@ WHY POKEMARKET?
 • List a card in under 30 seconds with our AI scan. Point your camera, OCR auto-detects the name, set and number.
 • One-tap checkout with Apple Pay and Face ID. No card numbers to type, no passwords to remember.
 • Low fees: only 4% per sale, vs. 5–10% on generic marketplaces.
-• Secure escrow. Sellers are paid only when buyers confirm receipt.
+• Secure delayed transfer. Sellers are paid only when buyers confirm receipt.
 • Auto-verification of graded cards (PSA, BGS, CGC, ARS) with certificate number display.
 
 FOR BUYERS

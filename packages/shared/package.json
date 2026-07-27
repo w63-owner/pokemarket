@@ -10,8 +10,7 @@
     "./validations": "./src/validations/index.ts",
     "./constants": "./src/constants/index.ts",
     "./query-keys": "./src/query-keys/index.ts",
-    "./api-contracts": "./src/api-contracts/index.ts",
-    "./mangopay": "./src/lib/mangopay/index.ts"
+    "./api-contracts": "./src/api-contracts/index.ts"
   },
   "scripts": {
     "lint": "eslint .",

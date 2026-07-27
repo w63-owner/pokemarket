@@ -26,8 +26,9 @@ interface ConfirmReceptionInput {
  * The RPC atomically:
  *   1. Locks the transaction row (FOR UPDATE)
  *   2. Validates buyer ownership + SHIPPED status
- *   3. Sets status → COMPLETED
- *   4. Moves seller_net from pending_balance → available_balance
+ *   3. Appends a balanced escrow-release journal
+ *   4. Rebuilds the wallet projection and enqueues the transfer job
+ *   5. Sets status → COMPLETED
  *
  * Review insertion and system message are done here (outside the RPC) because
  * they are non-financial and can tolerate a separate statement.
@@ -73,9 +74,9 @@ export async function confirmReceptionAction(
   }
 
   // ── 2. Atomic escrow release via RPC ──────────────────────────────────────
-  // The RPC performs a SELECT FOR UPDATE, status transition, and wallet update
-  // in a single DB transaction. auth.uid() inside the RPC equals user.id here
-  // because the server Supabase client forwards the session cookie.
+  // The RPC performs the lock, balanced ledger movement, wallet projection,
+  // transfer enqueue, and status transition in a single DB transaction.
+  // auth.uid() equals user.id because this client forwards the session cookie.
   const { data: released, error: rpcError } = await supabase.rpc(
     "release_escrow_funds",
     { p_transaction_id: transactionId, p_buyer_id: user.id },

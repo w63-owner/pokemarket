@@ -7,8 +7,8 @@ export type ReconcileResult = "PAID" | "PENDING_PAYMENT" | "ALREADY_PROCESSED";
 /**
  * Verify a Stripe checkout session and complete the payment flow if the
  * webhook hasn't processed it yet. Safe to call multiple times — the shared
- * `finalizePaidTransaction` helper guards the PENDING_PAYMENT → PAID
- * transition with an atomic UPDATE.
+ * `finalizePaidTransaction` helper delegates the complete financial transition
+ * to one idempotent database transaction.
  *
  * Returns the reconciled transaction status.
  */
@@ -27,7 +27,7 @@ export async function reconcileCheckoutSession(
   if (!transaction) return "PENDING_PAYMENT";
   if (transaction.status !== "PENDING_PAYMENT") return "ALREADY_PROCESSED";
 
-  // Confirm the buyer actually paid before triggering side-effects.
+  // Confirm the buyer actually paid before finalizing the ledger.
   // Expand `payment_intent.latest_charge` so we get both IDs in a single
   // round-trip — saves us the second `paymentIntents.retrieve()` call
   // that the webhook path has to make.
@@ -72,9 +72,8 @@ export async function reconcileCheckoutSession(
  * PENDING_PAYMENT even though the charge succeeded.
  *
  * Safe to call concurrently with the `payment_intent.succeeded` webhook: the
- * shared `finalizePaidTransaction` helper guards the PENDING_PAYMENT → PAID
- * transition with an atomic UPDATE so side-effects (wallet credit, system
- * message, emails) run exactly once.
+ * shared `finalizePaidTransaction` helper serializes the financial transition
+ * in Postgres. Non-financial effects are replayed from the durable outbox.
  */
 export async function reconcilePaymentIntent(
   transactionId: string,

@@ -140,7 +140,7 @@ function RootLayout() {
       <KeyboardProvider>
         <SafeAreaProvider>
           <StripeProvider
-            publishableKey={env.STRIPE_PUBLISHABLE_KEY ?? ""}
+            publishableKey={env.STRIPE_PUBLISHABLE_KEY}
             merchantIdentifier="merchant.app.pokemarket"
           >
             <BottomSheetModalProvider>

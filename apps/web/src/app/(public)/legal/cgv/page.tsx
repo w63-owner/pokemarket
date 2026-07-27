@@ -9,7 +9,7 @@ export default function CGVPage() {
     <>
       <h1>Conditions Générales de Vente</h1>
       <p className="text-muted-foreground text-sm">
-        Dernière mise à jour : [Date de mise à jour]
+        Dernière mise à jour : 26 juillet 2026
       </p>
 
       <h2>1. Objet</h2>
@@ -22,10 +22,12 @@ export default function CGVPage() {
         est situé au [Adresse].
       </p>
       <p>
-        PokeMarket agit en qualité d&apos;intermédiaire technique facilitant la
-        mise en relation entre particuliers (C2C) pour la vente de cartes à
-        collectionner Pokémon TCG. PokeMarket n&apos;est en aucun cas partie
-        prenante au contrat de vente conclu entre le vendeur et l&apos;acheteur.
+        Le contrat de vente de la carte est conclu entre le vendeur et
+        l&apos;acheteur. PokeMarket agit comme intermédiaire pour cette vente et
+        comme marchand officiel (« merchant of record ») pour le traitement du
+        paiement : PokeMarket encaisse l&apos;acheteur, émet les justificatifs
+        de paiement et assume la gestion des remboursements, contestations et
+        demandes de support liées au paiement.
       </p>
 
       <h2>2. Rôle de la plateforme</h2>
@@ -41,12 +43,19 @@ export default function CGVPage() {
         des articles mis en vente. La responsabilité de la description fidèle
         des articles incombe exclusivement au vendeur.
       </p>
+      <p>
+        Stripe fournit l&apos;infrastructure de paiement à PokeMarket. Le
+        vendeur n&apos;encaisse pas directement le paiement par carte de
+        l&apos;acheteur et ne doit pas contacter Stripe pour le support de la
+        transaction.
+      </p>
 
       <h2>3. Prix et commissions</h2>
       <p>
-        Les prix sont fixés librement par les vendeurs et affichés en euros (€),
-        toutes taxes comprises. En tant que plateforme d&apos;intermédiation
-        entre particuliers, la TVA ne s&apos;applique pas aux transactions C2C.
+        Les prix sont fixés librement par les vendeurs et affichés en euros (€).
+        Chaque vendeur demeure responsable de son statut fiscal, de la
+        qualification particulière ou professionnelle de son activité et, le cas
+        échéant, de la déclaration et du paiement des taxes applicables.
       </p>
       <p>
         PokeMarket prélève une commission de [Pourcentage]% sur chaque
@@ -72,9 +81,12 @@ export default function CGVPage() {
       </p>
       <h3>4.3 Paiement</h3>
       <p>
-        Le paiement est traité via Stripe Connect. Les fonds sont séquestrés par
-        Stripe jusqu&apos;à la confirmation de réception par l&apos;acheteur ou
-        l&apos;expiration du délai de réclamation de [Nombre] jours.
+        PokeMarket encaisse le paiement via Stripe Connect. Le montant dû au
+        vendeur reste indisponible jusqu&apos;à la confirmation de réception par
+        l&apos;acheteur ou l&apos;expiration du délai de réclamation de [Nombre]
+        jours, puis peut être transféré sur le compte Stripe Connect du vendeur.
+        Ce mécanisme de disponibilité différée ne constitue pas un service de
+        séquestre.
       </p>
 
       <h2>5. Livraison</h2>
@@ -99,9 +111,9 @@ export default function CGVPage() {
         En cas de non-conformité de l&apos;article reçu (article différent de la
         description, contrefaçon, article endommagé), l&apos;acheteur dispose de
         [Nombre] jours après réception pour ouvrir une réclamation via la
-        plateforme. PokeMarket intervient en tant que médiateur et se réserve le
-        droit de procéder au remboursement de l&apos;acheteur en cas de litige
-        avéré.
+        plateforme. PokeMarket centralise le support paiement, instruit la
+        réclamation et peut rembourser l&apos;acheteur, en totalité ou en
+        partie, en cas de litige avéré.
       </p>
 
       <h2>8. Responsabilité</h2>

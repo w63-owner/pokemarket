@@ -58,6 +58,11 @@ export interface MockDbState {
   profiles: Row[];
   stripe_webhooks_processed: Row[];
   notifications_outbox: Row[];
+  financial_outbox: Row[];
+  ledger_accounts: Row[];
+  ledger_transactions: Row[];
+  ledger_entries: Row[];
+  stripe_object_bindings: Row[];
   // simulated auth.users
   users: { id: string; email?: string }[];
 }
@@ -73,8 +78,44 @@ export function makeEmptyState(): MockDbState {
     profiles: [],
     stripe_webhooks_processed: [],
     notifications_outbox: [],
+    financial_outbox: [],
+    ledger_accounts: [],
+    ledger_transactions: [],
+    ledger_entries: [],
+    stripe_object_bindings: [],
     users: [],
   };
+}
+
+function bindStripeObjects(
+  state: MockDbState,
+  transaction: Row,
+  ledgerTransactionId: string,
+  params: Record<string, any>,
+) {
+  const bindings = [
+    ["payment_intent", params.p_stripe_payment_intent_id],
+    ["charge", params.p_stripe_charge_id],
+  ] as const;
+
+  for (const [type, objectId] of bindings) {
+    if (
+      objectId &&
+      !state.stripe_object_bindings.some(
+        (row) =>
+          row.transaction_id === transaction.id &&
+          row.stripe_object_type === type,
+      )
+    ) {
+      state.stripe_object_bindings.push({
+        id: `${type}:${objectId}`,
+        transaction_id: transaction.id,
+        ledger_transaction_id: ledgerTransactionId,
+        stripe_object_type: type,
+        stripe_object_id: objectId,
+      });
+    }
+  }
 }
 
 export interface MockDb {
@@ -115,6 +156,9 @@ function matches(row: Row, filters: Filter[]): boolean {
     if (f.type === "in" && !f.val.includes(v)) return false;
     if (f.type === "lt" && !(v != null && (v as any) < f.val)) return false;
     if (f.type === "gt" && !(v != null && (v as any) > f.val)) return false;
+    if (f.type === "gte" && !(v != null && (v as any) >= f.val)) return false;
+    if (f.type === "lte" && !(v != null && (v as any) <= f.val)) return false;
+    if (f.type === "is" && v !== f.val) return false;
   }
   return true;
 }
@@ -165,6 +209,7 @@ export function createMockDb(
     let pendingOp:
       | { type: "select"; cols: string }
       | { type: "insert"; rows: Row[] }
+      | { type: "upsert"; rows: Row[]; onConflict?: string }
       | { type: "update"; patch: Row }
       | { type: "delete" }
       | null = null;
@@ -184,6 +229,17 @@ export function createMockDb(
         pendingOp = {
           type: "insert",
           rows: Array.isArray(rows) ? rows : [rows],
+        };
+        return builder;
+      },
+      upsert(
+        rows: Row | Row[],
+        options?: { onConflict?: string; ignoreDuplicates?: boolean },
+      ) {
+        pendingOp = {
+          type: "upsert",
+          rows: Array.isArray(rows) ? rows : [rows],
+          onConflict: options?.onConflict,
         };
         return builder;
       },
@@ -209,6 +265,18 @@ export function createMockDb(
       },
       gt(col: string, val: any) {
         filters.push({ type: "gt", col, val });
+        return builder;
+      },
+      gte(col: string, val: any) {
+        filters.push({ type: "gte", col, val });
+        return builder;
+      },
+      lte(col: string, val: any) {
+        filters.push({ type: "lte", col, val });
+        return builder;
+      },
+      is(col: string, val: any) {
+        filters.push({ type: "is", col, val });
         return builder;
       },
       order(col: string, opts?: { ascending?: boolean }) {
@@ -276,7 +344,7 @@ export function createMockDb(
 
       if (!pendingOp) return [];
 
-      if (pendingOp.type === "insert") {
+      if (pendingOp.type === "insert" || pendingOp.type === "upsert") {
         return withSerializedWrites(!!chaos.serializeWrites, async () => {
           // unique-constraint emulation for stripe_webhooks_processed.stripe_event_id
           if (name === "stripe_webhooks_processed") {
@@ -295,7 +363,53 @@ export function createMockDb(
               }
             }
           }
+          if (name === "messages" && pendingOp!.type === "insert") {
+            for (const row of (pendingOp as any).rows) {
+              const transactionId = row.metadata?.transaction_id;
+              if (
+                row.message_type === "payment_completed" &&
+                transactionId &&
+                state.messages.some(
+                  (existing) =>
+                    existing.message_type === "payment_completed" &&
+                    existing.metadata?.transaction_id === transactionId,
+                )
+              ) {
+                throw Object.assign(
+                  new Error("duplicate key value violates unique constraint"),
+                  { code: "23505" },
+                );
+              }
+            }
+          }
           if (!(state as any)[name]) (state as any)[name] = [];
+          if (pendingOp!.type === "upsert") {
+            const conflictColumn = (pendingOp as any).onConflict;
+            const inserted: Row[] = [];
+            for (const row of (pendingOp as any).rows) {
+              const existing = conflictColumn
+                ? (state as any)[name].find(
+                    (candidate: Row) =>
+                      row[conflictColumn] != null &&
+                      candidate[conflictColumn] === row[conflictColumn],
+                  )
+                : undefined;
+              if (!existing) {
+                const created = {
+                  id:
+                    row.id ??
+                    `${name}_${(state as any)[name].length + 1}_${Math.random()
+                      .toString(36)
+                      .slice(2, 8)}`,
+                  created_at: row.created_at ?? new Date().toISOString(),
+                  ...row,
+                };
+                (state as any)[name].push(created);
+                inserted.push(created);
+              }
+            }
+            return inserted;
+          }
           const rows = (pendingOp as any).rows.map((r: Row) => ({
             id:
               r.id ??
@@ -372,6 +486,205 @@ export function createMockDb(
       bump(`rpc.${name}`);
       await maybeChaos(`rpc.${name}`);
 
+      if (name === "claim_notifications_outbox") {
+        const due = state.notifications_outbox
+          .filter(
+            (row) =>
+              row.status === "PENDING" &&
+              row.next_attempt_at <= new Date().toISOString(),
+          )
+          .slice(0, params.p_limit ?? 50);
+        for (const row of due) {
+          row.status = "PROCESSING";
+          row.lease_token = "10000000-0000-4000-8000-000000000099";
+          row.lease_expires_at = new Date(Date.now() + 120_000).toISOString();
+        }
+        return { data: due, error: null };
+      }
+
+      if (name === "complete_notifications_outbox") {
+        const row = state.notifications_outbox.find(
+          (candidate) =>
+            candidate.id === params.p_id &&
+            candidate.status === "PROCESSING" &&
+            candidate.lease_token === params.p_lease_token,
+        );
+        if (!row) return { data: false, error: null };
+        row.status = "SENT";
+        row.sent_at = new Date().toISOString();
+        row.lease_token = null;
+        row.lease_expires_at = null;
+        return { data: true, error: null };
+      }
+
+      if (name === "fail_notifications_outbox") {
+        const row = state.notifications_outbox.find(
+          (candidate) =>
+            candidate.id === params.p_id &&
+            candidate.status === "PROCESSING" &&
+            candidate.lease_token === params.p_lease_token,
+        );
+        if (!row) return { data: false, error: null };
+        row.attempts += 1;
+        row.status = row.attempts >= row.max_attempts ? "FAILED" : "PENDING";
+        row.last_error = params.p_error;
+        row.lease_token = null;
+        row.lease_expires_at = null;
+        return { data: true, error: null };
+      }
+
+      if (name === "claim_financial_outbox") {
+        const now = new Date().toISOString();
+        const due = state.financial_outbox
+          .filter(
+            (row) =>
+              (params.p_event_types ?? []).includes(row.event_type) &&
+              row.next_attempt_at <= now &&
+              row.attempts < row.max_attempts &&
+              (row.status === "PENDING" ||
+                (row.status === "PROCESSING" &&
+                  row.lease_expires_at &&
+                  row.lease_expires_at < now)),
+          )
+          .slice(0, params.p_limit ?? 25);
+        for (const row of due) {
+          row.status = "PROCESSING";
+          row.attempts += 1;
+          row.lease_token = "10000000-0000-4000-8000-000000000098";
+          row.lease_expires_at = new Date(Date.now() + 120_000).toISOString();
+        }
+        return { data: due, error: null };
+      }
+
+      if (name === "complete_financial_outbox") {
+        const row = state.financial_outbox.find(
+          (candidate) =>
+            candidate.id === params.p_id &&
+            candidate.status === "PROCESSING" &&
+            candidate.lease_token === params.p_lease_token,
+        );
+        if (!row) return { data: false, error: null };
+        row.status = "COMPLETED";
+        row.completed_at = new Date().toISOString();
+        row.lease_token = null;
+        row.lease_expires_at = null;
+        return { data: true, error: null };
+      }
+
+      if (name === "fail_financial_outbox") {
+        const row = state.financial_outbox.find(
+          (candidate) =>
+            candidate.id === params.p_id &&
+            candidate.status === "PROCESSING" &&
+            candidate.lease_token === params.p_lease_token,
+        );
+        if (!row) return { data: false, error: null };
+        row.status = row.attempts >= row.max_attempts ? "FAILED" : "PENDING";
+        row.last_error = params.p_error;
+        row.lease_token = null;
+        row.lease_expires_at = null;
+        return { data: true, error: null };
+      }
+
+      if (name === "finalize_paid_transaction") {
+        return withSerializedWrites(!!chaos.serializeWrites, async () => {
+          const tx = state.transactions.find(
+            (candidate) => candidate.id === params.p_transaction_id,
+          );
+          if (!tx) return { data: "NOT_FOUND", error: null };
+          if (tx.status !== "PENDING_PAYMENT") {
+            if (
+              !tx.stripe_payment_intent_id &&
+              params.p_stripe_payment_intent_id
+            ) {
+              tx.stripe_payment_intent_id = params.p_stripe_payment_intent_id;
+            }
+            if (!tx.stripe_charge_id && params.p_stripe_charge_id) {
+              tx.stripe_charge_id = params.p_stripe_charge_id;
+            }
+            const journal = state.ledger_transactions.find(
+              (candidate) => candidate.idempotency_key === `payment:${tx.id}`,
+            );
+            if (journal) {
+              bindStripeObjects(state, tx, journal.id, params);
+            }
+            return { data: "ALREADY_PROCESSED", error: null };
+          }
+
+          const totalMinor = Math.round((tx.total_amount ?? 0) * 100);
+          const feeMinor = Math.round((tx.fee_amount ?? 0) * 100);
+          const sellerMinor = totalMinor - feeMinor;
+          const journalId = `payment:${tx.id}`;
+          state.ledger_transactions.push({
+            id: journalId,
+            transaction_id: tx.id,
+            journal_type: "payment_captured",
+            idempotency_key: `payment:${tx.id}`,
+          });
+          state.ledger_entries.push(
+            {
+              id: `${journalId}:cash`,
+              ledger_transaction_id: journalId,
+              account_id: `${tx.id}:platform_cash`,
+              amount_minor: -totalMinor,
+            },
+            {
+              id: `${journalId}:pending`,
+              ledger_transaction_id: journalId,
+              account_id: `${tx.id}:seller_pending`,
+              amount_minor: sellerMinor,
+            },
+            {
+              id: `${journalId}:fee`,
+              ledger_transaction_id: journalId,
+              account_id: `${tx.id}:platform_fee`,
+              amount_minor: feeMinor,
+            },
+          );
+
+          tx.status = "PAID";
+          tx.stripe_payment_intent_id =
+            params.p_stripe_payment_intent_id ?? null;
+          tx.stripe_charge_id = params.p_stripe_charge_id ?? null;
+          bindStripeObjects(state, tx, journalId, params);
+          const listing = state.listings.find(
+            (candidate) => candidate.id === tx.listing_id,
+          );
+          if (listing) listing.status = "SOLD";
+          for (const offer of state.offers) {
+            if (
+              offer.listing_id === tx.listing_id &&
+              offer.status === "PENDING"
+            ) {
+              offer.status = "EXPIRED";
+            }
+          }
+          const wallet = state.wallets.find(
+            (candidate) => candidate.user_id === tx.seller_id,
+          );
+          if (wallet) wallet.pending_balance = sellerMinor / 100;
+          if (
+            !state.financial_outbox.some(
+              (row) => row.idempotency_key === `payment-finalized:${tx.id}`,
+            )
+          ) {
+            state.financial_outbox.push({
+              id: `payment-finalized:${tx.id}`,
+              event_type: "payment_finalized",
+              aggregate_id: tx.id,
+              idempotency_key: `payment-finalized:${tx.id}`,
+              status: "PENDING",
+              attempts: 0,
+              max_attempts: 12,
+              next_attempt_at: new Date().toISOString(),
+              lease_token: null,
+              lease_expires_at: null,
+            });
+          }
+          return { data: "PAID", error: null };
+        });
+      }
+
       if (name === "release_escrow_funds") {
         const { p_transaction_id, p_buyer_id } = params;
         const tx = state.transactions.find((t) => t.id === p_transaction_id);
@@ -400,25 +713,22 @@ export function createMockDb(
           };
         }
 
-        // Mirror Postgres NUMERIC(10,2): round to cents so float drift
-        // (e.g. 30 - 2.2 - 2.49 = 25.310000000000002) doesn't spuriously
-        // trip the balance check the way exact decimals never would in prod.
+        // `total_amount` includes shipping. Mirror the Sprint 1 SQL exactly:
+        // release everything except the platform fee.
         const sellerNet =
-          Math.round(
-            ((tx.total_amount ?? 0) -
-              (tx.fee_amount ?? 0) -
-              (tx.shipping_cost ?? 0)) *
-              100,
-          ) / 100;
+          Math.round(((tx.total_amount ?? 0) - (tx.fee_amount ?? 0)) * 100) /
+          100;
 
         const wallet = state.wallets.find((w) => w.user_id === tx.seller_id);
 
         if (!wallet || wallet.pending_balance < sellerNet) {
-          console.warn(
-            `[mock rpc] ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
-          );
-          tx.status = "COMPLETED";
-          return { data: false, error: null };
+          return {
+            data: null,
+            error: {
+              code: "P0001",
+              message: `ESCROW_BALANCE_MISMATCH: seller ${tx.seller_id} wallet has insufficient pending_balance`,
+            },
+          };
         }
 
         tx.status = "COMPLETED";

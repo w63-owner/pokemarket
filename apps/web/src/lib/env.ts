@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * Centralised env-var accessors.
  *
@@ -7,11 +9,75 @@
  *   - Fail-fast in production : if a critical env var is missing the boot
  *     should crash explicitly instead of silently sending users to a phantom
  *     domain (e.g. payment success_url=http://localhost:3000/... in prod).
- *   - Centralise MangoPay credentials so every caller goes through the same
- *     validation and we can add typing / Zod / metrics in one place.
+ *   - Validate the single supported payment stack (Stripe) in one place.
  */
 
 const isProd = process.env.NODE_ENV === "production";
+
+export const STRIPE_API_VERSION = "2026-02-25.clover" as const;
+
+const optionalNonEmpty = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().optional(),
+);
+
+const stripeEnvSchema = z.object({
+  secretKey: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().regex(/^(?:rk|sk)_(?:test|live)_/, {
+      message: "must be a Stripe restricted or secret API key",
+    }),
+  ),
+  publishableKey: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().regex(/^pk_(?:test|live)_/, {
+      message: "must be a Stripe publishable key",
+    }),
+  ),
+  webhookSecret: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().startsWith("whsec_"),
+  ),
+  connectDefaultCountry: z
+    .string()
+    .regex(/^[A-Z]{2}$/)
+    .default("FR"),
+  supportEmail: z.email(),
+  allowedOrigins: optionalNonEmpty,
+});
+
+export type StripeEnv = z.infer<typeof stripeEnvSchema>;
+
+export function getStripeEnv(): StripeEnv {
+  const parsed = stripeEnvSchema.safeParse({
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    connectDefaultCountry: process.env.STRIPE_CONNECT_DEFAULT_COUNTRY,
+    supportEmail: process.env.SUPPORT_EMAIL,
+    allowedOrigins: process.env.CHECKOUT_ALLOWED_ORIGINS,
+  });
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid Stripe environment: ${z.prettifyError(parsed.error)}`,
+    );
+  }
+
+  return parsed.data;
+}
+
+export function validateServerEnv(): void {
+  getAppUrl();
+  getStripeEnv();
+  if (isProd && !process.env.CRON_SECRET?.trim()) {
+    throw new Error("CRON_SECRET must be set in production");
+  }
+}
 
 /**
  * Returns the canonical, trailing-slash-free public URL of the app.
@@ -28,7 +94,7 @@ export function getAppUrl(): string {
     if (isProd) {
       throw new Error(
         "NEXT_PUBLIC_APP_URL must be set in production " +
-          "(used for MangoPay redirects, sitemap/robots, transactional emails, cron callbacks).",
+          "(used for Stripe redirects, sitemap/robots, transactional emails, cron callbacks).",
       );
     }
     return "http://localhost:3000";
@@ -36,64 +102,49 @@ export function getAppUrl(): string {
   return raw.trim().replace(/\/$/, "");
 }
 
-export type MangoPayConfig = {
-  clientId: string;
-  apiKey: string;
-  baseUrl: string;
-  webhookSecret: string;
-  platformUserId: string;
-  platformWalletId: string;
-  publicClientId: string;
-};
+function normalizeHttpOrigin(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Returns the MangoPay configuration. Throws in production if any required
- * variable is missing — payments are too sensitive to silently fall back.
+ * Returns a trusted origin for Stripe redirect URLs.
  *
- * Fields:
- *   - `clientId` / `apiKey`     : OAuth credentials (server-only)
- *   - `baseUrl`                 : sandbox vs prod API endpoint
- *   - `webhookSecret`           : HMAC SHA-256 secret for inbound webhooks
- *   - `platformUserId/WalletId` : the marketplace's own NaturalUser + Wallet
- *                                 (created once during onboarding, where all
- *                                 PayIn funds land before being transferred)
- *   - `publicClientId`          : same as `clientId` but exposed to the
- *                                 browser for the CardRegistration tokenisation
- *                                 step (no secret, safe to leak)
+ * The browser-controlled Origin header is accepted only when it exactly
+ * matches the canonical app URL, a Vercel deployment URL, or an explicit
+ * comma-separated CHECKOUT_ALLOWED_ORIGINS entry.
  */
-export function getMangoPayConfig(): MangoPayConfig {
-  const required = {
-    clientId: process.env.MANGOPAY_CLIENT_ID,
-    apiKey: process.env.MANGOPAY_API_KEY,
-    webhookSecret: process.env.MANGOPAY_WEBHOOK_SECRET,
-    platformUserId: process.env.MANGOPAY_PLATFORM_USER_ID,
-    platformWalletId: process.env.MANGOPAY_PLATFORM_WALLET_ID,
-    publicClientId: process.env.NEXT_PUBLIC_MANGOPAY_CLIENT_ID,
-  };
-
-  const missing = Object.entries(required)
-    .filter(([, v]) => !v || v.trim() === "")
-    .map(([k]) => k);
-
-  if (missing.length > 0) {
-    if (isProd) {
-      throw new Error(
-        `Missing MangoPay env vars in production: ${missing.join(", ")}`,
-      );
-    }
-    // In dev / test we still return a partial config so the app can boot.
-    // Routes that actually need MangoPay will throw their own clearer error.
+export function getAllowedCheckoutOrigin(
+  requestOrigin: string | null,
+): string | null {
+  const canonicalOrigin = normalizeHttpOrigin(getAppUrl());
+  if (!canonicalOrigin) {
+    throw new Error("NEXT_PUBLIC_APP_URL must be a valid HTTP(S) URL");
   }
 
-  return {
-    clientId: required.clientId ?? "",
-    apiKey: required.apiKey ?? "",
-    baseUrl: (
-      process.env.MANGOPAY_BASE_URL ?? "https://api.sandbox.mangopay.com"
-    ).replace(/\/$/, ""),
-    webhookSecret: required.webhookSecret ?? "",
-    platformUserId: required.platformUserId ?? "",
-    platformWalletId: required.platformWalletId ?? "",
-    publicClientId: required.publicClientId ?? "",
-  };
+  if (!requestOrigin) return canonicalOrigin;
+
+  const candidate = normalizeHttpOrigin(requestOrigin.trim());
+  if (!candidate) return null;
+
+  const configured = (process.env.CHECKOUT_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => normalizeHttpOrigin(origin.trim()))
+    .filter((origin): origin is string => origin !== null);
+
+  const vercelOrigin = process.env.VERCEL_URL
+    ? normalizeHttpOrigin(`https://${process.env.VERCEL_URL}`)
+    : null;
+  const allowed = new Set([
+    canonicalOrigin,
+    ...configured,
+    ...(vercelOrigin ? [vercelOrigin] : []),
+  ]);
+
+  return allowed.has(candidate) ? candidate : null;
 }

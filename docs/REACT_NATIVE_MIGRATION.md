@@ -35,7 +35,7 @@ pokemarket/
 
 **Principe directeur :**
 
-- Le **backend reste sur Vercel** (Next.js API routes, webhooks Stripe/MangoPay, OCR, emails).
+- Le **backend reste sur Vercel** (Next.js API routes, webhooks Stripe, OCR, emails).
 - **Aucune UI partagée** entre web et mobile (le coût de l'abstraction dépasse toujours le bénéfice).
 - **Toute la logique pure** (validations Zod, types Supabase, query keys, formatting) vit dans `@pokemarket/shared` et est consommée par les deux apps.
 
@@ -89,7 +89,6 @@ Extraire vers `packages/shared` :
 - [ ] `src/lib/pricing.ts`
 - [ ] `src/lib/shipping.ts`
 - [ ] `src/lib/utils.ts` (helpers purs uniquement)
-- [ ] `src/lib/mangopay/types.ts` + `errors.ts`
 
 Pour chaque extraction, utiliser la skill `extract-shared-code`.
 
@@ -142,7 +141,7 @@ Base : react-native-reusables.
 - [ ] Scan caméra (`expo-camera`) → POST vers `/api/ocr` existant
 - [ ] Messaging (Supabase Realtime)
 - [ ] Système d'offres
-- [ ] Wallet / Mangopay (KYC, payouts)
+- [ ] Wallet / Stripe Connect (KYC, transferts et payouts)
 
 ### Sprint 5 — Native polish (2 semaines)
 
@@ -174,11 +173,10 @@ Base : react-native-reusables.
 Ces modules ne migrent PAS, et ne sont PAS partagés :
 
 - Toutes les routes API (`apps/web/src/app/api/...`)
-- Webhooks Stripe (`webhooks/stripe/route.ts`) et Mangopay
+- Webhooks Stripe (`webhooks/stripe/route.ts`)
 - Server Actions (`apps/web/src/actions/`)
 - `src/lib/admin/*` (audit log, auth admin)
 - `src/lib/stripe/*` (post-payment, reconcile, handlers webhook)
-- `src/lib/mangopay/server.ts`
 - `src/lib/emails/*` (Resend + React Email)
 - `src/lib/push/*` (web-push, VAPID)
 - `src/lib/rate-limit.ts` (Upstash)

@@ -218,8 +218,8 @@ export function CheckoutClient({
           <div className="bg-primary/5 border-primary/20 flex items-start gap-3 rounded-xl border p-3">
             <ShieldCheck className="text-primary mt-0.5 size-5 shrink-0" />
             <p className="text-muted-foreground text-xs leading-relaxed">
-              Votre paiement est sécurisé par Stripe. Les fonds sont conservés
-              sous séquestre jusqu&apos;à confirmation de réception de la carte.
+              Votre paiement est sécurisé par Stripe. Le montant vendeur reste
+              indisponible jusqu&apos;à confirmation de réception de la carte.
             </p>
           </div>
         </m.div>

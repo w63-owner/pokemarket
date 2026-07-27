@@ -13,7 +13,7 @@ Pay with one tap using your fingerprint. No card numbers to type, no passwords t
 💰 Low fees — only 4%
 vs. 5–10% on generic marketplaces. You keep more.
 
-🔒 Secure escrow payments
+🔒 Secure payments with delayed seller transfers
 Sellers are credited only after the buyer confirms receipt.
 
 🏆 Certified graded cards

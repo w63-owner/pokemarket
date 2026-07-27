@@ -8,6 +8,8 @@ let stripeConstructEventImpl: () => any = () => ({
   type: "checkout.session.completed",
   data: {
     object: {
+      id: "cs_default",
+      payment_status: "paid",
       metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
     },
   },
@@ -67,6 +69,50 @@ describe("webhooks/stripe — QA happy path", () => {
     );
   });
 
+  it("checkout.session.completed unpaid → waits for asynchronous settlement", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_async_pending",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_async",
+          payment_status: "unpaid",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("checkout.session.async_payment_succeeded → finalizes transaction", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_async_succeeded",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          id: "cs_async",
+          payment_status: "paid",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
   it("missing signature → 400 rejected", async () => {
     mockClient = createMockDb(basicScenario()).client;
     const res = await POST(makeReq("{}", null));
@@ -86,6 +132,8 @@ describe("webhooks/stripe — QA happy path", () => {
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_reset",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -98,6 +146,8 @@ describe("webhooks/stripe — QA happy path", () => {
       type: "checkout.session.expired",
       data: {
         object: {
+          id: "cs_duplicate",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -184,6 +234,8 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_duplicate",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -235,7 +287,9 @@ describe("webhooks/stripe — CHAOS", () => {
     stripeConstructEventImpl = () => ({
       id: "evt_no_meta",
       type: "checkout.session.completed",
-      data: { object: { metadata: {} } },
+      data: {
+        object: { id: "cs_no_meta", payment_status: "paid", metadata: {} },
+      },
     });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
@@ -249,6 +303,8 @@ describe("webhooks/stripe — CHAOS", () => {
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_chaos",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -296,6 +352,8 @@ describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", (
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_redelivery",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
@@ -340,6 +398,8 @@ describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", (
       type: "checkout.session.completed",
       data: {
         object: {
+          id: "cs_happy",
+          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },

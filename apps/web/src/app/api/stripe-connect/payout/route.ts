@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { getStripe } from "@/lib/stripe/server";
 import { payoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
+import { isStripeRecipientReady } from "@/lib/stripe/connect-readiness";
 
 export async function POST(request: Request) {
   try {
@@ -48,11 +49,21 @@ export async function POST(request: Request) {
 
     const account = await stripe.accounts.retrieve(profile.stripe_account_id);
 
-    if (!account.charges_enabled || !account.payouts_enabled) {
+    if (!isStripeRecipientReady(account)) {
       return NextResponse.json(
         {
           error:
-            "Votre compte Stripe n'est pas encore activé. Complétez la vérification d'identité.",
+            "Votre compte Stripe ne peut pas encore recevoir de transferts. Complétez la vérification d'identité.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!account.payouts_enabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Les virements bancaires ne sont pas encore activés sur votre compte Stripe.",
         },
         { status: 400 },
       );

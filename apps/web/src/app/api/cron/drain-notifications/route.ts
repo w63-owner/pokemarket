@@ -9,6 +9,7 @@ import OrderConfirmationEmail from "@/emails/order-confirmation";
 import SaleNotificationEmail from "@/emails/sale-notification";
 import type {
   EmailOutboxPayload,
+  InAppOutboxPayload,
   PushOutboxPayload,
 } from "@/lib/notifications/outbox";
 
@@ -19,21 +20,14 @@ export const dynamic = "force-dynamic";
 // well within the function timeout even when the backlog is large.
 const BATCH_SIZE = 50;
 
-// Exponential backoff base in minutes: retry after 2, 4, 8, 16 minutes, capped.
-const BACKOFF_BASE_MINUTES = 2;
-const BACKOFF_CAP_MINUTES = 60;
-
 function isAuthorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
-
-function nextAttemptAt(attempts: number): string {
-  const minutes = Math.min(
-    BACKOFF_CAP_MINUTES,
-    BACKOFF_BASE_MINUTES * 2 ** (attempts - 1),
+  return (
+    typeof secret === "string" &&
+    secret.length > 0 &&
+    auth === `Bearer ${secret}`
   );
-  return new Date(Date.now() + minutes * 60_000).toISOString();
 }
 
 function renderEmailTemplate(payload: EmailOutboxPayload): ReactElement {
@@ -52,13 +46,10 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
 
-  const { data: due, error: fetchError } = await admin
-    .from("notifications_outbox")
-    .select("*")
-    .eq("status", "PENDING")
-    .lte("next_attempt_at", new Date().toISOString())
-    .order("next_attempt_at", { ascending: true })
-    .limit(BATCH_SIZE);
+  const { data: due, error: fetchError } = await admin.rpc(
+    "claim_notifications_outbox",
+    { p_limit: BATCH_SIZE, p_lease_seconds: 120 },
+  );
 
   if (fetchError) {
     console.error("[drain-notifications] fetch error:", fetchError);
@@ -83,6 +74,10 @@ export async function GET(request: Request) {
       // on unexpected faults (DB lookups, malformed payloads). The retry path
       // below therefore covers transient infra failures; provider drops are
       // observed via the helpers' own Sentry capture. See report limitations.
+      if (!row.lease_token) {
+        throw new Error(`Notification ${row.id} was claimed without a lease`);
+      }
+
       if (row.channel === "push") {
         const payload = row.payload as unknown as PushOutboxPayload;
         await sendPushNotification(
@@ -92,43 +87,56 @@ export async function GET(request: Request) {
           payload.url,
           payload.category ? { category: payload.category } : undefined,
         );
-      } else {
+      } else if (row.channel === "email") {
         const payload = row.payload as unknown as EmailOutboxPayload;
         await sendEmail(
           payload.to,
           payload.subject,
           renderEmailTemplate(payload),
         );
+      } else if (row.channel === "in_app") {
+        const payload = row.payload as unknown as InAppOutboxPayload;
+        const { error: messageError } = await admin.from("messages").insert({
+          conversation_id: payload.conversationId,
+          sender_id: payload.senderId,
+          content: payload.content,
+          message_type: payload.messageType,
+          metadata: payload.metadata,
+        });
+        if (messageError && messageError.code !== "23505") throw messageError;
+      } else {
+        throw new Error(`Unsupported notification channel: ${row.channel}`);
       }
 
-      const { error: sentError } = await admin
-        .from("notifications_outbox")
-        .update({ status: "SENT", sent_at: new Date().toISOString() })
-        .eq("id", row.id);
+      const { data: completed, error: sentError } = await admin.rpc(
+        "complete_notifications_outbox",
+        { p_id: row.id, p_lease_token: row.lease_token },
+      );
       if (sentError) throw sentError;
+      if (!completed) throw new Error(`Notification lease lost for ${row.id}`);
       sent++;
     } catch (err) {
-      const attempts = row.attempts + 1;
-      const exhausted = attempts >= row.max_attempts;
+      const exhausted = row.attempts + 1 >= row.max_attempts;
       const message = err instanceof Error ? err.message : String(err);
 
-      const { error: updateError } = await admin
-        .from("notifications_outbox")
-        .update({
-          attempts,
-          last_error: message.slice(0, 1000),
-          status: exhausted ? "FAILED" : "PENDING",
-          next_attempt_at: exhausted
-            ? row.next_attempt_at
-            : nextAttemptAt(attempts),
-        })
-        .eq("id", row.id);
+      const leaseToken = row.lease_token;
+      const { data: released, error: updateError } = leaseToken
+        ? await admin.rpc("fail_notifications_outbox", {
+            p_id: row.id,
+            p_lease_token: leaseToken,
+            p_error: message,
+          })
+        : { data: false, error: null };
 
-      if (updateError) {
-        Sentry.captureException(updateError, {
-          tags: { component: "drain-notifications" },
-          extra: { outboxId: row.id },
-        });
+      if (updateError || !released) {
+        Sentry.captureException(
+          updateError ??
+            new Error(`Unable to release notification lease ${row.id}`),
+          {
+            tags: { component: "drain-notifications" },
+            extra: { outboxId: row.id },
+          },
+        );
       }
 
       if (exhausted) {

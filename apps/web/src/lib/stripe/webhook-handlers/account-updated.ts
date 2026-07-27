@@ -3,16 +3,15 @@ import type Stripe from "stripe";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotification } from "@/lib/push/send";
-
-import type { KycStatus } from "@/lib/constants";
+import { deriveRecipientKycStatus } from "@/lib/stripe/connect-readiness";
 
 /**
  * `account.updated` — fired whenever a connected account's KYC state, payouts
  * capability, or requirements list changes.
  *
  * What we do:
- *   1. Derive the current KYC status from charges_enabled / payouts_enabled
- *      / requirements (same logic as src/app/api/stripe-connect/status).
+ *   1. Derive readiness from the recipient transfer capability and
+ *      requirements (same logic as src/app/api/stripe-connect/status).
  *   2. Persist it on profiles.kyc_status (replaces the on-demand polling
  *      previously triggered by the wallet page on every load).
  *   3. Notify the seller on the first transition to VERIFIED.
@@ -28,7 +27,7 @@ export async function handleAccountUpdated(
 ): Promise<void> {
   const admin = createAdminClient();
 
-  const kycStatus = deriveKycStatus(account);
+  const kycStatus = deriveRecipientKycStatus(account);
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
@@ -88,16 +87,4 @@ export async function handleAccountUpdated(
       "/wallet",
     ).catch((err) => Sentry.captureException(err));
   }
-}
-
-function deriveKycStatus(account: Stripe.Account): KycStatus {
-  if (account.charges_enabled && account.payouts_enabled) return "VERIFIED";
-  if (
-    account.requirements?.currently_due &&
-    account.requirements.currently_due.length > 0
-  ) {
-    return "REQUIRED";
-  }
-  if (account.requirements?.disabled_reason) return "REJECTED";
-  return "PENDING";
 }

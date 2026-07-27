@@ -8,11 +8,11 @@ import { calcPriceSeller, calcFeeAmount, calcTotalBuyer } from "@/lib/pricing";
 import { LIMITS } from "@/lib/constants";
 import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import { getShippingCost } from "@/lib/shipping";
-import { getAppUrl } from "@/lib/env";
+import { getAllowedCheckoutOrigin, STRIPE_API_VERSION } from "@/lib/env";
+import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 import type {
   CheckoutResponse,
   MobileCheckoutResponse,
-  PaymentProvider,
 } from "@pokemarket/shared";
 
 export async function POST(request: Request) {
@@ -42,6 +42,17 @@ export async function POST(request: Request) {
     const url = new URL(request.url);
     const clientType =
       url.searchParams.get("client") === "mobile" ? "mobile" : "web";
+    const appUrl =
+      clientType === "web"
+        ? getAllowedCheckoutOrigin(request.headers.get("origin"))
+        : null;
+
+    if (clientType === "web" && !appUrl) {
+      return NextResponse.json(
+        { error: "Origine de checkout non autorisée" },
+        { status: 403 },
+      );
+    }
 
     const {
       listing_id,
@@ -78,7 +89,26 @@ export async function POST(request: Request) {
       listing.reserved_for === user.id;
     const isActive = listing.status === "ACTIVE";
 
-    if (!isActive && !isReservedForMe) {
+    let existingTx: {
+      id: string;
+      stripe_checkout_session_id: string | null;
+      stripe_payment_intent_id: string | null;
+    } | null = null;
+
+    if (listing.status === "LOCKED") {
+      const { data } = await admin
+        .from("transactions")
+        .select("id, stripe_checkout_session_id, stripe_payment_intent_id")
+        .eq("listing_id", listing_id)
+        .eq("buyer_id", user.id)
+        .eq("status", "PENDING_PAYMENT")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      existingTx = data;
+    }
+
+    if (!isActive && !isReservedForMe && !existingTx) {
       return NextResponse.json(
         { error: "Cette annonce n'est plus disponible à l'achat" },
         { status: 400 },
@@ -90,19 +120,12 @@ export async function POST(request: Request) {
         ? (listing.reserved_price ?? listing.display_price)
         : listing.display_price) ?? 0;
 
-    if (listing.status === "LOCKED") {
-      const { data: existingTx } = await admin
-        .from("transactions")
-        .select("id, stripe_checkout_session_id, stripe_payment_intent_id")
-        .eq("listing_id", listing_id)
-        .eq("buyer_id", user.id)
-        .eq("status", "PENDING_PAYMENT")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    let reuseTransactionId: string | null = null;
+    if (listing.status === "LOCKED" && existingTx) {
+      const stripe = getStripe();
+      let replacedStripeObject = false;
 
       if (existingTx?.stripe_checkout_session_id) {
-        const stripe = getStripe();
         const existingSession = await stripe.checkout.sessions.retrieve(
           existingTx.stripe_checkout_session_id,
         );
@@ -113,13 +136,39 @@ export async function POST(request: Request) {
             { status: 400 },
           );
         }
+
+        if (
+          existingSession.status === "complete" &&
+          existingSession.payment_status === "unpaid"
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Le paiement est toujours en cours de traitement. Attendez sa confirmation avant de réessayer.",
+              transaction_id: existingTx.id,
+            },
+            { status: 409 },
+          );
+        }
+
+        const sessionIsOpen =
+          existingSession.status === "open" ||
+          (existingSession.status === undefined &&
+            existingSession.payment_status === "unpaid");
+        if (clientType === "web" && sessionIsOpen && existingSession.url) {
+          return NextResponse.json({
+            url: existingSession.url,
+            transaction_id: existingTx.id,
+          } satisfies CheckoutResponse);
+        }
+
+        if (sessionIsOpen) {
+          await stripe.checkout.sessions.expire(existingSession.id);
+        }
+        replacedStripeObject = true;
       }
 
-      // Mirror the same paid-PaymentIntent guard for the mobile flow so a
-      // buyer who already paid via PaymentSheet on a prior LOCKED attempt
-      // can't accidentally create a duplicate charge.
       if (existingTx?.stripe_payment_intent_id) {
-        const stripe = getStripe();
         const existingPi = await stripe.paymentIntents.retrieve(
           existingTx.stripe_payment_intent_id,
         );
@@ -130,14 +179,49 @@ export async function POST(request: Request) {
             { status: 400 },
           );
         }
+
+        const customerId =
+          typeof existingPi.customer === "string"
+            ? existingPi.customer
+            : existingPi.customer?.id;
+        if (
+          clientType === "mobile" &&
+          existingPi.status !== "canceled" &&
+          existingPi.client_secret &&
+          customerId
+        ) {
+          const ephemeralKey = await createStripeEphemeralKey(
+            stripe,
+            customerId,
+          );
+          return NextResponse.json({
+            provider: "stripe",
+            mode: "payment_intent",
+            client_secret: existingPi.client_secret,
+            payment_intent_id: existingPi.id,
+            ephemeral_key: ephemeralKey.secret!,
+            customer_id: customerId,
+            transaction_id: existingTx.id,
+          } satisfies MobileCheckoutResponse);
+        }
+
+        if (existingPi.status !== "canceled") {
+          await stripe.paymentIntents.cancel(existingPi.id);
+        }
+        replacedStripeObject = true;
       }
 
-      await admin
-        .from("transactions")
-        .update({ status: "EXPIRED" })
-        .eq("listing_id", listing_id)
-        .eq("buyer_id", user.id)
-        .eq("status", "PENDING_PAYMENT");
+      if (replacedStripeObject) {
+        await admin
+          .from("transactions")
+          .update({ status: "EXPIRED" })
+          .eq("id", existingTx.id)
+          .eq("status", "PENDING_PAYMENT");
+      } else {
+        // A previous network call may have failed before persisting the Stripe
+        // object ID. Reuse the same transaction and deterministic key.
+        reuseTransactionId = existingTx.id;
+      }
     }
 
     const shippingCost = await getShippingCost(
@@ -185,25 +269,28 @@ export async function POST(request: Request) {
       Date.now() + LIMITS.CHECKOUT_LOCK_MINUTES * 60 * 1000,
     ).toISOString();
 
-    const { data: transaction, error: txError } = await admin
-      .from("transactions")
-      .insert({
-        listing_id,
-        buyer_id: user.id,
-        seller_id: listing.seller_id,
-        total_amount: totalAmount,
-        fee_amount: feeAmount,
-        shipping_cost: shippingCost,
-        status: "PENDING_PAYMENT",
-        expiration_date: expirationDate,
-        listing_title: listing.title,
-        shipping_address_line,
-        shipping_address_city,
-        shipping_address_postcode,
-        shipping_country,
-      })
-      .select("id")
-      .single();
+    const transactionResult = reuseTransactionId
+      ? { data: { id: reuseTransactionId }, error: null }
+      : await admin
+          .from("transactions")
+          .insert({
+            listing_id,
+            buyer_id: user.id,
+            seller_id: listing.seller_id,
+            total_amount: totalAmount,
+            fee_amount: feeAmount,
+            shipping_cost: shippingCost,
+            status: "PENDING_PAYMENT",
+            expiration_date: expirationDate,
+            listing_title: listing.title,
+            shipping_address_line,
+            shipping_address_city,
+            shipping_address_postcode,
+            shipping_country,
+          })
+          .select("id")
+          .single();
+    const { data: transaction, error: txError } = transactionResult;
 
     if (txError || !transaction) {
       const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
@@ -219,38 +306,15 @@ export async function POST(request: Request) {
     }
 
     if (clientType === "mobile") {
-      try {
-        const mobileResponse = await createMobileStripeIntent({
-          user,
-          transactionId: transaction.id,
-          listingId: listing_id,
-          totalAmount,
-          listingTitle: listing.title,
-        });
-        return NextResponse.json(
-          mobileResponse satisfies MobileCheckoutResponse,
-        );
-      } catch (err) {
-        const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
-        await admin
-          .from("listings")
-          .update({ status: rollbackStatus })
-          .eq("id", listing_id);
-        await admin
-          .from("transactions")
-          .update({ status: "EXPIRED" })
-          .eq("id", transaction.id);
-        throw err;
-      }
+      const mobileResponse = await createMobileStripeIntent({
+        user,
+        transactionId: transaction.id,
+        listingId: listing_id,
+        totalAmount,
+        listingTitle: listing.title,
+      });
+      return NextResponse.json(mobileResponse satisfies MobileCheckoutResponse);
     }
-
-    // Derive the redirect base URL from the inbound request first so a buyer
-    // checking out from `localhost:3000` (or a Vercel preview deployment)
-    // doesn't get bounced to the production host on the success page. We only
-    // fall back to NEXT_PUBLIC_APP_URL when no Origin header is present
-    // (e.g. server-to-server invocations during tests).
-    const requestOrigin = request.headers.get("origin");
-    const appUrl = requestOrigin?.trim().replace(/\/$/, "") ?? getAppUrl();
 
     const { data: buyerProfile } = await admin
       .from("profiles")
@@ -266,41 +330,46 @@ export async function POST(request: Request) {
       : { customer_email: user.email };
 
     const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      ...stripeCustomerProps,
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: listing.title,
-              images: listing.cover_image_url
-                ? [listing.cover_image_url]
-                : undefined,
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        ...stripeCustomerProps,
+        line_items: [
+          {
+            price_data: {
+              currency: "eur",
+              product_data: {
+                name: listing.title,
+                images: listing.cover_image_url
+                  ? [listing.cover_image_url]
+                  : undefined,
+              },
+              unit_amount: Math.round(effectiveDisplayPrice * 100),
             },
-            unit_amount: Math.round(effectiveDisplayPrice * 100),
+            quantity: 1,
           },
-          quantity: 1,
-        },
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: "Frais de livraison" },
-            unit_amount: Math.round(shippingCost * 100),
+          {
+            price_data: {
+              currency: "eur",
+              product_data: { name: "Frais de livraison" },
+              unit_amount: Math.round(shippingCost * 100),
+            },
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        metadata: {
+          transaction_id: transaction.id,
+          listing_id,
         },
-      ],
-      metadata: {
-        transaction_id: transaction.id,
-        listing_id,
+        success_url: `${appUrl!}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl!}/listing/${listing_id}?checkout=cancelled`,
+        expires_at:
+          Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
       },
-      success_url: `${appUrl}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/listing/${listing_id}?checkout=cancelled`,
-      expires_at:
-        Math.floor(Date.now() / 1000) + LIMITS.CHECKOUT_LOCK_MINUTES * 60,
-    });
+      {
+        idempotencyKey: stripeIdempotencyKeys.checkoutSession(transaction.id),
+      },
+    );
 
     await admin
       .from("transactions")
@@ -324,18 +393,6 @@ export async function POST(request: Request) {
 }
 
 /**
- * Determines which payment provider should drive the mobile checkout for
- * the current rollout. Mobile-only because the web flow keeps using Stripe
- * Checkout Sessions through the entire migration. Honors `PAYMENT_PROVIDER`
- * env (set to `mangopay` once the backend is ready) and defaults to Stripe.
- */
-function getActiveMobilePaymentProvider(): PaymentProvider {
-  const raw = process.env.PAYMENT_PROVIDER?.toLowerCase();
-  if (raw === "mangopay") return "mangopay";
-  return "stripe";
-}
-
-/**
  * Builds the Stripe-flavoured `MobileCheckoutResponse`: a PaymentIntent
  * client_secret + the buyer's Stripe customer id and a one-shot ephemeral
  * key the SDK uses to render previously-saved cards in PaymentSheet.
@@ -352,14 +409,6 @@ async function createMobileStripeIntent(input: {
   totalAmount: number;
   listingTitle: string;
 }): Promise<MobileCheckoutResponse> {
-  const provider = getActiveMobilePaymentProvider();
-
-  if (provider !== "stripe") {
-    throw new Error(
-      `Mobile checkout provider '${provider}' is not implemented yet.`,
-    );
-  }
-
   const stripe = getStripe();
   const admin = createAdminClient();
 
@@ -376,11 +425,14 @@ async function createMobileStripeIntent(input: {
   let customerId = profile?.stripe_customer_id ?? null;
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: input.user.email,
-      name: profile?.username ?? undefined,
-      metadata: { supabase_user_id: input.user.id },
-    });
+    const customer = await stripe.customers.create(
+      {
+        email: input.user.email,
+        name: profile?.username ?? undefined,
+        metadata: { supabase_user_id: input.user.id },
+      },
+      { idempotencyKey: stripeIdempotencyKeys.customer(input.user.id) },
+    );
     customerId = customer.id;
     await admin
       .from("profiles")
@@ -388,32 +440,30 @@ async function createMobileStripeIntent(input: {
       .eq("id", input.user.id);
   }
 
-  // Pin the ephemeral key to a known-stable Stripe API version so the
-  // React Native SDK (which ships independently from our backend) can
-  // decode the saved-card list. Falls back to the same version the rest
-  // of our integration uses when not overridden.
-  const ephemeralKeyApiVersion =
-    process.env.STRIPE_RN_API_VERSION ?? "2024-09-30.acacia";
-  const ephemeralKey = await stripe.ephemeralKeys.create(
-    { customer: customerId },
-    { apiVersion: ephemeralKeyApiVersion },
-  );
+  // Keep ephemeral keys on the same reviewed API version as stripe-node.
+  // Stripe mobile SDKs are backend-version compatible unless explicitly noted.
+  const ephemeralKey = await createStripeEphemeralKey(stripe, customerId);
 
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(input.totalAmount * 100),
-    currency: "eur",
-    customer: customerId,
-    automatic_payment_methods: { enabled: true },
-    description: input.listingTitle,
-    // The same metadata pattern the Checkout Session uses, so the existing
-    // `payment_intent.succeeded` webhook handler can finalize the
-    // transaction without branching on session vs PI.
-    metadata: {
-      transaction_id: input.transactionId,
-      listing_id: input.listingId,
-      source: "mobile",
+  const paymentIntent = await stripe.paymentIntents.create(
+    {
+      amount: Math.round(input.totalAmount * 100),
+      currency: "eur",
+      customer: customerId,
+      automatic_payment_methods: { enabled: true },
+      description: input.listingTitle,
+      // The same metadata pattern the Checkout Session uses, so the existing
+      // `payment_intent.succeeded` webhook handler can finalize the
+      // transaction without branching on session vs PI.
+      metadata: {
+        transaction_id: input.transactionId,
+        listing_id: input.listingId,
+        source: "mobile",
+      },
     },
-  });
+    {
+      idempotencyKey: stripeIdempotencyKeys.paymentIntent(input.transactionId),
+    },
+  );
 
   await admin
     .from("transactions")
@@ -429,4 +479,14 @@ async function createMobileStripeIntent(input: {
     customer_id: customerId,
     transaction_id: input.transactionId,
   };
+}
+
+async function createStripeEphemeralKey(
+  stripe: ReturnType<typeof getStripe>,
+  customerId: string,
+) {
+  return stripe.ephemeralKeys.create(
+    { customer: customerId },
+    { apiVersion: STRIPE_API_VERSION },
+  );
 }

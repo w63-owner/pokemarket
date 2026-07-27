@@ -77,6 +77,12 @@ export async function POST(request: Request) {
         );
         break;
 
+      case "checkout.session.async_payment_succeeded":
+        await handleCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session,
+        );
+        break;
+
       case "checkout.session.expired":
         await handleCheckoutFailed(
           event.data.object as Stripe.Checkout.Session,
@@ -199,6 +205,13 @@ export async function POST(request: Request) {
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  // `completed` means the customer submitted Checkout, not necessarily that
+  // an asynchronous payment method has settled. The later
+  // async_payment_succeeded event will finalize it once Stripe reports paid.
+  if (session.payment_status !== "paid") {
+    return;
+  }
+
   const transactionId = session.metadata?.transaction_id;
   const listingId = session.metadata?.listing_id;
 

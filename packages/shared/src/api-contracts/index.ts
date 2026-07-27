@@ -7,7 +7,7 @@ export type FeedParams = FeedFilters & {
   limit?: number;
 };
 
-export type PaymentProvider = "stripe" | "mangopay";
+export type PaymentProvider = "stripe";
 
 export type CheckoutRequest = {
   listing_id: string;
@@ -27,30 +27,20 @@ export type CheckoutResponse = {
 };
 
 /**
- * Mobile checkout: the backend tells the client which provider to use and
- * returns the data needed to complete the payment natively (PaymentSheet on
- * iOS/Android) or in a WebView (Mangopay 3DS).
+ * Mobile checkout data for Stripe PaymentSheet on iOS and Android.
  *
  * The mobile client should call /api/checkout?client=mobile to get this shape
  * back instead of CheckoutResponse.
  */
-export type MobileCheckoutResponse =
-  | {
-      provider: "stripe";
-      mode: "payment_intent";
-      client_secret: string;
-      payment_intent_id: string;
-      ephemeral_key?: string;
-      customer_id?: string;
-      transaction_id: string;
-    }
-  | {
-      provider: "mangopay";
-      mode: "card_direct";
-      payin_id: string;
-      secure_mode_url: string | null;
-      transaction_id: string;
-    };
+export type MobileCheckoutResponse = {
+  provider: "stripe";
+  mode: "payment_intent";
+  client_secret: string;
+  payment_intent_id: string;
+  ephemeral_key?: string;
+  customer_id?: string;
+  transaction_id: string;
+};
 
 export type OcrRequest = {
   image_url: string;
@@ -92,7 +82,7 @@ export type PushNotificationRequest = {
 };
 
 /**
- * Onboarding (Stripe Connect ou Mangopay KYC) flow.
+ * Stripe Connect onboarding flow.
  * Backend renvoie une URL hébergée que le client ouvre en WebView (mobile)
  * ou en redirect plein écran (web).
  */

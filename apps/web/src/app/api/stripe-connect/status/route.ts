@@ -3,6 +3,10 @@ import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { getStripe } from "@/lib/stripe/server";
+import {
+  deriveRecipientKycStatus,
+  isStripeRecipientReady,
+} from "@/lib/stripe/connect-readiness";
 import type { KycStatus } from "@/lib/constants";
 
 export async function GET(request: Request) {
@@ -33,24 +37,15 @@ export async function GET(request: Request) {
         kyc_status: "UNVERIFIED" as KycStatus,
         charges_enabled: false,
         payouts_enabled: false,
+        transfers_enabled: false,
       });
     }
 
     const stripe = getStripe();
     const account = await stripe.accounts.retrieve(profile.stripe_account_id);
 
-    let kycStatus: KycStatus = "PENDING";
-
-    if (account.charges_enabled && account.payouts_enabled) {
-      kycStatus = "VERIFIED";
-    } else if (
-      account.requirements?.currently_due &&
-      account.requirements.currently_due.length > 0
-    ) {
-      kycStatus = "REQUIRED";
-    } else if (account.requirements?.disabled_reason) {
-      kycStatus = "REJECTED";
-    }
+    const kycStatus: KycStatus = deriveRecipientKycStatus(account);
+    const transfersEnabled = isStripeRecipientReady(account);
 
     if (profile.kyc_status !== kycStatus) {
       await admin
@@ -61,8 +56,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       kyc_status: kycStatus,
+      // Retained for backwards-compatible clients during the Accounts v2
+      // migration. Business readiness is `transfers_enabled`, not these flags.
       charges_enabled: account.charges_enabled,
       payouts_enabled: account.payouts_enabled,
+      transfers_enabled: transfersEnabled,
     });
   } catch (err) {
     Sentry.captureException(err);

@@ -13,7 +13,7 @@ Payez en un toucher avec votre empreinte. Pas de carte à saisir, pas de mot de 
 💰 Frais réduits — 4 % seulement
 Contre 5 à 10 % chez les marketplaces généralistes. Vous gardez plus pour vous.
 
-🔒 Paiement sécurisé sous séquestre
+🔒 Paiement sécurisé à transfert différé
 Le vendeur n'est crédité qu'après confirmation de réception par l'acheteur.
 
 🏆 Cartes gradées certifiées

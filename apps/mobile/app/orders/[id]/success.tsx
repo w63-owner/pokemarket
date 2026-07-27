@@ -63,9 +63,9 @@ function getStatusCopy(status: string) {
 }
 
 /**
- * Order success screen reached after PaymentSheet (Stripe) succeeds or
- * MangoPay 3DS resolves. The webhook is what actually flips the
- * transaction to PAID server-side, so we poll the transaction with a
+ * Order success screen reached after Stripe PaymentSheet succeeds. The
+ * webhook is what actually flips the transaction to PAID server-side, so we
+ * poll the transaction with a
  * short interval until we observe the PAID status (or give up after 3
  * polls and show "Paiement en cours de validation").
  */

@@ -8,13 +8,10 @@ import { supabase } from "@/lib/supabase";
 import { api } from "./client";
 
 /**
- * Initiate the checkout flow from mobile. Returns the polymorphic
- * `MobileCheckoutResponse` that drives the right native payment provider
- * (Stripe PaymentSheet or MangoPay 3DS WebView).
+ * Initiate Stripe PaymentSheet checkout from mobile.
  *
  * The `?client=mobile` query param tells the backend to skip the legacy
- * Checkout-Session redirect path and create a PaymentIntent (or MangoPay
- * card-direct payin) instead.
+ * Checkout-Session redirect path and create a PaymentIntent instead.
  */
 export async function startCheckout(
   input: CheckoutRequest,

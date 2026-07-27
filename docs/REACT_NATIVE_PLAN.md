@@ -4,25 +4,25 @@
 
 ## Statut d'exécution
 
-| Sprint | Description                                                                                                                                    | Statut                                                |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 0      | Setup monorepo, Expo, NativeWind, Supabase mobile, EAS                                                                                         | ✅ Complété                                           |
-| 1      | Extraction `@pokemarket/shared` (types, validations, constants, query-keys, pricing, utils, mangopay, api-contracts)                           | ✅ Complété                                           |
-| 2      | Auth (4 écrans) + root layout + tab navigator + design system (22 composants UI)                                                               | ✅ Complété                                           |
-| 3      | Read flows (8 écrans + 12 hooks + composants feed/listing/profile)                                                                             | ✅ Complété                                           |
-| 4      | Messaging realtime + offers (3 écrans, presence, cleanup AppState)                                                                             | ✅ Complété                                           |
-| 5      | Sell flow + OCR caméra + photos (5 composants, 2 écrans, draft AsyncStorage)                                                                   | ✅ Complété                                           |
-| 6      | Couche payments abstraction (Stripe + Mangopay), checkout, payment methods (4 écrans, 3 composants, Bearer auth helper, webhook PaymentIntent) | ✅ Complété                                           |
-| 7      | Wallet + KYC WebView + transactions history + sales detail + actions (ship/confirm/dispute)                                                    | ✅ Complété                                           |
-| 8      | Native polish : push, deep links, biométrie, onboarding, présence, haptics                                                                     | ✅ Complété                                           |
-| 9      | Bêta + ship : screenshots, descriptions, TestFlight, Play Store, soumission                                                                    | ✅ Artefacts livrés (en attente comptes Apple / Play) |
+| Sprint | Description                                                                                                     | Statut                                                |
+| ------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 0      | Setup monorepo, Expo, NativeWind, Supabase mobile, EAS                                                          | ✅ Complété                                           |
+| 1      | Extraction `@pokemarket/shared` (types, validations, constants, query-keys, pricing, utils, api-contracts)      | ✅ Complété                                           |
+| 2      | Auth (4 écrans) + root layout + tab navigator + design system (22 composants UI)                                | ✅ Complété                                           |
+| 3      | Read flows (8 écrans + 12 hooks + composants feed/listing/profile)                                              | ✅ Complété                                           |
+| 4      | Messaging realtime + offers (3 écrans, presence, cleanup AppState)                                              | ✅ Complété                                           |
+| 5      | Sell flow + OCR caméra + photos (5 composants, 2 écrans, draft AsyncStorage)                                    | ✅ Complété                                           |
+| 6      | Paiements Stripe, checkout, payment methods (4 écrans, 3 composants, Bearer auth helper, webhook PaymentIntent) | ✅ Complété                                           |
+| 7      | Wallet + KYC WebView + transactions history + sales detail + actions (ship/confirm/dispute)                     | ✅ Complété                                           |
+| 8      | Native polish : push, deep links, biométrie, onboarding, présence, haptics                                      | ✅ Complété                                           |
+| 9      | Bêta + ship : screenshots, descriptions, TestFlight, Play Store, soumission                                     | ✅ Artefacts livrés (en attente comptes Apple / Play) |
 
 ## 1. Cible et contraintes
 
 - **Scope V1 mobile** : feature parity quasi-totale, hors `apps/web/src/app/(admin)/*` qui reste web-only.
 - **Plateformes** : iOS + Android en parallèle, soumission simultanée.
 - **Backend** : aucune réécriture. Reste Next.js sur Vercel (`apps/web/src/app/api/*`).
-- **Paiements** : pendant la migration Stripe → Mangopay en cours, le mobile supportera **les deux** via une couche d'abstraction côté client. Choix automatique selon la config retournée par l'API.
+- **Paiements** : Stripe est l'unique provider web et mobile.
 - **Estimation initiale** : ~5 mois en solo + Cursor à plein temps (10 sprints de 1-3 semaines).
 
 ## 2. Architecture cible
@@ -33,13 +33,13 @@ flowchart TB
     subgraph web [apps/web]
       WebUI[Next.js 16 UI]
       ApiRoutes["API routes /api/*"]
-      Webhooks["Stripe + Mangopay webhooks"]
+      Webhooks["Stripe webhooks"]
       Actions[Server Actions]
     end
     subgraph mobile [apps/mobile]
       ExpoRouter[Expo Router screens]
       RNComponents[RN components + NativeWind]
-      MobileLib["lib/ (supabase, stripe, mangopay, api client)"]
+      MobileLib["lib/ (supabase, stripe, api client)"]
     end
     subgraph shared [packages/shared]
       Types[Supabase types]
@@ -52,7 +52,6 @@ flowchart TB
   subgraph external [External services]
     Supabase[(Supabase)]
     Stripe[Stripe API]
-    Mangopay[Mangopay API]
     OpenAI[OpenAI Vision]
   end
 
@@ -62,7 +61,6 @@ flowchart TB
   ExpoRouter -->|HTTPS fetch| ApiRoutes
   ApiRoutes --> Supabase
   ApiRoutes --> Stripe
-  ApiRoutes --> Mangopay
   ApiRoutes --> OpenAI
   Webhooks --> Supabase
   ExpoRouter -->|"realtime, auth"| Supabase
@@ -72,10 +70,10 @@ flowchart TB
 
 Ces 4 décisions changent matériellement le plan ; à valider avant Sprint 0 :
 
-- **D1 — KYC mobile** : faire le KYC Mangopay (et l'onboarding Stripe Connect) dans une WebView (`expo-web-browser`) ou natif via deep link retour ? Recommandation : **WebView** (Mangopay n'a pas de SDK mobile officiel, et Stripe Connect onboarding est officiellement supporté en WebView).
+- **D1 — KYC mobile** : faire l'onboarding Stripe Connect dans une WebView (`expo-web-browser`) avec deep link retour.
 - **D2 — Bundle ID & store presence** : confirmer le bundle id (`app.pokemarket.mobile` ?), le nom store ("PokeMarket"), et créer les comptes Apple Developer Program (99 €/an) + Google Play Console (25 € one-time) dès Sprint 0.
 - **D3 — Domaine API public** : confirmer l'URL de prod du backend (`https://pokemarket.app/api` ?). Le mobile l'utilisera via `EXPO_PUBLIC_API_URL`. Prévoir aussi staging.
-- **D4 — Stratégie auth deep link** : utiliser le scheme `pokemarket://auth/callback` pour les redirects OAuth Supabase + retour Stripe/Mangopay onboarding ? À configurer dans Supabase dashboard avant Sprint 2.
+- **D4 — Stratégie auth deep link** : utiliser le scheme `pokemarket://auth/callback` pour les redirects OAuth Supabase et `pokemarket://wallet/return` pour Stripe Connect.
 
 ## 4. Sprints
 
@@ -109,7 +107,6 @@ Extraire un par un (avec `git mv` + maj des imports) :
 - `src/lib/pricing.ts` → `packages/shared/src/lib/pricing.ts`
 - `src/lib/shipping.ts` → `packages/shared/src/lib/shipping.ts`
 - `src/lib/utils.ts` (helpers purs uniquement) → `packages/shared/src/lib/utils.ts`
-- `src/lib/mangopay/types.ts` + `src/lib/mangopay/errors.ts` → `packages/shared/src/lib/mangopay/`
 - Créer `packages/shared/src/api-contracts/` : types des endpoints `/api/*` (CheckoutResponse, OffersResponse, PriceHistoryResponse, OcrResponse, etc.) — ces types feront foi des deux côtés.
 
 **Critère de sortie** : `npm run type-check && npm run test && npm run lint` passent dans toute la monorepo. `apps/web` consomme exclusivement `@pokemarket/shared` pour ces modules.
@@ -205,13 +202,11 @@ Hooks à porter (mêmes signatures, source : `src/hooks/`) :
 
 ### Sprint 6 — Paiements + checkout (3 semaines)
 
-**Couche d'abstraction paiement** (à cause de la migration Stripe ↔ Mangopay) :
+**Paiement Stripe mobile** :
 
-- Nouveau dossier `apps/mobile/lib/payments/` avec deux providers :
-  - `stripe-provider.ts` : utilise `@stripe/stripe-react-native` PaymentSheet (Apple Pay + Google Pay natifs)
-  - `mangopay-provider.ts` : ouvre le 3DS challenge dans `expo-web-browser` (pas de SDK mobile Mangopay disponible)
-- `lib/payments/index.ts` exporte un `usePayment()` qui choisit le bon provider selon la réponse de `src/app/api/checkout/route.ts`
-- Backend `src/app/api/checkout/route.ts` à étendre pour retourner `{ provider: "stripe" | "mangopay", clientSecret?, redirectUrl?, ... }`
+- `apps/mobile/lib/payments/stripe-provider.ts` utilise `@stripe/stripe-react-native` PaymentSheet (Apple Pay + Google Pay natifs).
+- `lib/payments/index.ts` exporte le hook `usePayment()`.
+- Le backend retourne un `MobileCheckoutResponse` Stripe avec le PaymentIntent et l'ephemeral key.
 
 **Écrans (4)** :
 
@@ -242,7 +237,7 @@ Hooks à porter (mêmes signatures, source : `src/hooks/`) :
 
 **Logique** :
 
-- "Activer mes encaissements" → call `src/app/api/stripe-connect/onboard/route.ts` ou équivalent Mangopay → reçoit URL d'onboarding → `WebBrowser.openAuthSessionAsync(url, "pokemarket://wallet/return")`
+- "Activer mes encaissements" → call `src/app/api/stripe-connect/onboard/route.ts` → reçoit URL d'onboarding → `WebBrowser.openAuthSessionAsync(url, "pokemarket://wallet/return")`
 - App reprend la main sur le deep link return → refresh status via `src/app/api/stripe-connect/status/route.ts`
 - Bouton "Demander un virement" → `src/app/api/stripe-connect/payout/route.ts`
 
@@ -343,7 +338,7 @@ Hooks à porter (mêmes signatures, source : `src/hooks/`) :
 
 - **Apple rejette pour wrapper minimal** → mitigation : 4 features natives livrées avant submit (caméra OCR, Apple Pay natif, push APNs, biométrie).
 - **Stripe Connect onboarding KYC en WebView refusé par Apple** → autorisé d'après leurs guidelines mais à valider avec un build de test soumis tôt en TestFlight pour rejet rapide.
-- **Drift de paiement Stripe ↔ Mangopay** pendant la migration → couche d'abstraction `lib/payments/` qui isole le mobile, et le backend dicte le provider via le payload de checkout.
+- **Drift de version Stripe** → constante API backend unique et validation PaymentSheet en sandbox à chaque upgrade.
 - **Performance feed sur Android low-end** → FlashList + `expo-image` avec cache `memory-disk` + pagination 20 items.
 - **Sessions Supabase non persistées** → adapter `AsyncStorage` configuré dès Sprint 0 + tests unitaires sur le client.
 - **Drift de types entre web et mobile** → seul `packages/shared/src/types/database.ts` fait foi. Régénérer après chaque migration via `supabase gen types`.
@@ -381,8 +376,7 @@ Trois skills + trois rules sont déjà installées et activées :
 
 ### Sprint 1 — état réel
 
-- Pour éviter les collisions de noms (`Wallet`, `Dispute` existent à la fois dans la DB et dans MangoPay), les types Mangopay sont exportés sous le namespace `Mangopay` depuis `@pokemarket/shared` et accessibles via la subpath `@pokemarket/shared/mangopay`.
-- `CheckoutResponse` (legacy web) a été conservé inchangé et le nouveau format polymorphe pour le mobile a été ajouté sous `MobileCheckoutResponse` (provider stripe payment_intent ou mangopay card_direct).
+- `CheckoutResponse` (web) a été conservé et `MobileCheckoutResponse` expose le PaymentIntent Stripe pour PaymentSheet.
 - Tous les fichiers d'origine (`src/lib/constants.ts`, etc.) ont été remplacés par des re-exports vers `@pokemarket/shared` pour préserver tous les imports existants `@/lib/...` du web.
 
 ### Sprint 2 — état réel
@@ -430,13 +424,12 @@ Trois skills + trois rules sont déjà installées et activées :
 ### Sprint 6 — état réel
 
 - **Auth Bearer côté backend (transversal)** : nouveau helper `apps/web/src/lib/auth/api.ts` `getRequestUser(request)` qui essaie d'abord le cookie SSR (`@/lib/supabase/server`) puis retombe sur `Authorization: Bearer <jwt>` validé via `admin.auth.getUser(token)`. Appliqué à `/api/checkout`, `/api/ocr`, `/api/stripe/payment-methods`, `/api/offers/cancel` — débloque transversalement toutes les routes API que le mobile appelle. Les tests existants restent verts (le chemin cookie est inchangé) et 3 nouveaux tests couvrent la branche mobile du checkout.
-- **`/api/checkout` polymorphe** : le query param `?client=mobile` fait basculer la réponse vers `MobileCheckoutResponse` au lieu de la `CheckoutResponse` legacy. Pour `provider: "stripe"`, la route crée un `PaymentIntent` (au lieu d'une Checkout Session), ouvre/réutilise le `Stripe.Customer` du buyer, génère un `EphemeralKey` (épinglé sur API version `2024-09-30.acacia` via `STRIPE_RN_API_VERSION`), et persiste `stripe_payment_intent_id` sur la transaction. Rollback explicite en cas d'échec : LOCKED → ACTIVE + transaction → EXPIRED (pas comme la Checkout Session qui dépend du cron `release-expired`).
-- **Provider switch côté backend** : helper `getActiveMobilePaymentProvider()` lit `process.env.PAYMENT_PROVIDER` (default `stripe`). La branche `mangopay` lève une erreur explicite tant que la migration n'est pas finalisée — le contrat REST est en place dans `MobileCheckoutResponse` mais l'implémentation MangoPay PayIn arrivera quand le backend Mangopay sera prêt (au-delà du Sprint 6 mobile).
+- **`/api/checkout` mobile** : le query param `?client=mobile` fait basculer la réponse vers `MobileCheckoutResponse`. La route crée un `PaymentIntent`, ouvre/réutilise le `Stripe.Customer` du buyer, génère un `EphemeralKey` sur la constante API Stripe centralisée, et persiste `stripe_payment_intent_id`. Rollback explicite en cas d'échec : LOCKED → ACTIVE + transaction → EXPIRED.
+- **Provider backend** : Stripe est l'unique provider ; aucun feature flag de paiement n'est conservé.
 - **Webhook Stripe étendu** : `payment_intent.succeeded` réutilise `finalizePaidTransaction()` (même side-effects que la Checkout Session) — flips PAID, marque le listing SOLD, crédite le wallet vendeur, envoie messages/emails/push. Ajout aussi de `payment_intent.payment_failed` et `.canceled` qui réutilisent le rollback partagé `applyFailureToTransaction()`.
 - **Couche paiements mobile** (`apps/mobile/lib/payments/`) :
   - `types.ts` — interface `PaymentProviderClient` + `PaymentResult` discriminé (`succeeded` | `cancelled` | `failed`).
   - `stripe-provider.ts` — utilise `initPaymentSheet` + `presentPaymentSheet` de `@stripe/stripe-react-native`. Apple Pay sur iOS, Google Pay sur Android (avec `testEnv` auto-détecté via le préfixe `pk_test_`/`pk_live_`). `returnURL: "pokemarket://stripe-redirect"` pour la sortie 3DS.
-  - `mangopay-provider.ts` — pas de SDK natif Mangopay : on ouvre `secure_mode_url` dans `WebBrowser.openAuthSessionAsync` avec retour `pokemarket://wallet/return`. Géré "succeeded" si pas de 3DS requis (low-risk card). Pas encore activé tant que le backend ne renvoie pas `provider: "mangopay"`.
   - `index.ts` — hook unifié `usePayment()` qui dispatch sur `intent.provider`. Les écrans appellent `startPayment({ listing_id, ... })` sans connaître le provider.
 - **API mobile** :
   - `lib/api/checkout.ts` — `startCheckout(input)` POST `/api/checkout?client=mobile` ; `fetchTransactionForBuyer(id)` lit la transaction côté acheteur via RLS pour la page success.
@@ -456,7 +449,6 @@ Trois skills + trois rules sont déjà installées et activées :
   - Pas de `react-stripe-js` PaymentElement comme côté web : les écrans mobile utilisent uniquement `usePaymentSheet` / `initPaymentSheet` de `@stripe/stripe-react-native` (UI native bottom sheet). PaymentElement n'existe pas sur RN.
   - L'écran `payments/index.tsx` n'expose pas la suppression de carte (idem côté web aujourd'hui — TODO partagé).
   - `address-autocomplete.tsx` web a été simplifié en `address-form.tsx` mobile (suggestions inline, pas de navigation clavier — pas de clavier physique sur mobile). Le contrat avec l'API api-adresse.data.gouv.fr est identique.
-  - Pour `provider: "mangopay"`, le contrat client est livré et testé (`mangopay-provider.ts`) mais inactif tant que `PAYMENT_PROVIDER=mangopay` n'est pas configuré côté backend. Activer plus tard sans toucher au mobile.
   - Le test backend ajoute 3 cas sur `?client=mobile` : payload PaymentIntent, création de Customer, rollback en cas d'échec. Le webhook `payment_intent.succeeded` reste à tester en dur quand on aura un mock plus riche pour `paymentIntents.retrieve`.
 
 ### Sprint 7 — état réel

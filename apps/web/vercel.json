@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/drain-notifications",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-financial-ledger",
+      "schedule": "* * * * *"
     }
   ]
 }

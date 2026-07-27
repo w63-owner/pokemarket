@@ -236,8 +236,8 @@ export default function CheckoutScreen() {
           <View className="flex-row items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
             <ShieldCheck size={20} color={colors.primary} />
             <Text className="flex-1 text-xs leading-5 text-muted-foreground">
-              Votre paiement est sécurisé. Les fonds sont conservés sous
-              séquestre jusqu&apos;à confirmation de réception de la carte.
+              Votre paiement est sécurisé. Le montant vendeur reste en attente
+              jusqu&apos;à confirmation de réception de la carte.
             </Text>
           </View>
         </ScrollView>

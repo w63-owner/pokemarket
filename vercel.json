@@ -21,6 +21,14 @@
     {
       "path": "/api/cron/auto-complete-shipped",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/drain-notifications",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-financial-ledger",
+      "schedule": "* * * * *"
     }
   ]
 }

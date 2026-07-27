@@ -4,7 +4,7 @@ import type { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-export const OUTBOX_CHANNELS = ["push", "email"] as const;
+export const OUTBOX_CHANNELS = ["push", "email", "in_app"] as const;
 export type OutboxChannel = (typeof OUTBOX_CHANNELS)[number];
 
 // ── Payloads ────────────────────────────────────────────────────────────────
@@ -55,28 +55,54 @@ export type EmailOutboxPayload =
       data: SaleNotificationEmailData;
     };
 
+export type InAppOutboxPayload = {
+  conversationId: string;
+  senderId: string;
+  content: string;
+  messageType: string;
+  metadata: Json;
+};
+
 export type EnqueueNotificationInput =
-  | { channel: "push"; recipientUserId: string; payload: PushOutboxPayload }
-  | { channel: "email"; recipientUserId: string; payload: EmailOutboxPayload };
+  | {
+      channel: "push";
+      recipientUserId: string;
+      payload: PushOutboxPayload;
+      idempotencyKey?: string;
+    }
+  | {
+      channel: "email";
+      recipientUserId: string;
+      payload: EmailOutboxPayload;
+      idempotencyKey?: string;
+    }
+  | {
+      channel: "in_app";
+      recipientUserId: string;
+      payload: InAppOutboxPayload;
+      idempotencyKey?: string;
+    };
 
 /**
- * Durably enqueue a push/email notification for the drain cron to deliver.
+ * Durably enqueue a notification for the drain cron to deliver.
  *
- * A single INSERT — intentionally lightweight so callers can fire it inline
- * inside a webhook/Server Action. Callers that have already committed strong
- * state (e.g. a PAID transaction) should treat enqueue failures as non-fatal:
- * the in-app system message remains the strong guarantee, so we log to Sentry
- * and move on rather than failing the whole flow over a soft-channel insert.
+ * An UPSERT keyed by `idempotency_key` makes retries safe. Calls without a key
+ * still behave like regular inserts because PostgreSQL permits multiple NULLs
+ * in the unique index.
  */
 export async function enqueueNotification(
   admin: AdminClient,
   input: EnqueueNotificationInput,
 ): Promise<{ ok: boolean }> {
-  const { error } = await admin.from("notifications_outbox").insert({
-    channel: input.channel,
-    recipient_user_id: input.recipientUserId,
-    payload: input.payload as unknown as Json,
-  });
+  const { error } = await admin.from("notifications_outbox").upsert(
+    {
+      channel: input.channel,
+      recipient_user_id: input.recipientUserId,
+      payload: input.payload as unknown as Json,
+      idempotency_key: input.idempotencyKey ?? null,
+    },
+    { onConflict: "idempotency_key", ignoreDuplicates: true },
+  );
 
   if (error) {
     Sentry.captureException(error, {

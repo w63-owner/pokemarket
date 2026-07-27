@@ -14,8 +14,9 @@ const payoutsCreate = vi.fn(async (_params: any, _opts: any) => ({
   id: `po_${Math.random().toString(36).slice(2)}`,
 }));
 const accountsRetrieve = vi.fn(async () => ({
-  charges_enabled: true,
+  charges_enabled: false,
   payouts_enabled: true,
+  capabilities: { transfers: "active" },
 }));
 
 vi.mock("@/lib/stripe/server", () => ({
@@ -78,6 +79,46 @@ function payoutScenario(balance = 50) {
 }
 
 describe("payout — Fix D: clé d'idempotence unique par tentative", () => {
+  it("autorise un compte recipient transfer-only sans charges_enabled", async () => {
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect(transfersCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuse un compte dont la capability transfers est inactive", async () => {
+    accountsRetrieve.mockResolvedValueOnce({
+      charges_enabled: true,
+      payouts_enabled: true,
+      capabilities: { transfers: "inactive" },
+    });
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    const res = await POST(req());
+    expect(res.status).toBe(400);
+    expect(transfersCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuse un compte dont les payouts bancaires sont désactivés", async () => {
+    accountsRetrieve.mockResolvedValueOnce({
+      charges_enabled: false,
+      payouts_enabled: false,
+      capabilities: { transfers: "active" },
+    });
+    const db = createMockDb(payoutScenario(50));
+    mockClient = db.client;
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(400);
+    expect(transfersCreate).not.toHaveBeenCalled();
+    expect(payoutsCreate).not.toHaveBeenCalled();
+    expect(db.state.wallets[0].available_balance).toBe(50);
+  });
+
   it("deux virements successifs du MÊME montant → deux idempotencyKey DIFFÉRENTS pour transfers.create", async () => {
     const db = createMockDb(payoutScenario(50));
     mockClient = db.client;
