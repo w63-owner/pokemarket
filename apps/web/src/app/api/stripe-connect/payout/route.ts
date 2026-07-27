@@ -83,6 +83,15 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      if (error.message.includes("PAYOUT_BLOCKED_BY_SELLER_DEBT")) {
+        return NextResponse.json(
+          {
+            error:
+              "Les retraits sont temporairement bloqués car votre solde présente une dette liée à un remboursement ou un litige.",
+          },
+          { status: 409 },
+        );
+      }
       if (error.message.includes("PAYOUT_BELOW_MINIMUM")) {
         return NextResponse.json(
           {

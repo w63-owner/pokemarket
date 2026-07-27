@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
 import { executeReservedPayout } from "@/lib/stripe/execute-payout";
+import { executeFinancialRecovery } from "@/lib/stripe/execute-financial-recovery";
 import { executeSellerTransfer } from "@/lib/stripe/execute-transfer";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -26,7 +27,11 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
   const { data: jobs, error } = await admin.rpc("claim_financial_outbox", {
-    p_event_types: ["transfer_requested"],
+    p_event_types: [
+      "transfer_requested",
+      "transfer_reversal_requested",
+      "dispute_retransfer_requested",
+    ],
     p_limit: BATCH_SIZE,
     p_lease_seconds: 180,
   });
@@ -50,7 +55,17 @@ export async function GET(request: Request) {
     try {
       if (!leaseToken) throw new Error(`Financial job ${job.id} has no lease`);
 
-      await executeSellerTransfer(job.aggregate_id);
+      if (job.event_type === "transfer_requested") {
+        await executeSellerTransfer(job.aggregate_id);
+      } else {
+        const recoveryId = readRecoveryId(job.payload);
+        if (typeof recoveryId !== "string") {
+          throw new Error(
+            `Financial recovery job ${job.id} has no recovery_id`,
+          );
+        }
+        await executeFinancialRecovery(recoveryId);
+      }
 
       const { data: acknowledged, error: acknowledgeError } = await admin.rpc(
         "complete_financial_outbox",
@@ -117,4 +132,16 @@ export async function GET(request: Request) {
     payoutsReconciled,
     payoutsFailed,
   });
+}
+
+function readRecoveryId(payload: unknown): string | null {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
+  ) {
+    return null;
+  }
+  const recoveryId = (payload as Record<string, unknown>).recovery_id;
+  return typeof recoveryId === "string" ? recoveryId : null;
 }

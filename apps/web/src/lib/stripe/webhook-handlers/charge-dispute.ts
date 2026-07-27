@@ -2,7 +2,6 @@ import * as Sentry from "@sentry/nextjs";
 import type Stripe from "stripe";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calcPriceSeller } from "@/lib/pricing";
 import { sendPushNotification } from "@/lib/push/send";
 
 /**
@@ -50,29 +49,26 @@ export async function handleChargeDisputeCreated(
     .eq("stripe_charge_id", chargeId)
     .maybeSingle();
 
-  // Insert the dispute row first so we have an audit trail even if the
-  // wallet update fails. ON CONFLICT DO NOTHING gives idempotency on retry.
   const status = VALID_DISPUTE_STATUSES.has(dispute.status)
     ? dispute.status
     : "needs_response";
-  const { error: insertError } = await admin.from("stripe_disputes").insert({
-    stripe_dispute_id: dispute.id,
-    stripe_charge_id: chargeId,
-    transaction_id: transaction?.id ?? null,
-    amount: dispute.amount / 100,
-    currency: (dispute.currency ?? "eur").toUpperCase(),
-    status,
-    reason: dispute.reason ?? null,
-    evidence_due_by: dispute.evidence_details?.due_by
-      ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
-      : null,
-  });
-
-  if (insertError && insertError.code !== "23505") {
-    Sentry.captureException(insertError, {
-      extra: { context: "dispute.created_insert", dispute_id: dispute.id },
-    });
-  }
+  const { error: insertError } = await admin.from("stripe_disputes").upsert(
+    {
+      stripe_dispute_id: dispute.id,
+      stripe_charge_id: chargeId,
+      transaction_id: transaction?.id ?? null,
+      amount: dispute.amount / 100,
+      amount_minor: dispute.amount,
+      currency: (dispute.currency ?? "eur").toUpperCase(),
+      status,
+      reason: dispute.reason ?? null,
+      evidence_due_by: evidenceDueBy(dispute),
+      evidence_details: evidenceSummary(dispute),
+      last_synced_at: new Date().toISOString(),
+    },
+    { onConflict: "stripe_dispute_id" },
+  );
+  if (insertError) throw insertError;
 
   if (!transaction) {
     Sentry.captureMessage(
@@ -82,44 +78,10 @@ export async function handleChargeDisputeCreated(
     return;
   }
 
-  // Lock the contested funds in the seller's wallet. The seller received
-  // cardNet + shipping in finalizePaidTransaction, so we lock that same amount.
-  // Since we don't have a dedicated locked column yet, we just decrement
-  // pending_balance — the funds become un-payable until the dispute closes
-  // (won → restore, lost → permanent debit via charge.refunded).
-  const shippingTotal = Number(transaction.shipping_cost ?? 0);
-  const disputedAmountEur = dispute.amount / 100;
-
-  // How much of the disputed amount goes to shipping vs card?
-  const shippingDisputed = Math.min(disputedAmountEur, shippingTotal);
-  const cardAmountDisputed = Math.max(0, disputedAmountEur - shippingTotal);
-
-  // Seller share to lock = card earnings portion + shipping portion
-  const lockedShare = calcPriceSeller(cardAmountDisputed) + shippingDisputed;
-
-  const { data: wallet } = await admin
-    .from("wallets")
-    .select("pending_balance")
-    .eq("user_id", transaction.seller_id)
-    .single();
-
-  if (wallet) {
-    const newPending = Math.max(
-      0,
-      Math.round((Number(wallet.pending_balance) - lockedShare) * 100) / 100,
-    );
-    await admin
-      .from("wallets")
-      .update({ pending_balance: newPending })
-      .eq("user_id", transaction.seller_id);
-  }
-
-  // Mark the transaction as DISPUTED so it surfaces in the seller / admin UI.
-  await admin
-    .from("transactions")
-    .update({ status: "DISPUTED" })
-    .eq("id", transaction.id)
-    .neq("status", "DISPUTED");
+  const { error: lockError } = await admin.rpc("lock_stripe_dispute", {
+    p_stripe_dispute_id: dispute.id,
+  });
+  if (lockError) throw lockError;
 
   // Alert admin (Sentry message ⇒ paged via Sentry alert rules; configure
   // a high-priority rule on level=warning + tag dispute=created).
@@ -153,9 +115,11 @@ export async function handleChargeDisputeUpdated(
     .from("stripe_disputes")
     .update({
       status,
-      evidence_due_by: dispute.evidence_details?.due_by
-        ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
-        : null,
+      amount: dispute.amount / 100,
+      amount_minor: dispute.amount,
+      evidence_due_by: evidenceDueBy(dispute),
+      evidence_details: evidenceSummary(dispute),
+      last_synced_at: new Date().toISOString(),
     })
     .eq("stripe_dispute_id", dispute.id);
 
@@ -187,15 +151,20 @@ export async function handleChargeDisputeClosed(
     return handleChargeDisputeUpdated(dispute);
   }
 
-  // Sync the dispute row first.
-  await admin
+  const { error: syncError } = await admin
     .from("stripe_disputes")
     .update({
       status: dispute.status,
       outcome: dispute.status,
       outcome_reason: dispute.reason ?? null,
+      amount: dispute.amount / 100,
+      amount_minor: dispute.amount,
+      evidence_due_by: evidenceDueBy(dispute),
+      evidence_details: evidenceSummary(dispute),
+      last_synced_at: new Date().toISOString(),
     })
     .eq("stripe_dispute_id", dispute.id);
+  if (syncError) throw syncError;
 
   const { data: transaction } = await admin
     .from("transactions")
@@ -212,39 +181,14 @@ export async function handleChargeDisputeClosed(
   }
 
   if (dispute.status === "won" || dispute.status === "warning_closed") {
-    // Restore the funds we locked in dispute.created (cardNet + shipping).
-    const shippingTotal = Number(transaction.shipping_cost ?? 0);
-    const disputedAmountEur = dispute.amount / 100;
-
-    const shippingDisputed = Math.min(disputedAmountEur, shippingTotal);
-    const cardAmountDisputed = Math.max(0, disputedAmountEur - shippingTotal);
-
-    const restoredShare =
-      calcPriceSeller(cardAmountDisputed) + shippingDisputed;
-
-    const { data: wallet } = await admin
-      .from("wallets")
-      .select("pending_balance")
-      .eq("user_id", transaction.seller_id)
-      .single();
-    if (wallet) {
-      await admin
-        .from("wallets")
-        .update({
-          pending_balance: round2(
-            Number(wallet.pending_balance) + restoredShare,
-          ),
-        })
-        .eq("user_id", transaction.seller_id);
-    }
-
-    // Restore the transaction status only if it was DISPUTED. If a refund
-    // happened in parallel (status REFUNDED), keep the refund.
-    await admin
-      .from("transactions")
-      .update({ status: "PAID" })
-      .eq("id", transaction.id)
-      .eq("status", "DISPUTED");
+    const { error: resolutionError } = await admin.rpc(
+      "resolve_stripe_dispute",
+      {
+        p_stripe_dispute_id: dispute.id,
+        p_outcome: dispute.status,
+      },
+    );
+    if (resolutionError) throw resolutionError;
 
     sendPushNotification(
       transaction.seller_id,
@@ -253,8 +197,15 @@ export async function handleChargeDisputeClosed(
       `/orders/${transaction.id}`,
     ).catch((err) => Sentry.captureException(err));
   } else {
-    // lost / charge_refunded — no wallet action here, the charge.refunded
-    // webhook will handle the actual debit. Just notify and surface.
+    const { error: resolutionError } = await admin.rpc(
+      "resolve_stripe_dispute",
+      {
+        p_stripe_dispute_id: dispute.id,
+        p_outcome: dispute.status,
+      },
+    );
+    if (resolutionError) throw resolutionError;
+
     sendPushNotification(
       transaction.seller_id,
       "Litige perdu",
@@ -269,6 +220,16 @@ export async function handleChargeDisputeClosed(
   }
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+function evidenceDueBy(dispute: Stripe.Dispute): string | null {
+  return dispute.evidence_details?.due_by
+    ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+    : null;
+}
+
+function evidenceSummary(dispute: Stripe.Dispute) {
+  return {
+    has_evidence: dispute.evidence_details?.has_evidence ?? false,
+    past_due: dispute.evidence_details?.past_due ?? false,
+    submission_count: dispute.evidence_details?.submission_count ?? 0,
+  };
 }

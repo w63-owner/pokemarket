@@ -63,7 +63,10 @@ export interface MockDbState {
   ledger_transactions: Row[];
   ledger_entries: Row[];
   stripe_object_bindings: Row[];
+  stripe_disputes: Row[];
   seller_transfers: Row[];
+  seller_risk_accounts: Row[];
+  financial_recoveries: Row[];
   payouts: Row[];
   payout_items: Row[];
   financial_payout_config: Row[];
@@ -87,7 +90,10 @@ export function makeEmptyState(): MockDbState {
     ledger_transactions: [],
     ledger_entries: [],
     stripe_object_bindings: [],
+    stripe_disputes: [],
     seller_transfers: [],
+    seller_risk_accounts: [],
+    financial_recoveries: [],
     payouts: [],
     payout_items: [],
     financial_payout_config: [],

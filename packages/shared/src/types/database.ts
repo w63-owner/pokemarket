@@ -296,8 +296,86 @@ export type Database = {
           },
         ];
       };
+      financial_recoveries: {
+        Row: {
+          attempts: number;
+          completed_amount_minor: number;
+          completed_at: string | null;
+          created_at: string;
+          id: string;
+          idempotency_key: string;
+          kind: Database["public"]["Enums"]["financial_recovery_kind"];
+          last_error: string | null;
+          seller_id: string;
+          status: Database["public"]["Enums"]["financial_recovery_status"];
+          stripe_dispute_id: string | null;
+          stripe_restore_transfer_id: string | null;
+          stripe_reversal_id: string | null;
+          stripe_transfer_id: string | null;
+          target_amount_minor: number;
+          transaction_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          completed_amount_minor?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          idempotency_key: string;
+          kind: Database["public"]["Enums"]["financial_recovery_kind"];
+          last_error?: string | null;
+          seller_id: string;
+          status?: Database["public"]["Enums"]["financial_recovery_status"];
+          stripe_dispute_id?: string | null;
+          stripe_restore_transfer_id?: string | null;
+          stripe_reversal_id?: string | null;
+          stripe_transfer_id?: string | null;
+          target_amount_minor: number;
+          transaction_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          completed_amount_minor?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          id?: string;
+          idempotency_key?: string;
+          kind?: Database["public"]["Enums"]["financial_recovery_kind"];
+          last_error?: string | null;
+          seller_id?: string;
+          status?: Database["public"]["Enums"]["financial_recovery_status"];
+          stripe_dispute_id?: string | null;
+          stripe_restore_transfer_id?: string | null;
+          stripe_reversal_id?: string | null;
+          stripe_transfer_id?: string | null;
+          target_amount_minor?: number;
+          transaction_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "financial_recoveries_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "financial_recoveries_transaction_id_fkey";
+            columns: ["transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       financial_payout_config: {
         Row: {
+          debt_critical_minor: number;
+          debt_warning_minor: number;
+          dispute_reserve_bps: number;
           minimum_payout_minor: number;
           payout_delay_days: number;
           risk_reserve_minor: number;
@@ -306,6 +384,9 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          debt_critical_minor?: number;
+          debt_warning_minor?: number;
+          dispute_reserve_bps?: number;
           minimum_payout_minor?: number;
           payout_delay_days?: number;
           risk_reserve_minor?: number;
@@ -314,6 +395,9 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          debt_critical_minor?: number;
+          debt_warning_minor?: number;
+          dispute_reserve_bps?: number;
           minimum_payout_minor?: number;
           payout_delay_days?: number;
           risk_reserve_minor?: number;
@@ -479,8 +563,10 @@ export type Database = {
           journal_type: string;
           metadata: Json;
           stripe_charge_id: string | null;
+          stripe_dispute_id: string | null;
           stripe_payment_intent_id: string | null;
           stripe_payout_id: string | null;
+          stripe_refund_id: string | null;
           stripe_transfer_id: string | null;
           transaction_id: string | null;
         };
@@ -492,8 +578,10 @@ export type Database = {
           journal_type: string;
           metadata?: Json;
           stripe_charge_id?: string | null;
+          stripe_dispute_id?: string | null;
           stripe_payment_intent_id?: string | null;
           stripe_payout_id?: string | null;
+          stripe_refund_id?: string | null;
           stripe_transfer_id?: string | null;
           transaction_id?: string | null;
         };
@@ -505,8 +593,10 @@ export type Database = {
           journal_type?: string;
           metadata?: Json;
           stripe_charge_id?: string | null;
+          stripe_dispute_id?: string | null;
           stripe_payment_intent_id?: string | null;
           stripe_payout_id?: string | null;
+          stripe_refund_id?: string | null;
           stripe_transfer_id?: string | null;
           transaction_id?: string | null;
         };
@@ -1268,14 +1358,21 @@ export type Database = {
       stripe_disputes: {
         Row: {
           amount: number;
+          amount_minor: number;
+          consumed_minor: number;
           created_at: string;
           currency: string;
+          debt_minor: number;
+          evidence_details: Json;
           evidence_due_by: string | null;
           evidence_submitted_at: string | null;
           id: string;
+          last_synced_at: string;
+          locked_minor: number;
           outcome: string | null;
           outcome_reason: string | null;
           reason: string | null;
+          seller_liability_minor: number;
           status: string;
           stripe_charge_id: string;
           stripe_dispute_id: string;
@@ -1284,14 +1381,21 @@ export type Database = {
         };
         Insert: {
           amount: number;
+          amount_minor: number;
+          consumed_minor?: number;
           created_at?: string;
           currency?: string;
+          debt_minor?: number;
+          evidence_details?: Json;
           evidence_due_by?: string | null;
           evidence_submitted_at?: string | null;
           id?: string;
+          last_synced_at?: string;
+          locked_minor?: number;
           outcome?: string | null;
           outcome_reason?: string | null;
           reason?: string | null;
+          seller_liability_minor?: number;
           status: string;
           stripe_charge_id: string;
           stripe_dispute_id: string;
@@ -1300,14 +1404,21 @@ export type Database = {
         };
         Update: {
           amount?: number;
+          amount_minor?: number;
+          consumed_minor?: number;
           created_at?: string;
           currency?: string;
+          debt_minor?: number;
+          evidence_details?: Json;
           evidence_due_by?: string | null;
           evidence_submitted_at?: string | null;
           id?: string;
+          last_synced_at?: string;
+          locked_minor?: number;
           outcome?: string | null;
           outcome_reason?: string | null;
           reason?: string | null;
+          seller_liability_minor?: number;
           status?: string;
           stripe_charge_id?: string;
           stripe_dispute_id?: string;
@@ -1495,6 +1606,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      seller_risk_accounts: {
+        Row: {
+          alert_level: string;
+          debt_minor: number;
+          locked_minor: number;
+          payouts_blocked: boolean;
+          seller_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          alert_level?: string;
+          debt_minor?: number;
+          locked_minor?: number;
+          payouts_blocked?: boolean;
+          seller_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          alert_level?: string;
+          debt_minor?: number;
+          locked_minor?: number;
+          payouts_blocked?: boolean;
+          seller_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "seller_risk_accounts_seller_id_fkey";
+            columns: ["seller_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       seller_transfers: {
         Row: {
           amount_minor: number;
@@ -1634,7 +1780,10 @@ export type Database = {
           listing_id: string;
           listing_title: string | null;
           refunded_amount: number;
+          refunded_amount_minor: number;
           refunded_at: string | null;
+          seller_refund_target_minor: number;
+          seller_refunded_minor: number;
           seller_id: string;
           shipped_at: string | null;
           shipping_address_city: string | null;
@@ -1660,7 +1809,10 @@ export type Database = {
           listing_id: string;
           listing_title?: string | null;
           refunded_amount?: number;
+          refunded_amount_minor?: number;
           refunded_at?: string | null;
+          seller_refund_target_minor?: number;
+          seller_refunded_minor?: number;
           seller_id: string;
           shipped_at?: string | null;
           shipping_address_city?: string | null;
@@ -1686,7 +1838,10 @@ export type Database = {
           listing_id?: string;
           listing_title?: string | null;
           refunded_amount?: number;
+          refunded_amount_minor?: number;
           refunded_at?: string | null;
+          seller_refund_target_minor?: number;
+          seller_refunded_minor?: number;
           seller_id?: string;
           shipped_at?: string | null;
           shipping_address_city?: string | null;
@@ -1761,6 +1916,20 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      apply_stripe_refund: {
+        Args: {
+          p_cumulative_refund_minor: number;
+          p_stripe_charge_id: string;
+          p_stripe_refund_id?: string;
+        };
+        Returns: {
+          applied_minor: number;
+          debt_minor: number;
+          recovery_queued: boolean;
+          seller_delta_minor: number;
+          transaction_id: string;
+        }[];
+      };
       apply_stripe_payout_transition: {
         Args: {
           p_failure_code?: string;
@@ -1834,6 +2003,14 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      complete_financial_recovery: {
+        Args: {
+          p_completed_amount_minor: number;
+          p_recovery_id: string;
+          p_stripe_object_id: string;
+        };
+        Returns: boolean;
+      };
       complete_notifications_outbox: {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
@@ -1856,6 +2033,10 @@ export type Database = {
       };
       fail_financial_outbox: {
         Args: { p_error: string; p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      fail_financial_recovery: {
+        Args: { p_error: string; p_recovery_id: string };
         Returns: boolean;
       };
       fail_notifications_outbox: {
@@ -1937,6 +2118,21 @@ export type Database = {
         Args: { p_transaction_id: string };
         Returns: Database["public"]["Tables"]["seller_transfers"]["Row"][];
       };
+      prepare_financial_recovery: {
+        Args: { p_recovery_id: string };
+        Returns: {
+          completed_amount_minor: number;
+          id: string;
+          kind: Database["public"]["Enums"]["financial_recovery_kind"];
+          seller_id: string;
+          source_charge_id: string;
+          stripe_account_id: string;
+          stripe_dispute_id: string | null;
+          stripe_transfer_id: string;
+          target_amount_minor: number;
+          transaction_id: string;
+        }[];
+      };
       record_seller_transfer_failure: {
         Args: {
           p_failure_code: string;
@@ -1963,6 +2159,14 @@ export type Database = {
           payout_id: string;
           risk_reserve_minor: number;
         }[];
+      };
+      lock_stripe_dispute: {
+        Args: { p_stripe_dispute_id: string };
+        Returns: boolean;
+      };
+      resolve_stripe_dispute: {
+        Args: { p_outcome: string; p_stripe_dispute_id: string };
+        Returns: boolean;
       };
       search_listings_feed: {
         Args: {
@@ -2021,6 +2225,13 @@ export type Database = {
       };
     };
     Enums: {
+      financial_recovery_kind: "refund" | "dispute" | "dispute_restore";
+      financial_recovery_status:
+        | "queued"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "canceled";
       payout_status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
       seller_transfer_status:
         | "queued"
@@ -2160,6 +2371,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      financial_recovery_kind: ["refund", "dispute", "dispute_restore"],
+      financial_recovery_status: [
+        "queued",
+        "processing",
+        "completed",
+        "failed",
+        "canceled",
+      ],
       payout_status: ["pending", "in_transit", "paid", "failed", "canceled"],
       seller_transfer_status: [
         "queued",

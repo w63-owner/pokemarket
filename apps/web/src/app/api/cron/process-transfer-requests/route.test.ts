@@ -5,6 +5,7 @@ import { createMockDb } from "@/test-utils/db-mock";
 
 const mocks = vi.hoisted(() => ({
   client: null as any,
+  executeFinancialRecovery: vi.fn(),
   executeSellerTransfer: vi.fn(),
   executeReservedPayout: vi.fn(),
 }));
@@ -14,6 +15,9 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 vi.mock("@/lib/stripe/execute-transfer", () => ({
   executeSellerTransfer: mocks.executeSellerTransfer,
+}));
+vi.mock("@/lib/stripe/execute-financial-recovery", () => ({
+  executeFinancialRecovery: mocks.executeFinancialRecovery,
 }));
 vi.mock("@/lib/stripe/execute-payout", () => ({
   executeReservedPayout: mocks.executeReservedPayout,
@@ -47,6 +51,7 @@ describe("cron/process-transfer-requests", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "test-secret";
     mocks.executeSellerTransfer.mockReset();
+    mocks.executeFinancialRecovery.mockReset();
     mocks.executeReservedPayout.mockReset();
   });
 
@@ -82,6 +87,26 @@ describe("cron/process-transfer-requests", () => {
       last_error: "temporary Stripe failure",
       lease_token: null,
     });
+  });
+
+  it("executes a durable transfer reversal recovery", async () => {
+    const db = createMockDb({
+      financial_outbox: [
+        {
+          ...transferJob(),
+          id: "job-recovery-1",
+          event_type: "transfer_reversal_requested",
+          payload: { recovery_id: "recovery-1" },
+        },
+      ],
+    });
+    mocks.client = db.client;
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(mocks.executeFinancialRecovery).toHaveBeenCalledWith("recovery-1");
+    expect(db.state.financial_outbox[0].status).toBe("COMPLETED");
   });
 
   it("retries a durable pending bank payout", async () => {

@@ -137,6 +137,8 @@ Endpoints :
 - `payment_intent.payment_failed`
 - `payment_intent.canceled`
 - `charge.refunded`
+- `refund.created`
+- `refund.updated`
 - `charge.dispute.created`
 - `charge.dispute.updated`
 - `charge.dispute.closed`
@@ -215,8 +217,29 @@ Ils vivent dans `financial_payout_config` et se modifient par migration
 contrôlée. Un `payout.failed` ou `payout.canceled` restaure les fonds via une RPC
 idempotente ; `payout.paid` les clôture. Les événements terminaux tardifs ne
 peuvent pas rétrograder un payout déjà finalisé. `transfer.reversed` produit un
-journal équilibré et passe la commande à `reversed` en attendant le
-recouvrement complet du sprint 5.
+journal équilibré et passe la commande à `reversed`.
+
+### Remboursements, litiges et dette vendeur
+
+`charge.refunded` transmet le cumul Stripe en centimes à
+`apply_stripe_refund`. La RPC calcule la part vendeur cible avant/après : la
+livraison n'est donc jamais réappliquée lors de remboursements partiels
+successifs. Avant transfert, elle débite le ledger. Après transfert, elle crée
+une `financial_recovery` et un job durable de transfer reversal. Après payout,
+elle comptabilise une dette vendeur et bloque tout nouveau retrait.
+
+`charge.dispute.created` place la part contestée dans `seller_locked`, ou
+demande une reversal si les fonds sont déjà chez le compte connecté. Un litige
+gagné restaure le ledger et retransfère les fonds si nécessaire ; un litige
+perdu consomme le verrou. `consumed_minor` rapproche litiges et remboursements
+pour qu'un même euro ne soit jamais débité deux fois.
+
+Les crédits de ventes ultérieures remboursent automatiquement `seller_debt`
+avant d'alimenter `seller_pending`. `seller_risk_accounts` expose la dette, les
+fonds verrouillés, le blocage payout et les seuils d'alerte. L'admin
+`/admin/disputes` est alimenté par `stripe_disputes`, trié par
+`evidence_due_by`, et permet de préparer/envoyer les preuves ou d'accepter le
+chargeback. Chaque décision est écrite dans `admin_audit_log`.
 
 Les soldes éventuellement présents lors de la migration deviennent des
 journaux d'ouverture. Tant que les flux refund, dispute et payout ne sont pas
@@ -238,6 +261,20 @@ journal équilibré. Une reconstruction ne peut donc pas ressusciter un débit.
 5. Ne jamais corriger `wallets` directement. En cas d'écart, suspendre les
    payouts, conserver les identifiants Stripe/Sentry, puis corriger par une RPC
    et un journal compensatoire.
+
+### Runbook refunds et disputes
+
+1. Traiter d'abord les `stripe_disputes` en `needs_response` par
+   `evidence_due_by`; une échéance sous 72 h est prioritaire.
+2. Pour une `financial_recovery` `failed`, vérifier sur Stripe la reversal ou
+   le retransfer avec sa clé déterministe avant de relancer le cron.
+3. Comparer `transactions.refunded_amount_minor`,
+   `seller_refund_target_minor`, `seller_refunded_minor` et les
+   `stripe_disputes.consumed_minor`; leur rapprochement doit expliquer chaque
+   journal `refund_applied` ou `dispute_lost`.
+4. Toute ligne `seller_risk_accounts.payouts_blocked = true` reste bloquée
+   jusqu'à dette nulle. Ne jamais débloquer manuellement sans journal
+   compensatoire et trace `admin_audit_log`.
 
 Une commande déjà `PAID` ou `SHIPPED` sans journal de paiement est bloquée avec
 `MISSING_PAYMENT_LEDGER` plutôt que reconstituée heuristiquement. Comme aucune

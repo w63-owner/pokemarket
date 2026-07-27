@@ -17,6 +17,12 @@ export const stripeIdempotencyKeys = {
   transfer(transactionId: string): string {
     return `order-transfer-${transactionId}`;
   },
+  transferReversal(recoveryId: string, targetAmountMinor: number): string {
+    return `transfer-reversal-${recoveryId}-${targetAmountMinor}`;
+  },
+  disputeRestore(recoveryId: string): string {
+    return `dispute-restore-${recoveryId}`;
+  },
   payout(payoutId: string): string {
     return `seller-payout-${payoutId}`;
   },

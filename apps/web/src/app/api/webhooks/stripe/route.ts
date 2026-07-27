@@ -6,7 +6,10 @@ import * as Sentry from "@sentry/nextjs";
 import { getStripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
-import { handleChargeRefunded } from "@/lib/stripe/webhook-handlers/charge-refunded";
+import {
+  handleChargeRefunded,
+  handleRefundUpdated,
+} from "@/lib/stripe/webhook-handlers/charge-refunded";
 import {
   handleChargeDisputeClosed,
   handleChargeDisputeCreated,
@@ -127,6 +130,10 @@ export async function POST(request: Request) {
       // parties.
       case "charge.refunded":
         await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+      case "refund.created":
+      case "refund.updated":
+        await handleRefundUpdated(event.data.object as Stripe.Refund);
         break;
 
       // ── Disputes / chargebacks ──────────────────────────────────────────

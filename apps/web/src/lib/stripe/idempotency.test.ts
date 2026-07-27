@@ -26,6 +26,12 @@ describe("Stripe idempotency keys", () => {
 
   it("keeps order transfers and reserved payouts stable across retries", () => {
     expect(stripeIdempotencyKeys.transfer("tx-1")).toBe("order-transfer-tx-1");
+    expect(stripeIdempotencyKeys.transferReversal("recovery-1", 4000)).toBe(
+      "transfer-reversal-recovery-1-4000",
+    );
+    expect(stripeIdempotencyKeys.disputeRestore("recovery-1")).toBe(
+      "dispute-restore-recovery-1",
+    );
     expect(stripeIdempotencyKeys.payout("payout-1")).toBe(
       "seller-payout-payout-1",
     );
