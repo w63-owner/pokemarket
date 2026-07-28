@@ -7,7 +7,7 @@
     "jsxImportSource": "nativewind",
     "moduleResolution": "Bundler",
     "noEmit": true,
-    "types": ["expo-router", "nativewind/types", "react-native"],
+    "types": ["expo-router", "nativewind/types", "react-native", "jest"],
     "paths": {
       "@/*": ["./*"],
       "@pokemarket/shared": ["../../packages/shared/src"],

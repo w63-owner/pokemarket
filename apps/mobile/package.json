@@ -26,6 +26,13 @@
     "update:preview": "eas update --branch preview --message",
     "update:production": "eas update --branch production --message"
   },
+  "jest": {
+    "preset": "jest-expo",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1",
+      "^@pokemarket/shared$": "<rootDir>/../../packages/shared/src"
+    }
+  },
   "dependencies": {
     "@expo-google-fonts/geist-mono": "^0.4.2",
     "@expo-google-fonts/inter": "^0.4.2",
@@ -93,6 +100,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.1.0",
     "eslint": "^9",
     "eslint-config-expo": "~10.0.0",

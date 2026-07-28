@@ -86,6 +86,9 @@ import { POST } from "./route";
 
 beforeEach(() => {
   currentUser = { id: "buyer-1", email: "buyer@example.com" };
+  process.env.STRIPE_CHECKOUT_ENABLED = "true";
+  delete process.env.STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR;
+  delete process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS;
   stripeCreate.mockClear();
   stripeRetrieve.mockClear();
   stripeExpire.mockClear();
@@ -164,6 +167,43 @@ describe("checkout — auth + validation", () => {
     );
     expect(res.status).toBe(403);
     expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the deployment checkout gate is disabled", async () => {
+    process.env.STRIPE_CHECKOUT_ENABLED = "false";
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(503);
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
+
+  it("restricts checkout to the configured soft-launch buyer cohort", async () => {
+    process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS = "buyer-2,buyer-3";
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(403);
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
+
+  it("enforces the soft-launch order ceiling before locking the listing", async () => {
+    process.env.STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR = "1000";
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(422);
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(db.state.transactions).toHaveLength(0);
     expect(stripeCreate).not.toHaveBeenCalled();
   });
 });

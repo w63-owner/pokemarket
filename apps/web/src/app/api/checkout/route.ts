@@ -8,7 +8,11 @@ import { calcPriceSeller, calcFeeAmount, calcTotalBuyer } from "@/lib/pricing";
 import { LIMITS } from "@/lib/constants";
 import { checkoutRateLimit, applyRateLimit } from "@/lib/rate-limit";
 import { getShippingCost } from "@/lib/shipping";
-import { getAllowedCheckoutOrigin, STRIPE_API_VERSION } from "@/lib/env";
+import {
+  getAllowedCheckoutOrigin,
+  getStripeLaunchPolicy,
+  STRIPE_API_VERSION,
+} from "@/lib/env";
 import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 import type {
   CheckoutResponse,
@@ -21,6 +25,25 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+
+    const launchPolicy = getStripeLaunchPolicy();
+    if (!launchPolicy.checkoutEnabled) {
+      return NextResponse.json(
+        { error: "Les paiements sont temporairement indisponibles" },
+        { status: 503 },
+      );
+    }
+    if (
+      launchPolicy.allowedBuyerIds.size > 0 &&
+      !launchPolicy.allowedBuyerIds.has(user.id)
+    ) {
+      return NextResponse.json(
+        {
+          error: "Le paiement est actuellement réservé au groupe de lancement",
+        },
+        { status: 403 },
+      );
     }
 
     const rateLimitResponse = await applyRateLimit(checkoutRateLimit, user.id);
@@ -233,6 +256,20 @@ export async function POST(request: Request) {
     const priceSeller = calcPriceSeller(effectiveDisplayPrice);
     const feeAmount = calcFeeAmount(effectiveDisplayPrice, priceSeller);
     const totalAmount = calcTotalBuyer(effectiveDisplayPrice, shippingCost);
+    const totalAmountMinor = Math.round(totalAmount * 100);
+
+    if (
+      launchPolicy.maxAmountMinor !== null &&
+      totalAmountMinor > launchPolicy.maxAmountMinor
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Le montant de cette commande dépasse le plafond temporaire du lancement",
+        },
+        { status: 422 },
+      );
+    }
 
     if (listing.status !== "LOCKED") {
       // Atomic lock acquire: returns the affected rows so we know whether WE

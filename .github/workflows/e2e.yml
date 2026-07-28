@@ -68,6 +68,11 @@ jobs:
             sleep 2
           done
 
+      - name: Test database invariants and RLS
+        run: |
+          supabase test db
+          supabase db lint --level warning
+
       - name: Export Supabase env vars
         id: supabase-env
         run: |

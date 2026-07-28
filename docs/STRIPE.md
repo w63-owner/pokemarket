@@ -103,19 +103,22 @@ d'exigences et d'afficher le composant Connect `notification_banner`.
 
 ## Variables d'environnement
 
-| Variable                             | Usage                                                       |
-| ------------------------------------ | ----------------------------------------------------------- |
-| `STRIPE_PAYMENTS_API_KEY`            | RAK paiements/clients/Checkout uniquement                   |
-| `STRIPE_CONNECT_API_KEY`             | RAK onboarding et lecture Accounts v2 uniquement            |
-| `STRIPE_OPERATIONS_API_KEY`          | RAK refunds/transfers/payouts/disputes uniquement           |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Clé publique Stripe.js                                      |
-| `STRIPE_WEBHOOK_SECRET`              | Secret du webhook paiements v1                              |
-| `STRIPE_CONNECT_WEBHOOK_SECRET`      | Secret de l'event destination Accounts v2                   |
-| `STRIPE_WEBHOOK_IP_ALLOWLIST`        | IP webhook Stripe, séparées par virgules                    |
-| `SUPPORT_EMAIL`                      | Adresse surveillée affichée pendant l'onboarding            |
-| `NEXT_PUBLIC_APP_URL`                | Origine canonique HTTPS                                     |
-| `CHECKOUT_ALLOWED_ORIGINS`           | Origines supplémentaires exactes, séparées par des virgules |
-| `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Clé publique PaymentSheet mobile                            |
+| Variable                              | Usage                                                       |
+| ------------------------------------- | ----------------------------------------------------------- |
+| `STRIPE_PAYMENTS_API_KEY`             | RAK paiements/clients/Checkout uniquement                   |
+| `STRIPE_CONNECT_API_KEY`              | RAK onboarding et lecture Accounts v2 uniquement            |
+| `STRIPE_OPERATIONS_API_KEY`           | RAK refunds/transfers/payouts/disputes uniquement           |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`  | Clé publique Stripe.js                                      |
+| `STRIPE_WEBHOOK_SECRET`               | Secret du webhook paiements v1                              |
+| `STRIPE_CONNECT_WEBHOOK_SECRET`       | Secret de l'event destination Accounts v2                   |
+| `STRIPE_WEBHOOK_IP_ALLOWLIST`         | IP webhook Stripe, séparées par virgules                    |
+| `STRIPE_CHECKOUT_ENABLED`             | Feature gate serveur, absent = fermé en production          |
+| `STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR` | Plafond optionnel d'une commande en centimes                |
+| `STRIPE_SOFT_LAUNCH_BUYER_IDS`        | Cohorte optionnelle d'UUID acheteurs, séparés par virgules  |
+| `SUPPORT_EMAIL`                       | Adresse surveillée affichée pendant l'onboarding            |
+| `NEXT_PUBLIC_APP_URL`                 | Origine canonique HTTPS                                     |
+| `CHECKOUT_ALLOWED_ORIGINS`            | Origines supplémentaires exactes, séparées par des virgules |
+| `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`  | Clé publique PaymentSheet mobile                            |
 
 Les variables serveur sont validées au démarrage Node par
 `apps/web/src/instrumentation.ts`. Les clés réelles vivent uniquement dans les
@@ -403,6 +406,10 @@ Copier le `whsec_` temporaire affiché dans `.env.local`, puis utiliser
 `stripe trigger <event>` pour les événements v1 pris en charge.
 
 ## Checklist avant go-live
+
+La matrice de recette, les commandes automatisées, le feature gate et la
+décision go/no-go sont maintenus dans
+[`docs/STRIPE_LAUNCH.md`](./STRIPE_LAUNCH.md).
 
 - [ ] Revue juridique des CGV et du statut merchant of record
 - [ ] Responsabilité TVA validée avant toute activation de Stripe Tax

@@ -58,6 +58,12 @@ const stripeEnvSchema = z.object({
 
 export type StripeEnv = z.infer<typeof stripeEnvSchema>;
 
+export type StripeLaunchPolicy = {
+  checkoutEnabled: boolean;
+  maxAmountMinor: number | null;
+  allowedBuyerIds: ReadonlySet<string>;
+};
+
 export function getStripeEnv(): StripeEnv {
   const parsed = stripeEnvSchema.safeParse({
     paymentsApiKey: process.env.STRIPE_PAYMENTS_API_KEY,
@@ -80,9 +86,53 @@ export function getStripeEnv(): StripeEnv {
   return parsed.data;
 }
 
+/**
+ * Server-side rollout gate for staging and the capped soft launch.
+ *
+ * Production fails safe: checkout stays disabled until it is explicitly
+ * enabled in the deployment environment. An optional buyer allowlist and
+ * amount ceiling can then constrain the first live cohort without shipping a
+ * new build.
+ */
+export function getStripeLaunchPolicy(): StripeLaunchPolicy {
+  const rawEnabled = process.env.STRIPE_CHECKOUT_ENABLED?.trim().toLowerCase();
+  if (
+    rawEnabled !== undefined &&
+    rawEnabled !== "true" &&
+    rawEnabled !== "false"
+  ) {
+    throw new Error("STRIPE_CHECKOUT_ENABLED must be true or false");
+  }
+
+  const rawMaxAmount = process.env.STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR?.trim();
+  const maxAmountMinor = rawMaxAmount ? Number(rawMaxAmount) : null;
+  if (
+    maxAmountMinor !== null &&
+    (!Number.isSafeInteger(maxAmountMinor) || maxAmountMinor <= 0)
+  ) {
+    throw new Error(
+      "STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR must be a positive integer",
+    );
+  }
+
+  const allowedBuyerIds = new Set(
+    (process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+
+  return {
+    checkoutEnabled: rawEnabled ? rawEnabled === "true" : !isProd,
+    maxAmountMinor,
+    allowedBuyerIds,
+  };
+}
+
 export function validateServerEnv(): void {
   getAppUrl();
   const stripeEnv = getStripeEnv();
+  getStripeLaunchPolicy();
   if (isProd && !process.env.CRON_SECRET?.trim()) {
     throw new Error("CRON_SECRET must be set in production");
   }
