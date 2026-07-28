@@ -16,6 +16,8 @@
     "lint:fix": "turbo lint -- --fix",
     "type-check": "turbo type-check",
     "test": "turbo test",
+    "scan:secrets": "node scripts/detect-secrets.mjs",
+    "scan:secrets:staged": "node scripts/detect-secrets.mjs --staged",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "node -e \"if (process.env.CI !== 'true' && process.env.EAS_BUILD !== '1') { require('child_process').execSync('husky', {stdio: 'inherit'}) }\""

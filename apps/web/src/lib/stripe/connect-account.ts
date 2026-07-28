@@ -19,7 +19,7 @@ export type StripeRecipientCapabilityStatus =
 export async function retrieveStripeRecipientAccount(
   accountId: string,
 ): Promise<StripeRecipientAccount> {
-  return getStripe().v2.core.accounts.retrieve(accountId, {
+  return getStripe("connect").v2.core.accounts.retrieve(accountId, {
     include: CONNECT_ACCOUNT_INCLUDE,
   });
 }

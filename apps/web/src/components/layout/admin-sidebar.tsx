@@ -7,6 +7,7 @@ import {
   PackageSearch,
   Users,
   Scale,
+  Landmark,
   ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/admin/listings", label: "Annonces", icon: PackageSearch },
   { href: "/admin/users", label: "Utilisateurs", icon: Users },
   { href: "/admin/disputes", label: "Litiges", icon: Scale },
+  { href: "/admin/finance", label: "Opérations", icon: Landmark },
 ] as const;
 
 export function AdminSidebar() {

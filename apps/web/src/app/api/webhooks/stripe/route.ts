@@ -3,7 +3,9 @@ import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
 
+import { getStripeEnv } from "@/lib/env";
 import { getStripe } from "@/lib/stripe/server";
+import { verifyStripeWebhookSource } from "@/lib/stripe/webhook-security";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
 import {
@@ -30,6 +32,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const sourceRejection = verifyStripeWebhookSource(request);
+  if (sourceRejection) return sourceRejection;
+
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 
@@ -47,14 +52,14 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
+      getStripeEnv().webhookSecret,
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    Sentry.captureException(err);
-    console.error("Stripe signature verification failed:", message);
+    Sentry.captureException(err, {
+      tags: { component: "stripe-webhook", stage: "signature-verification" },
+    });
     return NextResponse.json(
-      { error: `Webhook signature verification failed: ${message}` },
+      { error: "Webhook signature verification failed" },
       { status: 400 },
     );
   }
@@ -69,7 +74,9 @@ export async function POST(request: Request) {
     if (idempotencyError.code === "23505") {
       return NextResponse.json({ received: true, duplicate: true });
     }
-    console.error("Idempotency check failed:", idempotencyError);
+    Sentry.captureException(idempotencyError, {
+      tags: { component: "stripe-webhook", stage: "idempotency-claim" },
+    });
     return NextResponse.json(
       { error: "Idempotency check failed" },
       { status: 500 },
@@ -118,6 +125,12 @@ export async function POST(request: Request) {
         break;
 
       case "payment_intent.payment_failed":
+        await handlePaymentIntentFailed(
+          event.data.object as Stripe.PaymentIntent,
+          admin,
+        );
+        break;
+      case "payment_intent.canceled":
         await handlePaymentIntentFailed(
           event.data.object as Stripe.PaymentIntent,
           admin,
@@ -185,12 +198,20 @@ export async function POST(request: Request) {
         break;
 
       default:
-        console.warn(`Unhandled event type: ${event.type}`);
+        Sentry.captureMessage("Unhandled Stripe event type", {
+          level: "info",
+          tags: { component: "stripe-webhook", event_type: event.type },
+        });
     }
     handled = true;
   } catch (err) {
-    Sentry.captureException(err);
-    console.error(`Error processing ${event.type}:`, err);
+    Sentry.captureException(err, {
+      tags: {
+        component: "stripe-webhook",
+        stage: "handler",
+        event_type: event.type,
+      },
+    });
   } finally {
     // If the handler threw, release the idempotency claim so Stripe's
     // automatic redelivery is re-processed instead of being swallowed as a
@@ -313,9 +334,6 @@ async function handleCheckoutFailed(
     .single();
 
   if (!transaction || transaction.status !== "PENDING_PAYMENT") {
-    console.warn(
-      `Transaction ${transactionId} not in PENDING_PAYMENT, skipping`,
-    );
     return;
   }
 
@@ -353,9 +371,6 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
 
   if (!transactionId) {
     // Not a PokeMarket checkout PaymentIntent — ignore silently.
-    console.warn(
-      "[webhook] payment_intent.succeeded: missing transaction_id in metadata, skipping",
-    );
     return;
   }
 
@@ -411,9 +426,6 @@ async function handlePaymentIntentFailed(
   // Only a fully canceled PaymentIntent is terminal. A `requires_payment_method`
   // status (the default after a decline) means the buyer can still retry.
   if (intent.status !== "canceled") {
-    console.info(
-      `[webhook] payment_intent.payment_failed for tx ${transactionId} (status=${intent.status}) — retryable, keeping lock`,
-    );
     return;
   }
 

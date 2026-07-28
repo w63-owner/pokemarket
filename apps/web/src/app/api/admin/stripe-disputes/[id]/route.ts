@@ -77,7 +77,7 @@ export async function POST(
       );
     }
 
-    const stripe = getStripe();
+    const stripe = getStripe("operations");
     let stripeStatus: string;
     let actionType: string;
     let payload: Json;

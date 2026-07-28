@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = await getStripe().accountSessions.create({
+  const session = await getStripe("connect").accountSessions.create({
     account: profile.stripe_account_id,
     components: {
       account_onboarding: { enabled: true },

@@ -31,7 +31,7 @@ export async function executeFinancialRecovery(
   if (amount <= 0) return recovery.stripe_transfer_id;
 
   try {
-    const stripe = getStripe();
+    const stripe = getStripe("operations");
     let stripeObjectId: string;
 
     if (recovery.kind === "dispute_restore") {

@@ -32,7 +32,10 @@ vi.mock("@/lib/push/send", () => ({
 }));
 vi.mock("@/emails/order-confirmation", () => ({ default: () => null }));
 vi.mock("@/emails/sale-notification", () => ({ default: () => null }));
-vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
 
 let mockClient: any;
 vi.mock("@/lib/supabase/admin", () => ({
@@ -42,7 +45,13 @@ vi.mock("@/lib/supabase/admin", () => ({
 import { POST } from "./route";
 
 beforeEach(() => {
+  process.env.STRIPE_PAYMENTS_API_KEY = "rk_test_payments";
+  process.env.STRIPE_CONNECT_API_KEY = "rk_test_connect";
+  process.env.STRIPE_OPERATIONS_API_KEY = "rk_test_operations";
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_publishable";
   process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = "whsec_connect_test";
+  process.env.SUPPORT_EMAIL = "support@example.com";
 });
 
 function makeReq(body = "{}", sig: string | null = "t=1,v1=test") {
@@ -503,6 +512,32 @@ describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal"
     mockClient = db.client;
     const res = await POST(makeReq());
     expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "CANCELLED",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "ACTIVE",
+    );
+  });
+
+  it("payment_intent.canceled → tx CANCELLED + listing libéré", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_pi_canceled_event",
+      type: "payment_intent.canceled",
+      data: {
+        object: {
+          id: "pi_canceled_event",
+          status: "canceled",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const response = await POST(makeReq());
+
+    expect(response.status).toBe(200);
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
       "CANCELLED",
     );

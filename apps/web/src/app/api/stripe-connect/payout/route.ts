@@ -122,9 +122,9 @@ export async function POST(request: Request) {
     });
   } catch (cause) {
     Sentry.captureException(cause, {
+      tags: { component: "stripe-payout" },
       extra: { payout_id: reserved?.payout_id },
     });
-    console.error("[payout] Error:", cause);
 
     if (isAmbiguousStripeFailure(cause) && reserved) {
       return NextResponse.json(

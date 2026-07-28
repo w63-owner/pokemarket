@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const stripe = getStripe();
+    const stripe = getStripe("operations");
     const idempotencyKey = stripeIdempotencyKeys.refund(
       transaction.id,
       request_id,
@@ -182,14 +182,14 @@ export async function POST(request: Request) {
         "Remboursement créé. Le statut final sera reflété par le webhook `charge.refunded`.",
     });
   } catch (err) {
-    Sentry.captureException(err);
-    console.error("[admin/refund] Error:", err);
+    Sentry.captureException(err, {
+      tags: { component: "stripe-admin-refund" },
+    });
 
     if (isStripeError(err)) {
       return NextResponse.json(
         {
-          error:
-            err.message ?? "Erreur Stripe lors de la création du remboursement",
+          error: "Erreur Stripe lors de la création du remboursement",
         },
         { status: 400 },
       );

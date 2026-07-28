@@ -16,7 +16,7 @@ export async function handleRefundUpdated(
     throw new Error(`Succeeded refund ${refund.id} has no charge`);
   }
 
-  const charge = await getStripe().charges.retrieve(chargeId, {
+  const charge = await getStripe("operations").charges.retrieve(chargeId, {
     expand: ["refunds"],
   });
   await handleChargeRefunded(charge);

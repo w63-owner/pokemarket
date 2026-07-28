@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getStripeEnv, STRIPE_API_VERSION } from "./env";
 
 const stripeEnvKeys = [
-  "STRIPE_SECRET_KEY",
+  "STRIPE_PAYMENTS_API_KEY",
+  "STRIPE_CONNECT_API_KEY",
+  "STRIPE_OPERATIONS_API_KEY",
   "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
   "STRIPE_WEBHOOK_SECRET",
   "STRIPE_CONNECT_WEBHOOK_SECRET",
+  "STRIPE_WEBHOOK_IP_ALLOWLIST",
   "SUPPORT_EMAIL",
   "CHECKOUT_ALLOWED_ORIGINS",
 ] as const;
@@ -18,7 +21,9 @@ describe("Stripe environment", () => {
       original[key] = process.env[key];
     }
 
-    process.env.STRIPE_SECRET_KEY = "rk_test_placeholder";
+    process.env.STRIPE_PAYMENTS_API_KEY = "rk_test_payments";
+    process.env.STRIPE_CONNECT_API_KEY = "rk_test_connect";
+    process.env.STRIPE_OPERATIONS_API_KEY = "rk_test_operations";
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_placeholder";
     process.env.STRIPE_WEBHOOK_SECRET = "whsec_placeholder";
     process.env.STRIPE_CONNECT_WEBHOOK_SECRET = "whsec_connect_placeholder";
@@ -36,7 +41,9 @@ describe("Stripe environment", () => {
 
   it("returns the reviewed Stripe configuration", () => {
     expect(getStripeEnv()).toMatchObject({
-      secretKey: "rk_test_placeholder",
+      paymentsApiKey: "rk_test_payments",
+      connectApiKey: "rk_test_connect",
+      operationsApiKey: "rk_test_operations",
       publishableKey: "pk_test_placeholder",
       webhookSecret: "whsec_placeholder",
       connectWebhookSecret: "whsec_connect_placeholder",
@@ -47,7 +54,7 @@ describe("Stripe environment", () => {
 
   it("rejects missing or malformed payment credentials", () => {
     delete process.env.STRIPE_WEBHOOK_SECRET;
-    process.env.STRIPE_SECRET_KEY = "not-a-stripe-key";
+    process.env.STRIPE_PAYMENTS_API_KEY = "sk_test_not_restricted";
 
     expect(() => getStripeEnv()).toThrow("Invalid Stripe environment");
   });

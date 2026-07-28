@@ -1,76 +1,80 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import * as Sentry from "@sentry/nextjs";
 
-let redis: Redis;
-try {
-  redis = Redis.fromEnv();
-} catch {
-  console.warn(
-    "[rate-limit] UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set — rate limiting disabled",
-  );
-  redis = {} as Redis;
+type RateLimiter = {
+  name: string;
+  client: Ratelimit | null;
+  failClosed: boolean;
+};
+
+const hasRedisCredentials = Boolean(
+  process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+  process.env.UPSTASH_REDIS_REST_TOKEN?.trim(),
+);
+const redis = hasRedisCredentials ? Redis.fromEnv() : null;
+const isDevelopmentOrTest =
+  process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+
+function createRateLimiter(
+  name: string,
+  requests: number,
+  failClosed = false,
+): RateLimiter {
+  return {
+    name,
+    failClosed,
+    client: redis
+      ? new Ratelimit({
+          redis,
+          limiter: Ratelimit.slidingWindow(requests, "1 m"),
+          prefix: `ratelimit:${name}`,
+          analytics: true,
+        })
+      : null,
+  };
 }
 
-export const ocrRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, "1 m"),
-  prefix: "ratelimit:ocr",
-  analytics: true,
-});
+export const ocrRateLimit = createRateLimiter("ocr", 5);
+export const checkoutRateLimit = createRateLimiter("checkout", 3, true);
+export const pushRateLimit = createRateLimiter("push", 10);
+export const onboardRateLimit = createRateLimiter("onboard", 2);
+export const payoutRateLimit = createRateLimiter("payout", 1, true);
 
-export const checkoutRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(3, "1 m"),
-  prefix: "ratelimit:checkout",
-  analytics: true,
-});
-
-export const pushRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
-  prefix: "ratelimit:push",
-  analytics: true,
-});
-
-export const onboardRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(2, "1 m"),
-  prefix: "ratelimit:onboard",
-  analytics: true,
-});
-
-export const payoutRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(1, "1 m"),
-  prefix: "ratelimit:payout",
-  analytics: true,
-});
-
-// Admin actions are powerful (manual refund, dispute evidence). Cap at a
-// modest rate per admin id so a leaked session can't drain the platform.
-export const adminActionRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(20, "1 m"),
-  prefix: "ratelimit:admin-action",
-  analytics: true,
-});
-
-export const defaultRateLimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
-  prefix: "ratelimit:default",
-  analytics: true,
-});
+// Admin actions can create refunds or submit dispute evidence. Never continue
+// without the distributed limiter outside local development/test.
+export const adminActionRateLimit = createRateLimiter("admin-action", 20, true);
+export const defaultRateLimit = createRateLimiter("default", 10);
 
 export async function applyRateLimit(
-  limiter: Ratelimit,
+  limiter: RateLimiter,
   identifier: string,
 ): Promise<Response | null> {
+  if (!limiter.client) {
+    if (limiter.failClosed && !isDevelopmentOrTest) {
+      Sentry.captureMessage("Critical rate limiter is not configured", {
+        level: "error",
+        tags: {
+          component: "rate-limit",
+          limiter: limiter.name,
+          failure_mode: "closed",
+        },
+      });
+      return unavailableResponse();
+    }
+    return null;
+  }
+
   try {
     const { success, limit, remaining, reset } =
-      await limiter.limit(identifier);
+      await limiter.client.limit(identifier);
 
     if (!success) {
+      Sentry.captureMessage("Rate limit exceeded", {
+        level: "warning",
+        tags: { component: "rate-limit", limiter: limiter.name },
+        extra: { limit, remaining, reset },
+      });
       const retryAfter = Math.ceil((reset - Date.now()) / 1000);
       return new Response(
         JSON.stringify({
@@ -90,7 +94,32 @@ export async function applyRateLimit(
 
     return null;
   } catch (err) {
-    console.warn("[rate-limit] Redis unavailable, failing open:", err);
-    return null;
+    Sentry.captureException(err, {
+      tags: {
+        component: "rate-limit",
+        limiter: limiter.name,
+        failure_mode:
+          limiter.failClosed && !isDevelopmentOrTest ? "closed" : "open",
+      },
+    });
+    return limiter.failClosed && !isDevelopmentOrTest
+      ? unavailableResponse()
+      : null;
   }
+}
+
+function unavailableResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error:
+        "Protection anti-abus temporairement indisponible. Veuillez réessayer.",
+    }),
+    {
+      status: 503,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": "60",
+      },
+    },
+  );
 }

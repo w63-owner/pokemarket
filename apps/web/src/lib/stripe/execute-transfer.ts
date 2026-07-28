@@ -66,7 +66,7 @@ export async function executeSellerTransfer(
     );
   }
 
-  const stripe = getStripe();
+  const stripe = getStripe("operations");
 
   try {
     const transfer = await stripe.transfers.create(

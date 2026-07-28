@@ -29,6 +29,14 @@
     {
       "path": "/api/cron/reconcile-financial-ledger",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/process-transfer-requests",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/monitor-financial-operations",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

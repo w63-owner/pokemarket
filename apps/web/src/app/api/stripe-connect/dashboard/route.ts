@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const loginLink = await getStripe().accounts.createLoginLink(
+  const loginLink = await getStripe("connect").accounts.createLoginLink(
     profile.stripe_account_id,
   );
   return NextResponse.json({ url: loginLink.url });

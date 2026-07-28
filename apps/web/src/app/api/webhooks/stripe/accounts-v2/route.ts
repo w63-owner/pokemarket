@@ -5,6 +5,7 @@ import { getStripeEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { retrieveStripeRecipientAccount } from "@/lib/stripe/connect-account";
 import { getStripe } from "@/lib/stripe/server";
+import { verifyStripeWebhookSource } from "@/lib/stripe/webhook-security";
 import { handleAccountUpdated } from "@/lib/stripe/webhook-handlers/account-updated";
 
 export const runtime = "nodejs";
@@ -19,6 +20,9 @@ const RECIPIENT_EVENT_TYPES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  const sourceRejection = verifyStripeWebhookSource(request);
+  if (sourceRejection) return sourceRejection;
+
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
@@ -28,7 +32,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const stripe = getStripe();
+  const stripe = getStripe("connect");
   let event;
   try {
     event = stripe.parseEventNotification(

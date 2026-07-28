@@ -1919,7 +1919,17 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      financial_reconciliation_alerts: {
+        Row: {
+          actual_minor: number | null;
+          alert_type: string | null;
+          details: Json | null;
+          detected_at: string | null;
+          entity_id: string | null;
+          expected_minor: number | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       apply_stripe_refund: {

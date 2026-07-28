@@ -386,8 +386,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (err) {
-    Sentry.captureException(err);
-    console.error("Checkout error:", err);
+    Sentry.captureException(err, {
+      tags: { component: "stripe-checkout" },
+    });
     return NextResponse.json(
       { error: "Erreur serveur inattendue" },
       { status: 500 },

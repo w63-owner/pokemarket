@@ -33,7 +33,7 @@ export async function executeReservedPayout(
     throw new Error(`Payout ${payoutId} has no connected account`);
   }
 
-  const stripe = getStripe();
+  const stripe = getStripe("operations");
 
   if (attempt.stripe_payout_id) {
     const existing = await stripe.payouts.retrieve(

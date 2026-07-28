@@ -105,10 +105,13 @@ d'exigences et d'afficher le composant Connect `notification_banner`.
 
 | Variable                             | Usage                                                       |
 | ------------------------------------ | ----------------------------------------------------------- |
-| `STRIPE_SECRET_KEY`                  | Clé serveur ; préférer une restricted key `rk_` minimale    |
+| `STRIPE_PAYMENTS_API_KEY`            | RAK paiements/clients/Checkout uniquement                   |
+| `STRIPE_CONNECT_API_KEY`             | RAK onboarding et lecture Accounts v2 uniquement            |
+| `STRIPE_OPERATIONS_API_KEY`          | RAK refunds/transfers/payouts/disputes uniquement           |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Clé publique Stripe.js                                      |
 | `STRIPE_WEBHOOK_SECRET`              | Secret du webhook paiements v1                              |
 | `STRIPE_CONNECT_WEBHOOK_SECRET`      | Secret de l'event destination Accounts v2                   |
+| `STRIPE_WEBHOOK_IP_ALLOWLIST`        | IP webhook Stripe, séparées par virgules                    |
 | `SUPPORT_EMAIL`                      | Adresse surveillée affichée pendant l'onboarding            |
 | `NEXT_PUBLIC_APP_URL`                | Origine canonique HTTPS                                     |
 | `CHECKOUT_ALLOWED_ORIGINS`           | Origines supplémentaires exactes, séparées par des virgules |
@@ -118,6 +121,51 @@ Les variables serveur sont validées au démarrage Node par
 `apps/web/src/instrumentation.ts`. Les clés réelles vivent uniquement dans les
 fichiers locaux non suivis ou le gestionnaire de secrets du déploiement. Les
 exemples du dépôt ne contiennent que des placeholders.
+
+En dehors du développement et des tests, les trois clés serveur doivent être
+des restricted keys `rk_`; une clé générale `sk_` fait échouer le démarrage.
+Créer une clé distincte par environnement **et** par service, puis appliquer
+les droits minimaux suivants dans Workbench :
+
+| Clé        | Écriture                                                                     | Lecture                                    |
+| ---------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| Payments   | Customers, Checkout Sessions, PaymentIntents, PaymentMethods, Ephemeral Keys | Charges, PaymentIntents, Checkout Sessions |
+| Connect    | Accounts v2, Account Links, Account Sessions, Login Links                    | Accounts v2                                |
+| Operations | Refunds, Transfers, Transfer Reversals, Payouts, Disputes                    | Charges, Transfers, Payouts, Disputes      |
+
+Procédure de rotation :
+
+1. créer la nouvelle RAK en sandbox avec les mêmes droits et une restriction
+   d'accès propre au service ;
+2. la déployer sur staging, surveiller les `403` dans Workbench et Sentry ;
+3. créer l'équivalent live, remplacer la variable sensible Vercel puis
+   redéployer ;
+4. révoquer l'ancienne clé après le smoke test et conserver la date de rotation
+   dans le journal d'exploitation.
+
+Le hook pre-commit et la CI exécutent `npm run scan:secrets`. Toute détection
+impose de révoquer la valeur avant de poursuivre, même si le commit a été
+annulé.
+
+## Sécurité réseau et navigateur
+
+- Chaque webhook vérifie d'abord l'IP transmise par
+  `x-vercel-forwarded-for`, puis la signature Stripe sur le corps brut.
+- `STRIPE_WEBHOOK_IP_ALLOWLIST` doit rester synchronisée avec
+  `https://stripe.com/files/ips/ips_webhooks.txt`; son absence bloque le
+  démarrage hors développement.
+- Le CSP autorise explicitement Stripe.js, Stripe-hosted UI et Link via
+  `*.stripe.com`, `*.stripe.network` et `*.link.com`. `object-src` et
+  `frame-ancestors` valent `none`; `unsafe-eval` est limité au développement.
+- Les secrets webhook et RAK ne sont jamais exposés au web ou au mobile. Les
+  clients reçoivent uniquement des clés publiables, client secrets et
+  ephemeral keys à durée courte.
+- Les erreurs financières sont envoyées à Sentry sans cookies, Authorization
+  ni `stripe-signature`; les réponses publiques et logs ne renvoient pas
+  l'objet d'erreur Stripe brut.
+- Checkout, payout et actions admin échouent en `503` si Upstash est absent ou
+  indisponible hors développement/test. Les refus `429` et indisponibilités
+  sont tagués dans Sentry.
 
 ## Webhook
 
@@ -161,6 +209,21 @@ L'event destination Accounts v2 doit livrer :
 Chaque signature est vérifiée sur le corps brut avec le secret de son endpoint.
 Le handler relit ensuite l'Account v2 avec `configuration.recipient` et
 `requirements` inclus avant de mettre à jour le statut KYC local.
+
+### Redelivery
+
+1. Dans Stripe Workbench, ouvrir l'événement échoué et conserver son `event_id`,
+   son type, le Request ID et l'erreur Sentry associée.
+2. Corriger la cause avant redelivery. Ne jamais supprimer manuellement une
+   écriture ledger ou créer un deuxième objet Stripe.
+3. Utiliser **Resend event**. En cas d'échec handler, la claim
+   `stripe_webhooks_processed` a été supprimée et l'événement est rejouable ;
+   un événement déjà traité répond `duplicate: true`.
+4. Vérifier la convergence dans `/admin/finance`, puis rapprocher l'objet Stripe,
+   la transaction, le journal ledger et le job outbox.
+5. Si l'événement ne peut plus être redélivré, lancer la procédure de
+   réconciliation avec l'identifiant Stripe existant. Ne jamais reconstruire
+   un mouvement financier à partir d'un montant saisi manuellement.
 
 ### Recréation sandbox
 
@@ -279,6 +342,41 @@ journal équilibré. Une reconstruction ne peut donc pas ressusciter un débit.
    jusqu'à dette nulle. Ne jamais débloquer manuellement sans journal
    compensatoire et trace `admin_audit_log`.
 
+### Surveillance et alertes
+
+Le cron `GET /api/cron/monitor-financial-operations`, exécuté toutes les cinq
+minutes, groupe les signaux sous les fingerprints Sentry
+`financial-operations-monitor` et `financial-operations-risk-monitor`.
+Configurer dans Sentry une alerte immédiate pour le niveau `error` et une
+notification ouvrée pour le niveau `warning`.
+
+Le tableau `/admin/finance` expose :
+
+- outbox financière échouée, en retard ou avec lease expiré ;
+- écarts détectés par `financial_reconciliation_alerts` entre transactions,
+  ledger et identifiants Stripe ;
+- `financial_recoveries` échouées, dettes vendeurs et payouts bloqués ;
+- remboursements dont la cible vendeur n'est pas encore recouvrée ;
+- preuves de litige dues, avec priorité à moins de 72 heures ;
+- payouts bancaires échoués.
+
+Réponse d'astreinte :
+
+1. suspendre les sorties si un écart de rapprochement ou plusieurs jobs
+   financiers bloqués sont signalés ;
+2. noter les IDs sans copier de secret, examiner Sentry et Stripe Workbench ;
+3. rejouer le cron ou le webhook avec la même clé d'idempotence ;
+4. vérifier `/admin/finance` puis `npm run reconcile:ledger
+--workspace=@pokemarket/web` ;
+5. ne rouvrir les payouts qu'après disparition des écarts et journalisation de
+   la décision.
+
+En cas d'indisponibilité Upstash, checkout, payout et mutations admin répondent
+`503` avec `Retry-After: 60`. Ne pas contourner le garde-fou : vérifier l'état
+Upstash, les quotas et les variables de l'environnement concerné, restaurer le
+service, puis confirmer dans Sentry que les événements `failure_mode=closed`
+cessent avant de reprendre les opérations.
+
 Une commande déjà `PAID` ou `SHIPPED` sans journal de paiement est bloquée avec
 `MISSING_PAYMENT_LEDGER` plutôt que reconstituée heuristiquement. Comme aucune
 donnée financière réelle n'existe, les anciennes commandes sandbox doivent
@@ -310,7 +408,10 @@ Copier le `whsec_` temporaire affiché dans `.env.local`, puis utiliser
 - [ ] Responsabilité TVA validée avant toute activation de Stripe Tax
 - [ ] Accounts v2 recipient et événements validés en sandbox
 - [ ] Restricted keys minimales, séparées par environnement
+- [ ] Restrictions d'accès RAK et rotation testées dans Workbench
 - [ ] Webhook live créé avec tous les événements requis
+- [ ] IP webhook live synchronisées avec la liste Stripe officielle
+- [ ] Alertes Sentry `financial-operations-*` routées vers l'astreinte
 - [ ] `SUPPORT_EMAIL` surveillé
 - [ ] Carte, 3DS, paiement différé, refund, dispute, transfert et payout testés
 - [ ] Réconciliation Stripe ↔ transactions ↔ ledger sans écart

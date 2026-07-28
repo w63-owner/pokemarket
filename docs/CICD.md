@@ -73,8 +73,13 @@ Pipeline complete pour 3 environnements : **dev local / staging / prod**, basee 
    - `NEXT_PUBLIC_SUPABASE_URL` = URL Supabase staging
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = anon key staging
    - `SUPABASE_SERVICE_ROLE_KEY` = service_role key staging
-   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` / `STRIPE_SECRET_KEY` = **cles Test** Stripe
-   - `STRIPE_WEBHOOK_SECRET` = webhook test (configure un endpoint webhook Stripe pointant vers l'URL staging)
+   - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` = cle publiable **Test** Stripe
+   - `STRIPE_PAYMENTS_API_KEY`, `STRIPE_CONNECT_API_KEY`,
+     `STRIPE_OPERATIONS_API_KEY` = trois restricted keys `rk_test_` distinctes,
+     avec les droits minimaux de `docs/STRIPE.md`
+   - `STRIPE_WEBHOOK_SECRET` / `STRIPE_CONNECT_WEBHOOK_SECRET` = secrets des
+     deux event destinations staging
+   - `STRIPE_WEBHOOK_IP_ALLOWLIST` = liste officielle Stripe courante
    - `OPENAI_API_KEY` = peut etre la meme qu'en prod (avec un quota limite ou un projet OpenAI dedie)
    - `RESEND_API_KEY` = utilise un domaine Resend secondaire ou la sandbox
    - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` = **regenere une nouvelle paire** (`npx web-push generate-vapid-keys`)
@@ -265,7 +270,8 @@ A passer au peigne fin la semaine avant l'ouverture aux vrais utilisateurs.
 
 ### Stripe
 
-1. Bascule les cles Vercel prod en **Live mode** (`pk_live_*` / `sk_live_*`).
+1. Bascule les cles Vercel prod en **Live mode** (`pk_live_*` et les trois
+   `rk_live_*` séparées).
 2. Configure le webhook **Live** pointant sur `https://<DOMAIN>/api/webhooks/stripe`.
 3. Verifie que Stripe Connect est en **Production** (pas Test).
 4. Active la **2FA** sur le compte Stripe.
@@ -329,11 +335,19 @@ flowchart LR
 2. Stripe Connect : verifie que ton compte est active en Production (Settings > Connect settings > Production access). Si tu es encore en Test, complete les informations demandees par Stripe.
 3. Genere les cles **Live** (Developers > API keys) :
    - `pk_live_*` -> `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` Vercel prod
-   - `sk_live_*` -> `STRIPE_SECRET_KEY` Vercel prod
-4. Cree un **webhook Live** (Developers > Webhooks > Add endpoint) :
+   - trois restricted keys `rk_live_*` distinctes pour
+     `STRIPE_PAYMENTS_API_KEY`, `STRIPE_CONNECT_API_KEY` et
+     `STRIPE_OPERATIONS_API_KEY`, avec les droits minimaux de
+     `docs/STRIPE.md`; active une restriction d'acces par cle
+4. Cree les deux event destinations **Live** :
    - URL : `https://pokemarket-seven.vercel.app/api/webhooks/stripe`
-   - Events : `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_failed`
+   - Events v1 : liste exhaustive de `docs/STRIPE.md`, incluant paiements
+     asynchrones, PaymentIntents, refunds, disputes, transfers et payouts
    - Signing secret -> `STRIPE_WEBHOOK_SECRET` Vercel prod
+   - URL Accounts v2 :
+     `https://pokemarket-seven.vercel.app/api/webhooks/stripe/accounts-v2`
+   - Events v2 : liste Accounts v2 de `docs/STRIPE.md`
+   - Signing secret -> `STRIPE_CONNECT_WEBHOOK_SECRET` Vercel prod
 5. Active la **2FA** sur le compte Stripe.
 
 ### 8.2 Vercel — env vars projet `pokemarket-prod`
@@ -344,8 +358,12 @@ Settings > Environment Variables, scope **Production** uniquement :
 | ------------------------------------ | ---------------------------------------------------- | ----------------------------------------------- |
 | `NEXT_PUBLIC_APP_URL`                | `https://pokemarket-seven.vercel.app`                | Sans slash final                                |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...`                                        | depuis Stripe                                   |
-| `STRIPE_SECRET_KEY`                  | `sk_live_...`                                        | depuis Stripe                                   |
+| `STRIPE_PAYMENTS_API_KEY`            | `rk_live_...`                                        | RAK paiements minimale                          |
+| `STRIPE_CONNECT_API_KEY`             | `rk_live_...`                                        | RAK Connect minimale                            |
+| `STRIPE_OPERATIONS_API_KEY`          | `rk_live_...`                                        | RAK opérations financières minimale             |
 | `STRIPE_WEBHOOK_SECRET`              | `whsec_...` du webhook **Live**                      |                                                 |
+| `STRIPE_CONNECT_WEBHOOK_SECRET`      | `whsec_...` de l'event destination Accounts v2       |                                                 |
+| `STRIPE_WEBHOOK_IP_ALLOWLIST`        | Liste officielle Stripe                              | synchroniser avec `ips_webhooks.txt`            |
 | `NEXT_PUBLIC_SENTRY_DSN`             | DSN du projet Sentry prod                            |                                                 |
 | `RESEND_API_KEY`                     | cle Resend prod                                      |                                                 |
 | `RESEND_FROM_EMAIL`                  | `PokeMarket <noreply@<domaine-verifie>>`             | cf. 8.4                                         |
@@ -358,7 +376,8 @@ Settings > Environment Variables, scope **Production** uniquement :
 | `NEXT_PUBLIC_SUPABASE_URL` / `_KEY`  | projet Supabase prod                                 |                                                 |
 | `CRON_SECRET`                        | regenere : `openssl rand -hex 32`                    | utilise par Vercel Cron pour appeler nos routes |
 
-> Aucune valeur ne doit ressembler a `mon_super_secret_12345678` ni contenir `_test_` apres cette etape.
+> Aucune valeur ne doit ressembler a `mon_super_secret_12345678` ni contenir
+> `_test_` apres cette etape. `npm run scan:secrets` doit rester vert.
 
 ### 8.3 Supabase prod
 

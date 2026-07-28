@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const stripe = getStripe();
+    const stripe = getStripe("connect");
     const requestOrigin = getAllowedCheckoutOrigin(
       request.headers.get("origin"),
     );
@@ -143,7 +143,12 @@ export async function POST(request: Request) {
         .eq("id", user.id);
 
       if (updateError) {
-        console.error("Failed to save stripe_account_id:", updateError);
+        Sentry.captureException(updateError, {
+          tags: {
+            component: "stripe-connect-onboard",
+            stage: "persist-account",
+          },
+        });
         return NextResponse.json(
           { error: "Impossible de sauvegarder le compte Stripe" },
           { status: 500 },
@@ -182,8 +187,9 @@ export async function POST(request: Request) {
     };
     return NextResponse.json(response);
   } catch (err) {
-    Sentry.captureException(err);
-    console.error("Stripe Connect onboard error:", err);
+    Sentry.captureException(err, {
+      tags: { component: "stripe-connect-onboard" },
+    });
     return NextResponse.json(
       { error: "Erreur serveur inattendue" },
       { status: 500 },

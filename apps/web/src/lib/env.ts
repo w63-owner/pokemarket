@@ -22,14 +22,18 @@ const optionalNonEmpty = z.preprocess(
   z.string().optional(),
 );
 
+const restrictedStripeKey = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().regex(/^rk_(?:test|live)_/, {
+    message: "must be a least-privilege Stripe restricted API key",
+  }),
+);
+
 const stripeEnvSchema = z.object({
-  secretKey: z.preprocess(
-    (value) =>
-      typeof value === "string" && value.trim() === "" ? undefined : value,
-    z.string().regex(/^(?:rk|sk)_(?:test|live)_/, {
-      message: "must be a Stripe restricted or secret API key",
-    }),
-  ),
+  paymentsApiKey: restrictedStripeKey,
+  connectApiKey: restrictedStripeKey,
+  operationsApiKey: restrictedStripeKey,
   publishableKey: z.preprocess(
     (value) =>
       typeof value === "string" && value.trim() === "" ? undefined : value,
@@ -49,18 +53,22 @@ const stripeEnvSchema = z.object({
   ),
   supportEmail: z.email(),
   allowedOrigins: optionalNonEmpty,
+  webhookIpAllowlist: optionalNonEmpty,
 });
 
 export type StripeEnv = z.infer<typeof stripeEnvSchema>;
 
 export function getStripeEnv(): StripeEnv {
   const parsed = stripeEnvSchema.safeParse({
-    secretKey: process.env.STRIPE_SECRET_KEY,
+    paymentsApiKey: process.env.STRIPE_PAYMENTS_API_KEY,
+    connectApiKey: process.env.STRIPE_CONNECT_API_KEY,
+    operationsApiKey: process.env.STRIPE_OPERATIONS_API_KEY,
     publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     connectWebhookSecret: process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
     supportEmail: process.env.SUPPORT_EMAIL,
     allowedOrigins: process.env.CHECKOUT_ALLOWED_ORIGINS,
+    webhookIpAllowlist: process.env.STRIPE_WEBHOOK_IP_ALLOWLIST,
   });
 
   if (!parsed.success) {
@@ -74,9 +82,23 @@ export function getStripeEnv(): StripeEnv {
 
 export function validateServerEnv(): void {
   getAppUrl();
-  getStripeEnv();
+  const stripeEnv = getStripeEnv();
   if (isProd && !process.env.CRON_SECRET?.trim()) {
     throw new Error("CRON_SECRET must be set in production");
+  }
+  if (
+    isProd &&
+    (!process.env.UPSTASH_REDIS_REST_URL?.trim() ||
+      !process.env.UPSTASH_REDIS_REST_TOKEN?.trim())
+  ) {
+    throw new Error(
+      "Upstash Redis credentials must be set outside development so financial rate limits fail closed",
+    );
+  }
+  if (isProd && !stripeEnv.webhookIpAllowlist) {
+    throw new Error(
+      "STRIPE_WEBHOOK_IP_ALLOWLIST must be set outside development",
+    );
   }
 }
 

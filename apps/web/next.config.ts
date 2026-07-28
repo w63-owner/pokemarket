@@ -31,14 +31,19 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
+    const isDevelopment = process.env.NODE_ENV === "development";
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://*.sentry.io",
+      `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""} https://js.stripe.com https://*.stripe.com https://*.link.com https://*.sentry.io`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' blob: data: https://*.supabase.co",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io",
+      "img-src 'self' blob: data: https://*.supabase.co https://*.stripe.com https://*.link.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.stripe.com https://*.stripe.network https://*.link.com https://*.sentry.io",
       "font-src 'self' https://fonts.gstatic.com",
-      "frame-src 'self' https://js.stripe.com",
+      "frame-src 'self' https://*.stripe.com https://*.link.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
     ].join("; ");
 
     // Enforce CSP only on the live production deployment (Vercel sets

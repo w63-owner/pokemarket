@@ -7,7 +7,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const mobileRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const mobileRoot = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(mobileRoot, relativePath), "utf8").trim();
@@ -33,7 +36,9 @@ function reviewNotesFromMarkdown(relativePath) {
   if (idx === -1) return raw;
   const afterHeader = raw.slice(idx + marker.length).trim();
   const secondIdx = afterHeader.indexOf(marker);
-  return secondIdx === -1 ? afterHeader : afterHeader.slice(secondIdx + marker.length).trim();
+  return secondIdx === -1
+    ? afterHeader
+    : afterHeader.slice(secondIdx + marker.length).trim();
 }
 
 const { version } = JSON.parse(readText("app.json")).expo;
