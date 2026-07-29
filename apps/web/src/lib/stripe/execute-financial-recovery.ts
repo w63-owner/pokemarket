@@ -74,11 +74,20 @@ export async function executeFinancialRecovery(
       );
       stripeObjectId = reversal.id;
 
+      // apply_stripe_transfer_reversal expects Stripe's cumulative
+      // amount_reversed (same as transfer.reversed webhooks). Recovery jobs
+      // are per-refund/dispute and their target is only the liability for
+      // that job — never pass target_amount_minor here or a second recovery
+      // under-counts the ledger while Stripe has fully reversed the transfer.
+      const parentTransfer = await stripe.transfers.retrieve(
+        recovery.stripe_transfer_id,
+      );
+
       const { error: reversalError } = await admin.rpc(
         "apply_stripe_transfer_reversal",
         {
           p_stripe_transfer_id: recovery.stripe_transfer_id,
-          p_amount_reversed_minor: recovery.target_amount_minor,
+          p_amount_reversed_minor: parentTransfer.amount_reversed,
         },
       );
       if (reversalError) throw reversalError;

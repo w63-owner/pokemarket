@@ -91,9 +91,42 @@ describe("executeSellerTransfer", () => {
     const db = createMockDb(data);
     client = db.client;
 
-    await expect(executeSellerTransfer("tx-1")).rejects.toThrow(
-      "canceled by a refund or dispute",
-    );
+    await expect(executeSellerTransfer("tx-1")).rejects.toMatchObject({
+      message: expect.stringContaining("TRANSFER_CANCELED_FINANCIAL_RECOVERY"),
+    });
     expect(mocks.transfersCreate).not.toHaveBeenCalled();
+  });
+
+  it("refuses lease reclaim while another worker's Stripe call is in flight", async () => {
+    const data = scenario();
+    data.seller_transfers[0].status = "processing";
+    data.seller_transfers[0].execution_started_at = new Date().toISOString();
+    const db = createMockDb(data);
+    client = db.client;
+
+    await expect(executeSellerTransfer("tx-1")).rejects.toMatchObject({
+      message: expect.stringContaining("TRANSFER_IN_FLIGHT_RETRY"),
+    });
+    expect(mocks.transfersCreate).not.toHaveBeenCalled();
+    expect(db.state.seller_transfers[0].execution_started_at).toBeTruthy();
+  });
+
+  it("clears the in-flight handshake after a confirmed Stripe failure", async () => {
+    const data = scenario();
+    const db = createMockDb(data);
+    client = db.client;
+    mocks.transfersCreate.mockRejectedValueOnce({
+      code: "balance_insufficient",
+      message: "insufficient funds",
+    });
+
+    await expect(executeSellerTransfer("tx-1")).rejects.toMatchObject({
+      code: "balance_insufficient",
+    });
+    expect(db.state.seller_transfers[0]).toMatchObject({
+      status: "failed",
+      execution_started_at: null,
+      failure_code: "balance_insufficient",
+    });
   });
 });
