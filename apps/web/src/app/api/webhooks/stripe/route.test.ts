@@ -3,15 +3,37 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 import { basicScenario, IDS } from "@/test-utils/fixtures";
 
+/** Paid checkout session payload matching basicScenario total_amount=105.7 */
+function paidCheckoutSession(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "cs_test_1",
+    payment_status: "paid",
+    amount_total: 10570,
+    currency: "eur",
+    metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+    ...overrides,
+  };
+}
+
+/** Succeeded PaymentIntent matching basicScenario total_amount=105.7 */
+function succeededPaymentIntent(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "pi_test_1",
+    status: "succeeded",
+    amount: 10570,
+    amount_received: 10570,
+    currency: "eur",
+    latest_charge: "ch_test_1",
+    metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+    ...overrides,
+  };
+}
+
 let stripeConstructEventImpl: () => any = () => ({
   id: "evt_1",
   type: "checkout.session.completed",
   data: {
-    object: {
-      id: "cs_default",
-      payment_status: "paid",
-      metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-    },
+    object: paidCheckoutSession({ id: "cs_default" }),
   },
 });
 
@@ -83,11 +105,10 @@ describe("webhooks/stripe — QA happy path", () => {
       id: "evt_async_pending",
       type: "checkout.session.completed",
       data: {
-        object: {
+        object: paidCheckoutSession({
           id: "cs_async",
           payment_status: "unpaid",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        }),
       },
     });
     const db = createMockDb(basicScenario());
@@ -105,14 +126,50 @@ describe("webhooks/stripe — QA happy path", () => {
       id: "evt_async_succeeded",
       type: "checkout.session.async_payment_succeeded",
       data: {
+        object: paidCheckoutSession({ id: "cs_async" }),
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+  });
+
+  it("checkout.session.completed with amount mismatch → does NOT finalize", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_amt_mismatch",
+      type: "checkout.session.completed",
+      data: {
+        object: paidCheckoutSession({ amount_total: 1 }),
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+  });
+
+  it("checkout.session.expired does not overwrite a concurrently PAID order", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_expire_race",
+      type: "checkout.session.expired",
+      data: {
         object: {
-          id: "cs_async",
-          payment_status: "paid",
           metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
         },
       },
     });
-    const db = createMockDb(basicScenario());
+    const scenario = basicScenario();
+    scenario.transactions![0].status = "PAID";
+    const db = createMockDb(scenario);
     mockClient = db.client;
 
     const res = await POST(makeReq());
@@ -140,11 +197,7 @@ describe("webhooks/stripe — QA happy path", () => {
       id: "evt_1",
       type: "checkout.session.completed",
       data: {
-        object: {
-          id: "cs_reset",
-          payment_status: "paid",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession({ id: "cs_reset" }),
       },
     });
   });
@@ -242,11 +295,7 @@ describe("webhooks/stripe — STRESS idempotency under replay", () => {
       id: "evt_dup",
       type: "checkout.session.completed",
       data: {
-        object: {
-          id: "cs_duplicate",
-          payment_status: "paid",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession({ id: "cs_duplicate" }),
       },
     });
     const db = createMockDb(basicScenario());
@@ -297,7 +346,10 @@ describe("webhooks/stripe — CHAOS", () => {
       id: "evt_no_meta",
       type: "checkout.session.completed",
       data: {
-        object: { id: "cs_no_meta", payment_status: "paid", metadata: {} },
+        object: paidCheckoutSession({
+          id: "cs_no_meta",
+          metadata: {},
+        }),
       },
     });
     const db = createMockDb(basicScenario());
@@ -311,11 +363,7 @@ describe("webhooks/stripe — CHAOS", () => {
       id: "evt_chaos",
       type: "checkout.session.completed",
       data: {
-        object: {
-          id: "cs_chaos",
-          payment_status: "paid",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession({ id: "cs_chaos" }),
       },
     });
     const db = createMockDb(basicScenario(), { errorRate: 0.5 });
@@ -360,11 +408,7 @@ describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", (
       id: "evt_redeliv_A",
       type: "checkout.session.completed",
       data: {
-        object: {
-          id: "cs_redelivery",
-          payment_status: "paid",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession({ id: "cs_redelivery" }),
       },
     });
 
@@ -406,11 +450,7 @@ describe("webhooks/stripe — Fix A: rollback idempotence sur échec handler", (
       id: "evt_happy_A",
       type: "checkout.session.completed",
       data: {
-        object: {
-          id: "cs_happy",
-          payment_status: "paid",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        object: paidCheckoutSession({ id: "cs_happy" }),
       },
     });
     const db = createMockDb(basicScenario());
@@ -482,11 +522,10 @@ describe("webhooks/stripe — Fix B: payment_intent.payment_failed non terminal"
       id: "evt_pi_success_after_retry",
       type: "payment_intent.succeeded",
       data: {
-        object: {
+        object: succeededPaymentIntent({
           id: "pi_retry_1",
           latest_charge: "ch_retry_1",
-          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
-        },
+        }),
       },
     });
     const resOk = await POST(makeReq());

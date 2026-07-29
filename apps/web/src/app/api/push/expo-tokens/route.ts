@@ -46,7 +46,9 @@ export async function POST(request: Request) {
   }
 
   // Use the admin client so we can upsert without re-checking RLS — we've
-  // already verified that the user owns the row via `getRequestUser`.
+  // already verified auth via `getRequestUser`. Conflict on `token` (unique)
+  // so a shared-device login reassigns the physical install away from any
+  // previous account instead of leaving a second row that leaks pushes.
   const admin = createAdminClient();
 
   const { error } = await admin.from("expo_push_tokens").upsert(
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
       app_version: parsed.data.app_version ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,token" },
+    { onConflict: "token" },
   );
 
   if (error) {
