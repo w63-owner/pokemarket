@@ -600,6 +600,29 @@ export function createMockDb(
         return { data: true, error: null };
       }
 
+      if (name === "release_financial_outbox") {
+        const row = state.financial_outbox.find(
+          (candidate) =>
+            candidate.id === params.p_id &&
+            candidate.status === "PROCESSING" &&
+            candidate.lease_token === params.p_lease_token,
+        );
+        if (!row) return { data: false, error: null };
+        row.status = "PENDING";
+        row.attempts = Math.max((row.attempts ?? 1) - 1, 0);
+        row.next_attempt_at = new Date(
+          Date.now() + (params.p_delay_seconds ?? 30) * 1000,
+        ).toISOString();
+        row.lease_token = null;
+        row.lease_expires_at = null;
+        row.last_error = null;
+        return { data: true, error: null };
+      }
+
+      if (name === "abandon_financial_recovery") {
+        return { data: true, error: null };
+      }
+
       if (name === "finalize_paid_transaction") {
         return withSerializedWrites(!!chaos.serializeWrites, async () => {
           const tx = state.transactions.find(

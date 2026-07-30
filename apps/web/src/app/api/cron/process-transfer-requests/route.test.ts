@@ -16,9 +16,15 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/stripe/execute-transfer", () => ({
   executeSellerTransfer: mocks.executeSellerTransfer,
 }));
-vi.mock("@/lib/stripe/execute-financial-recovery", () => ({
-  executeFinancialRecovery: mocks.executeFinancialRecovery,
-}));
+vi.mock("@/lib/stripe/execute-financial-recovery", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/stripe/execute-financial-recovery")
+  >("@/lib/stripe/execute-financial-recovery");
+  return {
+    ...actual,
+    executeFinancialRecovery: mocks.executeFinancialRecovery,
+  };
+});
 vi.mock("@/lib/stripe/execute-payout", () => ({
   executeReservedPayout: mocks.executeReservedPayout,
 }));
@@ -107,6 +113,78 @@ describe("cron/process-transfer-requests", () => {
     expect(response.status).toBe(200);
     expect(mocks.executeFinancialRecovery).toHaveBeenCalledWith("recovery-1");
     expect(db.state.financial_outbox[0].status).toBe("COMPLETED");
+  });
+
+  it("abandons recovery into seller debt when outbox retries are exhausted", async () => {
+    const rpcCalls: Array<{ name: string; params: Record<string, unknown> }> =
+      [];
+    const db = createMockDb({
+      financial_outbox: [
+        {
+          ...transferJob(),
+          id: "job-recovery-fail",
+          event_type: "transfer_reversal_requested",
+          payload: { recovery_id: "recovery-fail" },
+          attempts: 11,
+          max_attempts: 12,
+        },
+      ],
+    });
+    const originalRpc = db.client.rpc.bind(db.client);
+    db.client.rpc = async (name: string, params: Record<string, unknown>) => {
+      rpcCalls.push({ name, params });
+      return originalRpc(name, params);
+    };
+    mocks.client = db.client;
+    mocks.executeFinancialRecovery.mockRejectedValueOnce(
+      new Error("insufficient_funds"),
+    );
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(db.state.financial_outbox[0].status).toBe("FAILED");
+    expect(rpcCalls).toContainEqual({
+      name: "abandon_financial_recovery",
+      params: {
+        p_recovery_id: "recovery-fail",
+        p_error: "insufficient_funds",
+      },
+    });
+  });
+
+  it("does not auto-debt on ambiguous terminal recovery failures", async () => {
+    const rpcCalls: Array<{ name: string; params: Record<string, unknown> }> =
+      [];
+    const db = createMockDb({
+      financial_outbox: [
+        {
+          ...transferJob(),
+          id: "job-recovery-net",
+          event_type: "transfer_reversal_requested",
+          payload: { recovery_id: "recovery-net" },
+          attempts: 11,
+          max_attempts: 12,
+        },
+      ],
+    });
+    const originalRpc = db.client.rpc.bind(db.client);
+    db.client.rpc = async (name: string, params: Record<string, unknown>) => {
+      rpcCalls.push({ name, params });
+      return originalRpc(name, params);
+    };
+    mocks.client = db.client;
+    mocks.executeFinancialRecovery.mockRejectedValueOnce(
+      new Error("socket hang up"),
+    );
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(db.state.financial_outbox[0].status).toBe("FAILED");
+    expect(
+      rpcCalls.some((call) => call.name === "abandon_financial_recovery"),
+    ).toBe(false);
   });
 
   it("retries a durable pending bank payout", async () => {
