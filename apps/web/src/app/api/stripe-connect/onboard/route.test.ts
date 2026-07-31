@@ -28,12 +28,11 @@ vi.mock("@/lib/rate-limit", () => ({
   applyRateLimit: vi.fn(async () => null),
   onboardRateLimit: {},
 }));
- 
+
 const getAllowedCheckoutOriginMock: any = vi.fn(
   () => "https://pokemarket.test",
 );
 vi.mock("@/lib/env", () => ({
-   
   getAllowedCheckoutOrigin: (origin: any) =>
     getAllowedCheckoutOriginMock(origin),
 }));
@@ -214,11 +213,11 @@ describe("Stripe Connect Accounts v2 onboarding", () => {
 
     expect(accountCreate).not.toHaveBeenCalled();
     expect(accountLinkCreate).toHaveBeenCalledTimes(2);
-     
+
     expect((accountLinkCreate.mock.calls[0] as any[])[0].account).toBe(
       "acct_v2_seller",
     );
-     
+
     expect((accountLinkCreate.mock.calls[1] as any[])[0].account).toBe(
       "acct_v2_seller",
     );
