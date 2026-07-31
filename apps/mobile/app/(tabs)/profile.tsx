@@ -32,7 +32,7 @@ import {
   toast,
 } from "@/components/ui";
 import { TabHeader } from "@/components/layout";
-import { AuthRequired } from "@/components/shared";
+import { AuthRequired, ErrorState } from "@/components/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "@/hooks/use-profile";
 import {
@@ -70,7 +70,12 @@ const legalItems = [
 
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { data: profile, isLoading } = useMyProfile();
+  const {
+    data: profile,
+    isLoading,
+    isError,
+    refetch: refetchProfile,
+  } = useMyProfile();
 
   const effectiveTheme = useEffectiveTheme();
   const setThemePreference = useThemeStore((s) => s.setPreference);
@@ -154,7 +159,16 @@ export default function ProfileScreen() {
                 <Skeleton className="h-4 w-3/4" />
               </View>
             </View>
-          ) : profile ? (
+          ) : isError || !profile ? (
+            <ErrorState
+              title="Profil indisponible"
+              description="Impossible de charger tes informations."
+              action={{
+                label: "Réessayer",
+                onPress: () => void refetchProfile(),
+              }}
+            />
+          ) : (
             <View className="flex-row items-center gap-3">
               <Avatar
                 uri={profile.avatar_url}
@@ -166,7 +180,7 @@ export default function ProfileScreen() {
                 <Text variant="muted">{user?.email}</Text>
               </View>
             </View>
-          ) : null}
+          )}
         </Card>
 
         <MenuList>

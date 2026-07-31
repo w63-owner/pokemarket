@@ -19,7 +19,12 @@ import type {
 function deriveBuster(): string {
   const expo = Constants.expoConfig;
   const runtime = expo?.runtimeVersion ?? expo?.version ?? "0.0.0";
-  return typeof runtime === "string" ? runtime : "0.0.0";
+  const runtimeKey = typeof runtime === "string" ? runtime : "0.0.0";
+
+  // v2 drops snapshots created before auth-gated profile queries. Those
+  // snapshots may contain a fresh `["profile","me"] = null` entry that
+  // would otherwise survive the OTA containing this fix.
+  return `${runtimeKey}:profile-auth-v2`;
 }
 
 export const persister: Persister = createAsyncStoragePersister({
@@ -54,6 +59,15 @@ export const persistOptions = {
       if (scope === "listings" && subscope === "feed") {
         return false;
       }
+      // Never persist the false-negative produced by older builds when the
+      // profile query ran before Supabase restored the session.
+      if (
+        scope === "profile" &&
+        subscope === "me" &&
+        query.state.data == null
+      ) {
+        return false;
+      }
       // Don't persist in-flight queries — if they're still pending when
       // the app closes they'll be rehydrated and immediately re-executed
       // on the next cold start, before the Supabase session is restored,
@@ -72,7 +86,7 @@ export const persistOptions = {
   dehydrateOptions: {
     shouldDehydrateQuery: (query: {
       queryKey: readonly unknown[];
-      state: { status: string };
+      state: { status: string; data?: unknown };
     }) => boolean;
   };
 };

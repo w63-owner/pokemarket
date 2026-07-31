@@ -10,13 +10,17 @@ import {
   updateMyProfile,
   type ProfileUpdateInput,
 } from "@/lib/api/profile";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 
 export function useMyProfile() {
+  const { user } = useAuth();
+
   return useQuery({
     queryKey: queryKeys.profile.me(),
     queryFn: fetchMyProfile,
+    enabled: !!user,
     staleTime: 5 * 60_000,
   });
 }

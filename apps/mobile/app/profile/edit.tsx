@@ -16,6 +16,7 @@ import {
   Text,
   Textarea,
 } from "@/components/ui";
+import { ErrorState } from "@/components/shared";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { useMyProfile, useUpdateProfile } from "@/hooks/use-profile";
 import { AvatarUploader } from "@/components/profile/avatar-uploader";
@@ -210,7 +211,12 @@ function FormSkeleton() {
 }
 
 export default function EditProfileScreen() {
-  const { data: profile, isLoading } = useMyProfile();
+  const {
+    data: profile,
+    isLoading,
+    isError,
+    refetch: refetchProfile,
+  } = useMyProfile();
 
   return (
     <View className="flex-1 bg-background">
@@ -220,11 +226,16 @@ export default function EditProfileScreen() {
 
       {isLoading ? (
         <FormSkeleton />
-      ) : !profile ? (
+      ) : isError || !profile ? (
         <View className="flex-1 items-center justify-center px-6">
-          <Text variant="muted" className="text-center">
-            Impossible de charger le profil.
-          </Text>
+          <ErrorState
+            title="Impossible de charger le profil"
+            description="Vérifie ta connexion puis réessaie."
+            action={{
+              label: "Réessayer",
+              onPress: () => void refetchProfile(),
+            }}
+          />
         </View>
       ) : (
         <EditProfileForm key={profile.id} profile={profile} />

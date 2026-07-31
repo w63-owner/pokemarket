@@ -20,9 +20,11 @@ export type ProfileUpdateInput = {
   tiktok_url?: string;
 };
 
-export async function fetchMyProfile(): Promise<Profile | null> {
-  const userId = getCurrentUserId();
-  if (!userId) return null;
+export async function fetchMyProfile(): Promise<Profile> {
+  // Reads must wait for the initial persisted session restoration. Returning
+  // `null` while the auth cache is still cold would be cached by React Query
+  // as a successful "missing profile" result.
+  const userId = await requireUserId();
 
   const { data, error } = await supabase
     .from("profiles")

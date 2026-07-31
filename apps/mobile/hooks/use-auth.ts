@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { queryKeys } from "@pokemarket/shared";
 import { supabase } from "@/lib/supabase";
 import { unregisterPushToken } from "@/lib/notifications";
 import { disableBiometry } from "@/lib/biometry";
@@ -31,6 +32,25 @@ function emit() {
   for (const listener of listeners) listener(cached);
 }
 
+function setSession(session: Session | null) {
+  const previousUserId = cached.user?.id ?? null;
+  const nextUserId = session?.user.id ?? null;
+
+  cached = {
+    session,
+    user: session?.user ?? null,
+    loading: false,
+  };
+  emit();
+
+  // A signed-out or cold-start profile query may have cached `null` as a
+  // successful result in an older build. Mark it stale whenever a user
+  // becomes available so the authenticated row is fetched immediately.
+  if (nextUserId && nextUserId !== previousUserId) {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.profile.me() });
+  }
+}
+
 /**
  * Synchronous read of the current Supabase user id from the in-memory
  * auth cache. Returns `null` if `initAuth()` has not yet resolved or the
@@ -55,22 +75,19 @@ export function initAuth() {
   if (initialized) return;
   initialized = true;
 
-  initPromise = supabase.auth.getSession().then(({ data }) => {
-    cached = {
-      session: data.session,
-      user: data.session?.user ?? null,
-      loading: false,
-    };
-    emit();
-  });
+  initPromise = supabase.auth
+    .getSession()
+    .then(({ data }) => {
+      setSession(data.session);
+    })
+    .catch(() => {
+      // A storage/session restoration failure must not leave every protected
+      // screen stuck in its loading state forever.
+      setSession(null);
+    });
 
   supabase.auth.onAuthStateChange((event, newSession) => {
-    cached = {
-      session: newSession,
-      user: newSession?.user ?? null,
-      loading: false,
-    };
-    emit();
+    setSession(newSession);
 
     // Belt-and-suspenders: if the session vanishes for any reason
     // (token expired, refresh failed, signOut() bypassed), nuke the
