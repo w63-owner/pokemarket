@@ -62,14 +62,14 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
         run: supabase link --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
 
-      # Production contains migrations created before the monorepo migration
-      # that are not present in this checkout. Fetch their recorded statements
-      # so db push can compare histories without mutating the remote ledger.
-      - name: Reconcile remote migration history
+      # Historical duplicate versions are reconciled in the remote ledger.
+      # Never fetch here: `migration fetch` rewrites committed migrations and
+      # can make local resets replay non-idempotent statements twice.
+      - name: Verify migration history
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
-        run: supabase migration fetch --linked --yes
+        run: supabase migration list --linked
 
       - name: Diff (informational, must be empty after push)
         env:
@@ -83,8 +83,8 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
-        # Do not use --include-all: older local-only migrations predate the
-        # production head and must not be replayed as part of this release.
+        # Historical versions are reconciled in the ledger; a normal push must
+        # remain sufficient. `--include-all` would hide future drift.
         run: supabase db push
 
       - name: Verify no drift
