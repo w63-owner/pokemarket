@@ -2,7 +2,10 @@ import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
 import { executeReservedPayout } from "@/lib/stripe/execute-payout";
-import { executeFinancialRecovery } from "@/lib/stripe/execute-financial-recovery";
+import {
+  executeFinancialRecovery,
+  FinancialRecoveryBusyError,
+} from "@/lib/stripe/execute-financial-recovery";
 import { executeSellerTransfer } from "@/lib/stripe/execute-transfer";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -64,7 +67,28 @@ export async function GET(request: Request) {
             `Financial recovery job ${job.id} has no recovery_id`,
           );
         }
-        await executeFinancialRecovery(recoveryId);
+        try {
+          await executeFinancialRecovery(recoveryId);
+        } catch (cause) {
+          // Another worker holds the recovery lease. Re-queue without burning
+          // toward terminal failure / seller-debt abandonment.
+          if (cause instanceof FinancialRecoveryBusyError) {
+            const { data: released, error: releaseError } = await admin.rpc(
+              "release_financial_outbox",
+              {
+                p_id: job.id,
+                p_lease_token: leaseToken,
+                p_delay_seconds: 30,
+              },
+            );
+            if (releaseError) throw releaseError;
+            if (!released) {
+              throw new Error(`Financial lease lost for ${job.id}`);
+            }
+            continue;
+          }
+          throw cause;
+        }
       }
 
       const { data: acknowledged, error: acknowledgeError } = await admin.rpc(
@@ -76,6 +100,7 @@ export async function GET(request: Request) {
       completed++;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
+      const recoveryId = readRecoveryId(job.payload);
       const { data: released, error: releaseError } = leaseToken
         ? await admin.rpc("fail_financial_outbox", {
             p_id: job.id,
@@ -83,6 +108,43 @@ export async function GET(request: Request) {
             p_error: message,
           })
         : { data: false, error: null };
+
+      // When reverse retries are exhausted because Connect has no balance left
+      // to pull back, convert the unrecovered liability into seller_debt.
+      // Do not abandon on ambiguous/network errors — those may have already
+      // created a Stripe reversal and need operator reconciliation.
+      if (
+        released &&
+        typeof recoveryId === "string" &&
+        job.event_type === "transfer_reversal_requested" &&
+        isPermanentConnectReversalFailure(message)
+      ) {
+        const { data: outboxRow, error: outboxError } = await admin
+          .from("financial_outbox")
+          .select("status")
+          .eq("id", job.id)
+          .maybeSingle();
+        if (outboxError) {
+          Sentry.captureException(outboxError, {
+            tags: { component: "process-transfer-requests" },
+            extra: { jobId: job.id, recoveryId },
+          });
+        } else if (outboxRow?.status === "FAILED") {
+          const { error: abandonError } = await admin.rpc(
+            "abandon_financial_recovery",
+            {
+              p_recovery_id: recoveryId,
+              p_error: message,
+            },
+          );
+          if (abandonError) {
+            Sentry.captureException(abandonError, {
+              tags: { component: "process-transfer-requests" },
+              extra: { jobId: job.id, recoveryId },
+            });
+          }
+        }
+      }
 
       Sentry.captureException(cause, {
         tags: { component: "process-transfer-requests" },
@@ -144,4 +206,10 @@ function readRecoveryId(payload: unknown): string | null {
   }
   const recoveryId = (payload as Record<string, unknown>).recovery_id;
   return typeof recoveryId === "string" ? recoveryId : null;
+}
+
+function isPermanentConnectReversalFailure(message: string): boolean {
+  return /insufficient_funds|insufficient funds|balance_insufficient|cannot.*reverse/i.test(
+    message,
+  );
 }
