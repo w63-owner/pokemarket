@@ -1,18 +1,28 @@
 import { useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-import { queryKeys, type Database } from "@pokemarket/shared";
+import { queryKeys, type Database, type InboxCursor } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { subscription, useRealtime } from "@/hooks/use-realtime";
-import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
+import {
+  fetchConversations,
+  fetchUnreadCount,
+  type InboxFilters,
+} from "@/lib/api/conversations";
 import { channels } from "@/lib/realtime/channels";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
-export function useConversations() {
-  return useQuery({
-    queryKey: queryKeys.conversations.list(),
-    queryFn: fetchConversations,
+export function useConversations(filters: InboxFilters = {}) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.conversations.list(filters),
+    queryFn: ({ pageParam }) => fetchConversations(filters, pageParam),
+    initialPageParam: undefined as InboxCursor | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 30_000,
   });
 }

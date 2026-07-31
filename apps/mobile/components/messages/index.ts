@@ -1,4 +1,5 @@
 export * from "./conversation-list-item";
+export * from "./conversation-options-sheet";
 export * from "./image-lightbox";
 export * from "./listing-context-bar";
 export * from "./message-actions-sheet";

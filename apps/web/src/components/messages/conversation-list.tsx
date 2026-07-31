@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { m } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { cn, formatRelativeDate } from "@/lib/utils";
 import type { ConversationPreview } from "@/types";
 
@@ -39,6 +40,16 @@ function formatMessagePreview(
       return `${prefix}${message.content ?? ""}`;
   }
 }
+
+const TRANSACTION_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: "Paiement en attente",
+  PAID: "Payée",
+  SHIPPED: "Expédiée",
+  COMPLETED: "Terminée",
+  DISPUTED: "Litige",
+  CANCELLED: "Annulée",
+  REFUNDED: "Remboursée",
+};
 
 interface ConversationItemProps {
   conversation: ConversationPreview;
@@ -126,6 +137,12 @@ function ConversationItem({
               </span>
             </div>
           )}
+          {conversation.transaction_status ? (
+            <Badge variant="secondary" className="mt-1 text-[10px]">
+              {TRANSACTION_LABELS[conversation.transaction_status] ??
+                conversation.transaction_status}
+            </Badge>
+          ) : null}
         </div>
       </Link>
     </m.div>

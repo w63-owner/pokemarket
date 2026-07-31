@@ -64,4 +64,20 @@ describe("sendPushNotification preferences", () => {
       expect.any(Object),
     );
   });
+
+  it("skips messaging transports when the conversation is muted", async () => {
+    mocks.maybeSingle
+      .mockResolvedValueOnce({ data: { enabled: true }, error: null })
+      .mockResolvedValueOnce({
+        data: { muted_until: "2099-01-01T00:00:00Z" },
+        error: null,
+      });
+
+    await sendPushNotification("user-1", "Titre", "Corps", "/messages/1", {
+      category: "messages",
+      conversationId: "conversation-1",
+    });
+
+    expect(mocks.sendExpo).not.toHaveBeenCalled();
+  });
 });

@@ -156,6 +156,20 @@ export type ConversationPreview = Conversation & {
     "content" | "message_type" | "created_at" | "sender_id"
   > | null;
   unread_count: number;
+  sort_at: string;
+  archived_at: string | null;
+  muted_until: string | null;
+  transaction_status: string | null;
+};
+
+export type InboxCursor = {
+  sort_at: string;
+  id: string;
+};
+
+export type InboxPage = {
+  conversations: ConversationPreview[];
+  nextCursor: InboxCursor | null;
 };
 
 export type OfferWithContext = Offer & {

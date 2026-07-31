@@ -6,6 +6,7 @@ import { sendExpoPushNotification } from "@/lib/push/expo";
 
 export type SendPushOptions = {
   category?: PushNotificationCategory;
+  conversationId?: string;
 };
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -46,6 +47,13 @@ export async function sendPushNotification(
   ) {
     return;
   }
+  if (
+    options?.category === "messages" &&
+    options.conversationId &&
+    !(await isConversationNotificationEnabled(userId, options.conversationId))
+  ) {
+    return;
+  }
 
   await Promise.allSettled([
     sendWebPush(userId, title, body, url, options),
@@ -54,6 +62,33 @@ export async function sendPushNotification(
       url,
     }),
   ]);
+}
+
+async function isConversationNotificationEnabled(
+  userId: string,
+  conversationId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("conversation_participant_settings")
+    .select("muted_until")
+    .eq("user_id", userId)
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+
+  if (error) {
+    Sentry.captureException(error, {
+      tags: {
+        component: "push",
+        operation: "load-conversation-notification-preference",
+      },
+    });
+    return false;
+  }
+
+  return (
+    !data?.muted_until || new Date(data.muted_until).getTime() <= Date.now()
+  );
 }
 
 async function isNotificationCategoryEnabled(

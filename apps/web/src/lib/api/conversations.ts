@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/client";
 import { LIMITS } from "@/lib/constants";
 import type { ConversationPreview, Message } from "@/types";
 import type {
+  InboxCursor,
+  InboxPage,
   MessageReplySnapshot,
   SendMessageRequest,
   SendMessageResponse,
@@ -28,6 +30,8 @@ export interface ConversationDetail {
     avatar_url: string | null;
   };
   is_buyer: boolean;
+  archived_at: string | null;
+  muted_until: string | null;
 }
 
 export interface MessagesPage {
@@ -35,7 +39,15 @@ export interface MessagesPage {
   nextCursor: { created_at: string; id: string } | null;
 }
 
-export async function fetchConversations(): Promise<ConversationPreview[]> {
+export type InboxFilters = {
+  search?: string;
+  archived?: boolean;
+};
+
+export async function fetchConversations(
+  filters: InboxFilters = {},
+  cursor?: InboxCursor,
+): Promise<InboxPage> {
   const supabase = createClient();
 
   const {
@@ -46,12 +58,17 @@ export async function fetchConversations(): Promise<ConversationPreview[]> {
 
   const { data, error } = await supabase.rpc("get_inbox", {
     p_user_id: user.id,
+    p_cursor_sort_at: cursor?.sort_at,
+    p_cursor_id: cursor?.id,
+    p_limit: LIMITS.INBOX_PAGE_SIZE,
+    p_search: filters.search?.trim() || undefined,
+    p_archived: filters.archived ?? false,
   });
 
   if (error) throw error;
-  if (!data) return [];
+  if (!data) return { conversations: [], nextCursor: null };
 
-  return data.map((row) => ({
+  const conversations = data.map((row) => ({
     id: row.id,
     listing_id: row.listing_id,
     buyer_id: row.buyer_id,
@@ -78,7 +95,87 @@ export async function fetchConversations(): Promise<ConversationPreview[]> {
         }
       : null,
     unread_count: Number(row.unread_count ?? 0),
+    sort_at: row.sort_at,
+    archived_at: row.archived_at,
+    muted_until: row.muted_until,
+    transaction_status: row.transaction_status,
   })) as ConversationPreview[];
+
+  const last = conversations.at(-1);
+  return {
+    conversations,
+    nextCursor:
+      conversations.length === LIMITS.INBOX_PAGE_SIZE && last
+        ? { sort_at: last.sort_at, id: last.id }
+        : null,
+  };
+}
+
+export async function setConversationSettings(
+  conversationId: string,
+  settings: { archived?: boolean; mutedUntil?: string | null },
+): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const { error } = await supabase
+    .from("conversation_participant_settings")
+    .upsert(
+      {
+        conversation_id: conversationId,
+        user_id: user.id,
+        ...(settings.archived !== undefined
+          ? { archived_at: settings.archived ? new Date().toISOString() : null }
+          : {}),
+        ...(settings.mutedUntil !== undefined
+          ? { muted_until: settings.mutedUntil }
+          : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "conversation_id,user_id" },
+    );
+  if (error) throw error;
+}
+
+export async function blockUser(blockedUserId: string): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const { error } = await supabase
+    .from("user_blocks")
+    .upsert(
+      { blocker_id: user.id, blocked_id: blockedUserId },
+      { onConflict: "blocker_id,blocked_id" },
+    );
+  if (error) throw error;
+}
+
+export async function reportConversation(
+  conversationId: string,
+  reason: "spam" | "harassment" | "scam" | "inappropriate" | "other",
+  description?: string,
+  messageId?: string,
+): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const { error } = await supabase.from("conversation_reports").insert({
+    reporter_id: user.id,
+    conversation_id: conversationId,
+    message_id: messageId,
+    reason,
+    description: description?.trim() || undefined,
+  });
+  if (error) throw error;
 }
 
 export async function fetchOrCreateConversation(
@@ -146,6 +243,13 @@ export async function fetchConversationDetail(
 
   const isBuyer = data.buyer_id === user.id;
   const otherUser = isBuyer ? data.seller : data.buyer;
+  const { data: settings, error: settingsError } = await supabase
+    .from("conversation_participant_settings")
+    .select("archived_at, muted_until")
+    .eq("conversation_id", conversationId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (settingsError) throw settingsError;
 
   return {
     id: data.id,
@@ -161,6 +265,8 @@ export async function fetchConversationDetail(
     },
     other_user: otherUser,
     is_buyer: isBuyer,
+    archived_at: settings?.archived_at ?? null,
+    muted_until: settings?.muted_until ?? null,
   };
 }
 

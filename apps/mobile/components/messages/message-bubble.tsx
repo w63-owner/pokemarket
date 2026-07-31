@@ -45,18 +45,31 @@ interface MessageBubbleProps {
  */
 function ImageMessageContent({
   storagePath,
+  localUri,
   isOwn,
 }: {
   storagePath: string;
+  localUri?: string;
   isOwn: boolean;
 }) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: queryKeys.conversations.messageAttachment(storagePath),
     queryFn: () => getMessageAttachmentSignedUrl(storagePath),
-    enabled: !!storagePath,
+    enabled: !!storagePath && !localUri,
     staleTime: 50 * 60 * 1000,
   });
   const colors = useThemeColors();
+
+  if (localUri) {
+    return (
+      <Image
+        source={{ uri: localUri }}
+        style={{ width: 220, height: 280, borderRadius: 12 }}
+        contentFit="cover"
+        accessibilityLabel="Image en cours d'envoi"
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -116,6 +129,9 @@ function MessageBubbleComponent({
 
   const reduceMotion = useReducedMotionSafe();
   const isImage = message.message_type === "image";
+  const metadata = message.metadata as Record<string, unknown> | null;
+  const localUri =
+    typeof metadata?.local_uri === "string" ? metadata.local_uri : undefined;
   const reply = getReplySnapshot(message);
 
   // The tail (reduced corner) only appears on the last bubble of a group;
@@ -188,7 +204,11 @@ function MessageBubbleComponent({
           ) : null}
 
           {isImage && message.content ? (
-            <ImageMessageContent storagePath={message.content} isOwn={isOwn} />
+            <ImageMessageContent
+              storagePath={message.content}
+              localUri={localUri}
+              isOwn={isOwn}
+            />
           ) : (
             <Text
               selectable

@@ -37,6 +37,7 @@ import {
   fetchConversationDetail,
   fetchMessages,
   markMessagesAsRead,
+  reportConversation,
   sendImageMessage,
   sendTextMessage,
   type MessagesPage,
@@ -58,6 +59,7 @@ import {
 import { OfferBar } from "@/components/messages/offer-bar";
 import { TransactionActions } from "@/components/messages/transaction-actions";
 import { ListingContextBar } from "@/components/messages/listing-context-bar";
+import { ConversationActions } from "@/components/messages/conversation-actions";
 import { SmartBackButton } from "@/components/ui/smart-back-button";
 import { channels } from "@/lib/realtime/channels";
 import type { Message } from "@/types";
@@ -476,6 +478,23 @@ export default function ConversationThreadPage() {
     }
   }, []);
 
+  const handleReport = useCallback(
+    async (message: Message) => {
+      try {
+        await reportConversation(
+          conversationId,
+          "inappropriate",
+          "Message signalé depuis le fil de discussion.",
+          message.id,
+        );
+        toast.success("Message transmis à la modération");
+      } catch {
+        toast.error("Ce message a déjà été signalé");
+      }
+    },
+    [conversationId],
+  );
+
   const handleThreadScroll = useCallback(() => {
     setIsAwayFromLatest(Math.abs(threadRef.current?.scrollTop ?? 0) > 160);
   }, []);
@@ -532,8 +551,12 @@ export default function ConversationThreadPage() {
             </Link>
           </div>
 
-          {/* Spacer to balance the back button for centering */}
-          <div className="size-8 shrink-0" />
+          <ConversationActions
+            conversationId={conversation.id}
+            otherUserId={conversation.other_user.id}
+            isArchived={conversation.archived_at !== null}
+            isMuted={conversation.muted_until !== null}
+          />
         </div>
 
         <ListingContextBar listing={conversation.listing} />
@@ -606,6 +629,7 @@ export default function ConversationThreadPage() {
                         setReplyingTo(toReplySnapshot(message))
                       }
                       onCopy={handleCopy}
+                      onReport={handleReport}
                     />
                   )}
                   {showDate && msg.created_at && (

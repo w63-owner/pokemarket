@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "e2e:supabase": "playwright test --config playwright.supabase.config.ts",
     "test:smoke": "playwright test --config playwright.smoke.config.ts",
     "seed:tcgdex": "tsx scripts/seed-tcgdex.ts",
     "reconcile:ledger": "tsx scripts/reconcile-ledger.ts",

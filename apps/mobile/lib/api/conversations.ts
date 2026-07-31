@@ -2,6 +2,8 @@ import {
   LIMITS,
   getNextMessageCursor,
   type ConversationPreview,
+  type InboxCursor,
+  type InboxPage,
   type Message,
   type SendMessageRequest,
   type SendMessageResponse,
@@ -34,6 +36,8 @@ export interface ConversationDetail {
     avatar_url: string | null;
   };
   is_buyer: boolean;
+  archived_at: string | null;
+  muted_until: string | null;
 }
 
 export interface MessagesPage {
@@ -41,17 +45,30 @@ export interface MessagesPage {
   nextCursor: { created_at: string; id: string } | null;
 }
 
-export async function fetchConversations(): Promise<ConversationPreview[]> {
+export type InboxFilters = {
+  search?: string;
+  archived?: boolean;
+};
+
+export async function fetchConversations(
+  filters: InboxFilters = {},
+  cursor?: InboxCursor,
+): Promise<InboxPage> {
   const userId = await requireUserId();
 
   const { data, error } = await supabase.rpc("get_inbox", {
     p_user_id: userId,
+    p_cursor_sort_at: cursor?.sort_at,
+    p_cursor_id: cursor?.id,
+    p_limit: LIMITS.INBOX_PAGE_SIZE,
+    p_search: filters.search?.trim() || undefined,
+    p_archived: filters.archived ?? false,
   });
 
   if (error) throw new Error(error.message);
-  if (!data) return [];
+  if (!data) return { conversations: [], nextCursor: null };
 
-  return data.map((row) => ({
+  const conversations = data.map((row) => ({
     id: row.id,
     listing_id: row.listing_id,
     buyer_id: row.buyer_id,
@@ -78,7 +95,71 @@ export async function fetchConversations(): Promise<ConversationPreview[]> {
         }
       : null,
     unread_count: Number(row.unread_count ?? 0),
+    sort_at: row.sort_at,
+    archived_at: row.archived_at,
+    muted_until: row.muted_until,
+    transaction_status: row.transaction_status,
   })) as ConversationPreview[];
+
+  const last = conversations.at(-1);
+  return {
+    conversations,
+    nextCursor:
+      conversations.length === LIMITS.INBOX_PAGE_SIZE && last
+        ? { sort_at: last.sort_at, id: last.id }
+        : null,
+  };
+}
+
+export async function setConversationSettings(
+  conversationId: string,
+  settings: { archived?: boolean; mutedUntil?: string | null },
+): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("conversation_participant_settings")
+    .upsert(
+      {
+        conversation_id: conversationId,
+        user_id: userId,
+        ...(settings.archived !== undefined
+          ? { archived_at: settings.archived ? new Date().toISOString() : null }
+          : {}),
+        ...(settings.mutedUntil !== undefined
+          ? { muted_until: settings.mutedUntil }
+          : {}),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "conversation_id,user_id" },
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function blockUser(blockedUserId: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase
+    .from("user_blocks")
+    .upsert(
+      { blocker_id: userId, blocked_id: blockedUserId },
+      { onConflict: "blocker_id,blocked_id" },
+    );
+  if (error) throw new Error(error.message);
+}
+
+export async function reportConversation(
+  conversationId: string,
+  reason: "spam" | "harassment" | "scam" | "inappropriate" | "other",
+  messageId?: string,
+): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase.from("conversation_reports").insert({
+    reporter_id: userId,
+    conversation_id: conversationId,
+    message_id: messageId,
+    reason,
+    description: "Signalement envoyé depuis l'application mobile.",
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function fetchOrCreateConversation(
@@ -134,6 +215,13 @@ export async function fetchConversationDetail(
 
   const isBuyer = data.buyer_id === userId;
   const otherUser = isBuyer ? data.seller : data.buyer;
+  const { data: settings, error: settingsError } = await supabase
+    .from("conversation_participant_settings")
+    .select("archived_at, muted_until")
+    .eq("conversation_id", conversationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (settingsError) throw new Error(settingsError.message);
 
   return {
     id: data.id,
@@ -149,6 +237,8 @@ export async function fetchConversationDetail(
     },
     other_user: otherUser,
     is_buyer: isBuyer,
+    archived_at: settings?.archived_at ?? null,
+    muted_until: settings?.muted_until ?? null,
   };
 }
 
@@ -252,6 +342,37 @@ export async function sendMessage(
 // Image messages
 // ────────────────────────────────────────────────────────────────────────────
 
+export interface ImageMessagePayload {
+  uri: string;
+  contentType: "image/jpeg" | "image/webp" | "image/png";
+  storagePath: string;
+  skipUpload?: boolean;
+}
+
+export class ImageMessageSendError extends Error {
+  readonly imageUploaded = true;
+
+  constructor(cause: unknown) {
+    super(
+      cause instanceof Error ? cause.message : "Image message send failed",
+      {
+        cause,
+      },
+    );
+    this.name = "ImageMessageSendError";
+  }
+}
+
+export function createMessageImageStoragePath(
+  conversationId: string,
+  contentType: ImageMessagePayload["contentType"],
+): string {
+  const ext = contentTypeToExt(contentType);
+  return `${conversationId}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}.${ext}`;
+}
+
 /**
  * Upload an image from a local `file://` URI into the private
  * `message_attachments` bucket, then insert a `message_type: "image"` row.
@@ -259,44 +380,34 @@ export async function sendMessage(
  */
 export async function sendImageMessage(
   conversationId: string,
-  payload: {
-    uri: string;
-    contentType: "image/jpeg" | "image/webp" | "image/png";
-  },
+  payload: ImageMessagePayload,
   clientId: string,
 ): Promise<Message> {
   await requireUserId();
 
-  const ext = contentTypeToExt(payload.contentType);
-  const fileName = `${conversationId}/${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}.${ext}`;
+  if (!payload.skipUpload) {
+    await uploadImageFromUri({
+      uri: payload.uri,
+      contentType: payload.contentType,
+      bucket: MESSAGE_ATTACHMENTS_BUCKET,
+      storagePath: payload.storagePath,
+    });
+  }
 
-  await uploadImageFromUri({
-    uri: payload.uri,
-    contentType: payload.contentType,
-    bucket: MESSAGE_ATTACHMENTS_BUCKET,
-    storagePath: fileName,
-  });
-
+  const request: SendMessageRequest = {
+    type: "image",
+    conversation_id: conversationId,
+    storage_path: payload.storagePath,
+    client_id: clientId,
+  };
   try {
-    const request: SendMessageRequest = {
-      type: "image",
-      conversation_id: conversationId,
-      storage_path: fileName,
-      client_id: clientId,
-    };
     const result = await api.post<SendMessageResponse>(
       "/api/messages/send",
       request,
     );
     return result.message;
   } catch (error) {
-    await supabase.storage
-      .from(MESSAGE_ATTACHMENTS_BUCKET)
-      .remove([fileName])
-      .catch(() => {});
-    throw error;
+    throw new ImageMessageSendError(error);
   }
 }
 

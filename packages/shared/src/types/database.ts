@@ -99,6 +99,103 @@ export type Database = {
           },
         ];
       };
+      conversation_participant_settings: {
+        Row: {
+          archived_at: string | null;
+          conversation_id: string;
+          muted_until: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          conversation_id: string;
+          muted_until?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          conversation_id?: string;
+          muted_until?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participant_settings_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversation_participant_settings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      conversation_reports: {
+        Row: {
+          conversation_id: string;
+          created_at: string;
+          description: string | null;
+          id: string;
+          message_id: string | null;
+          message_snapshot: Json | null;
+          reason: string;
+          reporter_id: string;
+          status: string;
+        };
+        Insert: {
+          conversation_id: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          message_id?: string | null;
+          message_snapshot?: Json | null;
+          reason: string;
+          reporter_id: string;
+          status?: string;
+        };
+        Update: {
+          conversation_id?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          message_id?: string | null;
+          message_snapshot?: Json | null;
+          reason?: string;
+          reporter_id?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conversation_reports_conversation_id_fkey";
+            columns: ["conversation_id"];
+            isOneToOne: false;
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversation_reports_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: false;
+            referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversation_reports_reporter_id_fkey";
+            columns: ["reporter_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       conversations: {
         Row: {
           buyer_id: string;
@@ -1888,6 +1985,39 @@ export type Database = {
           },
         ];
       };
+      user_blocks: {
+        Row: {
+          blocked_id: string;
+          blocker_id: string;
+          created_at: string;
+        };
+        Insert: {
+          blocked_id: string;
+          blocker_id: string;
+          created_at?: string;
+        };
+        Update: {
+          blocked_id?: string;
+          blocker_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey";
+            columns: ["blocked_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey";
+            columns: ["blocker_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       wallets: {
         Row: {
           available_balance: number | null;
@@ -2080,8 +2210,16 @@ export type Database = {
         Returns: string;
       };
       get_inbox: {
-        Args: { p_user_id: string };
+        Args: {
+          p_archived?: boolean;
+          p_cursor_id?: string;
+          p_cursor_sort_at?: string;
+          p_limit?: number;
+          p_search?: string;
+          p_user_id?: string;
+        };
         Returns: {
+          archived_at: string | null;
           buyer_id: string;
           created_at: string;
           id: string;
@@ -2098,8 +2236,28 @@ export type Database = {
           other_user_id: string;
           other_user_username: string;
           seller_id: string;
+          muted_until: string | null;
+          sort_at: string;
+          transaction_status: string | null;
           unread_count: number;
         }[];
+      };
+      get_expired_message_attachment_paths: {
+        Args: { p_before: string; p_limit?: number };
+        Returns: {
+          message_id: string;
+          storage_path: string;
+        }[];
+      };
+      get_orphaned_message_attachment_paths: {
+        Args: { p_before: string; p_limit?: number };
+        Returns: {
+          storage_path: string;
+        }[];
+      };
+      delete_expired_messages: {
+        Args: { p_before: string; p_limit?: number };
+        Returns: number;
       };
       get_seller_reputation: {
         Args: { p_seller_id: string };

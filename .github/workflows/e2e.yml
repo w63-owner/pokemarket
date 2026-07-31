@@ -21,6 +21,9 @@ jobs:
     name: Playwright (chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/web
 
     steps:
       - name: Checkout code
@@ -87,7 +90,7 @@ jobs:
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
-          path: .next/cache
+          path: apps/web/.next/cache
           key: ${{ runner.os }}-nextjs-e2e-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-e2e-${{ hashFiles('package-lock.json') }}-
@@ -104,6 +107,7 @@ jobs:
       - name: Run Playwright tests
         env:
           CI: "true"
+          SUPABASE_E2E_ENABLED: "true"
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
@@ -115,7 +119,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ github.run_id }}
-          path: playwright-report/
+          path: apps/web/playwright-report/
           retention-days: 7
 
       - name: Stop Supabase

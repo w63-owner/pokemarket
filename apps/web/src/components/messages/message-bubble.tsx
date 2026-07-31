@@ -11,6 +11,7 @@ import {
   CheckCheck,
   Clock,
   Copy,
+  Flag,
   ImageOff,
   Reply,
 } from "lucide-react";
@@ -45,6 +46,7 @@ interface MessageBubbleProps {
   onRetry?: (message: Message) => void;
   onReply?: (message: Message) => void;
   onCopy?: (message: Message) => void;
+  onReport?: (message: Message) => void;
 }
 
 function ImageMessageContent({ storagePath }: { storagePath: string }) {
@@ -118,6 +120,7 @@ export const MessageBubble = memo(function MessageBubble({
   onRetry,
   onReply,
   onCopy,
+  onReport,
 }: MessageBubbleProps) {
   const prefersReducedMotion = useReducedMotion();
   const isImage = message.message_type === "image";
@@ -171,6 +174,15 @@ export const MessageBubble = memo(function MessageBubble({
               <Copy className="size-3.5" />
             </Button>
           )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onReport?.(message)}
+            aria-label="Signaler ce message"
+          >
+            <Flag className="size-3.5" />
+          </Button>
         </div>
       )}
 

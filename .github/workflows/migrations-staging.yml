@@ -1,7 +1,7 @@
 name: Migrations - staging
 
 # Pousse les migrations Supabase sur le projet staging quand un changement
-# touche supabase/migrations/** sur la branche staging.
+# touche apps/web/supabase/migrations/** sur la branche staging.
 #
 # Pre-requis (cf. docs/CICD.md):
 #   - GitHub Environment `staging` configure avec les secrets:
@@ -13,8 +13,8 @@ on:
   push:
     branches: [staging]
     paths:
-      - "supabase/migrations/**"
-      - "supabase/config.toml"
+      - "apps/web/supabase/migrations/**"
+      - "apps/web/supabase/config.toml"
       - ".github/workflows/migrations-staging.yml"
   workflow_dispatch:
 
@@ -28,6 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: staging
+    defaults:
+      run:
+        working-directory: apps/web
 
     steps:
       - name: Checkout code
@@ -61,8 +64,16 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
         run: supabase db diff --linked || true
 
+      - name: Verify migration history
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
+        run: supabase migration list --linked
+
       - name: Push migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_STAGING_DB_PASSWORD }}
-        run: supabase db push --include-all
+        # Historical versions are reconciled in the ledger; a normal push must
+        # remain sufficient. `--include-all` would hide future drift.
+        run: supabase db push

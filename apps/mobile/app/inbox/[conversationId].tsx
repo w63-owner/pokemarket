@@ -10,7 +10,12 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { AlertCircle, ChevronDown, MessageCircle } from "lucide-react-native";
+import {
+  AlertCircle,
+  ChevronDown,
+  MessageCircle,
+  MoreVertical,
+} from "lucide-react-native";
 
 import {
   FEATURE_FLAGS,
@@ -25,6 +30,7 @@ import {
 import {
   ImageLightbox,
   ListingContextBar,
+  ConversationOptionsSheet,
   MessageActionsSheet,
   MessageBubble,
   MessageInput,
@@ -35,7 +41,8 @@ import {
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { EmptyState } from "@/components/shared";
 import { FeatureGate } from "@/components/feature-flags/feature-gate";
-import { Skeleton, Text } from "@/components/ui";
+import { Button, Skeleton, Text, toast } from "@/components/ui";
+import { reportConversation } from "@/lib/api/conversations";
 import { spring } from "@/lib/motion";
 import { useThemeColors } from "@/lib/theme-colors";
 
@@ -74,9 +81,22 @@ function ConversationThreadContent() {
   const [replyingTo, setReplyingTo] = useState<ReplySnapshot | null>(null);
   const [actionsMessage, setActionsMessage] = useState<Message | null>(null);
   const [lightboxPath, setLightboxPath] = useState<string | null>(null);
+  const [showConversationOptions, setShowConversationOptions] = useState(false);
 
   const otherUsername = conversation?.other_user.username ?? "";
   const currentUserId = user?.id ?? "";
+
+  const handleReport = useCallback(
+    async (message: Message) => {
+      try {
+        await reportConversation(conversationId, "inappropriate", message.id);
+        toast.success("Message transmis à la modération");
+      } catch {
+        toast.error("Ce message a déjà été signalé");
+      }
+    },
+    [conversationId],
+  );
 
   const handleLongPress = useCallback((message: Message) => {
     setActionsMessage(message);
@@ -180,6 +200,16 @@ function ConversationThreadContent() {
           title={conversation.other_user.username}
           onTitlePress={() =>
             router.push(`/u/${conversation.other_user.username}`)
+          }
+          rightAction={
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => setShowConversationOptions(true)}
+              accessibilityLabel="Actions de la conversation"
+            >
+              <MoreVertical size={20} color={colors.foreground} />
+            </Button>
           }
         />
 
@@ -302,6 +332,16 @@ function ConversationThreadContent() {
         message={actionsMessage}
         onClose={() => setActionsMessage(null)}
         onReply={handleReply}
+        onReport={(message) => void handleReport(message)}
+      />
+
+      <ConversationOptionsSheet
+        open={showConversationOptions}
+        onClose={() => setShowConversationOptions(false)}
+        conversationId={conversationId}
+        otherUserId={conversation.other_user.id}
+        isArchived={conversation.archived_at !== null}
+        isMuted={conversation.muted_until !== null}
       />
 
       <ImageLightbox

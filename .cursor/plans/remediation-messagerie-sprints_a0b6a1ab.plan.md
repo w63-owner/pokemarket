@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: sprint-3-scale
     content: "Sprint 3 : pagination inbox, modération, rétention et tests de charge"
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -62,11 +62,11 @@ isProject: false
 ## Sprint 3 — Préparer le produit à l’échelle
 **Objectif : traiter modération, conformité et performance longue durée.**
 
-- Paginer `get_inbox` par curseur et ajouter les index nécessaires; charger progressivement la liste de conversations.
-- Ajouter blocage utilisateur et signalement de message/conversation, puis appliquer ces règles aux INSERT, inbox et notifications.
-- Implémenter la rétention annoncée d’un an, le nettoyage des pièces jointes orphelines et une procédure d’effacement/anonymisation de compte.
-- Construire la vue master-detail desktop et ajouter recherche, archivage/mute et statut transactionnel dans l’inbox.
-- Effectuer des tests de charge sur inbox, historique, Realtime et compteurs de non-lus; ne planifier partitionnement ou dénormalisation qu’à partir des résultats.
+- [x] Paginer `get_inbox` par curseur et ajouter les index nécessaires; charger progressivement la liste de conversations.
+- [x] Ajouter blocage utilisateur et signalement de message/conversation, puis appliquer ces règles aux INSERT, inbox et notifications.
+- [x] Implémenter la rétention annoncée d’un an, le nettoyage des pièces jointes orphelines et une procédure d’effacement/anonymisation de compte.
+- [x] Construire la vue master-detail desktop et ajouter recherche, archivage/mute et statut transactionnel dans l’inbox.
+- [x] Effectuer des tests de charge sur inbox, historique, Realtime et compteurs de non-lus; ne planifier partitionnement ou dénormalisation qu’à partir des résultats.
 
 **Sortie attendue :** messagerie modérable, conforme et mesurée pour la cible 100k+ MAU.
 

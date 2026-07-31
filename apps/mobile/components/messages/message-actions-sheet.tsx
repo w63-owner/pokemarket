@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Copy, Reply } from "lucide-react-native";
+import { Copy, Flag, Reply } from "lucide-react-native";
 import type { Message } from "@pokemarket/shared";
 import { Sheet, Text, toast } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
@@ -11,6 +11,7 @@ interface MessageActionsSheetProps {
   message: Message | null;
   onClose: () => void;
   onReply: (message: Message) => void;
+  onReport: (message: Message) => void;
 }
 
 interface ActionRowProps {
@@ -35,6 +36,7 @@ export function MessageActionsSheet({
   message,
   onClose,
   onReply,
+  onReport,
 }: MessageActionsSheetProps) {
   const fg = useThemeColor("foreground");
   const isText = !!message && message.message_type === "text";
@@ -54,6 +56,13 @@ export function MessageActionsSheet({
     onClose();
   };
 
+  const handleReport = () => {
+    if (!message) return;
+    haptic("tap");
+    onReport(message);
+    onClose();
+  };
+
   return (
     <Sheet open={!!message} onOpenChange={(o) => !o && onClose()}>
       <View className="gap-1 pb-2">
@@ -69,6 +78,11 @@ export function MessageActionsSheet({
             onPress={handleCopy}
           />
         ) : null}
+        <ActionRow
+          icon={<Flag size={20} color={fg} />}
+          label="Signaler ce message"
+          onPress={handleReport}
+        />
       </View>
     </Sheet>
   );

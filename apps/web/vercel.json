@@ -36,6 +36,10 @@
     {
       "path": "/api/cron/monitor-financial-operations",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/messaging-retention",
+      "schedule": "15 3 * * *"
     }
   ]
 }

@@ -1,7 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@pokemarket/shared";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { queryKeys, type InboxCursor } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
-import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
+import {
+  fetchConversations,
+  fetchUnreadCount,
+  type InboxFilters,
+} from "@/lib/api/conversations";
 
 /**
  * Conversations and unread count are kept fresh by the app-root
@@ -11,10 +15,12 @@ import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
  * background refetches re-fire when the user navigates back to the
  * inbox.
  */
-export function useConversations() {
-  return useQuery({
-    queryKey: queryKeys.conversations.list(),
-    queryFn: fetchConversations,
+export function useConversations(filters: InboxFilters = {}) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.conversations.list(filters),
+    queryFn: ({ pageParam }) => fetchConversations(filters, pageParam),
+    initialPageParam: undefined as InboxCursor | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 60_000,
   });
 }

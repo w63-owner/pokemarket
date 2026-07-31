@@ -1,9 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Tag } from "lucide-react-native";
+import { Archive, Inbox, MessageCircle, Tag } from "lucide-react-native";
 
 import {
   FEATURE_FLAGS,
@@ -20,7 +20,7 @@ import {
 import { TabHeader } from "@/components/layout";
 import { AuthRequired, EmptyState, ErrorState } from "@/components/shared";
 import { FeatureGate } from "@/components/feature-flags/feature-gate";
-import { Button } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 function InboxContent() {
@@ -28,13 +28,22 @@ function InboxContent() {
   const queryClient = useQueryClient();
   const primary = useThemeColor("primary");
   const mutedForeground = useThemeColor("mutedForeground");
+  const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const {
-    data: conversations,
+    data,
     isLoading,
     isRefetching,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
     refetch,
     error,
-  } = useConversations();
+  } = useConversations({ search, archived: showArchived });
+  const conversations = useMemo(
+    () => data?.pages.flatMap((page) => page.conversations) ?? [],
+    [data],
+  );
 
   // Realtime is centralised in `useInboxChannel` (mounted in
   // `app/_layout.tsx`), so this screen only needs a manual invalidator
@@ -85,16 +94,43 @@ function InboxContent() {
       <TabHeader
         title="Messages"
         right={
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={() => router.push("/offers")}
-            leftIcon={<Tag size={16} color={primary} />}
-          >
-            Offres
-          </Button>
+          <View className="flex-row">
+            <Button
+              variant="ghost"
+              size="icon"
+              onPress={() => setShowArchived((value) => !value)}
+              accessibilityLabel={
+                showArchived
+                  ? "Afficher les conversations actives"
+                  : "Afficher les conversations archivées"
+              }
+            >
+              {showArchived ? (
+                <Inbox size={18} color={primary} />
+              ) : (
+                <Archive size={18} color={primary} />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={() => router.push("/offers")}
+              leftIcon={<Tag size={16} color={primary} />}
+            >
+              Offres
+            </Button>
+          </View>
         }
       />
+      <View className="border-b border-border px-4 py-2">
+        <Input
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Rechercher une carte ou un membre"
+          accessibilityLabel="Rechercher une conversation"
+          returnKeyType="search"
+        />
+      </View>
 
       {isLoading ? (
         <View>
@@ -110,16 +146,26 @@ function InboxContent() {
             action={{ label: "Réessayer", onPress: invalidate }}
           />
         </View>
-      ) : !conversations || conversations.length === 0 ? (
+      ) : conversations.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <EmptyState
             icon={<MessageCircle size={26} color={mutedForeground} />}
-            title="Aucune conversation"
-            description="Contactez un vendeur depuis une annonce pour démarrer une conversation."
-            action={{
-              label: "Explorer le marché",
-              onPress: () => router.push("/(tabs)"),
-            }}
+            title={search ? "Aucun résultat" : "Aucune conversation"}
+            description={
+              search
+                ? "Essayez un autre nom de carte ou de membre."
+                : showArchived
+                  ? "Les conversations archivées apparaîtront ici."
+                  : "Contactez un vendeur depuis une annonce pour démarrer une conversation."
+            }
+            action={
+              search || showArchived
+                ? undefined
+                : {
+                    label: "Explorer le marché",
+                    onPress: () => router.push("/(tabs)"),
+                  }
+            }
           />
         </View>
       ) : (
@@ -127,12 +173,24 @@ function InboxContent() {
           data={conversations}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+          }}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View>
+                <ConversationListItemSkeleton />
+                <ConversationListItemSkeleton />
+              </View>
+            ) : null
+          }
           ItemSeparatorComponent={() => (
             <View className="h-[0.5px] bg-border" />
           )}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
+              refreshing={isRefetching && !isFetchingNextPage}
               onRefresh={refetch}
               tintColor={primary}
             />

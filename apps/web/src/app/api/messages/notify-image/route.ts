@@ -74,6 +74,22 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: block, error: blockError } = await admin
+      .from("user_blocks")
+      .select("blocker_id")
+      .or(
+        `and(blocker_id.eq.${conversation.buyer_id},blocked_id.eq.${conversation.seller_id}),and(blocker_id.eq.${conversation.seller_id},blocked_id.eq.${conversation.buyer_id})`,
+      )
+      .limit(1)
+      .maybeSingle();
+    if (blockError) throw blockError;
+    if (block) {
+      return NextResponse.json(
+        { error: "Cette conversation est bloquée" },
+        { status: 403 },
+      );
+    }
+
     const { data: message, error: messageError } = await admin
       .from("messages")
       .select("id")
@@ -100,7 +116,7 @@ export async function POST(request: Request) {
       "Nouveau message",
       "📷 Photo",
       `/messages/${conversationId}`,
-      { category: "messages" },
+      { category: "messages", conversationId },
     );
 
     return NextResponse.json({ ok: true });

@@ -1,5 +1,6 @@
 import { FEATURE_FLAGS } from "@pokemarket/shared";
 import { ServerFeatureGate } from "@/components/feature-flags/server-feature-gate";
+import { MessagesShell } from "@/components/messages/messages-shell";
 
 export default function MessagesLayout({
   children,
@@ -8,7 +9,7 @@ export default function MessagesLayout({
 }) {
   return (
     <ServerFeatureGate flag={FEATURE_FLAGS.MESSAGING} name="La messagerie">
-      {children}
+      <MessagesShell>{children}</MessagesShell>
     </ServerFeatureGate>
   );
 }

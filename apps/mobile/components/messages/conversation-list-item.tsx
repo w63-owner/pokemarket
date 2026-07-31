@@ -6,7 +6,7 @@ import {
   formatRelativeDate,
   type ConversationPreview,
 } from "@pokemarket/shared";
-import { Skeleton, Text } from "@/components/ui";
+import { Badge, Skeleton, Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
   duration,
@@ -48,6 +48,16 @@ function formatMessagePreview(
       return `${prefix}${message.content ?? ""}`;
   }
 }
+
+const TRANSACTION_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: "Paiement en attente",
+  PAID: "Payée",
+  SHIPPED: "Expédiée",
+  COMPLETED: "Terminée",
+  DISPUTED: "Litige",
+  CANCELLED: "Annulée",
+  REFUNDED: "Remboursée",
+};
 
 interface ConversationListItemProps {
   conversation: ConversationPreview;
@@ -106,6 +116,14 @@ export function ConversationListItem({
               </View>
               {hasUnread ? (
                 <View className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
+              ) : null}
+              {conversation.transaction_status ? (
+                <View className="mt-1 flex-row">
+                  <Badge variant="secondary">
+                    {TRANSACTION_LABELS[conversation.transaction_status] ??
+                      conversation.transaction_status}
+                  </Badge>
+                </View>
               ) : null}
             </View>
 

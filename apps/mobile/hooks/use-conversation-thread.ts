@@ -22,11 +22,14 @@ import {
 } from "@/hooks/use-realtime";
 import { channels } from "@/lib/realtime/channels";
 import {
+  createMessageImageStoragePath,
   fetchConversationDetail,
   fetchMessages,
+  ImageMessageSendError,
   markMessagesAsRead,
   sendImageMessage,
   sendMessage,
+  type ImageMessagePayload,
   type MessagesPage,
 } from "@/lib/api/conversations";
 import { fetchActiveOffer } from "@/lib/api/offers";
@@ -128,6 +131,9 @@ export function useConversationThread(conversationId: string) {
   // Temp IDs of optimistic messages whose send failed. They stay rendered
   // (so the user can tap to retry) but lose the "sending" clock.
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+  const imageRetryPayloadsRef = useRef<
+    Map<string, { payload: ImageMessagePayload; clientId: string }>
+  >(new Map());
 
   const unreadIdsRef = useRef<Set<string>>(new Set());
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,7 +229,7 @@ export function useConversationThread(conversationId: string) {
         queryKey: queryKeys.conversations.list(),
       });
     },
-    onError: (error, _vars, ctx) => {
+    onError: (error, _variables, ctx) => {
       Sentry.captureException(error, {
         tags: { component: "messaging", operation: "send", client: "mobile" },
       });
@@ -242,10 +248,10 @@ export function useConversationThread(conversationId: string) {
       payload,
       clientId,
     }: {
-      payload: { uri: string; contentType: "image/jpeg" };
+      payload: ImageMessagePayload;
       clientId: string;
     }) => sendImageMessage(conversationId, payload, clientId),
-    onMutate: ({ clientId }) => {
+    onMutate: ({ payload, clientId }) => {
       const tempId = `temp-img-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}`;
@@ -253,18 +259,26 @@ export function useConversationThread(conversationId: string) {
         id: tempId,
         conversation_id: conversationId,
         sender_id: user!.id,
-        content: "",
+        content: payload.uri,
         message_type: "image",
         offer_id: null,
-        metadata: { client_id: clientId },
+        metadata: { client_id: clientId, local_uri: payload.uri },
         read_at: null,
         created_at: new Date().toISOString(),
       };
+      imageRetryPayloadsRef.current.set(tempId, { payload, clientId });
+      setFailedIds((prev) => {
+        if (prev.size === 0) return prev;
+        const next = new Set(prev);
+        next.delete(tempId);
+        return next;
+      });
       setPendingMessages((prev) => [tempMsg, ...prev]);
       return { tempId };
     },
     onSuccess: (data, _vars, ctx) => {
       haptic("success");
+      if (ctx?.tempId) imageRetryPayloadsRef.current.delete(ctx.tempId);
       setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
       queryClient.setQueryData<{
         pages: MessagesPage[];
@@ -276,7 +290,7 @@ export function useConversationThread(conversationId: string) {
         queryKey: queryKeys.conversations.list(),
       });
     },
-    onError: (error, _vars, ctx) => {
+    onError: (error, variables, ctx) => {
       Sentry.captureException(error, {
         tags: {
           component: "messaging",
@@ -285,7 +299,15 @@ export function useConversationThread(conversationId: string) {
         },
       });
       haptic("error");
-      setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
+      if (ctx?.tempId) {
+        if (error instanceof ImageMessageSendError) {
+          imageRetryPayloadsRef.current.set(ctx.tempId, {
+            clientId: variables.clientId,
+            payload: { ...variables.payload, skipUpload: true },
+          });
+        }
+        setFailedIds((prev) => new Set(prev).add(ctx.tempId));
+      }
       toast.error("Échec de l'envoi de l'image");
     },
   });
@@ -293,9 +315,18 @@ export function useConversationThread(conversationId: string) {
   const handleSendImage = useCallback(
     async (payload: { uri: string; contentType: "image/jpeg" }) => {
       const clientId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      await sendImageMutation.mutateAsync({ payload, clientId });
+      await sendImageMutation.mutateAsync({
+        payload: {
+          ...payload,
+          storagePath: createMessageImageStoragePath(
+            conversationId,
+            payload.contentType,
+          ),
+        },
+        clientId,
+      });
     },
-    [sendImageMutation],
+    [conversationId, sendImageMutation],
   );
 
   const handleRealtimeInsert = useCallback(
@@ -459,6 +490,30 @@ export function useConversationThread(conversationId: string) {
 
   const handleRetry = useCallback(
     (message: Message) => {
+      if (message.message_type === "image") {
+        const retry = imageRetryPayloadsRef.current.get(message.id);
+        if (!retry) return;
+        Sentry.addBreadcrumb({
+          category: "messaging",
+          level: "info",
+          message: "message_retry",
+          data: { message_type: "image" },
+        });
+        imageRetryPayloadsRef.current.delete(message.id);
+        setPendingMessages((prev) =>
+          prev.filter((item) => item.id !== message.id),
+        );
+        setFailedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(message.id);
+          return next;
+        });
+        sendImageMutation.mutate({
+          clientId: retry.clientId,
+          payload: retry.payload,
+        });
+        return;
+      }
       if (!message.content) return;
       Sentry.addBreadcrumb({
         category: "messaging",
@@ -477,7 +532,7 @@ export function useConversationThread(conversationId: string) {
       const clientId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       sendMutation.mutate({ content: message.content, clientId, replyTo });
     },
-    [sendMutation],
+    [sendImageMutation, sendMutation],
   );
 
   const rows = useMemo<ConversationRow[]>(() => {
@@ -540,6 +595,6 @@ export function useConversationThread(conversationId: string) {
     handleSendImage,
     handleRetry,
     handleMessageVisible,
-    isSending: sendMutation.isPending,
+    isSending: sendMutation.isPending || sendImageMutation.isPending,
   };
 }
