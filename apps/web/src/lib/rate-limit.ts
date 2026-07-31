@@ -38,6 +38,11 @@ function createRateLimiter(
 export const ocrRateLimit = createRateLimiter("ocr", 5);
 export const checkoutRateLimit = createRateLimiter("checkout", 3, true);
 export const pushRateLimit = createRateLimiter("push", 10);
+export const messageSendRateLimit = createRateLimiter("message-send", 30);
+export const messageImageNotifyRateLimit = createRateLimiter(
+  "message-image-notify",
+  10,
+);
 export const onboardRateLimit = createRateLimiter("onboard", 2);
 export const payoutRateLimit = createRateLimiter("payout", 1, true);
 

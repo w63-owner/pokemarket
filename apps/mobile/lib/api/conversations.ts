@@ -1,7 +1,10 @@
 import {
   LIMITS,
+  getNextMessageCursor,
   type ConversationPreview,
   type Message,
+  type SendMessageRequest,
+  type SendMessageResponse,
 } from "@pokemarket/shared";
 import { api } from "@/lib/api/client";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
@@ -171,13 +174,7 @@ export async function fetchMessages(
   if (error) throw new Error(error.message);
 
   const messages = (data ?? []) as Message[];
-  const nextCursor =
-    messages.length === LIMITS.MESSAGES_PER_PAGE
-      ? {
-          created_at: messages[messages.length - 1].created_at!,
-          id: messages[messages.length - 1].id,
-        }
-      : null;
+  const nextCursor = getNextMessageCursor(messages, LIMITS.MESSAGES_PER_PAGE);
 
   return { messages, nextCursor };
 }
@@ -227,10 +224,12 @@ export async function sendMessage(
     throw new Error("Message trop long");
   }
 
-  const result = await api.post<{ message: Message }>("/api/messages/send", {
+  if (!clientId) throw new Error("Identifiant client requis");
+  const payload: SendMessageRequest = {
+    type: "text",
     conversation_id: conversationId,
     content: trimmed,
-    ...(clientId ? { client_id: clientId } : {}),
+    client_id: clientId,
     ...(replyTo
       ? {
           reply_to: {
@@ -241,7 +240,11 @@ export async function sendMessage(
           },
         }
       : {}),
-  });
+  };
+  const result = await api.post<SendMessageResponse>(
+    "/api/messages/send",
+    payload,
+  );
   return result.message;
 }
 
@@ -260,8 +263,9 @@ export async function sendImageMessage(
     uri: string;
     contentType: "image/jpeg" | "image/webp" | "image/png";
   },
+  clientId: string,
 ): Promise<Message> {
-  const userId = await requireUserId();
+  await requireUserId();
 
   const ext = contentTypeToExt(payload.contentType);
   const fileName = `${conversationId}/${Date.now()}-${Math.random()
@@ -275,37 +279,25 @@ export async function sendImageMessage(
     storagePath: fileName,
   });
 
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({
+  try {
+    const request: SendMessageRequest = {
+      type: "image",
       conversation_id: conversationId,
-      sender_id: userId,
-      content: fileName,
-      message_type: "image",
-    })
-    .select()
-    .single();
-
-  if (error) {
+      storage_path: fileName,
+      client_id: clientId,
+    };
+    const result = await api.post<SendMessageResponse>(
+      "/api/messages/send",
+      request,
+    );
+    return result.message;
+  } catch (error) {
     await supabase.storage
       .from(MESSAGE_ATTACHMENTS_BUCKET)
       .remove([fileName])
       .catch(() => {});
-    throw new Error(error.message);
+    throw error;
   }
-
-  // Image rows are inserted client-side (Storage upload + RLS insert), so the
-  // server never sees them — unlike text messages routed through
-  // `/api/messages/send`. Fire-and-forget a notify so the recipient still gets
-  // a push. Failures are swallowed: the message itself already succeeded.
-  api
-    .post("/api/messages/notify-image", {
-      conversation_id: conversationId,
-      message_id: data.id,
-    })
-    .catch(() => {});
-
-  return data as Message;
 }
 
 /**

@@ -5,7 +5,10 @@ import { m } from "framer-motion";
 import {
   Bell,
   BellOff,
+  Heart,
   MessageSquare,
+  Search,
+  ShoppingBag,
   ShoppingCart,
   Smartphone,
 } from "lucide-react";
@@ -18,8 +21,53 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Json } from "@/types/database";
+import type { PushNotificationCategory } from "@pokemarket/shared";
 
 type PermissionState = "default" | "granted" | "denied";
+type CategoryPreference = PushNotificationCategory;
+
+const CATEGORY_META: Record<
+  CategoryPreference,
+  {
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+  }
+> = {
+  messages: {
+    label: "Nouveaux messages",
+    description: "Quand un acheteur ou vendeur vous écrit",
+    icon: <MessageSquare className="size-4" />,
+  },
+  offers: {
+    label: "Offres reçues",
+    description: "Quand une offre est créée ou acceptée",
+    icon: <ShoppingCart className="size-4" />,
+  },
+  commerce: {
+    label: "Achats / ventes",
+    description: "Paiements, expéditions, litiges et confirmations",
+    icon: <ShoppingBag className="size-4" />,
+  },
+  saved_searches: {
+    label: "Recherches sauvegardées",
+    description: "Quand de nouvelles cartes correspondent à vos alertes",
+    icon: <Search className="size-4" />,
+  },
+  following: {
+    label: "Vendeurs suivis",
+    description: "Quand un vendeur suivi publie une annonce",
+    icon: <Heart className="size-4" />,
+  },
+};
+
+const DEFAULT_CATEGORY_PREFS: Record<CategoryPreference, boolean> = {
+  messages: true,
+  offers: true,
+  commerce: true,
+  saved_searches: true,
+  following: true,
+};
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -36,6 +84,9 @@ export default function NotificationsPage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [categoryPrefs, setCategoryPrefs] = useState(DEFAULT_CATEGORY_PREFS);
+  const [savingCategory, setSavingCategory] =
+    useState<CategoryPreference | null>(null);
 
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const isSupported =
@@ -59,6 +110,30 @@ export default function NotificationsPage() {
       setLoading(false);
     });
   }, [isSupported]);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("notification_preferences")
+      .select("category, enabled")
+      .eq("user_id", user.id)
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Impossible de charger vos préférences.");
+          return;
+        }
+        setCategoryPrefs((current) => {
+          const next = { ...current };
+          for (const row of data ?? []) {
+            if (row.category in next) {
+              next[row.category as CategoryPreference] = row.enabled;
+            }
+          }
+          return next;
+        });
+      });
+  }, [user]);
 
   const subscribe = useCallback(async () => {
     if (!vapidKey || !user) {
@@ -140,6 +215,37 @@ export default function NotificationsPage() {
     [subscribe, unsubscribe],
   );
 
+  const handleCategoryToggle = useCallback(
+    async (category: CategoryPreference, enabled: boolean) => {
+      if (!user) return;
+      const previous = categoryPrefs[category];
+      setCategoryPrefs((current) => ({ ...current, [category]: enabled }));
+      setSavingCategory(category);
+
+      const { error } = await createClient()
+        .from("notification_preferences")
+        .upsert(
+          {
+            user_id: user.id,
+            category,
+            enabled,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,category" },
+        );
+
+      if (error) {
+        setCategoryPrefs((current) => ({
+          ...current,
+          [category]: previous,
+        }));
+        toast.error("Impossible d'enregistrer cette préférence.");
+      }
+      setSavingCategory(null);
+    },
+    [categoryPrefs, user],
+  );
+
   if (!isSupported && !loading) {
     return (
       <div className="mx-auto max-w-lg px-4 py-6">
@@ -208,18 +314,24 @@ export default function NotificationsPage() {
                 Vous serez notifié pour
               </p>
               <div className="space-y-1">
-                <NotificationCategory
-                  icon={<MessageSquare className="size-4" />}
-                  label="Nouveaux messages"
-                  description="Quand un acheteur ou vendeur vous envoie un message"
-                  enabled={isSubscribed}
-                />
-                <NotificationCategory
-                  icon={<ShoppingCart className="size-4" />}
-                  label="Nouvelles offres"
-                  description="Quand vous recevez une offre sur une de vos annonces"
-                  enabled={isSubscribed}
-                />
+                {(
+                  Object.entries(CATEGORY_META) as [
+                    CategoryPreference,
+                    (typeof CATEGORY_META)[CategoryPreference],
+                  ][]
+                ).map(([category, meta]) => (
+                  <NotificationCategory
+                    key={category}
+                    icon={meta.icon}
+                    label={meta.label}
+                    description={meta.description}
+                    enabled={isSubscribed && categoryPrefs[category]}
+                    disabled={!isSubscribed || savingCategory !== null}
+                    onEnabledChange={(enabled) =>
+                      handleCategoryToggle(category, enabled)
+                    }
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -234,11 +346,15 @@ function NotificationCategory({
   label,
   description,
   enabled,
+  disabled,
+  onEnabledChange,
 }: {
   icon: React.ReactNode;
   label: string;
   description: string;
   enabled: boolean;
+  disabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
 }) {
   return (
     <div
@@ -251,6 +367,12 @@ function NotificationCategory({
         <p className="text-sm font-medium">{label}</p>
         <p className="text-muted-foreground text-xs">{description}</p>
       </div>
+      <Switch
+        checked={enabled}
+        disabled={disabled}
+        onCheckedChange={onEnabledChange}
+        aria-label={label}
+      />
     </div>
   );
 }

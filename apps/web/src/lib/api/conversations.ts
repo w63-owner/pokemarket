@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
 import { LIMITS } from "@/lib/constants";
 import type { ConversationPreview, Message } from "@/types";
+import type {
+  MessageReplySnapshot,
+  SendMessageRequest,
+  SendMessageResponse,
+} from "@pokemarket/shared";
+import { getNextMessageCursor } from "@pokemarket/shared";
 
 const MESSAGE_ATTACHMENTS_BUCKET = "message_attachments";
 
@@ -182,13 +188,7 @@ export async function fetchMessages(
   if (error) throw error;
 
   const messages = (data ?? []) as Message[];
-  const nextCursor =
-    messages.length === LIMITS.MESSAGES_PER_PAGE
-      ? {
-          created_at: messages[messages.length - 1].created_at!,
-          id: messages[messages.length - 1].id,
-        }
-      : null;
+  const nextCursor = getNextMessageCursor(messages, LIMITS.MESSAGES_PER_PAGE);
 
   return { messages, nextCursor };
 }
@@ -225,6 +225,42 @@ export async function markMessagesAsRead(messageIds: string[]): Promise<void> {
   if (error) throw error;
 }
 
+async function postMessage(payload: SendMessageRequest): Promise<Message> {
+  const response = await fetch("/api/messages/send", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = (await response.json().catch(() => null)) as
+    | SendMessageResponse
+    | { error?: string }
+    | null;
+  if (!response.ok || !result || !("message" in result)) {
+    throw new Error(
+      result && "error" in result && result.error
+        ? result.error
+        : "Échec de l'envoi du message",
+    );
+  }
+  return result.message;
+}
+
+export function sendTextMessage(
+  conversationId: string,
+  content: string,
+  clientId: string,
+  replyTo?: MessageReplySnapshot | null,
+): Promise<Message> {
+  return postMessage({
+    type: "text",
+    conversation_id: conversationId,
+    content,
+    client_id: clientId,
+    reply_to: replyTo,
+  });
+}
+
 export async function sendImageMessage(
   conversationId: string,
   file: File,
@@ -247,30 +283,19 @@ export async function sendImageMessage(
 
   if (uploadError) throw new Error(uploadError.message);
 
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({
+  try {
+    return await postMessage({
+      type: "image",
       conversation_id: conversationId,
-      sender_id: user.id,
-      content: storagePath,
-      message_type: "image",
-      metadata: { client_id: clientId },
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  void fetch("/api/messages/notify-image", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      conversation_id: conversationId,
-      message_id: data.id,
-    }),
-  });
-
-  return data as Message;
+      storage_path: storagePath,
+      client_id: clientId,
+    });
+  } catch (error) {
+    await supabase.storage
+      .from(MESSAGE_ATTACHMENTS_BUCKET)
+      .remove([storagePath]);
+    throw error;
+  }
 }
 
 export async function getMessageAttachmentSignedUrl(

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { sendPushNotification } from "@/lib/push/send";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
+import { applyRateLimit, messageImageNotifyRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,12 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    const rateLimitResponse = await applyRateLimit(
+      messageImageNotifyRateLimit,
+      `${user.id}:${conversationId}`,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     const admin = createAdminClient();
     const { data: conversation, error: convError } = await admin

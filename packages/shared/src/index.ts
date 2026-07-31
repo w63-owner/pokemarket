@@ -11,4 +11,5 @@ export * from "./lib/date";
 export * from "./lib/country";
 export * from "./lib/reputation";
 export * from "./lib/feed-filters";
+export * from "./lib/messaging";
 export * from "./content/legal";

@@ -1,10 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { queryKeys, type Database } from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtime } from "@/hooks/use-realtime";
+import { subscription, useRealtime } from "@/hooks/use-realtime";
 import { fetchConversations, fetchUnreadCount } from "@/lib/api/conversations";
+import { channels } from "@/lib/realtime/channels";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
@@ -52,15 +53,37 @@ export function useUnreadCountSubscription() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.unreadCount(),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.list(),
+      });
     },
     [queryClient, user?.id],
   );
 
+  const invalidateInbox = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.conversations.unreadCount(),
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.conversations.list(),
+    });
+  }, [queryClient]);
+
+  const inboxSubscriptions = useMemo(
+    () => [
+      subscription("messages", "INSERT", { onInsert: handleInsert }),
+      subscription("conversations", "*", {
+        onInsert: invalidateInbox,
+        onUpdate: invalidateInbox,
+        onDelete: invalidateInbox,
+      }),
+    ],
+    [handleInsert, invalidateInbox],
+  );
+
   useRealtime({
-    channelName: `unread-badge-${user?.id ?? "anon"}`,
-    table: "messages",
-    event: "INSERT",
-    onInsert: handleInsert,
+    channelName: channels.inbox(user?.id ?? "anon"),
+    subscriptions: inboxSubscriptions,
     enabled: !!user,
   });
 }

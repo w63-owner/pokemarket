@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import * as Sentry from "@sentry/nextjs";
 import type { PushNotificationCategory } from "@pokemarket/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendExpoPushNotification } from "@/lib/push/expo";
@@ -39,6 +40,13 @@ export async function sendPushNotification(
   url?: string,
   options?: SendPushOptions,
 ): Promise<void> {
+  if (
+    options?.category &&
+    !(await isNotificationCategoryEnabled(userId, options.category))
+  ) {
+    return;
+  }
+
   await Promise.allSettled([
     sendWebPush(userId, title, body, url, options),
     sendExpoPushNotification(userId, title, body, {
@@ -46,6 +54,32 @@ export async function sendPushNotification(
       url,
     }),
   ]);
+}
+
+async function isNotificationCategoryEnabled(
+  userId: string,
+  category: PushNotificationCategory,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("notification_preferences")
+    .select("enabled")
+    .eq("user_id", userId)
+    .eq("category", category)
+    .maybeSingle();
+
+  if (error) {
+    Sentry.captureException(error, {
+      tags: {
+        component: "push",
+        operation: "load-notification-preference",
+        category,
+      },
+    });
+    return false;
+  }
+
+  return data?.enabled !== false;
 }
 
 async function sendWebPush(

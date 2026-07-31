@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { FEATURE_FLAGS, type Json } from "@pokemarket/shared";
-import { messageSchema } from "@/lib/validations";
+import {
+  FEATURE_FLAGS,
+  sendMessageRequestSchema,
+  type Json,
+  type SendMessageResponse,
+} from "@pokemarket/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { sendPushNotification } from "@/lib/push/send";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
+import { applyRateLimit, messageSendRateLimit } from "@/lib/rate-limit";
 import type { Message } from "@/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const startedAt = performance.now();
+  let messageType: "text" | "image" | "unknown" = "unknown";
+
   try {
     const { user } = await getRequestUser(request);
     if (!user) {
@@ -24,36 +32,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const parsed = messageSchema.safeParse({ content: body.content });
+    const body = await request.json().catch(() => null);
+    const parsed = sendMessageRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? "Contenu invalide" },
+        { error: parsed.error.issues[0]?.message ?? "Message invalide" },
         { status: 400 },
       );
     }
 
-    const conversationId = body.conversation_id as string | undefined;
-    if (!conversationId) {
-      return NextResponse.json(
-        { error: "conversation_id requis" },
-        { status: 400 },
-      );
-    }
+    const payload = parsed.data;
+    const conversationId = payload.conversation_id;
+    messageType = payload.type;
 
-    // Optional quoted-message snapshot. We persist a denormalised copy in
-    // `metadata.reply_to` so clients can render the quote without a join.
-    const replyTo = (() => {
-      const raw = body.reply_to as Record<string, unknown> | undefined;
-      if (!raw || typeof raw.id !== "string") return null;
-      return {
-        id: raw.id,
-        content: typeof raw.content === "string" ? raw.content : "",
-        sender_id: typeof raw.sender_id === "string" ? raw.sender_id : "",
-        message_type:
-          typeof raw.message_type === "string" ? raw.message_type : "text",
-      };
-    })();
+    const rateLimitResponse = await applyRateLimit(
+      messageSendRateLimit,
+      `${user.id}:${conversationId}`,
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     const admin = createAdminClient();
 
@@ -79,48 +75,110 @@ export async function POST(request: Request) {
       );
     }
 
-    const metadata: Record<string, Json> = {};
-    if (body.client_id && typeof body.client_id === "string") {
-      metadata.client_id = body.client_id;
-    }
-    if (replyTo) {
-      metadata.reply_to = replyTo;
+    if (
+      payload.type === "image" &&
+      !payload.storage_path.startsWith(`${conversationId}/`)
+    ) {
+      return NextResponse.json(
+        { error: "La pièce jointe ne correspond pas à la conversation" },
+        { status: 400 },
+      );
     }
 
-    const { data: message, error: msgError } = await admin
+    let replyTo: Json | undefined;
+    if (payload.reply_to) {
+      const { data: quotedMessage } = await admin
+        .from("messages")
+        .select("id, content, sender_id, message_type")
+        .eq("id", payload.reply_to.id)
+        .eq("conversation_id", conversationId)
+        .maybeSingle();
+
+      if (!quotedMessage) {
+        return NextResponse.json(
+          { error: "Le message cité n'appartient pas à cette conversation" },
+          { status: 400 },
+        );
+      }
+      replyTo = {
+        id: quotedMessage.id,
+        content: (quotedMessage.content ?? "").slice(0, 200),
+        sender_id: quotedMessage.sender_id,
+        message_type: quotedMessage.message_type,
+      };
+    }
+
+    const metadata: Record<string, Json> = {
+      client_id: payload.client_id,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    };
+    const content =
+      payload.type === "text" ? payload.content : payload.storage_path;
+
+    const { data: insertedMessage, error: msgError } = await admin
       .from("messages")
       .insert({
         conversation_id: conversationId,
         sender_id: user.id,
-        content: parsed.data.content,
-        message_type: "text",
-        ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+        content,
+        message_type: payload.type,
+        metadata,
       })
       .select()
       .single();
 
-    if (msgError) throw msgError;
+    let message = insertedMessage;
+    if (msgError?.code === "23505") {
+      const { data: existingMessage, error: existingError } = await admin
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .eq("sender_id", user.id)
+        .contains("metadata", { client_id: payload.client_id })
+        .maybeSingle();
+      if (existingError || !existingMessage) throw msgError;
+      message = existingMessage;
+    } else if (msgError || !message) {
+      throw msgError ?? new Error("Message insert returned no row");
+    }
 
     const recipientId =
       conversation.buyer_id === user.id
         ? conversation.seller_id
         : conversation.buyer_id;
 
-    sendPushNotification(
-      recipientId,
-      "Nouveau message",
-      parsed.data.content,
-      `/messages/${conversationId}`,
-      { category: "messages" },
-    ).catch((err) => Sentry.captureException(err));
+    if (!msgError) {
+      sendPushNotification(
+        recipientId,
+        "Nouveau message",
+        payload.type === "image" ? "📷 Photo" : payload.content,
+        `/messages/${conversationId}`,
+        { category: "messages" },
+      ).catch((err) => Sentry.captureException(err));
+    }
 
-    return NextResponse.json({ message: message as Message });
+    return NextResponse.json<SendMessageResponse>({
+      message: message as Message,
+    });
   } catch (err) {
-    Sentry.captureException(err);
+    Sentry.captureException(err, {
+      tags: {
+        component: "messaging",
+        operation: "send",
+        message_type: messageType,
+      },
+    });
     console.error("[messages/send] Failed:", err);
     return NextResponse.json(
       { error: "Erreur serveur inattendue" },
       { status: 500 },
     );
+  } finally {
+    const duration = Math.round(performance.now() - startedAt);
+    Sentry.setMeasurement("messaging.send_latency", duration, "millisecond");
+    Sentry.setContext("messaging_send", {
+      message_type: messageType,
+      duration_ms: duration,
+    });
   }
 }

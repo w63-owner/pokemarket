@@ -1,4 +1,5 @@
 import type { FeedFilters } from "../query-keys";
+import type { Message } from "../types";
 
 export type FeedParams = FeedFilters & {
   cursor_created_at?: string;
@@ -79,6 +80,37 @@ export type PushNotificationRequest = {
   title: string;
   body: string;
   url?: string;
+};
+
+export type MessageReplySnapshot = {
+  id: string;
+  content: string;
+  sender_id: string;
+  message_type: string;
+};
+
+type SendMessageBase = {
+  conversation_id: string;
+  client_id: string;
+  reply_to?: MessageReplySnapshot | null;
+};
+
+export type SendTextMessageRequest = SendMessageBase & {
+  type: "text";
+  content: string;
+};
+
+export type SendImageMessageRequest = SendMessageBase & {
+  type: "image";
+  storage_path: string;
+};
+
+export type SendMessageRequest =
+  | SendTextMessageRequest
+  | SendImageMessageRequest;
+
+export type SendMessageResponse = {
+  message: Message;
 };
 
 /**

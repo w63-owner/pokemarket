@@ -5,7 +5,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
-import { useRealtime } from "@/hooks/use-realtime";
 import { queryKeys } from "@/lib/query-keys";
 import {
   ConversationList,
@@ -13,10 +12,6 @@ import {
 } from "@/components/messages/conversation-list";
 import { AuthRequired } from "@/components/shared/auth-required";
 import { EmptyState } from "@/components/shared/empty-state";
-import type { Database } from "@/types/database";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-
-type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 
 export default function MessagesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -31,32 +26,6 @@ export default function MessagesPage() {
       queryKey: queryKeys.conversations.unreadCount(),
     });
   }, [queryClient]);
-
-  const handleMessageInsert = useCallback(
-    (payload: RealtimePostgresChangesPayload<MessageRow>) => {
-      const newMsg = payload.new as MessageRow | undefined;
-      if (newMsg?.sender_id === user?.id) return;
-      invalidateConversations();
-    },
-    [invalidateConversations, user?.id],
-  );
-
-  useRealtime({
-    channelName: `inbox-messages-${user?.id ?? "anon"}`,
-    table: "messages",
-    event: "INSERT",
-    onInsert: handleMessageInsert,
-    enabled: !!user,
-  });
-
-  useRealtime({
-    channelName: `inbox-conversations-${user?.id ?? "anon"}`,
-    table: "conversations",
-    event: "*",
-    onInsert: invalidateConversations,
-    onUpdate: invalidateConversations,
-    enabled: !!user,
-  });
 
   if (!user) {
     return (

@@ -19,11 +19,18 @@ import {
 import { m } from "framer-motion";
 import { AlertCircle, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
+import * as Sentry from "@sentry/nextjs";
 import { useInView } from "react-intersection-observer";
 
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtime } from "@/hooks/use-realtime";
-import { formatDateLabel, isSameDay } from "@pokemarket/shared";
+import { useRealtime, type Subscription } from "@/hooks/use-realtime";
+import {
+  applyMessageReadReceipt,
+  formatDateLabel,
+  isSameDay,
+  prependMessageIfMissing,
+  reconcileOptimisticMessages,
+} from "@pokemarket/shared";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import {
@@ -31,9 +38,9 @@ import {
   fetchMessages,
   markMessagesAsRead,
   sendImageMessage,
+  sendTextMessage,
   type MessagesPage,
 } from "@/lib/api/conversations";
-import { sendMessageAction } from "@/actions/messages";
 import { fetchActiveOffer } from "@/lib/api/offers";
 import { fetchTransactionByListing } from "@/lib/api/transactions";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +59,7 @@ import { OfferBar } from "@/components/messages/offer-bar";
 import { TransactionActions } from "@/components/messages/transaction-actions";
 import { ListingContextBar } from "@/components/messages/listing-context-bar";
 import { SmartBackButton } from "@/components/ui/smart-back-button";
+import { channels } from "@/lib/realtime/channels";
 import type { Message } from "@/types";
 
 const SYSTEM_TYPES = new Set([
@@ -146,16 +154,7 @@ export default function ConversationThreadPage() {
       content: string;
       clientId: string;
       replyTo?: ReplySnapshot | null;
-    }) => {
-      const result = await sendMessageAction(
-        conversationId,
-        content,
-        clientId,
-        replyTo,
-      );
-      if (!result.success) throw new Error(result.error);
-      return result.message;
-    },
+    }) => sendTextMessage(conversationId, content, clientId, replyTo),
     onMutate: ({ content, clientId, replyTo }) => {
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const tempMsg: Message = {
@@ -189,24 +188,17 @@ export default function ConversationThreadPage() {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        const exists = old.pages.some((p) =>
-          p.messages.some((m) => m.id === data.id),
-        );
-        if (exists) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, i) =>
-            i === 0 ? { ...page, messages: [data, ...page.messages] } : page,
-          ),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        prependMessageIfMissing(old, data),
+      );
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
       });
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
+      Sentry.captureException(error, {
+        tags: { component: "messaging", operation: "send", client: "web" },
+      });
       if (context?.tempId) {
         setFailedIds((prev) => new Set(prev).add(context.tempId));
       }
@@ -221,23 +213,20 @@ export default function ConversationThreadPage() {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        const exists = old.pages.some((page) =>
-          page.messages.some((message) => message.id === data.id),
-        );
-        if (exists) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, index) =>
-            index === 0
-              ? { ...page, messages: [data, ...page.messages] }
-              : page,
-          ),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        prependMessageIfMissing(old, data),
+      );
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
+      });
+    },
+    onError: (error) => {
+      Sentry.captureException(error, {
+        tags: {
+          component: "messaging",
+          operation: "send-image",
+          client: "web",
+        },
       });
     },
   });
@@ -248,19 +237,7 @@ export default function ConversationThreadPage() {
       const newMsg = payload.new as unknown as Message;
 
       if (newMsg.sender_id === user?.id) {
-        setPendingMessages((prev) => {
-          const incomingClientId = (
-            newMsg.metadata as Record<string, unknown> | null
-          )?.client_id;
-          const idx = prev.findIndex((pending) =>
-            incomingClientId
-              ? (pending.metadata as Record<string, unknown> | null)
-                  ?.client_id === incomingClientId
-              : pending.content === newMsg.content,
-          );
-          if (idx === -1) return prev;
-          return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
-        });
+        setPendingMessages((prev) => reconcileOptimisticMessages(prev, newMsg));
       } else {
         setLiveAnnouncement(
           newMsg.message_type === "image"
@@ -277,20 +254,9 @@ export default function ConversationThreadPage() {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        const exists = old.pages.some((p) =>
-          p.messages.some((m) => m.id === newMsg.id),
-        );
-
-        if (exists) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, i) =>
-            i === 0 ? { ...page, messages: [newMsg, ...page.messages] } : page,
-          ),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        prependMessageIfMissing(old, newMsg),
+      );
 
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
@@ -336,15 +302,6 @@ export default function ConversationThreadPage() {
     [conversationId, queryClient, user?.id, convQuery.data, isAwayFromLatest],
   );
 
-  useRealtime({
-    channelName: `thread-${conversationId}`,
-    table: "messages",
-    filter: `conversation_id=eq.${conversationId}`,
-    event: "INSERT",
-    onInsert: handleRealtimeInsert,
-    enabled: !!user,
-  });
-
   // ── Realtime: read receipts ──────────────────────────────────────────
   const handleRealtimeUpdate = useCallback(
     (payload: { new: Record<string, unknown> }) => {
@@ -352,30 +309,26 @@ export default function ConversationThreadPage() {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            messages: page.messages.map((m) =>
-              m.id === updatedMsg.id
-                ? { ...m, read_at: updatedMsg.read_at }
-                : m,
-            ),
-          })),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        applyMessageReadReceipt(old, updatedMsg),
+      );
     },
     [conversationId, queryClient],
   );
 
+  const threadSubscriptions: Subscription[] = [
+    {
+      table: "messages",
+      event: "*",
+      filter: `conversation_id=eq.${conversationId}`,
+      onInsert: handleRealtimeInsert,
+      onUpdate: handleRealtimeUpdate,
+    },
+  ];
+
   useRealtime({
-    channelName: `thread-reads-${conversationId}`,
-    table: "messages",
-    filter: `conversation_id=eq.${conversationId}`,
-    event: "UPDATE",
-    onUpdate: handleRealtimeUpdate,
+    channelName: channels.thread(conversationId),
+    subscriptions: threadSubscriptions,
     enabled: !!user,
   });
 
@@ -490,6 +443,12 @@ export default function ConversationThreadPage() {
   const handleRetry = useCallback(
     (message: Message) => {
       if (!message.content) return;
+      Sentry.addBreadcrumb({
+        category: "messaging",
+        level: "info",
+        message: "message_retry",
+        data: { message_type: message.message_type },
+      });
       setPendingMessages((prev) =>
         prev.filter((pending) => pending.id !== message.id),
       );

@@ -6,7 +6,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { isSameDay, queryKeys, type Message } from "@pokemarket/shared";
+import {
+  applyMessageReadReceipt,
+  isSameDay,
+  prependMessageIfMissing,
+  queryKeys,
+  reconcileOptimisticMessages,
+  type Message,
+} from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import {
   subscription,
@@ -25,6 +32,7 @@ import {
 import { fetchActiveOffer } from "@/lib/api/offers";
 import { fetchTransactionByListing } from "@/lib/api/transactions";
 import { haptic } from "@/lib/haptics";
+import { Sentry } from "@/lib/sentry";
 import { toast } from "@/components/ui";
 
 const SYSTEM_TYPES = new Set([
@@ -208,24 +216,17 @@ export function useConversationThread(conversationId: string) {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        const exists = old.pages.some((p) =>
-          p.messages.some((m) => m.id === data.id),
-        );
-        if (exists) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, i) =>
-            i === 0 ? { ...page, messages: [data, ...page.messages] } : page,
-          ),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        prependMessageIfMissing(old, data),
+      );
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
       });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (error, _vars, ctx) => {
+      Sentry.captureException(error, {
+        tags: { component: "messaging", operation: "send", client: "mobile" },
+      });
       haptic("error");
       // Keep the optimistic bubble on screen and flag it as failed so the
       // user can tap to retry, instead of silently dropping the message.
@@ -237,9 +238,14 @@ export function useConversationThread(conversationId: string) {
   });
 
   const sendImageMutation = useMutation({
-    mutationFn: (payload: { uri: string; contentType: "image/jpeg" }) =>
-      sendImageMessage(conversationId, payload),
-    onMutate: () => {
+    mutationFn: ({
+      payload,
+      clientId,
+    }: {
+      payload: { uri: string; contentType: "image/jpeg" };
+      clientId: string;
+    }) => sendImageMessage(conversationId, payload, clientId),
+    onMutate: ({ clientId }) => {
       const tempId = `temp-img-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2)}`;
@@ -250,7 +256,7 @@ export function useConversationThread(conversationId: string) {
         content: "",
         message_type: "image",
         offer_id: null,
-        metadata: null,
+        metadata: { client_id: clientId },
         read_at: null,
         created_at: new Date().toISOString(),
       };
@@ -263,24 +269,21 @@ export function useConversationThread(conversationId: string) {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        const exists = old.pages.some((p) =>
-          p.messages.some((m) => m.id === data.id),
-        );
-        if (exists) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, i) =>
-            i === 0 ? { ...page, messages: [data, ...page.messages] } : page,
-          ),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        prependMessageIfMissing(old, data),
+      );
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
       });
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (error, _vars, ctx) => {
+      Sentry.captureException(error, {
+        tags: {
+          component: "messaging",
+          operation: "send-image",
+          client: "mobile",
+        },
+      });
       haptic("error");
       setPendingMessages((prev) => prev.filter((m) => m.id !== ctx?.tempId));
       toast.error("Échec de l'envoi de l'image");
@@ -289,7 +292,8 @@ export function useConversationThread(conversationId: string) {
 
   const handleSendImage = useCallback(
     async (payload: { uri: string; contentType: "image/jpeg" }) => {
-      await sendImageMutation.mutateAsync(payload);
+      const clientId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      await sendImageMutation.mutateAsync({ payload, clientId });
     },
     [sendImageMutation],
   );
@@ -299,39 +303,15 @@ export function useConversationThread(conversationId: string) {
       const newMsg = payload.new as unknown as Message;
 
       if (newMsg.sender_id === user?.id) {
-        setPendingMessages((prev) => {
-          const incomingClientId = (
-            newMsg.metadata as Record<string, unknown> | null
-          )?.client_id;
-          if (incomingClientId) {
-            return prev.filter(
-              (p) =>
-                (p.metadata as Record<string, unknown> | null)?.client_id !==
-                incomingClientId,
-            );
-          }
-          const idx = prev.findIndex((p) => p.content === newMsg.content);
-          if (idx === -1) return prev;
-          return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
-        });
+        setPendingMessages((prev) => reconcileOptimisticMessages(prev, newMsg));
       }
 
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        const exists = old.pages.some((p) =>
-          p.messages.some((m) => m.id === newMsg.id),
-        );
-        if (exists) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page, i) =>
-            i === 0 ? { ...page, messages: [newMsg, ...page.messages] } : page,
-          ),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        prependMessageIfMissing(old, newMsg),
+      );
 
       queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.list(),
@@ -371,18 +351,9 @@ export function useConversationThread(conversationId: string) {
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
-      }>(queryKeys.conversations.messages(conversationId), (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page) => ({
-            ...page,
-            messages: page.messages.map((m) =>
-              m.id === updated.id ? { ...m, read_at: updated.read_at } : m,
-            ),
-          })),
-        };
-      });
+      }>(queryKeys.conversations.messages(conversationId), (old) =>
+        applyMessageReadReceipt(old, updated),
+      );
     },
     [conversationId, queryClient],
   );
@@ -489,6 +460,12 @@ export function useConversationThread(conversationId: string) {
   const handleRetry = useCallback(
     (message: Message) => {
       if (!message.content) return;
+      Sentry.addBreadcrumb({
+        category: "messaging",
+        level: "info",
+        message: "message_retry",
+        data: { message_type: message.message_type },
+      });
       const replyTo = getReplySnapshot(message);
       // Drop the failed optimistic bubble; the fresh attempt re-inserts one.
       setPendingMessages((prev) => prev.filter((m) => m.id !== message.id));

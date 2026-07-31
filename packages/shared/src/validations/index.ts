@@ -94,15 +94,49 @@ export const offerSchema = z.object({
   conversation_id: z.string().uuid().optional(),
 });
 
+const messageContentSchema = z
+  .string()
+  .trim()
+  .min(1, "Le message ne peut pas être vide")
+  .max(
+    LIMITS.MAX_MESSAGE_LENGTH,
+    `Maximum ${LIMITS.MAX_MESSAGE_LENGTH} caractères`,
+  );
+
 export const messageSchema = z.object({
-  content: z
-    .string()
-    .min(1, "Le message ne peut pas être vide")
-    .max(
-      LIMITS.MAX_MESSAGE_LENGTH,
-      `Maximum ${LIMITS.MAX_MESSAGE_LENGTH} caractères`,
-    ),
+  content: messageContentSchema,
 });
+
+export const messageReplySnapshotSchema = z.object({
+  id: z.string().uuid("Message cité invalide"),
+  content: z.string().max(200),
+  sender_id: z.string().uuid("Auteur cité invalide"),
+  message_type: z.string().min(1).max(64),
+});
+
+const sendMessageBaseSchema = z.object({
+  conversation_id: z.string().uuid("Conversation invalide"),
+  client_id: z.string().min(8).max(128),
+  reply_to: messageReplySnapshotSchema.nullish(),
+});
+
+export const sendMessageRequestSchema = z.discriminatedUnion("type", [
+  sendMessageBaseSchema.extend({
+    type: z.literal("text"),
+    content: messageContentSchema,
+  }),
+  sendMessageBaseSchema.extend({
+    type: z.literal("image"),
+    storage_path: z
+      .string()
+      .min(1)
+      .max(512)
+      .refine(
+        (path) => !path.startsWith("/") && !path.includes(".."),
+        "Chemin de pièce jointe invalide",
+      ),
+  }),
+]);
 
 export const checkoutSchema = z.object({
   listing_id: z.string().uuid(),

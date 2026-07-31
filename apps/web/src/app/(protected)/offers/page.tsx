@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -27,8 +27,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { useAuth } from "@/hooks/use-auth";
-import { useRealtime } from "@/hooks/use-realtime";
+import { subscription, useRealtime } from "@/hooks/use-realtime";
 import { queryKeys } from "@/lib/query-keys";
+import { channels } from "@/lib/realtime/channels";
 import { formatPrice, formatRelativeDate } from "@/lib/utils";
 import {
   fetchReceivedOffers,
@@ -397,12 +398,19 @@ export default function OffersPage() {
     queryClient.invalidateQueries({ queryKey: queryKeys.offers.sent() });
   }, [queryClient]);
 
+  const offerSubscriptions = useMemo(
+    () => [
+      subscription("offers", "*", {
+        onInsert: invalidateOffers,
+        onUpdate: invalidateOffers,
+      }),
+    ],
+    [invalidateOffers],
+  );
+
   useRealtime({
-    channelName: `offers-dashboard-${user?.id ?? "anon"}`,
-    table: "offers",
-    event: "*",
-    onInsert: invalidateOffers,
-    onUpdate: invalidateOffers,
+    channelName: channels.offersDashboard(user?.id ?? "anon"),
+    subscriptions: offerSubscriptions,
     enabled: !!user,
   });
 

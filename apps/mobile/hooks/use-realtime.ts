@@ -6,6 +6,7 @@ import type {
 } from "@supabase/supabase-js";
 import type { Database } from "@pokemarket/shared";
 import { supabase } from "@/lib/supabase";
+import { Sentry } from "@/lib/sentry";
 
 type TableName = keyof Database["public"]["Tables"];
 type EventType = "INSERT" | "UPDATE" | "DELETE" | "*";
@@ -166,6 +167,18 @@ function attachListener(
     "postgres_changes" as never,
     channelConfig,
     (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+      const createdAt =
+        payload.eventType === "INSERT" &&
+        typeof payload.new.created_at === "string"
+          ? Date.parse(payload.new.created_at)
+          : Number.NaN;
+      if (Number.isFinite(createdAt)) {
+        Sentry.setMeasurement(
+          "messaging.realtime_delay",
+          Math.max(0, Date.now() - createdAt),
+          "millisecond",
+        );
+      }
       const dispatchers = entry.dispatchers.get(key);
       if (!dispatchers) return;
       for (const d of dispatchers) d(payload);
