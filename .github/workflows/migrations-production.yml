@@ -1,7 +1,7 @@
 name: Migrations - production
 
 # Pousse les migrations Supabase sur le projet PROD quand un changement
-# touche supabase/migrations/** sur la branche main.
+# touche apps/web/supabase/migrations/** sur la branche main.
 #
 # IMPORTANT: ce job tourne dans l'environnement GitHub `production`,
 # qui DOIT etre configure avec un required reviewer (Settings > Environments).
@@ -17,8 +17,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/**"
-      - "supabase/config.toml"
+      - "apps/web/supabase/migrations/**"
+      - "apps/web/supabase/config.toml"
       - ".github/workflows/migrations-production.yml"
   workflow_dispatch:
 
@@ -32,6 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
+    defaults:
+      run:
+        working-directory: apps/web
 
     steps:
       - name: Checkout code
