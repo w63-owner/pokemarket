@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(14);
+SELECT plan(15);
 
 -- Seller has a completed Connect transfer, then a partial bank payout that
 -- leaves residual funds on Connect (the default 10% dispute reserve path).
