@@ -65,6 +65,21 @@ jobs:
       # Historical duplicate versions are reconciled in the remote ledger.
       # Never fetch here: `migration fetch` rewrites committed migrations and
       # can make local resets replay non-idempotent statements twice.
+      - name: Reconcile historical migration aliases
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
+        run: |
+          supabase migration repair --status applied \
+            20260731082541 \
+            20260731082819 \
+            20260731083042 \
+            20260731083114 \
+            20260731083134 \
+            20260731083156 \
+            20260731083214 \
+            20260731083245
+
       - name: Verify migration history
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
