@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { messageSchema } from "@/lib/validations";
 import { sendPushNotification } from "@/lib/push/send";
 import * as Sentry from "@sentry/nextjs";
+import type { Json } from "@pokemarket/shared";
 import type { Message } from "@/types";
+import type { ReplySnapshot } from "@/components/messages/message-thread-utils";
 
 export type SendMessageResult =
   | { success: true; message: Message }
@@ -13,6 +15,8 @@ export type SendMessageResult =
 export async function sendMessageAction(
   conversationId: string,
   content: string,
+  clientId: string,
+  replyTo?: ReplySnapshot | null,
 ): Promise<SendMessageResult> {
   const parsed = messageSchema.safeParse({ content });
   if (!parsed.success) {
@@ -47,6 +51,16 @@ export async function sendMessageAction(
     return { success: false, error: "Accès non autorisé" };
   }
 
+  const metadata: Record<string, Json> = { client_id: clientId };
+  if (replyTo) {
+    metadata.reply_to = {
+      id: replyTo.id,
+      content: replyTo.content.slice(0, 200),
+      sender_id: replyTo.sender_id,
+      message_type: replyTo.message_type,
+    };
+  }
+
   const { data, error } = await supabase
     .from("messages")
     .insert({
@@ -54,6 +68,7 @@ export async function sendMessageAction(
       sender_id: user.id,
       content: parsed.data.content,
       message_type: "text",
+      metadata,
     })
     .select()
     .single();

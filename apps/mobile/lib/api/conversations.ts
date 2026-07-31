@@ -299,7 +299,10 @@ export async function sendImageMessage(
   // `/api/messages/send`. Fire-and-forget a notify so the recipient still gets
   // a push. Failures are swallowed: the message itself already succeeded.
   api
-    .post("/api/messages/notify-image", { conversation_id: conversationId })
+    .post("/api/messages/notify-image", {
+      conversation_id: conversationId,
+      message_id: data.id,
+    })
     .catch(() => {});
 
   return data as Message;

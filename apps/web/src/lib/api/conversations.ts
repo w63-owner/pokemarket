@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/client";
 import { LIMITS } from "@/lib/constants";
 import type { ConversationPreview, Message } from "@/types";
 
+const MESSAGE_ATTACHMENTS_BUCKET = "message_attachments";
+
 export interface ConversationDetail {
   id: string;
   listing_id: string;
@@ -221,4 +223,64 @@ export async function markMessagesAsRead(messageIds: string[]): Promise<void> {
     .is("read_at", null);
 
   if (error) throw error;
+}
+
+export async function sendImageMessage(
+  conversationId: string,
+  file: File,
+  clientId: string,
+): Promise<Message> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Non authentifié");
+
+  const storagePath = `${conversationId}/${crypto.randomUUID()}.webp`;
+  const { error: uploadError } = await supabase.storage
+    .from(MESSAGE_ATTACHMENTS_BUCKET)
+    .upload(storagePath, file, {
+      contentType: file.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content: storagePath,
+      message_type: "image",
+      metadata: { client_id: clientId },
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  void fetch("/api/messages/notify-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      message_id: data.id,
+    }),
+  });
+
+  return data as Message;
+}
+
+export async function getMessageAttachmentSignedUrl(
+  storagePath: string,
+): Promise<string | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.storage
+    .from(MESSAGE_ATTACHMENTS_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60);
+
+  if (error) return null;
+  return data?.signedUrl ?? null;
 }

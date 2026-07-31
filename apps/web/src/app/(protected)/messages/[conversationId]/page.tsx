@@ -17,7 +17,7 @@ import {
   useMutation,
 } from "@tanstack/react-query";
 import { m } from "framer-motion";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { useInView } from "react-intersection-observer";
 
@@ -30,15 +30,24 @@ import {
   fetchConversationDetail,
   fetchMessages,
   markMessagesAsRead,
+  sendImageMessage,
   type MessagesPage,
 } from "@/lib/api/conversations";
 import { sendMessageAction } from "@/actions/messages";
 import { fetchActiveOffer } from "@/lib/api/offers";
 import { fetchTransactionByListing } from "@/lib/api/transactions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { MessageBubble } from "@/components/messages/message-bubble";
 import { SystemMessage } from "@/components/messages/system-message";
 import { MessageInput } from "@/components/messages/message-input";
+import {
+  createMessageClientId,
+  getReplySnapshot,
+  messagesGroup,
+  toReplySnapshot,
+  type ReplySnapshot,
+} from "@/components/messages/message-thread-utils";
 import { OfferBar } from "@/components/messages/offer-bar";
 import { TransactionActions } from "@/components/messages/transaction-actions";
 import { ListingContextBar } from "@/components/messages/listing-context-bar";
@@ -74,9 +83,14 @@ export default function ConversationThreadPage() {
   const { user } = useAuth();
 
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+  const [replyingTo, setReplyingTo] = useState<ReplySnapshot | null>(null);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
+  const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
 
   const unreadIdsRef = useRef<Set<string>>(new Set());
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   // ── Conversation detail ──────────────────────────────────────────────
   const convQuery = useQuery({
@@ -124,12 +138,25 @@ export default function ConversationThreadPage() {
 
   // ── Send mutation with optimistic UI ─────────────────────────────────
   const sendMutation = useMutation({
-    mutationFn: async (content: string) => {
-      const result = await sendMessageAction(conversationId, content);
+    mutationFn: async ({
+      content,
+      clientId,
+      replyTo,
+    }: {
+      content: string;
+      clientId: string;
+      replyTo?: ReplySnapshot | null;
+    }) => {
+      const result = await sendMessageAction(
+        conversationId,
+        content,
+        clientId,
+        replyTo,
+      );
       if (!result.success) throw new Error(result.error);
       return result.message;
     },
-    onMutate: (content) => {
+    onMutate: ({ content, clientId, replyTo }) => {
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const tempMsg: Message = {
         id: tempId,
@@ -138,7 +165,10 @@ export default function ConversationThreadPage() {
         content,
         message_type: "text",
         offer_id: null,
-        metadata: null,
+        metadata: {
+          client_id: clientId,
+          ...(replyTo ? { reply_to: replyTo } : {}),
+        },
         read_at: null,
         created_at: new Date().toISOString(),
       };
@@ -149,6 +179,13 @@ export default function ConversationThreadPage() {
       setPendingMessages((prev) =>
         prev.filter((m) => m.id !== context?.tempId),
       );
+      if (context?.tempId) {
+        setFailedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(context.tempId);
+          return next;
+        });
+      }
       queryClient.setQueryData<{
         pages: MessagesPage[];
         pageParams: unknown[];
@@ -170,10 +207,38 @@ export default function ConversationThreadPage() {
       });
     },
     onError: (_error, _variables, context) => {
-      setPendingMessages((prev) =>
-        prev.filter((m) => m.id !== context?.tempId),
-      );
+      if (context?.tempId) {
+        setFailedIds((prev) => new Set(prev).add(context.tempId));
+      }
       toast.error("Échec de l'envoi du message");
+    },
+  });
+
+  const sendImageMutation = useMutation({
+    mutationFn: ({ file, clientId }: { file: File; clientId: string }) =>
+      sendImageMessage(conversationId, file, clientId),
+    onSuccess: (data) => {
+      queryClient.setQueryData<{
+        pages: MessagesPage[];
+        pageParams: unknown[];
+      }>(queryKeys.conversations.messages(conversationId), (old) => {
+        if (!old) return old;
+        const exists = old.pages.some((page) =>
+          page.messages.some((message) => message.id === data.id),
+        );
+        if (exists) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page, index) =>
+            index === 0
+              ? { ...page, messages: [data, ...page.messages] }
+              : page,
+          ),
+        };
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.list(),
+      });
     },
   });
 
@@ -184,10 +249,29 @@ export default function ConversationThreadPage() {
 
       if (newMsg.sender_id === user?.id) {
         setPendingMessages((prev) => {
-          const idx = prev.findIndex((p) => p.content === newMsg.content);
+          const incomingClientId = (
+            newMsg.metadata as Record<string, unknown> | null
+          )?.client_id;
+          const idx = prev.findIndex((pending) =>
+            incomingClientId
+              ? (pending.metadata as Record<string, unknown> | null)
+                  ?.client_id === incomingClientId
+              : pending.content === newMsg.content,
+          );
           if (idx === -1) return prev;
           return [...prev.slice(0, idx), ...prev.slice(idx + 1)];
         });
+      } else {
+        setLiveAnnouncement(
+          newMsg.message_type === "image"
+            ? "Nouveau message image"
+            : `Nouveau message : ${newMsg.content ?? ""}`,
+        );
+        if (!isAwayFromLatest) {
+          requestAnimationFrame(() => {
+            threadRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+          });
+        }
       }
 
       queryClient.setQueryData<{
@@ -249,7 +333,7 @@ export default function ConversationThreadPage() {
         });
       }
     },
-    [conversationId, queryClient, user?.id, convQuery.data],
+    [conversationId, queryClient, user?.id, convQuery.data, isAwayFromLatest],
   );
 
   useRealtime({
@@ -383,11 +467,64 @@ export default function ConversationThreadPage() {
 
   // ── Send handler ─────────────────────────────────────────────────────
   const handleSend = useCallback(
-    (content: string) => {
-      sendMutation.mutate(content);
+    (content: string, replyTo?: ReplySnapshot | null) => {
+      sendMutation.mutate({
+        content,
+        clientId: createMessageClientId(),
+        replyTo,
+      });
     },
     [sendMutation],
   );
+
+  const handleSendImage = useCallback(
+    async (file: File) => {
+      await sendImageMutation.mutateAsync({
+        file,
+        clientId: createMessageClientId(),
+      });
+    },
+    [sendImageMutation],
+  );
+
+  const handleRetry = useCallback(
+    (message: Message) => {
+      if (!message.content) return;
+      setPendingMessages((prev) =>
+        prev.filter((pending) => pending.id !== message.id),
+      );
+      setFailedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(message.id);
+        return next;
+      });
+      sendMutation.mutate({
+        content: message.content,
+        clientId: createMessageClientId(),
+        replyTo: getReplySnapshot(message),
+      });
+    },
+    [sendMutation],
+  );
+
+  const handleCopy = useCallback(async (message: Message) => {
+    if (!message.content) return;
+    try {
+      await navigator.clipboard.writeText(message.content);
+      toast.success("Message copié");
+    } catch {
+      toast.error("Impossible de copier le message");
+    }
+  }, []);
+
+  const handleThreadScroll = useCallback(() => {
+    setIsAwayFromLatest(Math.abs(threadRef.current?.scrollTop ?? 0) > 160);
+  }, []);
+
+  const scrollToLatest = useCallback(() => {
+    threadRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    setIsAwayFromLatest(false);
+  }, []);
 
   // ── Loading ──────────────────────────────────────────────────────────
   if (!user || convQuery.isLoading) {
@@ -415,7 +552,10 @@ export default function ConversationThreadPage() {
   const pendingIds = new Set(pendingMessages.map((m) => m.id));
 
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="relative flex h-dvh min-h-0 flex-col lg:h-[calc(100dvh-4rem)]">
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveAnnouncement}
+      </p>
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header className="border-border bg-background/80 sticky top-0 z-10 border-b pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-md">
         <div className="flex items-center gap-3 px-2 py-1.5">
@@ -459,7 +599,12 @@ export default function ConversationThreadPage() {
       ) : null}
 
       {/* ── Messages ───────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col-reverse gap-1 overflow-y-auto overscroll-contain px-2 py-3">
+      <div
+        ref={threadRef}
+        onScroll={handleThreadScroll}
+        className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto overscroll-contain px-2 py-3"
+        aria-label="Historique de la conversation"
+      >
         {messagesQuery.isLoading ? (
           <MessagesSkeleton />
         ) : allMessages.length === 0 ? (
@@ -473,13 +618,14 @@ export default function ConversationThreadPage() {
         ) : (
           <>
             {allMessages.map((msg, i) => {
-              const nextMsg = allMessages[i + 1];
+              const olderMessage = allMessages[i + 1];
+              const newerMessage = allMessages[i - 1];
               const showDate =
                 i === allMessages.length - 1 ||
-                (nextMsg &&
+                (olderMessage &&
                   msg.created_at &&
-                  nextMsg.created_at &&
-                  !isSameDay(msg.created_at, nextMsg.created_at));
+                  olderMessage.created_at &&
+                  !isSameDay(msg.created_at, olderMessage.created_at));
 
               return (
                 <Fragment key={msg.id}>
@@ -490,7 +636,17 @@ export default function ConversationThreadPage() {
                       message={msg}
                       isOwn={msg.sender_id === user.id}
                       isPending={pendingIds.has(msg.id)}
+                      isFailed={failedIds.has(msg.id)}
+                      isGroupStart={!messagesGroup(msg, olderMessage)}
+                      isLastInGroup={!messagesGroup(msg, newerMessage)}
+                      currentUserId={user.id}
+                      otherUsername={conversation.other_user.username}
                       onVisible={handleMessageVisible}
+                      onRetry={handleRetry}
+                      onReply={(message) =>
+                        setReplyingTo(toReplySnapshot(message))
+                      }
+                      onCopy={handleCopy}
                     />
                   )}
                   {showDate && msg.created_at && (
@@ -501,8 +657,13 @@ export default function ConversationThreadPage() {
             })}
 
             {messagesQuery.isFetchingNextPage && (
-              <div className="flex justify-center py-4">
-                <div className="border-muted-foreground/40 border-t-muted-foreground size-5 animate-spin rounded-full border-2" />
+              <div
+                className="space-y-2 py-4"
+                aria-label="Chargement des messages précédents"
+              >
+                <Skeleton className="ml-4 h-9 w-40 rounded-2xl" />
+                <Skeleton className="mr-4 ml-auto h-12 w-52 rounded-2xl" />
+                <Skeleton className="ml-4 h-9 w-32 rounded-2xl" />
               </div>
             )}
 
@@ -513,15 +674,36 @@ export default function ConversationThreadPage() {
         )}
       </div>
 
+      {isAwayFromLatest && (
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          className="absolute right-4 bottom-20 z-10 rounded-full shadow-lg"
+          onClick={scrollToLatest}
+          aria-label="Revenir au dernier message"
+        >
+          <ArrowDown className="size-4" />
+        </Button>
+      )}
+
       {/* ── Input ──────────────────────────────────────────────────── */}
-      <MessageInput onSend={handleSend} disabled={sendMutation.isPending} />
+      <MessageInput
+        onSend={handleSend}
+        onSendImage={handleSendImage}
+        disabled={sendMutation.isPending || sendImageMutation.isPending}
+        replyingTo={replyingTo}
+        onCancelReply={() => setReplyingTo(null)}
+        currentUserId={user.id}
+        otherUsername={conversation.other_user.username}
+      />
     </div>
   );
 }
 
 function ThreadSkeleton() {
   return (
-    <div className="flex h-dvh flex-col">
+    <div className="flex h-dvh min-h-0 flex-col lg:h-[calc(100dvh-4rem)]">
       <header className="border-border flex items-center gap-3 border-b px-2 py-2.5">
         <Skeleton className="size-9 rounded-lg" />
         <Skeleton className="size-9 rounded-lg" />

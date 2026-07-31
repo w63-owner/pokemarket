@@ -31,11 +31,8 @@ export const queryKeys = {
     detail: (id: string) => ["conversations", "detail", id] as const,
     messages: (id: string) => ["conversations", "messages", id] as const,
     unreadCount: () => ["conversations", "unreadCount"] as const,
-    // Mobile-only: caches 1-hour signed URLs minted by Supabase Storage
-    // for image messages stored in the private `message_attachments`
-    // bucket. The web rendering pipeline uses public CDN URLs and does
-    // not need this key, so it lives in `conversations` rather than as
-    // a top-level scope.
+    // Caches 1-hour signed URLs minted by Supabase Storage for image
+    // messages stored in the private `message_attachments` bucket.
     messageAttachment: (storagePath: string) =>
       ["conversations", "messageAttachment", storagePath] as const,
   },

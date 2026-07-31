@@ -12,15 +12,10 @@ export const dynamic = "force-dynamic";
 /**
  * Push notification for image messages.
  *
- * Unlike text messages (which are inserted by `/api/messages/send`, where the
- * push is fired inline), image messages are uploaded + inserted directly from
- * the mobile client against Supabase Storage/RLS — so there's no server hook to
- * trigger a push. This lightweight endpoint closes that gap: the client calls
- * it fire-and-forget right after a successful image insert. The recipient is
- * resolved server-side from the conversation, so the client can't target an
- * arbitrary user; the only authority granted is "notify the other participant
- * of a conversation you belong to", which a participant could already do by
- * sending a text message.
+ * Image messages are uploaded and inserted directly by web/mobile clients
+ * against Storage and database RLS, so there is no server hook to trigger a
+ * push. The endpoint only notifies after verifying that the referenced image
+ * message exists, belongs to the conversation and was authored by the caller.
  */
 export async function POST(request: Request) {
   try {
@@ -40,9 +35,11 @@ export async function POST(request: Request) {
       body && typeof body.conversation_id === "string"
         ? body.conversation_id
         : undefined;
-    if (!conversationId) {
+    const messageId =
+      body && typeof body.message_id === "string" ? body.message_id : undefined;
+    if (!conversationId || !messageId) {
       return NextResponse.json(
-        { error: "conversation_id requis" },
+        { error: "conversation_id et message_id requis" },
         { status: 400 },
       );
     }
@@ -67,6 +64,22 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Accès non autorisé" },
         { status: 403 },
+      );
+    }
+
+    const { data: message, error: messageError } = await admin
+      .from("messages")
+      .select("id")
+      .eq("id", messageId)
+      .eq("conversation_id", conversationId)
+      .eq("sender_id", user.id)
+      .eq("message_type", "image")
+      .maybeSingle();
+
+    if (messageError || !message) {
+      return NextResponse.json(
+        { error: "Message image introuvable" },
+        { status: 404 },
       );
     }
 
