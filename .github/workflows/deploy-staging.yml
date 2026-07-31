@@ -76,7 +76,7 @@ jobs:
       - name: Run smoke tests
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_APP_URL }}
-        run: npm run test:smoke
+        run: npm run test:smoke --workspace @pokemarket/web
 
       - name: Upload smoke report
         if: always()

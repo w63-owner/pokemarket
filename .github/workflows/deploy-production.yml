@@ -102,7 +102,7 @@ jobs:
       - name: Run smoke tests against production
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PROD_APP_URL }}
-        run: npm run test:smoke
+        run: npm run test:smoke --workspace @pokemarket/web
 
       - name: Upload smoke report
         if: always()
