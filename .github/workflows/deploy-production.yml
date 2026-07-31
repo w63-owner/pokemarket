@@ -29,9 +29,7 @@ jobs:
     name: Sentry release + smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment:
-      name: production
-      url: ${{ secrets.PROD_APP_URL }}
+    environment: production
 
     steps:
       - name: Checkout code

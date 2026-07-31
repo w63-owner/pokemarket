@@ -22,9 +22,7 @@ jobs:
     name: Smoke tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: staging
-      url: ${{ secrets.STAGING_APP_URL }}
+    environment: staging
 
     steps:
       - name: Checkout code

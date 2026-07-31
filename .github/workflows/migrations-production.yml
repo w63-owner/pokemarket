@@ -31,9 +31,7 @@ jobs:
     name: supabase db push (production)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: production
-      url: ${{ secrets.PROD_APP_URL }}
+    environment: production
 
     steps:
       - name: Checkout code
