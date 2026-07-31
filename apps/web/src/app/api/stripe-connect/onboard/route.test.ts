@@ -28,8 +28,14 @@ vi.mock("@/lib/rate-limit", () => ({
   applyRateLimit: vi.fn(async () => null),
   onboardRateLimit: {},
 }));
+ 
+const getAllowedCheckoutOriginMock: any = vi.fn(
+  () => "https://pokemarket.test",
+);
 vi.mock("@/lib/env", () => ({
-  getAllowedCheckoutOrigin: () => "https://pokemarket.test",
+   
+  getAllowedCheckoutOrigin: (origin: any) =>
+    getAllowedCheckoutOriginMock(origin),
 }));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
@@ -140,6 +146,101 @@ describe("Stripe Connect Accounts v2 onboarding", () => {
     expect(accountCreate).not.toHaveBeenCalled();
     expect(accountLinkCreate).toHaveBeenCalledWith(
       expect.objectContaining({ account: "acct_existing" }),
+    );
+  });
+
+  it("creates an individual recipient and normalises country code to uppercase", async () => {
+    const db = createMockDb(profile());
+    mockClient = db.client;
+
+    const response = await POST(
+      request({ client: "web", entity_type: "individual", country: "fr" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(accountCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identity: { country: "FR", entity_type: "individual" },
+      }),
+      expect.any(Object),
+    );
+    expect(db.state.profiles[0]).toMatchObject({
+      stripe_account_id: "acct_v2_seller",
+      country_code: "FR",
+      kyc_status: "PENDING",
+    });
+  });
+
+  it("uses mobile deep-link URLs (refresh = /wallet/refresh) when client is mobile", async () => {
+    const db = createMockDb(profile("acct_mobile"));
+    mockClient = db.client;
+
+    const response = await POST(request({ client: "mobile" }));
+
+    expect(response.status).toBe(200);
+    expect(accountLinkCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        use_case: expect.objectContaining({
+          account_onboarding: expect.objectContaining({
+            return_url:
+              "https://pokemarket.test/api/stripe-connect/mobile-redirect?target=return",
+            refresh_url:
+              "https://pokemarket.test/api/stripe-connect/mobile-redirect?target=refresh",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("returns 403 when Origin is not allowed", async () => {
+    getAllowedCheckoutOriginMock.mockReturnValueOnce(null);
+
+    const db = createMockDb(profile());
+    mockClient = db.client;
+
+    const response = await POST(
+      request({ client: "web", entity_type: "individual", country: "FR" }),
+    );
+    expect(response.status).toBe(403);
+    expect(accountCreate).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent when account already exists (Accounts v2 duplicate)", async () => {
+    const db = createMockDb(profile("acct_v2_seller"));
+    mockClient = db.client;
+
+    await POST(request({ client: "web" }));
+    await POST(request({ client: "web" }));
+
+    expect(accountCreate).not.toHaveBeenCalled();
+    expect(accountLinkCreate).toHaveBeenCalledTimes(2);
+     
+    expect((accountLinkCreate.mock.calls[0] as any[])[0].account).toBe(
+      "acct_v2_seller",
+    );
+     
+    expect((accountLinkCreate.mock.calls[1] as any[])[0].account).toBe(
+      "acct_v2_seller",
+    );
+  });
+
+  it("uses web return/refresh URLs when client is web", async () => {
+    const db = createMockDb(profile("acct_web"));
+    mockClient = db.client;
+
+    const response = await POST(request({ client: "web" }));
+
+    expect(response.status).toBe(200);
+    expect(accountLinkCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        use_case: expect.objectContaining({
+          account_onboarding: expect.objectContaining({
+            return_url: "https://pokemarket.test/wallet/return",
+            refresh_url:
+              "https://pokemarket.test/wallet?stripe_connect=refresh",
+          }),
+        }),
+      }),
     );
   });
 });

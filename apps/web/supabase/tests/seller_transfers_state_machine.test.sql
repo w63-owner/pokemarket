@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(20);
+SELECT plan(27);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -27,6 +27,7 @@ WHERE id = '41000000-0000-4000-8000-000000000002';
 UPDATE public.financial_payout_config
 SET minimum_payout_minor = 1000,
     risk_reserve_minor = 500,
+    dispute_reserve_bps = 0,
     payout_delay_days = 0
 WHERE singleton;
 
@@ -223,6 +224,144 @@ SELECT is(
   'reversed',
   'order transfer reaches reversed'
 );
+
+-- Reversal while a payout is in payout_pending status.
+-- Set up a second complete order for a fresh payout cycle.
+INSERT INTO public.listings (id, seller_id, title, price_seller, status)
+VALUES (
+  '42000000-0000-4000-8000-000000000002',
+  '41000000-0000-4000-8000-000000000002',
+  'Sprint 4b card',
+  80,
+  'LOCKED'
+);
+INSERT INTO public.transactions (
+  id, listing_id, buyer_id, seller_id,
+  total_amount, fee_amount, shipping_cost, status
+)
+VALUES (
+  '43000000-0000-4000-8000-000000000002',
+  '42000000-0000-4000-8000-000000000002',
+  '41000000-0000-4000-8000-000000000001',
+  '41000000-0000-4000-8000-000000000002',
+  80, 5, 0, 'PENDING_PAYMENT'
+);
+SELECT is(
+  public.finalize_paid_transaction(
+    '43000000-0000-4000-8000-000000000002', 'pi_sprint4b', 'ch_sprint4b'
+  ),
+  'PAID',
+  'second order payment is finalized'
+);
+UPDATE public.transactions
+SET status = 'SHIPPED', shipped_at = now()
+WHERE id = '43000000-0000-4000-8000-000000000002';
+SELECT ok(
+  public.release_escrow_funds(
+    '43000000-0000-4000-8000-000000000002',
+    '41000000-0000-4000-8000-000000000001'
+  ),
+  'second order escrow is released'
+);
+SELECT is(
+  (SELECT status::text FROM public.prepare_seller_transfer(
+    '43000000-0000-4000-8000-000000000002'
+  )),
+  'processing',
+  'second transfer moves to processing'
+);
+SELECT ok(
+  public.record_seller_transfer_success(
+    '43000000-0000-4000-8000-000000000002',
+    'tr_sprint4b', 'ch_sprint4b',
+    'order_43000000-0000-4000-8000-000000000002'
+  ),
+  'second transfer recorded'
+);
+-- Reserve a payout for the second order — status becomes payout_pending.
+SELECT is(
+  (SELECT amount_minor FROM public.reserve_seller_payout(
+    '41000000-0000-4000-8000-000000000002'
+  )),
+  7500::bigint,
+  'second payout reservation honours the risk reserve'
+);
+-- While the payout is payout_pending, a reversal arrives for the second transfer.
+SELECT ok(
+  public.apply_stripe_transfer_reversal('tr_sprint4b', 7500),
+  'reversal during payout_pending is persisted'
+);
+SELECT is(
+  (SELECT status::text FROM public.seller_transfers
+   WHERE stripe_transfer_id = 'tr_sprint4b'),
+  'reversed',
+  'transfer moves to reversed even during payout_pending'
+);
+
+-- Late payout.canceled arriving after the payout was already paid must be ignored.
+SELECT ok(
+  public.apply_stripe_payout_transition('po_sprint4', 'canceled', 'late_cancel', 'arrived too late'),
+  'late payout.canceled after paid is safely ignored'
+);
+SELECT is(
+  (SELECT status::text FROM public.payouts WHERE stripe_payout_id = 'po_sprint4'),
+  'paid',
+  'payout status stays paid after late cancel event'
+);
+SELECT is(
+  (SELECT available_balance FROM public.wallets
+   WHERE user_id = '41000000-0000-4000-8000-000000000002'),
+  5::numeric,
+  'wallet is not restored after late cancel on already-paid payout'
+);
+
+-- Expired processing lease recovery.
+UPDATE public.seller_transfers
+SET processing_started_at = now() - interval '20 minutes'
+WHERE transaction_id = '43000000-0000-4000-8000-000000000001'
+  AND status = 'reversed';
+-- This row is reversed, not processing, so it should not be touched.
+SELECT is(
+  public.recover_stale_processing_transfers(600),
+  0,
+  'recover_stale_processing_transfers returns 0 when no processing transfers are stale'
+);
+
+-- Force a row into processing with an old started_at to test the recovery.
+INSERT INTO public.transactions (
+  id, listing_id, buyer_id, seller_id,
+  total_amount, fee_amount, shipping_cost, status
+)
+VALUES (
+  '43000000-0000-4000-8000-000000000003',
+  '42000000-0000-4000-8000-000000000001',
+  '41000000-0000-4000-8000-000000000001',
+  '41000000-0000-4000-8000-000000000002',
+  50, 5, 0, 'COMPLETED'
+);
+INSERT INTO public.seller_transfers (
+  transaction_id, seller_id, amount_minor, currency,
+  status, processing_started_at
+)
+VALUES (
+  '43000000-0000-4000-8000-000000000003',
+  '41000000-0000-4000-8000-000000000002',
+  4500, 'EUR',
+  'processing',
+  now() - interval '15 minutes'
+);
+SELECT is(
+  public.recover_stale_processing_transfers(600),
+  1,
+  'recover_stale_processing_transfers resets one stale processing transfer'
+);
+SELECT is(
+  (SELECT status::text FROM public.seller_transfers
+   WHERE transaction_id = '43000000-0000-4000-8000-000000000003'),
+  'queued',
+  'recovered transfer is back in queued ready for retry'
+);
+
 SELECT is(
   (
     SELECT count(*)

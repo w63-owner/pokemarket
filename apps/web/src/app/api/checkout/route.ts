@@ -14,9 +14,11 @@ import {
   STRIPE_API_VERSION,
 } from "@/lib/env";
 import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
-import type {
-  CheckoutResponse,
-  MobileCheckoutResponse,
+import { isFeatureEnabled } from "@/lib/feature-flags/server";
+import {
+  FEATURE_FLAGS,
+  type CheckoutResponse,
+  type MobileCheckoutResponse,
 } from "@pokemarket/shared";
 
 export async function POST(request: Request) {
@@ -25,6 +27,12 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+    if (!(await isFeatureEnabled(FEATURE_FLAGS.CHECKOUT))) {
+      return NextResponse.json(
+        { error: "Les paiements sont temporairement indisponibles" },
+        { status: 503 },
+      );
     }
 
     const launchPolicy = getStripeLaunchPolicy();
@@ -401,6 +409,7 @@ export async function POST(request: Request) {
         payment_intent_data: {
           transfer_group: `order_${transaction.id}`,
         },
+        integration_identifier: "pokemarket-web-checkout-pkjhbnxq",
         success_url: `${appUrl!}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl!}/listing/${listing_id}?checkout=cancelled`,
         expires_at:

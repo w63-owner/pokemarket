@@ -11,6 +11,7 @@ import {
 } from "lucide-react-native";
 import { MotiView, AnimatePresence } from "moti";
 import {
+  FEATURE_FLAGS,
   toCardLanguageSelectValue,
   type OcrCandidate,
   type OcrParsed,
@@ -28,6 +29,7 @@ import {
 } from "@/components/sell";
 import { TabHeader } from "@/components/layout";
 import { AuthRequired } from "@/components/shared";
+import { FeatureGate } from "@/components/feature-flags/feature-gate";
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
@@ -55,7 +57,7 @@ const INITIAL_OCR: OcrState = {
   hasRun: false,
 };
 
-export default function SellScreen() {
+function SellContent() {
   const { user, loading: authLoading } = useAuth();
   const createListing = useCreateListing();
   const primaryForeground = useThemeColor("primaryForeground");
@@ -364,5 +366,13 @@ export default function SellScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+export default function SellScreen() {
+  return (
+    <FeatureGate flag={FEATURE_FLAGS.SELLING} name="La mise en vente">
+      <SellContent />
+    </FeatureGate>
   );
 }

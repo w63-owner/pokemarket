@@ -63,7 +63,7 @@ export async function fetchStripeConnectStatus(): Promise<StripeConnectStatus> {
 /**
  * Asks the backend for an Account Onboarding link. The mobile flag tells
  * Stripe to use deep-link return / refresh URLs (`pokemarket://wallet/return`,
- * `pokemarket://wallet`) instead of bouncing through web pages.
+ * `pokemarket://wallet/refresh`) instead of bouncing through web pages.
  */
 export async function getOnboardingUrl(
   input: Omit<StripeConnectOnboardingRequest, "client"> = {},

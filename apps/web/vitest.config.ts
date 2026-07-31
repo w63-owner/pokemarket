@@ -13,13 +13,17 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@pokemarket/shared": path.resolve(
-        __dirname,
-        "../../packages/shared/src",
-      ),
-    },
+    alias: [
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+      {
+        find: /^server-only$/,
+        replacement: path.resolve(__dirname, "./src/test-utils/server-only.ts"),
+      },
+      {
+        find: "@pokemarket/shared",
+        replacement: path.resolve(__dirname, "../../packages/shared/src"),
+      },
+    ],
     dedupe: [
       "react",
       "react-dom",

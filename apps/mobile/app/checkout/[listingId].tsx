@@ -13,6 +13,7 @@ import {
 import { CreditCard, ShieldCheck } from "lucide-react-native";
 import {
   calcTotalBuyer,
+  FEATURE_FLAGS,
   formatPrice,
   LIMITS,
   SHIPPING_COUNTRIES,
@@ -31,6 +32,7 @@ import { MobileHeader } from "@/components/layout";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
 import { AddressForm } from "@/components/checkout/address-form";
+import { FeatureGate } from "@/components/feature-flags/feature-gate";
 
 function isSupportedCountry(value: string | null): value is ShippingCountry {
   return (
@@ -38,7 +40,7 @@ function isSupportedCountry(value: string | null): value is ShippingCountry {
   );
 }
 
-export default function CheckoutScreen() {
+function CheckoutContent() {
   const { listingId } = useLocalSearchParams<{ listingId: string }>();
   const { user, loading: authLoading } = useAuth();
   const { data: listing, isLoading: listingLoading } = useListing(listingId);
@@ -258,5 +260,13 @@ export default function CheckoutScreen() {
         </View>
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+export default function CheckoutScreen() {
+  return (
+    <FeatureGate flag={FEATURE_FLAGS.CHECKOUT} name="Le paiement">
+      <CheckoutContent />
+    </FeatureGate>
   );
 }

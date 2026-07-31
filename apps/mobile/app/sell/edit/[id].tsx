@@ -4,7 +4,11 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertTriangle, Trash2 } from "lucide-react-native";
-import { toCardLanguageSelectValue, type Listing } from "@pokemarket/shared";
+import {
+  FEATURE_FLAGS,
+  toCardLanguageSelectValue,
+  type Listing,
+} from "@pokemarket/shared";
 import {
   useDeleteListing,
   useOwnedListing,
@@ -26,10 +30,11 @@ import {
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { FeatureGate } from "@/components/feature-flags/feature-gate";
 import type { UploadedListingImage } from "@/lib/api/listings";
 import { useThemeColors } from "@/lib/theme-colors";
 
-export default function EditListingScreen() {
+function EditListingContent() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = params.id ?? "";
   const { data: listing, isLoading, error } = useOwnedListing(id);
@@ -203,6 +208,14 @@ export default function EditListingScreen() {
         </DialogFooter>
       </Dialog>
     </View>
+  );
+}
+
+export default function EditListingScreen() {
+  return (
+    <FeatureGate flag={FEATURE_FLAGS.SELLING} name="La mise en vente">
+      <EditListingContent />
+    </FeatureGate>
   );
 }
 

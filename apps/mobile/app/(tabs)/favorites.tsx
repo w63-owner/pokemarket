@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { Heart } from "lucide-react-native";
+import { FEATURE_FLAGS } from "@pokemarket/shared";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useFavoriteListings } from "@/hooks/use-favorites";
@@ -10,12 +11,13 @@ import { SavedSearchesList } from "@/components/favorites/saved-searches-list";
 import { FollowedSellersList } from "@/components/favorites/followed-sellers-list";
 import { TabHeader } from "@/components/layout";
 import { AuthRequired, EmptyState } from "@/components/shared";
+import { FeatureGate } from "@/components/feature-flags/feature-gate";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
 type TabKey = "listings" | "sellers" | "saved-searches";
 
-export default function FavoritesScreen() {
+function FavoritesContent() {
   const [tab, setTab] = useState<TabKey>("listings");
   const { user, loading: authLoading } = useAuth();
   const {
@@ -112,5 +114,13 @@ export default function FavoritesScreen() {
         </TabsContent>
       </Tabs>
     </View>
+  );
+}
+
+export default function FavoritesScreen() {
+  return (
+    <FeatureGate flag={FEATURE_FLAGS.FAVORITES} name="Les favoris">
+      <FavoritesContent />
+    </FeatureGate>
   );
 }

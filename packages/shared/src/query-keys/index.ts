@@ -14,6 +14,9 @@ export type FeedFilters = {
 };
 
 export const queryKeys = {
+  featureFlags: {
+    all: ["feature-flags"] as const,
+  },
   listings: {
     all: ["listings"] as const,
     feed: (filters: FeedFilters, viewerId?: string | null) =>

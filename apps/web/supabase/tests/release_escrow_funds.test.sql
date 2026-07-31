@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(27);
+SELECT plan(31);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -193,34 +193,29 @@ SELECT throws_ok(
   'ledger entries cannot be mutated'
 );
 
-UPDATE public.wallets
-SET available_balance = 95
-WHERE user_id = '10000000-0000-4000-8000-000000000002';
+-- Direct wallet write is now forbidden: the ledger is the sole source of truth.
+SELECT throws_ok(
+  $$UPDATE public.wallets
+    SET available_balance = 95
+    WHERE user_id = '10000000-0000-4000-8000-000000000002'$$,
+  '55000',
+  'WALLET_DIRECT_WRITE_FORBIDDEN: wallet balances are managed exclusively by the ledger. Call private.rebuild_wallet_projection() to resync.',
+  'direct wallet write is rejected after ledger lock migration'
+);
 
-SELECT is(
-  (SELECT available_balance FROM public.wallets
-   WHERE user_id = '10000000-0000-4000-8000-000000000002'),
-  95::numeric,
-  'legacy wallet mutation is applied'
-);
-SELECT is(
-  (SELECT count(*) FROM public.ledger_transactions
-   WHERE journal_type = 'wallet_adjustment'),
-  1::bigint,
-  'legacy wallet mutation is captured as an immutable journal'
-);
+-- Projection rebuild via the proper function is still allowed.
 SELECT is(
   public.rebuild_wallet_projections(
     '10000000-0000-4000-8000-000000000002'
   ),
   1,
-  'seller wallet projection is rebuilt'
+  'seller wallet projection is rebuilt via ledger replay'
 );
 SELECT is(
   (SELECT available_balance FROM public.wallets
    WHERE user_id = '10000000-0000-4000-8000-000000000002'),
-  95::numeric,
-  'projection rebuild preserves refund, dispute, or payout-style debits'
+  105::numeric,
+  'projection rebuild yields correct available balance from ledger'
 );
 SELECT is(
   (
@@ -233,7 +228,120 @@ SELECT is(
     ) unbalanced
   ),
   0::bigint,
-  'compatibility wallet journals remain balanced'
+  'all ledger journals remain balanced after rebuild'
+);
+
+-- Negative case: ESCROW_BALANCE_MISMATCH —
+-- Create a transaction whose payment journal only credits 80 minor pending
+-- for a seller, while the transaction expects 90 minor (total 100, fee 10).
+INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
+VALUES (
+  '10000000-0000-4000-8000-000000000003',
+  'ledger-mismatch-seller@example.test',
+  'authenticated',
+  'authenticated',
+  '{"username":"mismatch_seller"}'::jsonb
+);
+INSERT INTO public.listings (id, seller_id, title, price_seller, status)
+VALUES (
+  '20000000-0000-4000-8000-000000000002',
+  '10000000-0000-4000-8000-000000000003',
+  'Mismatch card',
+  100,
+  'SHIPPED'
+);
+INSERT INTO public.transactions (
+  id, listing_id, buyer_id, seller_id,
+  total_amount, fee_amount, shipping_cost, status
+)
+VALUES (
+  '30000000-0000-4000-8000-000000000002',
+  '20000000-0000-4000-8000-000000000002',
+  '10000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000003',
+  100, 10, 0, 'SHIPPED'
+);
+-- Insert a payment journal crediting only 80 minor (< required 9000 minor).
+DO $$
+DECLARE
+  v_ltx_id uuid;
+  v_pending_account_id uuid;
+  v_platform_account_id uuid;
+BEGIN
+  INSERT INTO public.ledger_transactions (
+    transaction_id, journal_type, idempotency_key, business_reference
+  )
+  VALUES (
+    '30000000-0000-4000-8000-000000000002',
+    'payment_captured',
+    'payment:30000000-0000-4000-8000-000000000002',
+    'order-payment:30000000-0000-4000-8000-000000000002'
+  )
+  RETURNING id INTO v_ltx_id;
+
+  v_pending_account_id := private.get_or_create_ledger_account(
+    'seller_pending', '10000000-0000-4000-8000-000000000003',
+    '30000000-0000-4000-8000-000000000002', 'EUR'
+  );
+  v_platform_account_id := private.get_or_create_ledger_account(
+    'platform_revenue', NULL, NULL, 'EUR'
+  );
+
+  -- Only credit 80 minor (= 0.80 EUR) instead of the required 9000 minor.
+  INSERT INTO public.ledger_entries (ledger_transaction_id, account_id, amount_minor)
+  VALUES
+    (v_ltx_id, v_pending_account_id, 80),
+    (v_ltx_id, v_platform_account_id, -80);
+END;
+$$;
+
+SELECT throws_ok(
+  $$SELECT public.release_escrow_funds(
+      '30000000-0000-4000-8000-000000000002'::uuid,
+      '10000000-0000-4000-8000-000000000001'::uuid
+    )$$,
+  'P0001',
+  NULL,
+  'release_escrow_funds raises ESCROW_BALANCE_MISMATCH when pending < required'
+);
+
+-- Negative case: MISSING_PAYMENT_LEDGER —
+-- A SHIPPED transaction with no payment journal must be blocked.
+INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
+VALUES (
+  '10000000-0000-4000-8000-000000000004',
+  'ledger-nopayment-seller@example.test',
+  'authenticated',
+  'authenticated',
+  '{"username":"nopayment_seller"}'::jsonb
+);
+INSERT INTO public.listings (id, seller_id, title, price_seller, status)
+VALUES (
+  '20000000-0000-4000-8000-000000000003',
+  '10000000-0000-4000-8000-000000000004',
+  'No-payment card',
+  50,
+  'SHIPPED'
+);
+INSERT INTO public.transactions (
+  id, listing_id, buyer_id, seller_id,
+  total_amount, fee_amount, shipping_cost, status
+)
+VALUES (
+  '30000000-0000-4000-8000-000000000003',
+  '20000000-0000-4000-8000-000000000003',
+  '10000000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000004',
+  50, 5, 0, 'SHIPPED'
+);
+SELECT throws_ok(
+  $$SELECT public.release_escrow_funds(
+      '30000000-0000-4000-8000-000000000003'::uuid,
+      '10000000-0000-4000-8000-000000000001'::uuid
+    )$$,
+  'P0001',
+  NULL,
+  'release_escrow_funds raises MISSING_PAYMENT_LEDGER for transaction without payment journal'
 );
 
 SELECT is(

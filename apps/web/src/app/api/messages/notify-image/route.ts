@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { FEATURE_FLAGS } from "@pokemarket/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { sendPushNotification } from "@/lib/push/send";
+import { isFeatureEnabled } from "@/lib/feature-flags/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +27,12 @@ export async function POST(request: Request) {
     const { user } = await getRequestUser(request);
     if (!user) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+    }
+    if (!(await isFeatureEnabled(FEATURE_FLAGS.MESSAGING))) {
+      return NextResponse.json(
+        { error: "La messagerie est temporairement indisponible" },
+        { status: 503 },
+      );
     }
 
     const body = await request.json().catch(() => null);

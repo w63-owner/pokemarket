@@ -242,7 +242,7 @@ function AdvancedFilters() {
   );
 }
 
-function FeedFiltersInner() {
+function FeedFiltersInner({ showSearch }: { showSearch: boolean }) {
   const filters = useFiltersFromUrl();
   const { updateFilters, resetFilters } = useUpdateFilters();
   const activeCount = countActiveFilters(filters);
@@ -281,13 +281,15 @@ function FeedFiltersInner() {
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
-        <CardSearchInput
-          value={searchText}
-          onChange={setSearchText}
-          onClear={handleClearSearch}
-          onSubmit={handleSubmitSearch}
-          onSelectCard={handleSelectCard}
-        />
+        {showSearch && (
+          <CardSearchInput
+            value={searchText}
+            onChange={setSearchText}
+            onClear={handleClearSearch}
+            onSubmit={handleSubmitSearch}
+            onSelectCard={handleSelectCard}
+          />
+        )}
 
         {/* Mobile: bottom sheet trigger */}
         <div className="lg:hidden">
@@ -562,8 +564,8 @@ function FeedFiltersInner() {
   );
 }
 
-export function FeedFilters() {
+export function FeedFilters({ showSearch = true }: { showSearch?: boolean }) {
   const filters = useFiltersFromUrl();
   const qKey = filters.q ?? "";
-  return <FeedFiltersInner key={qKey} />;
+  return <FeedFiltersInner key={qKey} showSearch={showSearch} />;
 }

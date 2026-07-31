@@ -5,12 +5,19 @@ import { LazyMotion, domMax } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
+import { FEATURE_FLAGS } from "@pokemarket/shared";
 import { NavigationHistoryTracker } from "@/hooks/use-navigation-history";
 import { useUnreadCountSubscription } from "@/hooks/use-conversations";
+import { useFeatureFlag } from "@/hooks/use-feature-flags";
 
-function RealtimeBridge() {
+function MessagingRealtimeBridge() {
   useUnreadCountSubscription();
   return null;
+}
+
+function RealtimeBridge() {
+  const { enabled } = useFeatureFlag(FEATURE_FLAGS.MESSAGING);
+  return enabled ? <MessagingRealtimeBridge /> : null;
 }
 
 function makeQueryClient() {

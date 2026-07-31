@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Keyboard, View } from "react-native";
+import { FEATURE_FLAGS } from "@pokemarket/shared";
 
 import { useInfiniteFeed } from "@/hooks/use-infinite-feed";
 import { useFeedFilters, countActiveFilters } from "@/hooks/use-feed-filters";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { FeedGrid } from "@/components/feed/feed-grid";
 import { FeedFilters } from "@/components/feed/feed-filters";
 import { CardSuggestionsList } from "@/components/feed/card-suggestions-list";
@@ -15,13 +17,16 @@ export default function HomeScreen() {
   const [searchValue, setSearchValue] = useState(filters.q ?? "");
   const [searchFocused, setSearchFocused] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { enabled: searchEnabled } = useFeatureFlag(FEATURE_FLAGS.HOME_SEARCH);
 
   const debouncedSearch = useDebounce(searchValue, 250);
 
   const activeCount = countActiveFilters(filters);
   const parsed = parseCardQuery(debouncedSearch);
   const showSuggestions =
-    searchFocused && parsed.name.length >= CARD_SEARCH_MIN_LENGTH;
+    searchEnabled &&
+    searchFocused &&
+    parsed.name.length >= CARD_SEARCH_MIN_LENGTH;
 
   const query = useInfiniteFeed(filters);
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
@@ -84,6 +89,7 @@ export default function HomeScreen() {
       <View className="border-b border-border bg-background px-4 pb-3 pt-3">
         <FeedFilters
           filters={filters}
+          showSearch={searchEnabled}
           searchValue={searchValue}
           onSearchChange={setSearchValue}
           onSearchSubmit={handleSubmitSearch}

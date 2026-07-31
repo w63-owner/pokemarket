@@ -24,9 +24,11 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { FEATURE_FLAGS, type FeatureFlag } from "@pokemarket/shared";
 
 import { Text } from "@/components/ui/text";
 import { useUnreadCount } from "@/hooks/use-conversations";
+import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useThemeColor } from "@/lib/theme-colors";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { spring, useReducedMotionSafe } from "@/lib/motion";
@@ -37,14 +39,30 @@ type TabConfig = {
   name: string;
   label: string;
   Icon: ComponentType<IconProps>;
+  flag: FeatureFlag | null;
 };
 
 const TABS: TabConfig[] = [
-  { name: "index", label: "Recherche", Icon: Search },
-  { name: "favorites", label: "Favoris", Icon: Heart },
-  { name: "sell", label: "Vendre", Icon: PlusCircle },
-  { name: "inbox", label: "Messages", Icon: MessageCircle },
-  { name: "profile", label: "Profil", Icon: User },
+  { name: "index", label: "Recherche", Icon: Search, flag: null },
+  {
+    name: "favorites",
+    label: "Favoris",
+    Icon: Heart,
+    flag: FEATURE_FLAGS.FAVORITES,
+  },
+  {
+    name: "sell",
+    label: "Vendre",
+    Icon: PlusCircle,
+    flag: FEATURE_FLAGS.SELLING,
+  },
+  {
+    name: "inbox",
+    label: "Messages",
+    Icon: MessageCircle,
+    flag: FEATURE_FLAGS.MESSAGING,
+  },
+  { name: "profile", label: "Profil", Icon: User, flag: null },
 ];
 
 // Visual inset matching the previous per-tab indicator (which sat with
@@ -55,6 +73,10 @@ const INDICATOR_INSET = 14;
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { data: unreadCount = 0 } = useUnreadCount();
+  const { data: featureFlags } = useFeatureFlags();
+  const visibleTabs = TABS.filter(
+    (tab) => tab.flag === null || (featureFlags?.flags[tab.flag] ?? true),
+  );
   const scheme = useEffectiveTheme();
   const reduceMotion = useReducedMotionSafe();
   const PRIMARY = useThemeColor("primary");
@@ -83,11 +105,16 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const layoutsBumpVersion = useSharedValue(0);
   const indicatorX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);
-  const focusedIndex = useSharedValue(state.index);
+  const focusedTabName = state.routes[state.index]?.name;
+  const focusedVisibleIndex = Math.max(
+    visibleTabs.findIndex((tab) => tab.name === focusedTabName),
+    0,
+  );
+  const focusedIndex = useSharedValue(focusedVisibleIndex);
 
   useEffect(() => {
-    focusedIndex.value = state.index;
-  }, [focusedIndex, state.index]);
+    focusedIndex.value = focusedVisibleIndex;
+  }, [focusedIndex, focusedVisibleIndex]);
 
   // ─── Inbox badge pulse ──────────────────────────────────────────────────
   //
@@ -177,7 +204,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             ]}
           />
 
-          {TABS.map((tab, index) => {
+          {visibleTabs.map((tab, index) => {
             const routeIndex = state.routes.findIndex(
               (r) => r.name === tab.name,
             );

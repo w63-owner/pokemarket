@@ -10,6 +10,7 @@ import type { CardSuggestion } from "@/lib/api/tcgdex";
 
 type Props = {
   filters: FeedFiltersType;
+  showSearch?: boolean;
   searchValue: string;
   onSearchChange: (v: string) => void;
   onSearchSubmit: (v: string) => void;
@@ -26,6 +27,7 @@ type Props = {
 
 export function FeedFilters({
   filters,
+  showSearch = true,
   searchValue,
   onSearchChange,
   onSearchSubmit,
@@ -43,14 +45,16 @@ export function FeedFilters({
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
-        <CardSearchInput
-          value={searchValue}
-          onChangeText={onSearchChange}
-          onSubmit={onSearchSubmit}
-          onClear={onSearchClear}
-          onFocus={onSearchFocus}
-          onBlur={onSearchBlur}
-        />
+        {showSearch ? (
+          <CardSearchInput
+            value={searchValue}
+            onChangeText={onSearchChange}
+            onSubmit={onSearchSubmit}
+            onClear={onSearchClear}
+            onFocus={onSearchFocus}
+            onBlur={onSearchBlur}
+          />
+        ) : null}
 
         <Pressable
           onPress={() => onSheetOpenChange(true)}

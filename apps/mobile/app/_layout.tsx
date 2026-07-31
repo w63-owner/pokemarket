@@ -19,6 +19,7 @@ import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "nativewind";
+import { FEATURE_FLAGS } from "@pokemarket/shared";
 
 import { initSentry, Sentry } from "@/lib/sentry";
 import { recordChannelCount, recordColdStart } from "@/lib/metrics";
@@ -31,6 +32,7 @@ import { useAppFonts } from "@/lib/fonts";
 import { initAuth, useAuth } from "@/hooks/use-auth";
 import { useInboxChannel } from "@/hooks/use-inbox-channel";
 import { usePushRegistration } from "@/hooks/use-push-registration";
+import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { queryClient } from "@/lib/query/client";
 import { setupQueryManagers } from "@/lib/query/setup";
 import { persistOptions } from "@/lib/query/persister";
@@ -58,6 +60,7 @@ setupQueryManagers();
 function RootLayout() {
   const [fontsLoaded, fontError] = useAppFonts();
   const { user } = useAuth();
+  const { enabled: messagingEnabled } = useFeatureFlag(FEATURE_FLAGS.MESSAGING);
 
   // Deferred font weights: loaded post-mount so they don't block the splash.
   // Falls back to the nearest critical weight while these load (imperceptible
@@ -72,7 +75,7 @@ function RootLayout() {
   // App-root realtime — single websocket powering the bottom-tab badge
   // and the conversations list, regardless of whether the user has
   // opened the inbox yet.
-  useInboxChannel(user?.id ?? null);
+  useInboxChannel(messagingEnabled ? (user?.id ?? null) : null);
 
   // Auto-register push token when the user logs in (once per session).
   // Silent — no toasts or prompts unless they open /profile/notifications.

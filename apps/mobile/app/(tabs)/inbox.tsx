@@ -5,7 +5,11 @@ import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Tag } from "lucide-react-native";
 
-import { queryKeys, type ConversationPreview } from "@pokemarket/shared";
+import {
+  FEATURE_FLAGS,
+  queryKeys,
+  type ConversationPreview,
+} from "@pokemarket/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
 import { usePresence } from "@/hooks/use-presence";
@@ -15,10 +19,11 @@ import {
 } from "@/components/messages";
 import { TabHeader } from "@/components/layout";
 import { AuthRequired, EmptyState, ErrorState } from "@/components/shared";
+import { FeatureGate } from "@/components/feature-flags/feature-gate";
 import { Button } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 
-export default function InboxScreen() {
+function InboxContent() {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const primary = useThemeColor("primary");
@@ -135,5 +140,13 @@ export default function InboxScreen() {
         />
       )}
     </View>
+  );
+}
+
+export default function InboxScreen() {
+  return (
+    <FeatureGate flag={FEATURE_FLAGS.MESSAGING} name="La messagerie">
+      <InboxContent />
+    </FeatureGate>
   );
 }

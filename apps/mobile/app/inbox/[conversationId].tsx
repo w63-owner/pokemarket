@@ -12,7 +12,11 @@ import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertCircle, ChevronDown, MessageCircle } from "lucide-react-native";
 
-import { formatDateLabel, type Message } from "@pokemarket/shared";
+import {
+  FEATURE_FLAGS,
+  formatDateLabel,
+  type Message,
+} from "@pokemarket/shared";
 import {
   useConversationThread,
   type ConversationRow,
@@ -30,6 +34,7 @@ import {
 } from "@/components/messages";
 import { MobileHeader } from "@/components/layout/mobile-header";
 import { EmptyState } from "@/components/shared";
+import { FeatureGate } from "@/components/feature-flags/feature-gate";
 import { Skeleton, Text } from "@/components/ui";
 import { spring } from "@/lib/motion";
 import { useThemeColors } from "@/lib/theme-colors";
@@ -43,7 +48,7 @@ function toReplySnapshot(message: Message): ReplySnapshot {
   };
 }
 
-export default function ConversationThreadScreen() {
+function ConversationThreadContent() {
   const params = useLocalSearchParams<{ conversationId: string }>();
   const conversationId = params.conversationId;
   const colors = useThemeColors();
@@ -304,6 +309,14 @@ export default function ConversationThreadScreen() {
         onClose={() => setLightboxPath(null)}
       />
     </SafeAreaView>
+  );
+}
+
+export default function ConversationThreadScreen() {
+  return (
+    <FeatureGate flag={FEATURE_FLAGS.MESSAGING} name="La messagerie">
+      <ConversationThreadContent />
+    </FeatureGate>
   );
 }
 

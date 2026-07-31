@@ -2,6 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 
+const { featureEnabled } = vi.hoisted(() => ({
+  featureEnabled: vi.fn(async () => true),
+}));
+
 let currentUser: { id: string; email?: string } | null = {
   id: "buyer-1",
   email: "buyer@example.com",
@@ -80,6 +84,9 @@ vi.mock("@/lib/rate-limit", () => ({
   applyRateLimit: vi.fn(async () => null),
   checkoutRateLimit: {} as any,
 }));
+vi.mock("@/lib/feature-flags/server", () => ({
+  isFeatureEnabled: featureEnabled,
+}));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { POST } from "./route";
@@ -89,6 +96,8 @@ beforeEach(() => {
   process.env.STRIPE_CHECKOUT_ENABLED = "true";
   delete process.env.STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR;
   delete process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS;
+  featureEnabled.mockReset();
+  featureEnabled.mockResolvedValue(true);
   stripeCreate.mockClear();
   stripeRetrieve.mockClear();
   stripeExpire.mockClear();
@@ -182,6 +191,18 @@ describe("checkout — auth + validation", () => {
     expect(stripeCreate).not.toHaveBeenCalled();
   });
 
+  it("stops checkout when its remote capability flag is disabled", async () => {
+    featureEnabled.mockResolvedValue(false);
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(503);
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
+
   it("restricts checkout to the configured soft-launch buyer cohort", async () => {
     process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS = "buyer-2,buyer-3";
     const db = createMockDb(activeListingScenario());
@@ -225,6 +246,9 @@ describe("checkout — listing-status guards", () => {
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
     expect(stripeCreate.mock.calls[0][0]).not.toHaveProperty(
       "payment_method_types",
+    );
+    expect(stripeCreate.mock.calls[0][0].integration_identifier).toBe(
+      "pokemarket-web-checkout-pkjhbnxq",
     );
     expect(stripeCreate.mock.calls[0][1].idempotencyKey).toBe(
       `checkout-session-${json.transaction_id}`,

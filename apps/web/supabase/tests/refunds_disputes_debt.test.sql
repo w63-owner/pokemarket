@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(14);
+SELECT plan(26);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -219,6 +219,184 @@ SELECT is(
   ),
   0::bigint,
   'all Sprint 5 journals remain balanced'
+);
+
+-- ─────────────────────────────────────────────────────────────────
+-- Debt lifecycle: debt after payout, PAYOUT_BLOCKED, future-credit
+-- ─────────────────────────────────────────────────────────────────
+-- Set up a fresh seller whose payout cycle has already completed.
+INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
+VALUES (
+  '51000000-0000-4000-8000-000000000003',
+  'sprint5-debt-seller@example.test',
+  'authenticated',
+  'authenticated',
+  '{"username":"sprint5_debt_seller"}'::jsonb
+);
+UPDATE public.profiles
+SET stripe_account_id = 'acct_sprint5_debt'
+WHERE id = '51000000-0000-4000-8000-000000000003';
+
+UPDATE public.financial_payout_config
+SET minimum_payout_minor = 100,
+    risk_reserve_minor = 0,
+    dispute_reserve_bps = 0,
+    payout_delay_days = 0
+WHERE singleton;
+
+INSERT INTO public.listings (id, seller_id, title, price_seller, status)
+VALUES (
+  '52000000-0000-4000-8000-000000000002',
+  '51000000-0000-4000-8000-000000000003',
+  'Debt cycle card',
+  50,
+  'LOCKED'
+);
+INSERT INTO public.transactions (
+  id, listing_id, buyer_id, seller_id,
+  total_amount, fee_amount, shipping_cost, status
+)
+VALUES (
+  '53000000-0000-4000-8000-000000000002',
+  '52000000-0000-4000-8000-000000000002',
+  '51000000-0000-4000-8000-000000000001',
+  '51000000-0000-4000-8000-000000000003',
+  50, 5, 0, 'PENDING_PAYMENT'
+);
+-- Finalize, release escrow, transfer.
+SELECT is(
+  public.finalize_paid_transaction(
+    '53000000-0000-4000-8000-000000000002', 'pi_debt', 'ch_debt'
+  ),
+  'PAID',
+  'debt-cycle: payment finalized'
+);
+UPDATE public.transactions
+SET status = 'SHIPPED', shipped_at = now()
+WHERE id = '53000000-0000-4000-8000-000000000002';
+SELECT ok(
+  public.release_escrow_funds(
+    '53000000-0000-4000-8000-000000000002',
+    '51000000-0000-4000-8000-000000000001'
+  ),
+  'debt-cycle: escrow released'
+);
+SELECT is(
+  (SELECT status::text FROM public.prepare_seller_transfer(
+    '53000000-0000-4000-8000-000000000002'
+  )),
+  'processing',
+  'debt-cycle: transfer moves to processing'
+);
+SELECT ok(
+  public.record_seller_transfer_success(
+    '53000000-0000-4000-8000-000000000002',
+    'tr_debt', 'ch_debt', 'order_53000000-0000-4000-8000-000000000002'
+  ),
+  'debt-cycle: transfer recorded'
+);
+-- Reserve and pay out all available funds (no reserve).
+SELECT is(
+  (SELECT amount_minor FROM public.reserve_seller_payout(
+    '51000000-0000-4000-8000-000000000003'
+  )),
+  4500::bigint,
+  'debt-cycle: full payout reserved (no reserve)'
+);
+SELECT ok(
+  public.attach_stripe_payout(
+    (SELECT id FROM public.payouts
+     WHERE user_id = '51000000-0000-4000-8000-000000000003'
+     ORDER BY requested_at DESC LIMIT 1),
+    'po_debt',
+    'acct_sprint5_debt'
+  ),
+  'debt-cycle: Stripe payout attached'
+);
+SELECT ok(
+  public.apply_stripe_payout_transition('po_debt', 'paid'),
+  'debt-cycle: payout.paid consumes all seller funds'
+);
+SELECT is(
+  (SELECT available_balance FROM public.wallets
+   WHERE user_id = '51000000-0000-4000-8000-000000000003'),
+  0::numeric,
+  'debt-cycle: seller available balance is 0 after full payout'
+);
+-- A dispute is now lost, creating seller debt.
+INSERT INTO public.stripe_disputes (
+  stripe_dispute_id, stripe_charge_id, transaction_id,
+  amount, amount_minor, currency, status, reason
+)
+VALUES (
+  'dp_debt', 'ch_debt', '53000000-0000-4000-8000-000000000002',
+  45, 4500, 'EUR', 'needs_response', 'fraudulent'
+);
+SELECT ok(
+  public.lock_stripe_dispute('dp_debt'),
+  'debt-cycle: dispute locked (seller has no remaining balance)'
+);
+SELECT ok(
+  public.resolve_stripe_dispute('dp_debt', 'lost'),
+  'debt-cycle: lost dispute creates seller debt'
+);
+-- Seller now has debt → payouts must be blocked.
+SELECT throws_ok(
+  $$SELECT * FROM public.reserve_seller_payout(
+      '51000000-0000-4000-8000-000000000003'::uuid)$$,
+  'P0001',
+  NULL,
+  'PAYOUT_BLOCKED_BY_SELLER_DEBT raised when seller has outstanding debt'
+);
+-- A new order comes in; the credit should auto-consume the debt.
+INSERT INTO public.listings (id, seller_id, title, price_seller, status)
+VALUES (
+  '52000000-0000-4000-8000-000000000003',
+  '51000000-0000-4000-8000-000000000003',
+  'Recovery card',
+  60,
+  'LOCKED'
+);
+INSERT INTO public.transactions (
+  id, listing_id, buyer_id, seller_id,
+  total_amount, fee_amount, shipping_cost, status
+)
+VALUES (
+  '53000000-0000-4000-8000-000000000003',
+  '52000000-0000-4000-8000-000000000003',
+  '51000000-0000-4000-8000-000000000001',
+  '51000000-0000-4000-8000-000000000003',
+  60, 5, 0, 'PENDING_PAYMENT'
+);
+-- finalize_paid_transaction triggers consume_seller_debt_from_credit.
+SELECT is(
+  public.finalize_paid_transaction(
+    '53000000-0000-4000-8000-000000000003', 'pi_recovery', 'ch_recovery'
+  ),
+  'PAID',
+  'debt-cycle: new payment finalizes and triggers debt recovery'
+);
+SELECT is(
+  (
+    SELECT debt_minor
+    FROM public.seller_risk_accounts
+    WHERE seller_id = '51000000-0000-4000-8000-000000000003'
+  ),
+  0::bigint,
+  'debt is fully consumed by the new credit'
+);
+SELECT is(
+  (
+    SELECT count(*)
+    FROM (
+      SELECT ledger_transaction_id
+      FROM public.ledger_entries
+      GROUP BY ledger_transaction_id
+      HAVING sum(amount_minor) <> 0
+    ) unbalanced
+  ),
+  0::bigint,
+  'all Sprint 5 debt-cycle journals remain balanced'
 );
 
 SELECT * FROM finish();

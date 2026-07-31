@@ -1,6 +1,8 @@
 export const MARKETPLACE_PERCENT_FEE = 0.05;
 export const MARKETPLACE_FIXED_FEE = 0.7;
 
+export * from "./feature-flags";
+
 export const CARD_CONDITIONS = [
   "MINT",
   "NEAR_MINT",
