@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     const { data: conv, error: convError } = await admin
       .from("conversations")
-      .select("id, buyer_id, seller_id")
+      .select("id, listing_id, buyer_id, seller_id")
       .eq("id", conversation_id)
       .single();
 
@@ -72,10 +72,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (conv.buyer_id !== user.id && conv.seller_id !== user.id) {
+    if (
+      conv.listing_id !== listing_id ||
+      conv.buyer_id !== user.id ||
+      conv.seller_id !== listing.seller_id
+    ) {
       return NextResponse.json(
-        { error: "Accès non autorisé" },
-        { status: 403 },
+        { error: "La conversation ne correspond pas à cette annonce" },
+        { status: 400 },
       );
     }
 

@@ -6,133 +6,66 @@ export async function createOffer(
   amount: number,
   conversationId: string,
 ): Promise<Offer> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) throw new Error("Non authentifié");
-
-  const { data: offer, error: offerError } = await supabase
-    .from("offers")
-    .insert({
+  const response = await fetch("/api/offers/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       listing_id: listingId,
-      buyer_id: user.id,
-      offer_amount: amount,
-      status: "PENDING",
+      amount,
       conversation_id: conversationId,
-    })
-    .select()
-    .single();
-
-  if (offerError) throw offerError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: `Offre de ${amount.toFixed(2)} €`,
-    message_type: "offer",
-    offer_id: (offer as Offer).id,
+    }),
   });
-
-  if (msgError) throw msgError;
-
-  return offer as Offer;
+  const result = (await response.json().catch(() => null)) as {
+    offer?: Offer;
+    error?: string;
+  } | null;
+  if (!response.ok || !result?.offer) {
+    throw new Error(result?.error ?? "Impossible de créer l'offre");
+  }
+  return result.offer;
 }
 
 export async function acceptOffer(
   offerId: string,
-  listingId: string,
-  buyerId: string,
-  amount: number,
+  _listingId: string,
+  _buyerId: string,
+  _amount: number,
   conversationId: string,
 ): Promise<void> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  // Atomic guard: only PENDING → ACCEPTED. A seller double-clicking "Accept"
-  // would otherwise insert duplicate system messages.
-  const { data: updated, error: offerError } = await supabase
-    .from("offers")
-    .update({ status: "ACCEPTED" })
-    .eq("id", offerId)
-    .eq("status", "PENDING")
-    .select("id");
-
-  if (offerError) throw offerError;
-  if (!updated || updated.length === 0) {
-    throw new Error("Cette offre ne peut plus être acceptée");
-  }
-
-  const { error: listingError } = await supabase
-    .from("listings")
-    .update({
-      status: "RESERVED",
-      reserved_for: buyerId,
-      reserved_price: amount,
-    })
-    .eq("id", listingId);
-
-  if (listingError) throw listingError;
-
-  const { error: rejectError } = await supabase
-    .from("offers")
-    .update({ status: "REJECTED" })
-    .eq("listing_id", listingId)
-    .eq("status", "PENDING")
-    .neq("id", offerId);
-
-  if (rejectError) throw rejectError;
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: `Offre de ${amount.toFixed(2)} € acceptée`,
-    message_type: "offer_accepted",
-    offer_id: offerId,
+  const response = await fetch("/api/offers/accept", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      offer_id: offerId,
+      conversation_id: conversationId,
+    }),
   });
-
-  if (msgError) throw msgError;
+  if (!response.ok) {
+    const result = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(result?.error ?? "Impossible d'accepter l'offre");
+  }
 }
 
 export async function rejectOffer(
   offerId: string,
   conversationId: string,
 ): Promise<void> {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
-
-  // Atomic guard: only PENDING → REJECTED.
-  const { data: updated, error: offerError } = await supabase
-    .from("offers")
-    .update({ status: "REJECTED" })
-    .eq("id", offerId)
-    .eq("status", "PENDING")
-    .select("id");
-
-  if (offerError) throw offerError;
-  if (!updated || updated.length === 0) {
-    throw new Error("Cette offre ne peut plus être déclinée");
-  }
-
-  const { error: msgError } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content: "Offre déclinée",
-    message_type: "offer_rejected",
-    offer_id: offerId,
+  const response = await fetch("/api/offers/reject", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      offer_id: offerId,
+      conversation_id: conversationId,
+    }),
   });
-
-  if (msgError) throw msgError;
+  if (!response.ok) {
+    const result = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(result?.error ?? "Impossible de décliner l'offre");
+  }
 }
 
 export async function cancelOffer(

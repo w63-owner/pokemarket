@@ -4,7 +4,7 @@ overview: Remédier d’abord aux failles d’intégrité, puis obtenir la parit
 todos:
   - id: sprint-0-security
     content: "Sprint 0 : verrouiller les INSERT/UPDATE, RPC et retirer le debug de production"
-    status: pending
+    status: completed
   - id: sprint-1-web-parity
     content: "Sprint 1 : livrer images, retry, réponses et accessibilité sur le web"
     status: completed
@@ -27,11 +27,11 @@ isProject: false
 ## Sprint 0 — Sécuriser l’intégrité et la production
 **Objectif : supprimer les possibilités de falsification et de modification des messages.**
 
-- Ajouter une migration limitant les INSERT authentifiés à `text` et `image`; réserver les types système aux RPC atomiques et au `service_role`, à partir de [00014_rls_conversations_messages.sql](/Users/Antonin/development/pokemarket/apps/web/supabase/migrations/00014_rls_conversations_messages.sql) et [00044_fix_messages_rls_and_types.sql](/Users/Antonin/development/pokemarket/apps/web/supabase/migrations/00044_fix_messages_rls_and_types.sql).
-- Remplacer l’UPDATE libre des accusés de lecture par une RPC batch ou un trigger garantissant que seul `read_at` change.
-- Corréler les RPC transactionnelles à la bonne conversation et forcer `get_inbox` à utiliser `auth.uid()`.
-- Retirer la télémétrie locale de [use-realtime.ts](/Users/Antonin/development/pokemarket/apps/web/src/hooks/use-realtime.ts) et de l’error boundary concernée.
-- Ajouter des tests négatifs : faux `payment_completed`, modification de `content`, lecture hors conversation, mauvais `conversation_id`.
+- [x] Ajouter une migration limitant les INSERT authentifiés à `text` et `image`; réserver les types système aux RPC atomiques et au `service_role`, à partir de [00014_rls_conversations_messages.sql](/Users/Antonin/development/pokemarket/apps/web/supabase/migrations/00014_rls_conversations_messages.sql) et [00044_fix_messages_rls_and_types.sql](/Users/Antonin/development/pokemarket/apps/web/supabase/migrations/00044_fix_messages_rls_and_types.sql).
+- [x] Remplacer l’UPDATE libre des accusés de lecture par une RPC batch ou un trigger garantissant que seul `read_at` change.
+- [x] Corréler les RPC transactionnelles à la bonne conversation et forcer `get_inbox` à utiliser `auth.uid()`.
+- [x] Retirer la télémétrie locale de [use-realtime.ts](/Users/Antonin/development/pokemarket/apps/web/src/hooks/use-realtime.ts) et de l’error boundary concernée.
+- [x] Ajouter des tests négatifs : faux `payment_completed`, modification de `content`, lecture hors conversation, mauvais `conversation_id`.
 
 **Sortie attendue :** aucun participant ne peut fabriquer un état métier ou altérer un message existant.
 

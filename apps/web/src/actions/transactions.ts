@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type TransactionActionResult =
   | { success: true }
@@ -60,7 +61,7 @@ export async function confirmReceptionAction(
   // This also acts as an early ownership guard before hitting the RPC.
   const { data: tx, error: fetchError } = await supabase
     .from("transactions")
-    .select("seller_id")
+    .select("buyer_id, seller_id, listing_id")
     .eq("id", transactionId)
     .eq("buyer_id", user.id)
     .eq("status", "SHIPPED")
@@ -70,6 +71,22 @@ export async function confirmReceptionAction(
     return {
       success: false,
       error: "Transaction introuvable ou action non autorisée",
+    };
+  }
+
+  const { data: conversation, error: conversationError } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("listing_id", tx.listing_id)
+    .eq("buyer_id", tx.buyer_id)
+    .eq("seller_id", tx.seller_id)
+    .single();
+
+  if (conversationError || !conversation) {
+    return {
+      success: false,
+      error: "La conversation ne correspond pas à cette transaction",
     };
   }
 
@@ -123,7 +140,8 @@ export async function confirmReceptionAction(
   }
 
   // ── 4. System message in conversation ─────────────────────────────────────
-  const { error: msgError } = await supabase.from("messages").insert({
+  const admin = createAdminClient();
+  const { error: msgError } = await admin.from("messages").insert({
     conversation_id: conversationId,
     sender_id: user.id,
     content: "Vente finalisée",

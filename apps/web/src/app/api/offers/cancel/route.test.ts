@@ -61,6 +61,16 @@ describe("offers/cancel — QA", () => {
           status: "PENDING",
           buyer_id: "buyer-1",
           listing_id: "L1",
+          conversation_id: "c1",
+        },
+      ],
+      listings: [{ id: "L1", seller_id: "seller-1", status: "ACTIVE" }],
+      conversations: [
+        {
+          id: "c1",
+          listing_id: "L1",
+          buyer_id: "buyer-1",
+          seller_id: "seller-1",
         },
       ],
     });
@@ -83,14 +93,24 @@ describe("offers/cancel — QA", () => {
           status: "ACCEPTED",
           buyer_id: "buyer-1",
           listing_id: "L1",
+          conversation_id: "c1",
         },
       ],
       listings: [
         {
           id: "L1",
+          seller_id: "seller-1",
           status: "RESERVED",
           reserved_for: "buyer-1",
           reserved_price: 50,
+        },
+      ],
+      conversations: [
+        {
+          id: "c1",
+          listing_id: "L1",
+          buyer_id: "buyer-1",
+          seller_id: "seller-1",
         },
       ],
     });
@@ -174,13 +194,23 @@ describe("offers/cancel — STRESS", () => {
             status: "ACCEPTED",
             buyer_id: "buyer-1",
             listing_id: "L1",
+            conversation_id: "c1",
           },
         ],
         listings: [
           {
             id: "L1",
+            seller_id: "seller-1",
             status: "RESERVED",
             reserved_for: "buyer-1",
+          },
+        ],
+        conversations: [
+          {
+            id: "c1",
+            listing_id: "L1",
+            buyer_id: "buyer-1",
+            seller_id: "seller-1",
           },
         ],
       },

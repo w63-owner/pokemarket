@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 
 import { getRequestUserClient } from "@/lib/auth/api";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     // Action — keep them in lock-step.
     const { data: tx, error: fetchError } = await supabase
       .from("transactions")
-      .select("seller_id")
+      .select("buyer_id, seller_id, listing_id")
       .eq("id", transactionId)
       .eq("buyer_id", user.id)
       .eq("status", "SHIPPED")
@@ -60,6 +61,22 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Transaction introuvable ou action non autorisée" },
         { status: 404 },
+      );
+    }
+
+    const { data: conversation, error: conversationError } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .eq("listing_id", tx.listing_id)
+      .eq("buyer_id", tx.buyer_id)
+      .eq("seller_id", tx.seller_id)
+      .single();
+
+    if (conversationError || !conversation) {
+      return NextResponse.json(
+        { error: "La conversation ne correspond pas à cette transaction" },
+        { status: 400 },
       );
     }
 
@@ -115,7 +132,8 @@ export async function POST(request: Request) {
       console.error("[confirm-reception] review insert failed:", reviewError);
     }
 
-    const { error: msgError } = await supabase.from("messages").insert({
+    const admin = createAdminClient();
+    const { error: msgError } = await admin.from("messages").insert({
       conversation_id: conversationId,
       sender_id: user.id,
       content: "Vente finalisée",

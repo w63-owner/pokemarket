@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       .from("offers")
       .select(
         `
-        id, offer_amount, buyer_id, listing_id, status,
+        id, offer_amount, buyer_id, listing_id, conversation_id, status,
         listing:listings!listing_id (id, title, seller_id)
       `,
       )
@@ -61,6 +61,29 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Seul le vendeur peut accepter une offre" },
         { status: 403 },
+      );
+    }
+
+    if (offer.conversation_id !== conversation_id) {
+      return NextResponse.json(
+        { error: "La conversation ne correspond pas à cette offre" },
+        { status: 400 },
+      );
+    }
+
+    const { data: conversation, error: conversationError } = await admin
+      .from("conversations")
+      .select("id")
+      .eq("id", conversation_id)
+      .eq("listing_id", offer.listing_id)
+      .eq("buyer_id", offer.buyer_id)
+      .eq("seller_id", listing.seller_id)
+      .maybeSingle();
+
+    if (conversationError || !conversation) {
+      return NextResponse.json(
+        { error: "La conversation ne correspond pas à cette offre" },
+        { status: 400 },
       );
     }
 

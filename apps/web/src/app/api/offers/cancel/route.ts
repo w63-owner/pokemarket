@@ -43,6 +43,34 @@ export async function POST(request: Request) {
       );
     }
 
+    if (offer.conversation_id !== conversation_id) {
+      return NextResponse.json(
+        { error: "La conversation ne correspond pas à cette offre" },
+        { status: 400 },
+      );
+    }
+
+    const { data: listing, error: listingFetchError } = await admin
+      .from("listings")
+      .select("seller_id")
+      .eq("id", offer.listing_id)
+      .maybeSingle();
+    const { data: conversation, error: conversationError } = await admin
+      .from("conversations")
+      .select("id")
+      .eq("id", conversation_id)
+      .eq("listing_id", offer.listing_id)
+      .eq("buyer_id", offer.buyer_id)
+      .eq("seller_id", listing?.seller_id ?? "")
+      .maybeSingle();
+
+    if (listingFetchError || !listing || conversationError || !conversation) {
+      return NextResponse.json(
+        { error: "La conversation ne correspond pas à cette offre" },
+        { status: 400 },
+      );
+    }
+
     if (offer.status !== "PENDING" && offer.status !== "ACCEPTED") {
       return NextResponse.json(
         { error: "Cette offre ne peut plus être annulée" },
