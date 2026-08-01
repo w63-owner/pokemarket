@@ -18,6 +18,7 @@
  *     .update(patch)
  *     .delete()
  *     .eq(col, val)
+ *     .neq(col, val)
  *     .in(col, vals)
  *     .lt(col, val)
  *     .order(col, opts?)
@@ -34,7 +35,7 @@
 type Row = Record<string, any>;
 
 interface Filter {
-  type: "eq" | "in" | "lt" | "gt" | "gte" | "lte" | "is";
+  type: "eq" | "neq" | "in" | "lt" | "gt" | "gte" | "lte" | "is";
   col: string;
   val: any;
 }
@@ -167,6 +168,7 @@ function matches(row: Row, filters: Filter[]): boolean {
   for (const f of filters) {
     const v = resolveColumn(row, f.col);
     if (f.type === "eq" && v !== f.val) return false;
+    if (f.type === "neq" && v === f.val) return false;
     if (f.type === "in" && !f.val.includes(v)) return false;
     if (f.type === "lt" && !(v != null && (v as any) < f.val)) return false;
     if (f.type === "gt" && !(v != null && (v as any) > f.val)) return false;
@@ -267,6 +269,10 @@ export function createMockDb(
       },
       eq(col: string, val: any) {
         filters.push({ type: "eq", col, val });
+        return builder;
+      },
+      neq(col: string, val: any) {
+        filters.push({ type: "neq", col, val });
         return builder;
       },
       in(col: string, vals: any[]) {
