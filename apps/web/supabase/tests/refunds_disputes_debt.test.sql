@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(26);
+SELECT plan(27);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -107,14 +107,23 @@ SELECT is(
   500::bigint,
   'the first five euros reverse shipping exactly once'
 );
-SELECT isnt(
+SELECT is(
   (
     SELECT cancellation_requested_at
     FROM public.seller_transfers
     WHERE transaction_id = '53000000-0000-4000-8000-000000000001'
   ),
   NULL::timestamptz,
-  'refund before Stripe execution cancels the queued seller transfer'
+  'partial refund before Stripe execution keeps the queued seller transfer'
+);
+SELECT is(
+  (
+    SELECT amount_minor
+    FROM public.seller_transfers
+    WHERE transaction_id = '53000000-0000-4000-8000-000000000001'
+  ),
+  10000::bigint,
+  'queued transfer is resized to the residual seller balance'
 );
 SELECT is(
   (
@@ -123,8 +132,8 @@ SELECT is(
     WHERE idempotency_key =
       'transfer-requested:53000000-0000-4000-8000-000000000001'
   ),
-  'COMPLETED',
-  'canceled transfer job cannot be reclaimed by the worker'
+  'PENDING',
+  'resized transfer job remains reclaimable by the worker'
 );
 
 SELECT lives_ok(

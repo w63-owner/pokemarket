@@ -87,6 +87,14 @@ export async function executeSellerTransfer(
       },
     );
 
+    // Guard against a stale idempotent Stripe object created before a
+    // pre-transfer residual resize (same key, different amount).
+    if (transfer.amount !== prepared.amount_minor) {
+      throw new Error(
+        `Transfer amount mismatch for ${transactionId}: stripe=${transfer.amount} prepared=${prepared.amount_minor}`,
+      );
+    }
+
     await persistTransferSuccess(prepared, transfer);
     return transfer.id;
   } catch (cause) {

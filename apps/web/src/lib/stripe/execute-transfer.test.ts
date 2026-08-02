@@ -41,6 +41,7 @@ describe("executeSellerTransfer", () => {
     mocks.transfersCreate.mockReset();
     mocks.transfersCreate.mockResolvedValue({
       id: "tr_order_1",
+      amount: 4_500,
       source_transaction: "ch_order_1",
       transfer_group: "order_tx-1",
     });
@@ -95,5 +96,24 @@ describe("executeSellerTransfer", () => {
       "canceled by a refund or dispute",
     );
     expect(mocks.transfersCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale idempotent Stripe transfer with the wrong amount", async () => {
+    const db = createMockDb(scenario());
+    client = db.client;
+    mocks.transfersCreate.mockResolvedValue({
+      id: "tr_stale_full",
+      amount: 10_500,
+      source_transaction: "ch_order_1",
+      transfer_group: "order_tx-1",
+    });
+
+    await expect(executeSellerTransfer("tx-1")).rejects.toThrow(
+      "Transfer amount mismatch",
+    );
+    expect(db.state.seller_transfers[0]).toMatchObject({
+      status: "failed",
+      stripe_transfer_id: null,
+    });
   });
 });
