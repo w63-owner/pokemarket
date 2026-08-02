@@ -41,6 +41,7 @@ describe("executeSellerTransfer", () => {
     mocks.transfersCreate.mockReset();
     mocks.transfersCreate.mockResolvedValue({
       id: "tr_order_1",
+      amount: 4_500,
       source_transaction: "ch_order_1",
       transfer_group: "order_tx-1",
     });
