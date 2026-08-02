@@ -294,7 +294,7 @@ successifs. Avant transfert, elle débite le ledger. Après transfert, elle cré
 une `financial_recovery` et un job durable de transfer reversal. Après payout,
 elle comptabilise une dette vendeur et bloque tout nouveau retrait.
 Si le transfert est encore en file, la transaction redimensionne atomiquement
-le montant résiduel (pending/available) et ne annule le job que lorsqu'il ne
+le montant résiduel (pending/available) et n'annule le job que lorsqu'il ne
 reste plus rien à transférer. Un handshake juste avant l'appel Stripe force le
 webhook à réessayer plutôt que de laisser échapper un transfert dont l'issue
 réseau est encore inconnue.
