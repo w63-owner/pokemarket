@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(10);
+SELECT plan(13);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -213,7 +213,46 @@ SELECT throws_ok(
   $$,
   '42501',
   NULL,
-  'a block in either direction prevents new messages'
+  'the blocker cannot insert new messages after blocking'
+);
+
+SELECT is(
+  (SELECT count(*) FROM public.get_inbox(NULL, NULL, NULL, 30, NULL, false)),
+  0::bigint,
+  'get_inbox hides conversations for the blocker'
+);
+
+-- Critical regression: the blocked participant must also be stopped.
+-- user_blocks SELECT only exposes rows where the caller is the blocker, so a
+-- plain NOT EXISTS against user_blocks previously allowed the blocked user
+-- through because they could not see the block row.
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"71000000-0000-4000-8000-000000000002","role":"authenticated"}',
+  true
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.messages (
+      conversation_id, sender_id, content, message_type
+    )
+    VALUES (
+      '73000000-0000-4000-8000-000000000001',
+      '71000000-0000-4000-8000-000000000002',
+      'Le bloqué ne doit pas pouvoir écrire',
+      'text'
+    )
+  $$,
+  '42501',
+  NULL,
+  'the blocked user cannot bypass blocks via direct message INSERT'
+);
+
+SELECT is(
+  (SELECT count(*) FROM public.get_inbox(NULL, NULL, NULL, 30, NULL, false)),
+  0::bigint,
+  'get_inbox also hides conversations for the blocked user'
 );
 
 SELECT * FROM finish();
