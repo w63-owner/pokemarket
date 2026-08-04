@@ -69,4 +69,49 @@ describe("cron/messaging-retention", () => {
     expect(mocks.remove).toHaveBeenNthCalledWith(1, ["conv/old.webp"]);
     expect(mocks.remove).toHaveBeenNthCalledWith(2, ["conv/orphan.webp"]);
   });
+
+  it("advances through multiple attachment batches without reselecting deleted paths", async () => {
+    let expiredCalls = 0;
+    mocks.rpc.mockImplementation((name: string) => {
+      if (name === "get_expired_message_attachment_paths") {
+        expiredCalls += 1;
+        if (expiredCalls === 1) {
+          return Promise.resolve({
+            data: Array.from({ length: 500 }, (_, i) => ({
+              message_id: `m-${i}`,
+              storage_path: `conv/batch1/${i}.webp`,
+            })),
+            error: null,
+          });
+        }
+        if (expiredCalls === 2) {
+          return Promise.resolve({
+            data: Array.from({ length: 500 }, (_, i) => ({
+              message_id: `m-${i + 500}`,
+              storage_path: `conv/batch2/${i}.webp`,
+            })),
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: [], error: null });
+      }
+      if (name === "get_orphaned_message_attachment_paths") {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return Promise.resolve({ data: 0, error: null });
+    });
+
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      deleted_attachments: 1000,
+    });
+    expect(expiredCalls).toBeGreaterThanOrEqual(2);
+    expect(mocks.remove).toHaveBeenCalledWith(
+      expect.arrayContaining(["conv/batch1/0.webp"]),
+    );
+    expect(mocks.remove).toHaveBeenCalledWith(
+      expect.arrayContaining(["conv/batch2/0.webp"]),
+    );
+  });
 });
