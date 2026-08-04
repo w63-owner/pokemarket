@@ -140,7 +140,7 @@ describe("cron/housekeeping — QA happy path", () => {
     expect(db.state.listings.find((l) => l.id === "L1")?.status).toBe("SOLD");
   });
 
-  it("does NOT free listing reserved for a different buyer", async () => {
+  it("does NOT free listing still reserved by a different ACCEPTED offer", async () => {
     const cutoffTime = Date.now() - 60 * HOUR;
     const db = createMockDb({
       offers: [
@@ -150,6 +150,13 @@ describe("cron/housekeeping — QA happy path", () => {
           listing_id: "L1",
           buyer_id: "B1",
           created_at: new Date(cutoffTime).toISOString(),
+        },
+        {
+          id: "current-accepted",
+          status: "ACCEPTED",
+          listing_id: "L1",
+          buyer_id: "B-DIFFERENT",
+          created_at: new Date(Date.now() - HOUR).toISOString(),
         },
       ],
       listings: [
@@ -164,7 +171,14 @@ describe("cron/housekeeping — QA happy path", () => {
 
     const res = await GET(authedReq());
     const json = await res.json();
+    expect(json.expired_accepted_offers).toBe(1);
     expect(json.listings_freed).toBe(0);
+    expect(db.state.offers.find((o) => o.id === "stale-accepted")?.status).toBe(
+      "EXPIRED",
+    );
+    expect(
+      db.state.offers.find((o) => o.id === "current-accepted")?.status,
+    ).toBe("ACCEPTED");
     const listing = db.state.listings.find((l) => l.id === "L1");
     expect(listing?.status).toBe("RESERVED");
     expect(listing?.reserved_for).toBe("B-DIFFERENT");
