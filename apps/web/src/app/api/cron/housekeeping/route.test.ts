@@ -228,6 +228,128 @@ describe("cron/housekeeping — STRESS", () => {
   });
 });
 
+describe("cron/housekeeping — durability", () => {
+  it("keeps ACCEPTED offer when listing free fails so next run can retry", async () => {
+    const cutoffTime = Date.now() - 60 * HOUR;
+    const db = createMockDb({
+      offers: [
+        {
+          id: "stale-accepted",
+          status: "ACCEPTED",
+          listing_id: "L1",
+          buyer_id: "B1",
+          created_at: new Date(cutoffTime).toISOString(),
+        },
+      ],
+      listings: [
+        {
+          id: "L1",
+          status: "RESERVED",
+          reserved_for: "B1",
+          reserved_price: 50,
+        },
+      ],
+    });
+    mockClient = db.client;
+
+    const origFrom = db.client.from.bind(db.client);
+    db.client.from = (name: string) => {
+      const b = origFrom(name);
+      if (name === "listings") {
+        const origUpdate = b.update.bind(b);
+        b.update = (...args: unknown[]) => {
+          const builder = origUpdate(...args);
+          builder.then = (
+            onFulfilled?: (value: unknown) => unknown,
+            onRejected?: (reason: unknown) => unknown,
+          ) =>
+            Promise.resolve({
+              data: null,
+              error: { message: "[chaos] free failed" },
+            }).then(onFulfilled, onRejected);
+          return builder;
+        };
+      }
+      return b;
+    };
+
+    const res = await GET(authedReq());
+    expect(res.status).toBe(500);
+    expect(db.state.offers.find((o) => o.id === "stale-accepted")?.status).toBe(
+      "ACCEPTED",
+    );
+    expect(db.state.listings.find((l) => l.id === "L1")?.status).toBe(
+      "RESERVED",
+    );
+  });
+
+  it("does NOT expire ACCEPTED offer while listing is LOCKED in checkout", async () => {
+    const cutoffTime = Date.now() - 60 * HOUR;
+    const db = createMockDb({
+      offers: [
+        {
+          id: "stale-accepted",
+          status: "ACCEPTED",
+          listing_id: "L1",
+          buyer_id: "B1",
+          created_at: new Date(cutoffTime).toISOString(),
+        },
+      ],
+      listings: [
+        {
+          id: "L1",
+          status: "LOCKED",
+          reserved_for: "B1",
+          reserved_price: 50,
+        },
+      ],
+    });
+    mockClient = db.client;
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.expired_accepted_offers).toBe(0);
+    expect(json.listings_freed).toBe(0);
+    expect(db.state.offers.find((o) => o.id === "stale-accepted")?.status).toBe(
+      "ACCEPTED",
+    );
+    expect(db.state.listings.find((l) => l.id === "L1")?.status).toBe("LOCKED");
+  });
+
+  it("heals orphaned RESERVED listings that have no ACCEPTED offer", async () => {
+    const db = createMockDb({
+      offers: [
+        {
+          id: "already-expired",
+          status: "EXPIRED",
+          listing_id: "L1",
+          buyer_id: "B1",
+          created_at: new Date(Date.now() - 60 * HOUR).toISOString(),
+        },
+      ],
+      listings: [
+        {
+          id: "L1",
+          status: "RESERVED",
+          reserved_for: "B1",
+          reserved_price: 50,
+        },
+      ],
+    });
+    mockClient = db.client;
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.listings_freed).toBe(1);
+    const listing = db.state.listings.find((l) => l.id === "L1");
+    expect(listing?.status).toBe("ACTIVE");
+    expect(listing?.reserved_for).toBeNull();
+    expect(listing?.reserved_price).toBeNull();
+  });
+});
+
 describe("cron/housekeeping — CHAOS", () => {
   it("DB read failure on offers → 500 returned, no partial updates", async () => {
     const db = createMockDb({
