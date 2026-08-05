@@ -97,4 +97,16 @@ describe("executeFinancialRecovery", () => {
       { idempotencyKey: "dispute-restore-recovery-2" },
     );
   });
+
+  it("skips canceled dispute reverses without calling Stripe", async () => {
+    // prepare_financial_recovery returns no row when the dispute already won
+    // (or the recovery was superseded by a refund).
+    mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    await expect(executeFinancialRecovery("recovery-canceled")).resolves.toBe(
+      "skipped",
+    );
+    expect(mocks.createReversal).not.toHaveBeenCalled();
+    expect(mocks.createTransfer).not.toHaveBeenCalled();
+  });
 });
