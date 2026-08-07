@@ -89,6 +89,14 @@ vi.mock("@/lib/feature-flags/server", () => ({
 }));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
+const { getShippingCost } = vi.hoisted(() => ({
+  getShippingCost: vi.fn(async () => 4.99),
+}));
+vi.mock("@/lib/shipping", () => ({
+  getShippingCost,
+  FALLBACK_SHIPPING_COST: 4.99,
+}));
+
 import { POST } from "./route";
 
 beforeEach(() => {
@@ -98,6 +106,8 @@ beforeEach(() => {
   delete process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS;
   featureEnabled.mockReset();
   featureEnabled.mockResolvedValue(true);
+  getShippingCost.mockReset();
+  getShippingCost.mockResolvedValue(4.99);
   stripeCreate.mockClear();
   stripeRetrieve.mockClear();
   stripeExpire.mockClear();
@@ -523,6 +533,48 @@ describe("checkout — mobile (?client=mobile)", () => {
     expect(piCreate).toHaveBeenCalledTimes(2);
     expect(piCreate.mock.calls[0][1].idempotencyKey).toBe(
       piCreate.mock.calls[1][1].idempotencyKey,
+    );
+  });
+
+  it("expires the stale PENDING_PAYMENT row when retry recomputes a different total", async () => {
+    piCreate.mockRejectedValueOnce(new Error("[chaos] PI down"));
+    getShippingCost
+      .mockResolvedValueOnce(19.9) // first attempt — expensive destination
+      .mockResolvedValueOnce(2.5); // retry with cheaper shipping country
+
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const first = await POST(
+      makeReq({ ...validBody, shipping_country: "CH" }, { client: "mobile" }),
+    );
+    expect(first.status).toBe(500);
+    expect(db.state.transactions).toHaveLength(1);
+    expect(db.state.transactions[0].total_amount).toBe(69.9); // 50 + 19.90
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+
+    const second = await POST(
+      makeReq({ ...validBody, shipping_country: "FR" }, { client: "mobile" }),
+    );
+    expect(second.status).toBe(200);
+    const json = await second.json();
+
+    const expired = db.state.transactions.filter((t) => t.status === "EXPIRED");
+    const pending = db.state.transactions.filter(
+      (t) => t.status === "PENDING_PAYMENT",
+    );
+    expect(expired).toHaveLength(1);
+    expect(pending).toHaveLength(1);
+    expect(pending[0].id).toBe(json.transaction_id);
+    expect(pending[0].id).not.toBe(expired[0].id);
+    expect(pending[0].total_amount).toBe(52.5); // 50 + 2.50
+    expect(pending[0].shipping_cost).toBe(2.5);
+    expect(piCreate.mock.calls[1][0].amount).toBe(5250);
+    expect(piCreate.mock.calls[1][1].idempotencyKey).toBe(
+      `payment-intent-${pending[0].id}`,
+    );
+    expect(piCreate.mock.calls[1][1].idempotencyKey).not.toBe(
+      piCreate.mock.calls[0][1].idempotencyKey,
     );
   });
 });

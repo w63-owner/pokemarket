@@ -250,7 +250,8 @@ export async function POST(request: Request) {
           .eq("status", "PENDING_PAYMENT");
       } else {
         // A previous network call may have failed before persisting the Stripe
-        // object ID. Reuse the same transaction and deterministic key.
+        // object ID. Reuse the same transaction and deterministic key — but
+        // only when the recomputed totals still match (see below).
         reuseTransactionId = existingTx.id;
       }
     }
@@ -277,6 +278,47 @@ export async function POST(request: Request) {
         },
         { status: 422 },
       );
+    }
+
+    // CRITICAL: the reuse path must not create a Stripe object for a new
+    // amount/fee/shipping while leaving the PENDING_PAYMENT row at the old
+    // totals. finalize_paid_transaction journals from the DB row, so a
+    // cheaper retry (shipping country change, seller price edit while LOCKED)
+    // would under-capture at Stripe and over-credit the seller ledger.
+    if (reuseTransactionId) {
+      const { data: reusableTx, error: reusableTxError } = await admin
+        .from("transactions")
+        .select("id, total_amount, fee_amount, shipping_cost")
+        .eq("id", reuseTransactionId)
+        .eq("status", "PENDING_PAYMENT")
+        .maybeSingle();
+
+      if (reusableTxError) {
+        return NextResponse.json(
+          { error: "Impossible de vérifier la transaction en cours" },
+          { status: 500 },
+        );
+      }
+
+      const amountsMatch =
+        !!reusableTx &&
+        Math.round(Number(reusableTx.total_amount) * 100) ===
+          totalAmountMinor &&
+        Math.round(Number(reusableTx.fee_amount) * 100) ===
+          Math.round(feeAmount * 100) &&
+        Math.round(Number(reusableTx.shipping_cost ?? 0) * 100) ===
+          Math.round(shippingCost * 100);
+
+      if (!amountsMatch) {
+        if (reusableTx) {
+          await admin
+            .from("transactions")
+            .update({ status: "EXPIRED" })
+            .eq("id", reusableTx.id)
+            .eq("status", "PENDING_PAYMENT");
+        }
+        reuseTransactionId = null;
+      }
     }
 
     if (listing.status !== "LOCKED") {
@@ -315,7 +357,19 @@ export async function POST(request: Request) {
     ).toISOString();
 
     const transactionResult = reuseTransactionId
-      ? { data: { id: reuseTransactionId }, error: null }
+      ? await admin
+          .from("transactions")
+          .update({
+            expiration_date: expirationDate,
+            shipping_address_line,
+            shipping_address_city,
+            shipping_address_postcode,
+            shipping_country,
+          })
+          .eq("id", reuseTransactionId)
+          .eq("status", "PENDING_PAYMENT")
+          .select("id")
+          .single()
       : await admin
           .from("transactions")
           .insert({
