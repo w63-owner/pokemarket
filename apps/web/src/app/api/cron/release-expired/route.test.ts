@@ -52,16 +52,18 @@ beforeEach(() => {
   process.env.CRON_SECRET = "test_secret";
   reconcileSessionImpl = async () => "PENDING_PAYMENT";
   reconcilePIImpl = async () => "PENDING_PAYMENT";
-  retrievePaymentIntent.mockReset().mockResolvedValue({
-    id: "pi_default",
+  retrievePaymentIntent.mockReset().mockImplementation(async (id: string) => ({
+    id,
     status: "requires_payment_method",
-  });
+  }));
   cancelPaymentIntent.mockReset().mockResolvedValue({});
-  retrieveCheckoutSession.mockReset().mockResolvedValue({
-    id: "cs_default",
-    status: "open",
-    payment_status: "unpaid",
-  });
+  retrieveCheckoutSession
+    .mockReset()
+    .mockImplementation(async (id: string) => ({
+      id,
+      status: "open",
+      payment_status: "unpaid",
+    }));
   expireCheckoutSession.mockReset().mockResolvedValue({});
 });
 
