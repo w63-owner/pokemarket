@@ -408,6 +408,14 @@ export async function POST(request: Request) {
         },
         payment_intent_data: {
           transfer_group: `order_${transaction.id}`,
+          // Mirror session metadata onto the PaymentIntent so
+          // payment_intent.succeeded can bind charge IDs / finalize if the
+          // checkout.session.completed charge lookup fails transiently.
+          metadata: {
+            transaction_id: transaction.id,
+            listing_id,
+            source: "web",
+          },
         },
         integration_identifier: "pokemarket-web-checkout-pkjhbnxq",
         success_url: `${appUrl!}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -420,10 +428,29 @@ export async function POST(request: Request) {
       },
     );
 
-    await admin
-      .from("transactions")
-      .update({ stripe_checkout_session_id: session.id })
-      .eq("id", transaction.id);
+    try {
+      await persistTransactionStripeId(admin, transaction.id, {
+        stripe_checkout_session_id: session.id,
+      });
+    } catch (persistErr) {
+      // Never hand the buyer a payable Session that release-expired cannot
+      // reconcile — expire it so a retry creates a fresh bound object.
+      try {
+        await getStripe().checkout.sessions.expire(session.id);
+      } catch (expireErr) {
+        Sentry.captureException(expireErr, {
+          tags: {
+            component: "stripe-checkout",
+            stage: "persist-fail-expire-session",
+          },
+          extra: {
+            session_id: session.id,
+            transaction_id: transaction.id,
+          },
+        });
+      }
+      throw persistErr;
+    }
 
     const response: CheckoutResponse = {
       url: session.url!,
@@ -516,10 +543,31 @@ async function createMobileStripeIntent(input: {
     },
   );
 
-  await admin
-    .from("transactions")
-    .update({ stripe_payment_intent_id: paymentIntent.id })
-    .eq("id", input.transactionId);
+  try {
+    await persistTransactionStripeId(admin, input.transactionId, {
+      stripe_payment_intent_id: paymentIntent.id,
+    });
+  } catch (persistErr) {
+    // Same fail-closed rule as web Checkout Sessions: never return a
+    // client_secret for a PI the expiry cron cannot look up.
+    try {
+      if (paymentIntent.status !== "canceled") {
+        await stripe.paymentIntents.cancel(paymentIntent.id);
+      }
+    } catch (cancelErr) {
+      Sentry.captureException(cancelErr, {
+        tags: {
+          component: "stripe-checkout",
+          stage: "persist-fail-cancel-pi",
+        },
+        extra: {
+          payment_intent_id: paymentIntent.id,
+          transaction_id: input.transactionId,
+        },
+      });
+    }
+    throw persistErr;
+  }
 
   return {
     provider: "stripe",
@@ -530,6 +578,39 @@ async function createMobileStripeIntent(input: {
     customer_id: customerId,
     transaction_id: input.transactionId,
   };
+}
+
+/**
+ * Persist the Stripe object id before returning a payable credential. The
+ * release-expired cron only reconciles rows that carry a session / PI id —
+ * returning a URL or client_secret without that binding lets a delayed
+ * webhook charge the buyer after the listing has already been unlocked.
+ */
+async function persistTransactionStripeId(
+  admin: ReturnType<typeof createAdminClient>,
+  transactionId: string,
+  patch: {
+    stripe_checkout_session_id?: string;
+    stripe_payment_intent_id?: string;
+  },
+): Promise<void> {
+  const { data, error } = await admin
+    .from("transactions")
+    .update(patch)
+    .eq("id", transactionId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Failed to persist Stripe id for transaction ${transactionId}: ${error.message}`,
+    );
+  }
+  if (!data) {
+    throw new Error(
+      `Failed to persist Stripe id for transaction ${transactionId}: no row updated`,
+    );
+  }
 }
 
 async function createStripeEphemeralKey(

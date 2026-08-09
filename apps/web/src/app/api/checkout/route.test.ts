@@ -241,6 +241,11 @@ describe("checkout — listing-status guards", () => {
     expect(db.state.listings[0].status).toBe("LOCKED");
     expect(stripeCreate.mock.calls[0][0].payment_intent_data).toEqual({
       transfer_group: `order_${json.transaction_id}`,
+      metadata: {
+        transaction_id: json.transaction_id,
+        listing_id: LISTING_ID,
+        source: "web",
+      },
     });
     expect(db.state.transactions).toHaveLength(1);
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
@@ -524,5 +529,84 @@ describe("checkout — mobile (?client=mobile)", () => {
     expect(piCreate.mock.calls[0][1].idempotencyKey).toBe(
       piCreate.mock.calls[1][1].idempotencyKey,
     );
+  });
+
+  it("fails closed when the Checkout Session id cannot be persisted", async () => {
+    const db = createMockDb(activeListingScenario());
+    const originalFrom = db.client.from.bind(db.client);
+    db.client.from = (table: string) => {
+      const builder = originalFrom(table);
+      if (table !== "transactions") return builder;
+      const originalUpdate = builder.update.bind(builder);
+      builder.update = (patch: Record<string, unknown>) => {
+        if (patch.stripe_checkout_session_id) {
+          return {
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: { message: "[chaos] persist session id failed" },
+                }),
+              }),
+            }),
+          };
+        }
+        return originalUpdate(patch);
+      };
+      return builder;
+    };
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+    expect(res.status).toBe(500);
+    expect(stripeExpire).toHaveBeenCalledTimes(1);
+    expect(db.state.transactions[0].stripe_checkout_session_id).toBeFalsy();
+  });
+
+  it("fails closed when the PaymentIntent id cannot be persisted", async () => {
+    const db = createMockDb(activeListingScenario());
+    const originalFrom = db.client.from.bind(db.client);
+    db.client.from = (table: string) => {
+      const builder = originalFrom(table);
+      if (table !== "transactions") return builder;
+      const originalUpdate = builder.update.bind(builder);
+      builder.update = (patch: Record<string, unknown>) => {
+        if (patch.stripe_payment_intent_id) {
+          return {
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: { message: "[chaos] persist PI id failed" },
+                }),
+              }),
+            }),
+          };
+        }
+        return originalUpdate(patch);
+      };
+      return builder;
+    };
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(res.status).toBe(500);
+    expect(piCancel).toHaveBeenCalledTimes(1);
+    expect(db.state.transactions[0].stripe_payment_intent_id).toBeFalsy();
+  });
+
+  it("copies transaction metadata onto web Checkout Session PaymentIntents", async () => {
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+    expect(res.status).toBe(200);
+
+    const sessionArgs = stripeCreate.mock.calls[0][0];
+    expect(sessionArgs.payment_intent_data.metadata).toMatchObject({
+      transaction_id: db.state.transactions[0].id,
+      listing_id: LISTING_ID,
+      source: "web",
+    });
   });
 });

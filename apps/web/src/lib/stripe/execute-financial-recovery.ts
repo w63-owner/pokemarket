@@ -97,6 +97,33 @@ export async function executeFinancialRecovery(
       throw new Error(`Unable to complete financial recovery ${recovery.id}`);
     }
 
+    // Dispute.created queues a Connect reverse before any seller_locked funds
+    // exist. If charge.dispute.closed(lost) races ahead of that reverse,
+    // resolve_stripe_dispute sees locked_minor=0 and no-ops. When the reverse
+    // later completes it only bumps locked_minor — re-resolve here so already
+    // lost / charge_refunded disputes consume the newly locked funds into
+    // platform_cash instead of stranding them in seller_locked.
+    if (recovery.kind === "dispute" && recovery.stripe_dispute_id) {
+      const { data: dispute, error: disputeError } = await admin
+        .from("stripe_disputes")
+        .select("status, outcome")
+        .eq("stripe_dispute_id", recovery.stripe_dispute_id)
+        .maybeSingle();
+      if (disputeError) throw disputeError;
+
+      const outcome = dispute?.outcome ?? dispute?.status ?? null;
+      if (outcome === "lost" || outcome === "charge_refunded") {
+        const { error: resolveError } = await admin.rpc(
+          "resolve_stripe_dispute",
+          {
+            p_stripe_dispute_id: recovery.stripe_dispute_id,
+            p_outcome: outcome,
+          },
+        );
+        if (resolveError) throw resolveError;
+      }
+    }
+
     return stripeObjectId;
   } catch (cause) {
     await admin.rpc("fail_financial_recovery", {
