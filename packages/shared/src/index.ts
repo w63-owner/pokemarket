@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./constants";
+export * from "./profile-columns";
 export * from "./validations";
 export * from "./validations/profile";
 export * from "./query-keys";

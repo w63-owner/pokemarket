@@ -2,6 +2,8 @@ import type { Profile, ProfileWithStats } from "@pokemarket/shared";
 import {
   getSellerReputation,
   normalizeUrl,
+  OWN_PROFILE_UPDATE_RETURNING_COLUMNS,
+  PUBLIC_PROFILE_COLUMNS,
   profileUpdateSchema,
 } from "@pokemarket/shared";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
@@ -24,16 +26,18 @@ export async function fetchMyProfile(): Promise<Profile> {
   // Reads must wait for the initial persisted session restoration. Returning
   // `null` while the auth cache is still cold would be cached by React Query
   // as a successful "missing profile" result.
-  const userId = await requireUserId();
+  await requireUserId();
 
   const { data, error } = await supabase
-    .from("profiles")
+    .from("profiles_me")
     .select("*")
-    .eq("id", userId)
     .single();
 
   if (error) throw new Error(error.message);
-  return data;
+  if (!data?.id || !data.username) {
+    throw new Error("Profil introuvable");
+  }
+  return data as Profile;
 }
 
 /**
@@ -51,7 +55,7 @@ export async function fetchPublicProfile(
 ): Promise<ProfileWithStats | null> {
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PUBLIC_PROFILE_COLUMNS)
     .eq("username", username)
     .single();
 
@@ -71,6 +75,13 @@ export async function fetchPublicProfile(
 
   return {
     ...profile,
+    address_line: null,
+    city: null,
+    postal_code: null,
+    stripe_account_id: null,
+    stripe_customer_id: null,
+    kyc_status: null,
+    role: "user",
     listing_count: listingCount ?? 0,
     review_count: reputation.reviewCount,
     avg_rating: reputation.reviewCount > 0 ? reputation.avgRating : null,
@@ -100,15 +111,24 @@ export async function updateMyProfile(
     throw new Error(first);
   }
 
-  const { data, error } = await supabase
+  const { error: updateError } = await supabase
     .from("profiles")
     .update(parsed.data)
     .eq("id", userId)
-    .select()
+    .select(OWN_PROFILE_UPDATE_RETURNING_COLUMNS)
     .single();
 
-  if (error) throw new Error(error.message);
-  return data;
+  if (updateError) throw new Error(updateError.message);
+
+  const { data, error } = await supabase
+    .from("profiles_me")
+    .select("*")
+    .single();
+
+  if (error || !data?.id || !data.username) {
+    throw new Error(error?.message ?? "Profil introuvable");
+  }
+  return data as Profile;
 }
 
 export type ReviewWithReviewer = {

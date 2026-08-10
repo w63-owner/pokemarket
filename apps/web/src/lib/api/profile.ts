@@ -9,12 +9,15 @@ export async function fetchMyProfile(): Promise<Profile | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
+  // Sensitive columns are revoked on `profiles` for JWT roles; own-row
+  // secrets (address / Stripe / role) are exposed via profiles_me.
   const { data, error } = await supabase
-    .from("profiles")
+    .from("profiles_me")
     .select("*")
-    .eq("id", user.id)
     .single();
 
   if (error) throw error;
-  return data;
+  if (!data?.id || !data.username) return null;
+
+  return data as Profile;
 }
