@@ -23,26 +23,22 @@ export const fetchListingById = cache(
 
     const { data, error } = await supabase
       .from("listings")
-      .select(
-        `*, profiles!listings_seller_id_fkey(${PUBLIC_PROFILE_COLUMNS})`,
-      )
+      .select(`*, profiles!listings_seller_id_fkey(${PUBLIC_PROFILE_COLUMNS})`)
       .eq("id", id)
       .single();
 
-    if (error || !data) return null;
+    if (error || !data?.profiles) return null;
 
-    if (data.profiles) {
-      data.profiles = {
-        ...data.profiles,
-        address_line: null,
-        city: null,
-        postal_code: null,
-        stripe_account_id: null,
-        stripe_customer_id: null,
-        kyc_status: null,
-        role: "user",
-      } satisfies Profile;
-    }
+    const sellerProfile = {
+      ...data.profiles,
+      address_line: null,
+      city: null,
+      postal_code: null,
+      stripe_account_id: null,
+      stripe_customer_id: null,
+      kyc_status: null,
+      role: "user",
+    } satisfies Profile;
 
     let card_metadata: CardMetadata | null = null;
 
@@ -91,7 +87,8 @@ export const fetchListingById = cache(
     }
 
     return {
-      ...(data as unknown as Omit<ListingDetail, "card_metadata">),
+      ...(data as unknown as Omit<ListingDetail, "card_metadata" | "profiles">),
+      profiles: sellerProfile,
       card_metadata,
     };
   },
