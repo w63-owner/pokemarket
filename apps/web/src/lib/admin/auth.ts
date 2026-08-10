@@ -31,9 +31,8 @@ export async function requireAdmin(): Promise<
   }
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profiles_me")
     .select("role")
-    .eq("id", user.id)
     .single();
 
   if (!profile || profile.role !== "admin") {

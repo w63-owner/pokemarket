@@ -14,9 +14,8 @@ export async function AdminGuard({ children }: { children: React.ReactNode }) {
   }
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profiles_me")
     .select("role")
-    .eq("id", user.id)
     .single();
 
   if (!profile || profile.role !== "admin") {

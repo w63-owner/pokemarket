@@ -59,9 +59,8 @@ export default async function CheckoutPage({ params }: Props) {
   // automatically. RLS scopes this query to the buyer's own row; we ignore
   // failures and ship the form unfilled if there's nothing on file.
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("profiles_me")
     .select("address_line, city, postal_code, country_code")
-    .eq("id", user.id)
     .maybeSingle();
 
   const defaultShipping =

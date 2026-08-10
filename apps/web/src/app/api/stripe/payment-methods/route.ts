@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { getAppUrl } from "@/lib/env";
 import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
@@ -19,7 +20,9 @@ export async function GET() {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    // stripe_customer_id is not selectable via JWT after column hardening.
+    const admin = createAdminClient();
+    const { data: profile } = await admin
       .from("profiles")
       .select("stripe_customer_id")
       .eq("id", user.id)
@@ -67,37 +70,31 @@ export async function POST() {
     }
 
     const stripe = getStripe();
+    const admin = createAdminClient();
 
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from("profiles")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, username")
       .eq("id", user.id)
       .single();
 
     let customerId = profile?.stripe_customer_id;
 
     if (!customerId) {
-      // Re-fetch with username so the Stripe dashboard shows a human-readable
-      // label and supports search by display name. Email is critical for
-      // dashboard search ("show me the customer behind ch_xxx") and for
-      // surfacing the user in receipts and dispute evidence flows.
-      const { data: profileWithName } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-
+      // Email is critical for dashboard search ("show me the customer behind
+      // ch_xxx") and for receipts / dispute evidence flows.
       const customer = await stripe.customers.create(
         {
           email: user.email,
-          name: profileWithName?.username ?? undefined,
+          name: profile?.username ?? undefined,
           metadata: { supabase_user_id: user.id },
         },
         { idempotencyKey: stripeIdempotencyKeys.customer(user.id) },
       );
       customerId = customer.id;
 
-      await supabase
+      // JWT clients cannot mutate stripe_customer_id; bind via service role.
+      await admin
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", user.id);

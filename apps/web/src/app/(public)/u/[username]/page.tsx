@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PUBLIC_PROFILE_COLUMNS } from "@pokemarket/shared";
 import { createClient } from "@/lib/supabase/server";
 import { MobileHeader } from "@/components/layout/mobile-header";
 
@@ -48,13 +49,24 @@ export default async function PublicProfilePage({ params }: Props) {
   const { username } = await params;
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
+  const { data: publicProfile } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PUBLIC_PROFILE_COLUMNS)
     .eq("username", username)
     .single();
 
-  if (!profile) notFound();
+  if (!publicProfile) notFound();
+
+  const profile = {
+    ...publicProfile,
+    address_line: null,
+    city: null,
+    postal_code: null,
+    stripe_account_id: null,
+    stripe_customer_id: null,
+    kyc_status: null,
+    role: "user",
+  } satisfies Profile;
 
   const {
     data: { user: currentUser },

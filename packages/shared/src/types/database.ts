@@ -2060,6 +2060,28 @@ export type Database = {
         };
         Relationships: [];
       };
+      profiles_me: {
+        Row: {
+          address_line: string | null;
+          avatar_url: string | null;
+          bio: string | null;
+          city: string | null;
+          country_code: string | null;
+          created_at: string | null;
+          facebook_url: string | null;
+          id: string | null;
+          instagram_url: string | null;
+          kyc_status: string | null;
+          postal_code: string | null;
+          role: string | null;
+          stripe_account_id: string | null;
+          stripe_customer_id: string | null;
+          tiktok_url: string | null;
+          updated_at: string | null;
+          username: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       apply_stripe_refund: {

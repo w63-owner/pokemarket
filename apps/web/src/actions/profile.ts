@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { OWN_PROFILE_UPDATE_RETURNING_COLUMNS } from "@pokemarket/shared";
 import { createClient } from "@/lib/supabase/server";
 import { profileUpdateSchema } from "@/lib/validations";
 import type { Profile } from "@/types";
@@ -29,15 +30,26 @@ export async function updateProfileAction(
     return { success: false, error: "Non authentifié" };
   }
 
-  const { data, error } = await supabase
+  const { error: updateError } = await supabase
     .from("profiles")
     .update(parsed.data)
     .eq("id", user.id)
-    .select()
+    .select(OWN_PROFILE_UPDATE_RETURNING_COLUMNS)
     .single();
 
-  if (error) {
-    return { success: false, error: error.message };
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  // Re-read via profiles_me so Stripe / role / KYC fields remain available to
+  // the caller without granting those columns on the base table.
+  const { data, error } = await supabase
+    .from("profiles_me")
+    .select("*")
+    .single();
+
+  if (error || !data?.id || !data.username) {
+    return { success: false, error: error?.message ?? "Profil introuvable" };
   }
 
   const profile = data as Profile;
