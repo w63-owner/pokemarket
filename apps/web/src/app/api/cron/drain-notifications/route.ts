@@ -7,6 +7,7 @@ import { sendEmail } from "@/lib/emails/send";
 import { sendPushNotification } from "@/lib/push/send";
 import OrderConfirmationEmail from "@/emails/order-confirmation";
 import SaleNotificationEmail from "@/emails/sale-notification";
+import { isCronAuthorized } from "@/lib/cron/auth";
 import type {
   EmailOutboxPayload,
   InAppOutboxPayload,
@@ -20,16 +21,6 @@ export const dynamic = "force-dynamic";
 // well within the function timeout even when the backlog is large.
 const BATCH_SIZE = 50;
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const auth = request.headers.get("authorization");
-  return (
-    typeof secret === "string" &&
-    secret.length > 0 &&
-    auth === `Bearer ${secret}`
-  );
-}
-
 function renderEmailTemplate(payload: EmailOutboxPayload): ReactElement {
   switch (payload.template) {
     case "order-confirmation":
@@ -40,7 +31,7 @@ function renderEmailTemplate(payload: EmailOutboxPayload): ReactElement {
 }
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

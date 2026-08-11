@@ -3,23 +3,15 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processPaidTransactionEffects } from "@/lib/stripe/post-payment";
+import { isCronAuthorized } from "@/lib/cron/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BATCH_SIZE = 25;
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  return (
-    typeof secret === "string" &&
-    secret.length > 0 &&
-    request.headers.get("authorization") === `Bearer ${secret}`
-  );
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

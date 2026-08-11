@@ -1,3 +1,4 @@
+import { requireAdminPage } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminUsersTable, type AdminUserRow } from "./users-table";
 
@@ -6,6 +7,8 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 500;
 
 export default async function AdminUsersPage() {
+  await requireAdminPage();
+
   let users: AdminUserRow[] = [];
 
   try {
