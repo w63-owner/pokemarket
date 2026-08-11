@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { requireAdminPage } from "@/lib/admin/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { DisputeActions } from "./dispute-actions";
@@ -39,6 +40,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default async function AdminDisputesPage() {
+  await requireAdminPage();
   const admin = createAdminClient();
   const { data: disputes, error } = await admin
     .from("stripe_disputes")

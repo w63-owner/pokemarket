@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotification } from "@/lib/push/send";
 import type { FeedFilters } from "@pokemarket/shared";
+import { isCronAuthorized } from "@/lib/cron/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,11 +13,6 @@ const LOOKBACK_MINUTES = 65;
 
 // At most this many new listings per cron run to avoid memory issues.
 const MAX_NEW_LISTINGS = 500;
-
-function isAuthorized(request: Request): boolean {
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${process.env.CRON_SECRET}`;
-}
 
 type NewListing = {
   id: string;
@@ -94,7 +90,7 @@ function listingMatchesFilters(
 }
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

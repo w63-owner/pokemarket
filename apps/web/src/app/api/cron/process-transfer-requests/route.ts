@@ -5,23 +5,15 @@ import { executeReservedPayout } from "@/lib/stripe/execute-payout";
 import { executeFinancialRecovery } from "@/lib/stripe/execute-financial-recovery";
 import { executeSellerTransfer } from "@/lib/stripe/execute-transfer";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isCronAuthorized } from "@/lib/cron/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BATCH_SIZE = 25;
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  return (
-    typeof secret === "string" &&
-    secret.length > 0 &&
-    request.headers.get("authorization") === `Bearer ${secret}`
-  );
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
