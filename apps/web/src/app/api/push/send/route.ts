@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { sanitizePushDeepLink } from "@pokemarket/shared";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushNotification } from "@/lib/push/send";
 import { pushRateLimit, applyRateLimit } from "@/lib/rate-limit";
@@ -71,8 +72,22 @@ export async function POST(request: Request) {
     );
   }
 
+  // Callers may supply a deep-link URL. Only same-app relative paths are
+  // allowed — absolute URLs would open attacker sites from a PokeMarket-
+  // branded notification via the service worker / mobile handlers.
+  let safeUrl: string | undefined;
+  if (body.url !== undefined && body.url !== null && body.url !== "") {
+    safeUrl = sanitizePushDeepLink(body.url);
+    if (!safeUrl) {
+      return NextResponse.json(
+        { error: "URL de notification invalide" },
+        { status: 400 },
+      );
+    }
+  }
+
   try {
-    await sendPushNotification(body.user_id, body.title, body.body, body.url);
+    await sendPushNotification(body.user_id, body.title, body.body, safeUrl);
   } catch (err) {
     Sentry.captureException(err);
     console.error("[push/send] Failed to send push notification:", err);

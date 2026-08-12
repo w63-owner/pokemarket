@@ -1,6 +1,9 @@
 import webpush from "web-push";
 import * as Sentry from "@sentry/nextjs";
-import type { PushNotificationCategory } from "@pokemarket/shared";
+import {
+  sanitizePushDeepLink,
+  type PushNotificationCategory,
+} from "@pokemarket/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendExpoPushNotification } from "@/lib/push/expo";
 
@@ -55,11 +58,15 @@ export async function sendPushNotification(
     return;
   }
 
+  // Defense in depth: never forward absolute/external deep links to web or
+  // mobile clients, even from trusted server call sites.
+  const safeUrl = sanitizePushDeepLink(url);
+
   await Promise.allSettled([
-    sendWebPush(userId, title, body, url, options),
+    sendWebPush(userId, title, body, safeUrl, options),
     sendExpoPushNotification(userId, title, body, {
       category: options?.category,
-      url,
+      url: safeUrl,
     }),
   ]);
 }

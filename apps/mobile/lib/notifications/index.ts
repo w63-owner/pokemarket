@@ -3,6 +3,7 @@ import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
+import { sanitizePushDeepLink } from "@pokemarket/shared";
 
 import { api, apiFetch } from "@/lib/api/client";
 import { transactionRoutes } from "@/lib/routes/orders";
@@ -162,15 +163,14 @@ export type NotificationPayload = {
 function navigateForNotification(data: NotificationPayload | undefined) {
   if (!data) return;
 
-  // Prefer the explicit URL — backend already mirrors web routes that exist
-  // on mobile (e.g. /messages/<id> ⇒ /inbox/<id>, /listing/<id>, etc.).
-  const raw = data.url;
-  if (raw) {
-    const path = raw.startsWith("http") ? new URL(raw).pathname : raw;
-
+  // Prefer the explicit URL — only same-app relative paths are accepted.
+  // Absolute / protocol-relative URLs are dropped so a compromised push
+  // payload cannot deep-link outside the app.
+  const safePath = sanitizePushDeepLink(data.url);
+  if (safePath) {
     // Backend was written for the web app, so messages live under
     // `/messages/<id>` while mobile uses `/inbox/<id>`.
-    const rewritten = path.replace(/^\/messages\//, "/inbox/");
+    const rewritten = safePath.replace(/^\/messages\//, "/inbox/");
     router.push(rewritten as never);
     return;
   }
