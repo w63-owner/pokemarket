@@ -9,6 +9,9 @@ export const CARD_ASPECT_RATIO = 63 / 88;
 /** Cutout occupies 88% of the container width */
 export const CUTOUT_WIDTH_PERCENT = 0.88;
 
+/** Extra image retained around every edge of the visible guide. */
+export const CROP_MARGIN_PERCENT = 0.02;
+
 const BRACKET_LEN = 22;
 const BRACKET_W = 2.5;
 
@@ -153,21 +156,32 @@ export function CameraOverlay({
 }
 
 /**
- * Returns the cutout region as ratios (0–1) of the overlay container.
- * Maps directly to camera crop coordinates because the overlay sits on
- * top of the CameraView with identical dimensions.
+ * Returns the expanded cutout as ratios (0–1) of the full CameraView.
+ * The guide can be shorter than the camera preview when capture controls
+ * reserve space at the bottom, so both heights must be supplied.
  */
 export function getOverlayCropRatios(
-  containerWidth: number,
-  containerHeight: number,
+  cameraWidth: number,
+  cameraHeight: number,
+  overlayHeight: number,
+  marginPercent = CROP_MARGIN_PERCENT,
 ) {
-  const cutoutW = containerWidth * CUTOUT_WIDTH_PERCENT;
+  const cutoutW = cameraWidth * CUTOUT_WIDTH_PERCENT;
   const cutoutH = cutoutW / CARD_ASPECT_RATIO;
+  const cutoutX = (cameraWidth - cutoutW) / 2;
+  const cutoutY = (overlayHeight - cutoutH) / 2;
+  const marginX = cutoutW * marginPercent;
+  const marginY = cutoutH * marginPercent;
+
+  const left = Math.max(0, cutoutX - marginX);
+  const top = Math.max(0, cutoutY - marginY);
+  const right = Math.min(cameraWidth, cutoutX + cutoutW + marginX);
+  const bottom = Math.min(cameraHeight, cutoutY + cutoutH + marginY);
 
   return {
-    x: (containerWidth - cutoutW) / 2 / containerWidth,
-    y: (containerHeight - cutoutH) / 2 / containerHeight,
-    width: cutoutW / containerWidth,
-    height: cutoutH / containerHeight,
+    x: left / cameraWidth,
+    y: top / cameraHeight,
+    width: (right - left) / cameraWidth,
+    height: (bottom - top) / cameraHeight,
   };
 }

@@ -21,6 +21,7 @@ import {
   type UploadedListingImage,
 } from "@/lib/api/listings";
 import { CameraCapture, type CapturedImage } from "./camera-capture";
+import { CARD_ASPECT_RATIO } from "./camera-overlay";
 
 const COMPRESSED_MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.85;
@@ -105,7 +106,7 @@ function ImageSlot({
 
       <View
         onLayout={handleLayout}
-        style={{ aspectRatio: 3 / 4 }}
+        style={{ aspectRatio: CARD_ASPECT_RATIO }}
         className={cn(
           "w-full overflow-hidden rounded-2xl border-2 border-dashed",
           hasImage
@@ -139,7 +140,7 @@ function ImageSlot({
               <Image
                 source={{ uri: state.publicUrl ?? undefined }}
                 style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
+                contentFit="contain"
                 transition={150}
               />
               <Pressable

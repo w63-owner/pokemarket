@@ -32,6 +32,7 @@ type Props = {
 
 const COMPRESSED_MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.85;
+const CAPTURE_CONTROLS_HEIGHT = 120;
 
 export function CameraCapture({ open, onClose, onCapture }: Props) {
   const cameraRef = useRef<CameraView | null>(null);
@@ -72,7 +73,12 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
       const intrinsicH = photo.height;
       const photoAspect = intrinsicW / intrinsicH;
       const containerAspect = size.width / size.height;
-      const ratios = getOverlayCropRatios(size.width, size.height);
+      const overlayHeight = Math.max(0, size.height - CAPTURE_CONTROLS_HEIGHT);
+      const ratios = getOverlayCropRatios(
+        size.width,
+        size.height,
+        overlayHeight,
+      );
 
       let srcX: number;
       let srcY: number;
@@ -204,12 +210,12 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
             top: 0,
             left: 0,
             right: 0,
-            bottom: 120,
+            bottom: CAPTURE_CONTROLS_HEIGHT,
           }}
         >
           <CameraOverlay
             containerWidth={size.width}
-            containerHeight={Math.max(0, size.height - 120)}
+            containerHeight={Math.max(0, size.height - CAPTURE_CONTROLS_HEIGHT)}
           />
         </View>
 
@@ -242,7 +248,7 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
             left: 0,
             right: 0,
             bottom: 0,
-            height: 120,
+            height: CAPTURE_CONTROLS_HEIGHT,
             backgroundColor: "#000",
           }}
           className="flex-row items-center justify-between px-8"
