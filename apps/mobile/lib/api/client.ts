@@ -62,9 +62,37 @@ async function buildHeaders(authenticated: boolean): Promise<Headers> {
   });
 
   if (authenticated) {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const {
+      data: { session: storedSession },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      throw new ApiError(401, "Impossible de vérifier votre session.");
+    }
+
+    const expiresSoon =
+      !storedSession?.expires_at ||
+      storedSession.expires_at <= Math.floor(Date.now() / 1000) + 30;
+
+    let session = storedSession;
+    if (session && expiresSoon) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        throw new ApiError(
+          401,
+          "Votre session a expiré. Veuillez vous reconnecter.",
+        );
+      }
+      session = data.session;
+    }
+
+    const token = session?.access_token;
+    if (!token) {
+      throw new ApiError(401, "Veuillez vous connecter pour continuer.");
+    }
+
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   return headers;

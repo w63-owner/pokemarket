@@ -24,6 +24,7 @@ import { FEATURE_FLAGS } from "@pokemarket/shared";
 import { initSentry, Sentry } from "@/lib/sentry";
 import { recordChannelCount, recordColdStart } from "@/lib/metrics";
 import { env } from "@/lib/env";
+import { setupAuthAutoRefresh } from "@/lib/supabase";
 import { ToastViewport } from "@/components/ui/toast";
 import { OfflineBanner } from "@/components/layout";
 import { AnimatedSplash } from "@/components/splash/animated-splash";
@@ -51,6 +52,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // time the user lands on (or navigates to) an auth-gated tab the cached
 // auth state is already resolved — no flash of protected content.
 initAuth();
+setupAuthAutoRefresh();
 
 // Wire React Query's `focusManager` + `onlineManager` once at module
 // init — before the provider mounts — so cold-start refetches pick up

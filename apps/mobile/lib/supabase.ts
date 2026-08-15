@@ -1,4 +1,5 @@
 import "react-native-url-polyfill/auto";
+import { AppState, type AppStateStatus } from "react-native";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@pokemarket/shared";
 import { env } from "./env";
@@ -25,3 +26,26 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
     },
   },
 );
+
+let authAutoRefreshInstalled = false;
+
+/**
+ * Supabase cannot use browser visibility events in React Native, so token
+ * refresh must follow AppState explicitly. Without this, the UI can retain a
+ * restored user while its access token expires in the background.
+ */
+export function setupAuthAutoRefresh(): void {
+  if (authAutoRefreshInstalled) return;
+  authAutoRefreshInstalled = true;
+
+  const syncAutoRefresh = (status: AppStateStatus) => {
+    if (status === "active") {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  };
+
+  syncAutoRefresh(AppState.currentState);
+  AppState.addEventListener("change", syncAutoRefresh);
+}
