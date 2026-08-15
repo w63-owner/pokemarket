@@ -243,7 +243,7 @@ export function ImageUploader({
   // Keep parent in sync once on mount when initial values were provided.
   const notifiedRef = useRef(false);
   useEffect(() => {
-    if (notifiedRef.current) return;
+    if (notifiedRef.current || (!initialCover && !initialBack)) return;
     notifiedRef.current = true;
     onImagesChange?.({
       cover: cover.publicUrl
