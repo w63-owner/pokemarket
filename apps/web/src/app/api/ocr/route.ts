@@ -82,6 +82,13 @@ function normalizeStr(s: string): string {
     .trim();
 }
 
+export function extractOcrLocalId(cardNumber: string | null): string | null {
+  if (!cardNumber) return null;
+
+  const localId = cardNumber.split("/", 1)[0]?.trim();
+  return localId || null;
+}
+
 function computeConfidence(
   parsed: OcrParsed,
   card: {
@@ -274,17 +281,51 @@ async function matchTcgdexCards(parsed: OcrParsed): Promise<OcrCandidate[]> {
   if (!parsed.name) return [];
 
   const supabase = createAdminClient();
+  const cardName = parsed.name;
+  const localId = extractOcrLocalId(parsed.card_number);
+  const searches = [
+    { name: cardName, language: parsed.language, localId },
+    { name: cardName, language: parsed.language, localId: null },
+    { name: cardName, language: null, localId },
+    { name: cardName, language: null, localId: null },
+    ...(localId
+      ? [
+          { name: "", language: parsed.language, localId },
+          { name: "", language: null, localId },
+        ]
+      : []),
+  ].filter(
+    (search, index, all) =>
+      all.findIndex(
+        (candidate) =>
+          candidate.name === search.name &&
+          candidate.language === search.language &&
+          candidate.localId === search.localId,
+      ) === index,
+  );
 
-  const { data: rows, error } = await supabase.rpc("match_tcgdex_cards", {
-    p_name: parsed.name,
-    p_language: parsed.language ?? undefined,
-  });
+  const findRows = async () => {
+    for (const search of searches) {
+      const { data, error } = await supabase.rpc("match_tcgdex_cards", {
+        p_name: search.name,
+        ...(search.language ? { p_language: search.language } : {}),
+        ...(search.localId ? { p_local_id: search.localId } : {}),
+      });
 
-  if (error) {
-    console.error("match_tcgdex_cards RPC error:", error);
-    return [];
-  }
+      if (error) {
+        console.error("match_tcgdex_cards RPC error:", error);
+        return null;
+      }
 
+      if (data?.length) {
+        return data;
+      }
+    }
+
+    return null;
+  };
+
+  const rows = await findRows();
   if (!rows || rows.length === 0) return [];
 
   const scored: OcrCandidate[] = rows.map((row) => ({

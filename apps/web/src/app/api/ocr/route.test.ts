@@ -1,7 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { isAllowedSupabaseImageUrl } from "./route";
+import { extractOcrLocalId, isAllowedSupabaseImageUrl } from "./route";
 
 const SB = "https://abcdefghijklmnop.supabase.co";
+
+describe("extractOcrLocalId", () => {
+  it("extracts the collector number from a full card number", () => {
+    expect(extractOcrLocalId("116/198")).toBe("116");
+  });
+
+  it("preserves leading zeroes used by the catalog", () => {
+    expect(extractOcrLocalId("004/102")).toBe("004");
+  });
+
+  it("returns null when the OCR did not read a card number", () => {
+    expect(extractOcrLocalId(null)).toBeNull();
+  });
+});
 
 describe("isAllowedSupabaseImageUrl", () => {
   describe("accepts legitimate URLs", () => {
