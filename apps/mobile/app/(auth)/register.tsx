@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { Link, router } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema } from "@pokemarket/shared";
 import type { z } from "zod";
-import { Button, Input, Label, Text } from "@/components/ui";
+import { Button, Input, Label, SmartBackButton, Text } from "@/components/ui";
 import { toast } from "@/components/ui/toast";
 import { supabase } from "@/lib/supabase";
 
 type FormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterScreen() {
+  const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const {
     control,
@@ -23,6 +24,14 @@ export default function RegisterScreen() {
     resolver: zodResolver(registerSchema),
     defaultValues: { email: "", password: "", username: "" },
   });
+
+  const returnToLogin = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(auth)/login");
+    }
+  };
 
   const onSubmit = handleSubmit(async ({ email, password, username }) => {
     setSubmitting(true);
@@ -40,7 +49,7 @@ export default function RegisterScreen() {
       return;
     }
     toast.success("Compte créé", "Vérifie tes emails pour confirmer.");
-    router.replace("/(auth)/login");
+    returnToLogin();
   });
 
   return (
@@ -50,6 +59,10 @@ export default function RegisterScreen() {
           contentContainerStyle={{ flexGrow: 1, padding: 24 }}
           keyboardShouldPersistTaps="handled"
         >
+          <View className="mb-4">
+            <SmartBackButton fallbackHref="/(auth)/login" />
+          </View>
+
           <View className="flex-1 justify-center gap-6">
             <View className="gap-2">
               <Text variant="h1">Créer un compte</Text>
@@ -141,13 +154,9 @@ export default function RegisterScreen() {
 
             <View className="flex-row items-center justify-center gap-1">
               <Text variant="muted">Déjà inscrit ?</Text>
-              <Link href="/(auth)/login" asChild>
-                <Pressable hitSlop={4}>
-                  <Text className="font-semibold text-primary">
-                    Se connecter
-                  </Text>
-                </Pressable>
-              </Link>
+              <Pressable onPress={returnToLogin} hitSlop={4}>
+                <Text className="font-semibold text-primary">Se connecter</Text>
+              </Pressable>
             </View>
           </View>
         </ScrollView>

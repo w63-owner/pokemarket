@@ -88,7 +88,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View className="mb-4">
-            <SmartBackButton fallbackHref="/(tabs)/inbox" />
+            <SmartBackButton fallbackHref="/" />
           </View>
 
           <View className="flex-1 justify-center gap-6">
