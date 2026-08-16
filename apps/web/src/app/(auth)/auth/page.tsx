@@ -9,10 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { SmartBackButton } from "@/components/ui/smart-back-button";
 
 function AuthForm() {
-  const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -21,9 +21,20 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
+  const mode = searchParams.get("mode") === "register" ? "register" : "login";
 
   const confirmed = searchParams.get("confirmed");
   const errorParam = searchParams.get("error");
+
+  function showRegister() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("mode", "register");
+    router.push(`/auth?${params.toString()}`);
+  }
+
+  function showLogin() {
+    router.back();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,12 +70,24 @@ function AuthForm() {
 
   return (
     <div className="space-y-6">
-      <SmartBackButton
-        returnTo={searchParams.get("next") ?? undefined}
-        fallbackUrl="/"
-        variant="ghost"
-        className="-ml-2"
-      />
+      {mode === "register" ? (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={showLogin}
+          className="-ml-2 min-h-11"
+        >
+          <ArrowLeft className="size-5" />
+          Connexion
+        </Button>
+      ) : (
+        <SmartBackButton
+          returnTo={searchParams.get("next") ?? undefined}
+          fallbackUrl="/"
+          variant="ghost"
+          className="-ml-2"
+        />
+      )}
 
       <div className="text-center">
         <h1 className="font-heading text-3xl font-bold">
@@ -143,7 +166,7 @@ function AuthForm() {
       <div className="space-y-2 text-center text-sm">
         <button
           type="button"
-          onClick={() => setMode(mode === "login" ? "register" : "login")}
+          onClick={mode === "login" ? showRegister : showLogin}
           className="text-brand hover:underline"
         >
           {mode === "login"

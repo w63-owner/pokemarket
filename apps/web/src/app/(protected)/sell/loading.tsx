@@ -2,55 +2,42 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SellLoading() {
   return (
-    <>
-      {/* MobileHeader placeholder */}
-      <div className="bg-background/80 sticky top-0 z-30 flex items-center justify-between border-b px-4 py-3 backdrop-blur-md">
-        <Skeleton className="h-5 w-5 rounded" />
-        <Skeleton className="h-5 w-24" />
-        <div className="w-5" />
+    <div className="bg-background fixed inset-0 z-40 flex min-h-dvh flex-col">
+      <div className="border-border border-b pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+          <Skeleton className="size-9 rounded-full" />
+          <div className="space-y-1.5 text-center">
+            <Skeleton className="mx-auto h-4 w-28" />
+            <Skeleton className="mx-auto h-3 w-16" />
+          </div>
+          <div className="size-9" />
+        </div>
+        <div className="mx-auto grid max-w-3xl grid-cols-3 gap-2 px-4 pb-3">
+          {[0, 1, 2].map((step) => (
+            <div key={step} className="space-y-1.5">
+              <Skeleton className="h-1 w-full rounded-full" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="mx-auto w-full max-w-lg px-4 pt-6 pb-24">
-        {/* Image upload area */}
-        <div className="mb-6">
-          <Skeleton className="mb-3 h-4 w-16" />
-          <div className="flex gap-3">
-            <Skeleton className="h-24 w-24 shrink-0 rounded-xl" />
-            <Skeleton className="h-24 w-24 shrink-0 rounded-xl" />
-            <Skeleton className="h-24 w-24 shrink-0 rounded-xl" />
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="mx-auto w-full max-w-lg space-y-6 px-4 py-6">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="h-4 w-72 max-w-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Skeleton className="aspect-[3/4] w-full rounded-xl" />
+            <Skeleton className="aspect-[3/4] w-full rounded-xl" />
           </div>
         </div>
-
-        {/* Divider */}
-        <div className="mb-6 flex items-center gap-2">
-          <Skeleton className="h-px flex-1" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-px flex-1" />
-        </div>
-
-        {/* Form fields */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-10 w-full rounded-lg" />
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-24 w-full rounded-lg" />
-          </div>
-        </div>
-
-        {/* Submit button */}
-        <Skeleton className="mt-8 h-12 w-full rounded-xl" />
       </div>
-    </>
+
+      <div className="border-border border-t px-4 py-3">
+        <Skeleton className="mx-auto h-10 w-full max-w-lg rounded-lg" />
+      </div>
+    </div>
   );
 }

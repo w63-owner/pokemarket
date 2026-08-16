@@ -45,6 +45,8 @@ export function Header() {
   const { data: featureFlags } = useFeatureFlags();
   const { direction, isAtTop } = useScrollDirection({ threshold: 15 });
 
+  if (pathname === "/sell") return null;
+
   const isHidden = direction === "down" && !isAtTop;
 
   return (

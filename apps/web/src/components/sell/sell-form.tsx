@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useForm, Controller, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
@@ -95,6 +96,7 @@ interface SellFormProps {
   cardKey?: string | null;
   defaultValues?: Partial<SellFormValues>;
   onSubmit: (data: SellFormValues) => void;
+  onValuesChange?: (data: Partial<SellFormValues>) => void;
   isLoading?: boolean;
   submitLabel?: string;
 }
@@ -175,6 +177,7 @@ export function SellForm({
   cardKey,
   defaultValues,
   onSubmit,
+  onValuesChange,
   isLoading,
   submitLabel = "Publier l'annonce",
 }: SellFormProps) {
@@ -201,6 +204,13 @@ export function SellForm({
       ...defaultValues,
     },
   });
+
+  const watchedValues = useWatch({ control });
+
+  useEffect(() => {
+    if (!onValuesChange) return;
+    onValuesChange(watchedValues as Partial<SellFormValues>);
+  }, [onValuesChange, watchedValues]);
 
   const isGraded = useWatch({ control, name: "is_graded" });
   const condition = useWatch({ control, name: "condition" });

@@ -15,6 +15,8 @@ const MANUAL_VALUE = "__manual__";
 interface OcrResultsProps {
   candidates: OcrCandidate[];
   isLoading: boolean;
+  selectedCardKey?: string | null;
+  manualSelected?: boolean;
   onSelect: (cardKey: string | null) => void;
 }
 
@@ -193,9 +195,11 @@ function CandidateCard({
 export function OcrResults({
   candidates,
   isLoading,
+  selectedCardKey = null,
+  manualSelected = false,
   onSelect,
 }: OcrResultsProps) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const selected = manualSelected ? MANUAL_VALUE : selectedCardKey;
 
   if (isLoading) {
     return <ScanSkeleton />;
@@ -207,7 +211,6 @@ export function OcrResults({
 
   const handleChange = (value: string | null) => {
     if (!value) return;
-    setSelected(value);
     onSelect(value === MANUAL_VALUE ? null : value);
   };
 

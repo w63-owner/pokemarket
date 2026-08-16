@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { m, AnimatePresence } from "framer-motion";
 import { Camera, Trash2, Loader2, FolderOpen } from "lucide-react";
@@ -28,13 +28,19 @@ const INITIAL_SLOT: ImageSlotState = {
   progress: 0,
 };
 
+export interface UploadedListingImages {
+  coverUrl: string | null;
+  backUrl: string | null;
+  coverStoragePath: string | null;
+  backStoragePath: string | null;
+}
+
 interface ImageUploaderProps {
-  onImagesChange?: (images: {
-    coverUrl: string | null;
-    backUrl: string | null;
-  }) => void;
+  onImagesChange?: (images: UploadedListingImages) => void;
   initialCoverUrl?: string | null;
   initialBackUrl?: string | null;
+  initialCoverStoragePath?: string | null;
+  initialBackStoragePath?: string | null;
 }
 
 const MAX_DIMENSION = 1200;
@@ -320,22 +326,40 @@ export function ImageUploader({
   onImagesChange,
   initialCoverUrl,
   initialBackUrl,
+  initialCoverStoragePath,
+  initialBackStoragePath,
 }: ImageUploaderProps) {
   const { user } = useAuth();
   const supabase = createClient();
+  const isMountedRef = useRef(true);
 
   const [cover, setCover] = useState<ImageSlotState>(
     initialCoverUrl
-      ? { ...INITIAL_SLOT, publicUrl: initialCoverUrl }
+      ? {
+          ...INITIAL_SLOT,
+          publicUrl: initialCoverUrl,
+          storagePath: initialCoverStoragePath ?? null,
+        }
       : { ...INITIAL_SLOT },
   );
   const [back, setBack] = useState<ImageSlotState>(
     initialBackUrl
-      ? { ...INITIAL_SLOT, publicUrl: initialBackUrl }
+      ? {
+          ...INITIAL_SLOT,
+          publicUrl: initialBackUrl,
+          storagePath: initialBackStoragePath ?? null,
+        }
       : { ...INITIAL_SLOT },
   );
 
   const [cameraTarget, setCameraTarget] = useState<CameraTarget>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const notifyParent = useCallback(
     (nextCover: ImageSlotState | null, nextBack: ImageSlotState | null) => {
@@ -344,6 +368,8 @@ export function ImageUploader({
       onImagesChange?.({
         coverUrl: c.publicUrl,
         backUrl: b.publicUrl,
+        coverStoragePath: c.storagePath,
+        backStoragePath: b.storagePath,
       });
     },
     [cover, back, onImagesChange],
@@ -354,7 +380,7 @@ export function ImageUploader({
       file: File,
       setter: React.Dispatch<React.SetStateAction<ImageSlotState>>,
       currentSlot: ImageSlotState,
-      iscover: boolean,
+      isCover: boolean,
     ) => {
       if (!user) {
         toast.error("Vous devez être connecté pour uploader une image.");
@@ -375,6 +401,10 @@ export function ImageUploader({
         setter((prev) => ({ ...prev, progress: 30 }));
 
         const compressed = await compressImage(file);
+        if (!isMountedRef.current) {
+          URL.revokeObjectURL(previewUrl);
+          return;
+        }
 
         setter((prev) => ({ ...prev, progress: 60 }));
 
@@ -395,6 +425,11 @@ export function ImageUploader({
           });
 
         if (uploadError) throw uploadError;
+        if (!isMountedRef.current) {
+          await supabase.storage.from("listing-images").remove([fileName]);
+          URL.revokeObjectURL(previewUrl);
+          return;
+        }
 
         setter((prev) => ({ ...prev, progress: 90 }));
 
@@ -413,7 +448,7 @@ export function ImageUploader({
 
         setter(newState);
 
-        if (iscover) {
+        if (isCover) {
           notifyParent(newState, null);
         } else {
           notifyParent(null, newState);
@@ -423,6 +458,7 @@ export function ImageUploader({
       } catch (err) {
         console.error("Upload failed:", err);
         URL.revokeObjectURL(previewUrl);
+        if (!isMountedRef.current) return;
         setter((prev) => ({
           ...prev,
           previewUrl: prev.publicUrl ? prev.previewUrl : null,
