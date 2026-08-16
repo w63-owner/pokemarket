@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Pressable, ScrollView, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -132,9 +132,12 @@ function SellContent() {
   const [formDraft, setFormDraft] = useState<Partial<SellFormValues>>({});
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
+  const hasRestoredDraft = useRef(false);
 
   useEffect(() => {
-    if (!hydrated || !draft) return;
+    if (!hydrated || hasRestoredDraft.current) return;
+    hasRestoredDraft.current = true;
+    if (!draft) return;
 
     const restoredImages = {
       cover: draft.cover ?? null,
@@ -293,6 +296,16 @@ function SellContent() {
       toast.error("Échec du scan", message);
     }
   }, [formDraft, images.cover, updateDraft]);
+
+  const handleContinue = useCallback(() => {
+    if (step === 1) {
+      goToStep(2);
+      void handleOcrScan();
+      return;
+    }
+
+    goToStep((step + 1) as SellStep);
+  }, [goToStep, handleOcrScan, step]);
 
   const handleCandidateSelect = useCallback(
     (cardKey: string | null) => {
@@ -625,7 +638,7 @@ function SellContent() {
                 (step === 2 && !identificationConfirmed) ||
                 ocr.isLoading
               }
-              onPress={() => goToStep((step + 1) as SellStep)}
+              onPress={handleContinue}
               rightIcon={<ArrowRight size={16} color={primaryForeground} />}
             >
               Continuer

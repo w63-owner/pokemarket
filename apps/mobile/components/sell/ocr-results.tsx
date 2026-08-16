@@ -46,8 +46,8 @@ function CandidateCard({
   return (
     <View
       className={cn(
-        "flex-row items-start gap-3 rounded-2xl border p-3",
-        selected ? "border-primary bg-primary/5" : "border-border bg-card",
+        "flex-row items-start gap-3 rounded-2xl border-2 p-3",
+        selected ? "border-primary bg-primary/10" : "border-border bg-card",
       )}
     >
       <View className="mt-1">
@@ -219,9 +219,9 @@ export function OcrResults({
             delay: staggerDelay(candidates.length, 50, 10),
           }}
           className={cn(
-            "flex-row items-center gap-3 rounded-2xl border border-dashed p-3",
+            "flex-row items-center gap-3 rounded-2xl border-2 border-dashed p-3",
             selected === MANUAL_VALUE
-              ? "border-primary bg-primary/5"
+              ? "border-primary bg-primary/10"
               : "border-border bg-card",
           )}
         >
