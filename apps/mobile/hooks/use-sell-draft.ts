@@ -12,8 +12,10 @@ const STORAGE_KEY = "@pokemarket/sell-draft/v1";
 const SAVE_TOAST_THROTTLE_MS = 30_000;
 
 export type SellDraftPayload = {
+  step?: 1 | 2 | 3;
   cover?: { publicUrl: string; storagePath: string } | null;
   back?: { publicUrl: string; storagePath: string } | null;
+  identificationConfirmed?: boolean;
   ocr?: {
     selectedCardKey: string | null;
     parsedName: string | null;

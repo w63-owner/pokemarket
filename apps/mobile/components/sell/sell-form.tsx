@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
@@ -119,6 +120,7 @@ function FieldError({ message }: { message?: string }) {
 type Props = {
   cardKey?: string | null;
   defaultValues?: Partial<SellFormValues>;
+  onValuesChange?: (values: Partial<SellFormValues>) => void;
   onSubmit: (data: SellFormValues) => void;
   isLoading?: boolean;
   submitLabel?: string;
@@ -142,6 +144,7 @@ async function fetchPriceRecommendation(
 export function SellForm({
   cardKey,
   defaultValues,
+  onValuesChange,
   onSubmit,
   isLoading,
   submitLabel = "Publier l'annonce",
@@ -173,6 +176,12 @@ export function SellForm({
   const condition = useWatch({ control, name: "condition" });
   const cardLanguage = useWatch({ control, name: "card_language" });
   const priceSeller = useWatch({ control, name: "price_seller" });
+  const watchedValues = useWatch({ control });
+
+  useEffect(() => {
+    onValuesChange?.(watchedValues as Partial<SellFormValues>);
+  }, [onValuesChange, watchedValues]);
+
   const displayPrice =
     typeof priceSeller === "number" && priceSeller > 0
       ? calcDisplayPrice(priceSeller)

@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
-import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AnimatePresence, MotiView } from "moti";
 import {
+  AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   PlusCircle,
   ScanLine,
   Sparkles,
+  Trash2,
+  X,
 } from "lucide-react-native";
-import { MotiView, AnimatePresence } from "moti";
 import {
   FEATURE_FLAGS,
   toCardLanguageSelectValue,
@@ -17,27 +21,39 @@ import {
   type OcrParsed,
   type OcrResponse,
 } from "@pokemarket/shared";
-import { useAuth } from "@/hooks/use-auth";
-import { useCreateListing } from "@/hooks/use-listings";
-import { useSellDraft } from "@/hooks/use-sell-draft";
+
+import { TabHeader } from "@/components/layout";
 import {
   ImageUploader,
   OcrResults,
   SellForm,
   SellStepIndicator,
   type SellFormValues,
+  type SellStep,
 } from "@/components/sell";
-import { TabHeader } from "@/components/layout";
 import { AuthRequired } from "@/components/shared";
 import { FeatureGate } from "@/components/feature-flags/feature-gate";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useCreateListing } from "@/hooks/use-listings";
+import { useSellDraft } from "@/hooks/use-sell-draft";
 import { ApiError } from "@/lib/api/client";
+import {
+  removeListingImage,
+  type UploadedListingImage,
+} from "@/lib/api/listings";
 import { runOcrScan } from "@/lib/api/ocr";
-import type { UploadedListingImage } from "@/lib/api/listings";
-import { useThemeColor } from "@/lib/theme-colors";
 import { duration } from "@/lib/motion";
+import { useThemeColor } from "@/lib/theme-colors";
 
 type OcrState = {
   isLoading: boolean;
@@ -48,6 +64,13 @@ type OcrState = {
   hasRun: boolean;
 };
 
+type ListingImages = {
+  cover: UploadedListingImage | null;
+  back: UploadedListingImage | null;
+};
+
+const INITIAL_IMAGES: ListingImages = { cover: null, back: null };
+
 const INITIAL_OCR: OcrState = {
   isLoading: false,
   parsed: null,
@@ -57,11 +80,43 @@ const INITIAL_OCR: OcrState = {
   hasRun: false,
 };
 
+function candidateDefaults(
+  candidate: OcrCandidate | null,
+  parsed: OcrParsed | null,
+): Partial<SellFormValues> {
+  if (candidate) {
+    return {
+      title: candidate.name,
+      card_series: candidate.set_name ?? undefined,
+      card_block: candidate.series_name ?? undefined,
+      card_number:
+        candidate.local_id && candidate.set_official_count
+          ? `${candidate.local_id}/${candidate.set_official_count}`
+          : (candidate.local_id ?? undefined),
+      card_language: toCardLanguageSelectValue(candidate.language) || undefined,
+      card_rarity: candidate.rarity ?? undefined,
+      card_illustrator: candidate.illustrator ?? undefined,
+    };
+  }
+
+  if (parsed?.name) {
+    return {
+      title: parsed.name,
+      card_number: parsed.card_number ?? undefined,
+      card_language: toCardLanguageSelectValue(parsed.language) || undefined,
+    };
+  }
+
+  return {};
+}
+
 function SellContent() {
   const { user, loading: authLoading } = useAuth();
   const createListing = useCreateListing();
+  const primary = useThemeColor("primary");
   const primaryForeground = useThemeColor("primaryForeground");
   const mutedForeground = useThemeColor("mutedForeground");
+  const destructiveForeground = useThemeColor("destructiveForeground");
   const {
     draft,
     hydrated,
@@ -69,100 +124,229 @@ function SellContent() {
     clear: clearDraft,
   } = useSellDraft();
 
-  const [images, setImages] = useState<{
-    cover: UploadedListingImage | null;
-    back: UploadedListingImage | null;
-  }>({ cover: null, back: null });
+  const [step, setStep] = useState<SellStep>(1);
+  const [direction, setDirection] = useState(1);
+  const [images, setImages] = useState<ListingImages>(INITIAL_IMAGES);
   const [ocr, setOcr] = useState<OcrState>(INITIAL_OCR);
-  const [showForm, setShowForm] = useState(false);
+  const [identificationConfirmed, setIdentificationConfirmed] = useState(false);
+  const [formDraft, setFormDraft] = useState<Partial<SellFormValues>>({});
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
 
-  // Restore previously persisted draft (cover/back images) once on hydration.
-  // We don't restore form fields here — RHF is the source of truth and the
-  // wizard reopens on the photo step anyway.
   useEffect(() => {
     if (!hydrated || !draft) return;
-    if (draft.cover || draft.back) {
-      setImages({
-        cover: draft.cover ?? null,
-        back: draft.back ?? null,
+
+    const restoredImages = {
+      cover: draft.cover ?? null,
+      back: draft.back ?? null,
+    };
+    const hasBothRestored = Boolean(
+      restoredImages.cover && restoredImages.back,
+    );
+    const restoredIdentification = Boolean(draft.identificationConfirmed);
+    const restoredStep =
+      draft.step === 3 && hasBothRestored && restoredIdentification
+        ? 3
+        : draft.step === 2 && hasBothRestored
+          ? 2
+          : 1;
+
+    setImages(restoredImages);
+    setFormDraft((draft.form ?? {}) as Partial<SellFormValues>);
+    setIdentificationConfirmed(restoredIdentification);
+    setStep(restoredStep);
+    if (draft.ocr) {
+      setOcr({
+        ...INITIAL_OCR,
+        hasRun: true,
+        selectedCardKey: draft.ocr.selectedCardKey,
+        parsed: {
+          name: draft.ocr.parsedName,
+          card_number: draft.ocr.parsedCardNumber,
+          language: draft.ocr.parsedLanguage,
+        },
       });
     }
-  }, [hydrated, draft]);
+  }, [draft, hydrated]);
 
-  const hasBothImages = !!images.cover && !!images.back;
+  const hasBothImages = Boolean(images.cover && images.back);
+  const hasDraft = Boolean(
+    images.cover || images.back || Object.keys(formDraft).length > 0,
+  );
+
+  const goToStep = useCallback(
+    (nextStep: SellStep) => {
+      if (nextStep === 2 && !hasBothImages) return;
+      if (nextStep === 3 && !identificationConfirmed) return;
+      setDirection(nextStep > step ? 1 : -1);
+      setStep(nextStep);
+      updateDraft({ step: nextStep });
+    },
+    [hasBothImages, identificationConfirmed, step, updateDraft],
+  );
+
+  const requestExit = useCallback(() => {
+    if (hasDraft) {
+      setExitDialogOpen(true);
+      return;
+    }
+    router.replace("/");
+  }, [hasDraft]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          if (step > 1) {
+            goToStep((step - 1) as SellStep);
+          } else {
+            requestExit();
+          }
+          return true;
+        },
+      );
+      return () => subscription.remove();
+    }, [goToStep, requestExit, step]),
+  );
 
   const handleImagesChange = useCallback(
-    (next: {
-      cover: UploadedListingImage | null;
-      back: UploadedListingImage | null;
-    }) => {
+    (next: ListingImages) => {
+      const identityChanged =
+        images.cover?.storagePath !== next.cover?.storagePath ||
+        images.back?.storagePath !== next.back?.storagePath;
+
       setImages(next);
       updateDraft({ cover: next.cover, back: next.back });
-      if ((!next.cover || !next.back) && ocr.hasRun) {
+
+      if (identityChanged && ocr.hasRun) {
         setOcr(INITIAL_OCR);
-        setShowForm(false);
+        setIdentificationConfirmed(false);
+        setFormDraft({});
+        updateDraft({
+          identificationConfirmed: false,
+          form: null,
+          ocr: null,
+          step: 1,
+        });
       }
     },
-    [ocr.hasRun, updateDraft],
+    [
+      images.back?.storagePath,
+      images.cover?.storagePath,
+      ocr.hasRun,
+      updateDraft,
+    ],
   );
 
   const handleOcrScan = useCallback(async () => {
     if (!images.cover) return;
-    setOcr((prev) => ({
-      ...prev,
+
+    setIdentificationConfirmed(false);
+    setOcr((previous) => ({
+      ...previous,
       isLoading: true,
       hasRun: true,
       candidates: [],
+      selectedCardKey: null,
+      selectedCandidate: null,
     }));
 
     try {
       const data: OcrResponse = await runOcrScan(images.cover.publicUrl);
-      setOcr((prev) => ({
-        ...prev,
+      setOcr((previous) => ({
+        ...previous,
         isLoading: false,
         parsed: data.parsed,
         candidates: data.candidates,
       }));
 
       if (data.candidates.length === 0) {
+        const defaults = candidateDefaults(null, data.parsed);
+        setIdentificationConfirmed(true);
+        setFormDraft((previous) => ({ ...previous, ...defaults }));
+        updateDraft({
+          identificationConfirmed: true,
+          form: { ...formDraft, ...defaults },
+          ocr: {
+            selectedCardKey: null,
+            parsedName: data.parsed.name,
+            parsedCardNumber: data.parsed.card_number,
+            parsedLanguage: data.parsed.language,
+          },
+        });
         toast.info(
           data.parsed.name
-            ? "Carte non trouvée dans le catalogue"
-            : "Aucune carte identifiée",
-          data.parsed.name
-            ? "Les champs ont été pré-remplis."
-            : "Remplissez le formulaire manuellement.",
+            ? "Informations partielles détectées"
+            : "Identification manuelle",
+          "Vous pourrez vérifier et compléter les champs à l’étape suivante.",
         );
-        setShowForm(true);
       }
-    } catch (err) {
-      setOcr((prev) => ({ ...prev, isLoading: false }));
+    } catch (error) {
+      setOcr((previous) => ({ ...previous, isLoading: false }));
       const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
             : "Erreur lors du scan";
       toast.error("Échec du scan", message);
     }
-  }, [images.cover]);
+  }, [formDraft, images.cover, updateDraft]);
 
   const handleCandidateSelect = useCallback(
     (cardKey: string | null) => {
       const candidate = cardKey
-        ? (ocr.candidates.find((c) => c.card_key === cardKey) ?? null)
+        ? (ocr.candidates.find((item) => item.card_key === cardKey) ?? null)
         : null;
-      setOcr((prev) => ({
-        ...prev,
+      const defaults = candidateDefaults(candidate, ocr.parsed);
+
+      setOcr((previous) => ({
+        ...previous,
         selectedCardKey: cardKey,
         selectedCandidate: candidate,
       }));
-      setShowForm(true);
+      setIdentificationConfirmed(true);
+      setFormDraft((previous) => ({ ...previous, ...defaults }));
+      updateDraft({
+        identificationConfirmed: true,
+        form: { ...formDraft, ...defaults },
+        ocr: {
+          selectedCardKey: cardKey,
+          parsedName: ocr.parsed?.name ?? null,
+          parsedCardNumber: ocr.parsed?.card_number ?? null,
+          parsedLanguage: ocr.parsed?.language ?? null,
+        },
+      });
     },
-    [ocr.candidates],
+    [formDraft, ocr.candidates, ocr.parsed, updateDraft],
   );
 
-  const handleSkipOcr = useCallback(() => setShowForm(true), []);
+  const handleManualIdentification = useCallback(() => {
+    setOcr((previous) => ({
+      ...previous,
+      selectedCardKey: null,
+      selectedCandidate: null,
+    }));
+    setIdentificationConfirmed(true);
+    updateDraft({
+      identificationConfirmed: true,
+      ocr: {
+        selectedCardKey: null,
+        parsedName: ocr.parsed?.name ?? null,
+        parsedCardNumber: ocr.parsed?.card_number ?? null,
+        parsedLanguage: ocr.parsed?.language ?? null,
+      },
+    });
+  }, [ocr.parsed, updateDraft]);
+
+  const handleFormValuesChange = useCallback(
+    (values: Partial<SellFormValues>) => {
+      setFormDraft(values);
+      updateDraft({ form: values });
+    },
+    [updateDraft],
+  );
 
   const handleSubmit = useCallback(
     (data: SellFormValues) => {
@@ -170,6 +354,7 @@ function SellContent() {
         toast.error("Photos manquantes", "Recto et verso obligatoires");
         return;
       }
+
       createListing.mutate(
         {
           title: data.title,
@@ -183,7 +368,7 @@ function SellContent() {
           delivery_weight_class: "S",
           cover_image_url: images.cover.publicUrl,
           back_image_url: images.back.publicUrl,
-          card_ref_id: ocr.selectedCandidate?.card_key ?? null,
+          card_ref_id: ocr.selectedCardKey,
           card_series: data.card_series ?? null,
           card_block: data.card_block ?? null,
           card_number: data.card_number ?? null,
@@ -194,54 +379,71 @@ function SellContent() {
         {
           onSuccess: (listing) => {
             toast.success("Annonce publiée !");
-            setImages({ cover: null, back: null });
+            setImages(INITIAL_IMAGES);
             setOcr(INITIAL_OCR);
-            setShowForm(false);
+            setFormDraft({});
+            setIdentificationConfirmed(false);
+            setStep(1);
             void clearDraft();
-            router.push(`/listing/${listing.id}`);
+            router.replace(`/listing/${listing.id}`);
           },
         },
       );
     },
-    [
-      clearDraft,
-      createListing,
-      images.back,
-      images.cover,
-      ocr.selectedCandidate,
-    ],
+    [clearDraft, createListing, images.back, images.cover, ocr.selectedCardKey],
   );
 
-  const formDefaultValues: Partial<SellFormValues> | undefined =
-    ocr.selectedCandidate
-      ? {
-          title: ocr.selectedCandidate.name,
-          card_series: ocr.selectedCandidate.set_name ?? undefined,
-          card_block: ocr.selectedCandidate.series_name ?? undefined,
-          card_number:
-            ocr.selectedCandidate.local_id &&
-            ocr.selectedCandidate.set_official_count
-              ? `${ocr.selectedCandidate.local_id}/${ocr.selectedCandidate.set_official_count}`
-              : (ocr.selectedCandidate.local_id ?? undefined),
-          card_language:
-            toCardLanguageSelectValue(ocr.selectedCandidate.language) ||
-            undefined,
-          card_rarity: ocr.selectedCandidate.rarity ?? undefined,
-          card_illustrator: ocr.selectedCandidate.illustrator ?? undefined,
-        }
-      : ocr.parsed?.name
-        ? {
-            title: ocr.parsed.name,
-            card_number: ocr.parsed.card_number ?? undefined,
-            card_language:
-              toCardLanguageSelectValue(ocr.parsed.language) || undefined,
-          }
-        : undefined;
+  const discardDraft = useCallback(async () => {
+    setIsDiscarding(true);
+    try {
+      const paths = [
+        images.cover?.storagePath,
+        images.back?.storagePath,
+      ].filter((path): path is string => Boolean(path));
+      await Promise.all(paths.map(removeListingImage));
+      await clearDraft();
+      setImages(INITIAL_IMAGES);
+      setOcr(INITIAL_OCR);
+      setFormDraft({});
+      setIdentificationConfirmed(false);
+      setStep(1);
+      setExitDialogOpen(false);
+      router.replace("/");
+    } catch {
+      toast.error(
+        "Suppression impossible",
+        "Veuillez réessayer avant de quitter.",
+      );
+    } finally {
+      setIsDiscarding(false);
+    }
+  }, [clearDraft, images.back?.storagePath, images.cover?.storagePath]);
+
+  const formDefaultValues = useMemo(
+    () => ({
+      ...candidateDefaults(ocr.selectedCandidate, ocr.parsed),
+      ...formDraft,
+    }),
+    [formDraft, ocr.parsed, ocr.selectedCandidate],
+  );
 
   if (!authLoading && !user) {
     return (
       <View className="flex-1 bg-background">
-        <TabHeader title="Vendre une carte" />
+        <TabHeader
+          title="Vendre une carte"
+          right={
+            <Pressable
+              onPress={() => router.replace("/")}
+              accessibilityRole="button"
+              accessibilityLabel="Quitter la création"
+              hitSlop={8}
+              className="h-11 w-11 items-center justify-center rounded-full active:bg-muted"
+            >
+              <X size={22} color={mutedForeground} />
+            </Pressable>
+          }
+        />
         <SafeAreaView className="flex-1" edges={["bottom"]}>
           <AuthRequired
             icon={<PlusCircle size={28} color={mutedForeground} />}
@@ -253,119 +455,216 @@ function SellContent() {
     );
   }
 
-  // Step 1 = uploading photos, 2 = OCR / picking a candidate, 3 = filling
-  // the form. We collapse "loading OCR" into step 2 — the form only
-  // becomes the focus once the user has explicitly chosen to skip or
-  // confirmed a candidate.
-  const currentStep: 1 | 2 | 3 = !hasBothImages ? 1 : !showForm ? 2 : 3;
-
   return (
     <View className="flex-1 bg-background">
       <TabHeader
         title="Vendre une carte"
-        subtitle="Photos, identification IA, prix."
+        subtitle={`Étape ${step} sur 3`}
+        right={
+          <Pressable
+            onPress={requestExit}
+            accessibilityRole="button"
+            accessibilityLabel="Quitter la création"
+            hitSlop={8}
+            className="h-11 w-11 items-center justify-center rounded-full active:bg-muted"
+          >
+            <X size={22} color={mutedForeground} />
+          </Pressable>
+        }
       />
-      <SellStepIndicator current={currentStep} />
+      <SellStepIndicator current={step} />
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
           keyboardShouldPersistTaps="handled"
         >
-          <ImageUploader onImagesChange={handleImagesChange} />
-
-          <AnimatePresence>
-            {hasBothImages && !ocr.hasRun ? (
-              <MotiView
-                key="ocr-trigger"
-                from={{ opacity: 0, translateY: 12 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ type: "timing", duration: duration.normal }}
-                className="mt-6 gap-3"
-              >
-                <Button
-                  onPress={handleOcrScan}
-                  loading={ocr.isLoading}
-                  leftIcon={<Sparkles size={16} color={primaryForeground} />}
-                >
-                  Scanner la carte avec l&apos;IA
-                </Button>
-                <Button
-                  onPress={handleSkipOcr}
-                  variant="ghost"
-                  rightIcon={<ArrowRight size={14} color={mutedForeground} />}
-                >
-                  <Text variant="muted">Passer le scan</Text>
-                </Button>
-              </MotiView>
-            ) : null}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {ocr.hasRun && (ocr.isLoading || ocr.candidates.length > 0) ? (
-              <MotiView
-                key="ocr-results"
-                from={{ opacity: 0, translateY: 12 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ type: "timing", duration: duration.normal }}
-                className="mt-6"
-              >
-                <OcrResults
-                  candidates={ocr.candidates}
-                  isLoading={ocr.isLoading}
-                  onSelect={handleCandidateSelect}
-                />
-              </MotiView>
-            ) : null}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {ocr.hasRun &&
-            !ocr.isLoading &&
-            ocr.candidates.length > 0 &&
-            !showForm ? (
-              <MotiView
-                key="confirm-hint"
-                from={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="mt-3 flex-row items-center gap-2"
-              >
-                <ScanLine size={14} color={mutedForeground} />
-                <Text variant="caption">
-                  Sélectionnez un résultat pour continuer
-                </Text>
-              </MotiView>
-            ) : null}
-          </AnimatePresence>
-
-          {showForm ? (
+          <AnimatePresence exitBeforeEnter>
             <MotiView
-              key={`form-${ocr.selectedCardKey ?? "manual"}`}
-              from={{ opacity: 0, translateY: 16 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: "timing", duration: duration.normal }}
-              className="mt-8"
+              key={`sell-step-${step}`}
+              from={{ opacity: 0, translateX: direction * 20 }}
+              animate={{ opacity: 1, translateX: 0 }}
+              exit={{ opacity: 0, translateX: direction * -20 }}
+              transition={{ type: "timing", duration: duration.fast }}
             >
-              <View className="mb-4 flex-row items-center gap-2">
-                <View className="h-px flex-1 bg-border" />
-                <Text variant="caption">Détails de l&apos;annonce</Text>
-                <View className="h-px flex-1 bg-border" />
-              </View>
+              {step === 1 ? (
+                <View className="gap-6">
+                  <View>
+                    <Text variant="h3">Photographiez votre carte</Text>
+                    <Text variant="muted" className="mt-1">
+                      Ajoutez un recto et un verso nets, sans reflet.
+                    </Text>
+                  </View>
+                  <ImageUploader
+                    key={`${images.cover?.storagePath ?? "none"}-${images.back?.storagePath ?? "none"}`}
+                    initialCover={images.cover}
+                    initialBack={images.back}
+                    onImagesChange={handleImagesChange}
+                  />
+                </View>
+              ) : null}
 
-              <SellForm
-                key={ocr.selectedCardKey ?? (ocr.parsed ? "parsed" : "manual")}
-                cardKey={ocr.selectedCardKey}
-                defaultValues={formDefaultValues}
-                onSubmit={handleSubmit}
-                isLoading={createListing.isPending}
-              />
+              {step === 2 ? (
+                <View className="gap-6">
+                  <View>
+                    <Text variant="h3">Identifiez la carte</Text>
+                    <Text variant="muted" className="mt-1">
+                      L&apos;IA peut retrouver automatiquement la série, le
+                      numéro et la rareté.
+                    </Text>
+                  </View>
+
+                  {!ocr.hasRun ? (
+                    <View className="gap-3">
+                      <Button
+                        onPress={handleOcrScan}
+                        leftIcon={
+                          <Sparkles size={16} color={primaryForeground} />
+                        }
+                      >
+                        Scanner la carte avec l&apos;IA
+                      </Button>
+                      <Button
+                        onPress={handleManualIdentification}
+                        variant="ghost"
+                      >
+                        Saisir les informations manuellement
+                      </Button>
+                    </View>
+                  ) : (
+                    <View className="gap-4">
+                      <OcrResults
+                        candidates={ocr.candidates}
+                        isLoading={ocr.isLoading}
+                        selectedCardKey={ocr.selectedCardKey}
+                        manualSelected={
+                          identificationConfirmed &&
+                          ocr.selectedCardKey === null
+                        }
+                        onSelect={handleCandidateSelect}
+                      />
+
+                      {!ocr.isLoading && ocr.candidates.length === 0 ? (
+                        <View className="gap-4 rounded-2xl border border-border bg-card p-4">
+                          <View className="flex-row items-start gap-3">
+                            <ScanLine size={20} color={primary} />
+                            <View className="flex-1">
+                              <Text className="font-semibold">
+                                {ocr.parsed?.name
+                                  ? "Informations partielles détectées"
+                                  : "Identification manuelle"}
+                              </Text>
+                              <Text variant="muted" className="mt-1">
+                                Vous pourrez vérifier et compléter les champs à
+                                l&apos;étape suivante.
+                              </Text>
+                            </View>
+                          </View>
+                          <Button onPress={handleOcrScan} variant="outline">
+                            Relancer l&apos;analyse
+                          </Button>
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+              ) : null}
+
+              {step === 3 ? (
+                <View className="gap-5">
+                  <Pressable
+                    onPress={() => goToStep(2)}
+                    hitSlop={8}
+                    className="flex-row items-center gap-1"
+                  >
+                    <ArrowLeft size={16} color={mutedForeground} />
+                    <Text variant="muted">Modifier l&apos;identification</Text>
+                  </Pressable>
+                  <View>
+                    <Text variant="h3">Finalisez l&apos;annonce</Text>
+                    <Text variant="muted" className="mt-1">
+                      Vérifiez les informations, l&apos;état et votre prix
+                      vendeur.
+                    </Text>
+                  </View>
+                  <SellForm
+                    key={ocr.selectedCardKey ?? "manual"}
+                    cardKey={ocr.selectedCardKey}
+                    defaultValues={formDefaultValues}
+                    onValuesChange={handleFormValuesChange}
+                    onSubmit={handleSubmit}
+                    isLoading={createListing.isPending}
+                  />
+                </View>
+              ) : null}
             </MotiView>
-          ) : null}
+          </AnimatePresence>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {step < 3 ? (
+        <SafeAreaView
+          edges={["bottom"]}
+          className="border-t border-border bg-background"
+        >
+          <View className="flex-row gap-3 px-4 py-3">
+            {step > 1 ? (
+              <Button
+                variant="outline"
+                className="flex-1"
+                onPress={() => goToStep((step - 1) as SellStep)}
+                leftIcon={<ArrowLeft size={16} color={mutedForeground} />}
+              >
+                Retour
+              </Button>
+            ) : null}
+            <Button
+              className="flex-1"
+              disabled={
+                (step === 1 && !hasBothImages) ||
+                (step === 2 && !identificationConfirmed) ||
+                ocr.isLoading
+              }
+              onPress={() => goToStep((step + 1) as SellStep)}
+              rightIcon={<ArrowRight size={16} color={primaryForeground} />}
+            >
+              Continuer
+            </Button>
+          </View>
+        </SafeAreaView>
+      ) : null}
+
+      <Dialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+        <DialogHeader>
+          <View className="mb-2 flex-row items-center gap-2">
+            <AlertTriangle size={20} color={primary} />
+            <DialogTitle>Interrompre la création ?</DialogTitle>
+          </View>
+          <DialogDescription>
+            Toutes les informations et les photos ajoutées seront supprimées.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            className="flex-1"
+            disabled={isDiscarding}
+            onPress={() => setExitDialogOpen(false)}
+          >
+            Continuer
+          </Button>
+          <Button
+            variant="destructive"
+            className="flex-1"
+            loading={isDiscarding}
+            disabled={isDiscarding}
+            onPress={discardDraft}
+            leftIcon={<Trash2 size={16} color={destructiveForeground} />}
+          >
+            Supprimer
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </View>
   );
 }

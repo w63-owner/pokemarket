@@ -176,6 +176,8 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
     layoutsBumpVersion.value = layoutsBumpVersion.value + 1;
   };
 
+  if (focusedTabName === "sell") return null;
+
   return (
     <View>
       <BlurView

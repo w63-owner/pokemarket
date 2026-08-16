@@ -16,6 +16,8 @@ const MANUAL_VALUE = "__manual__";
 type Props = {
   candidates: OcrCandidate[];
   isLoading: boolean;
+  selectedCardKey?: string | null;
+  manualSelected?: boolean;
   onSelect: (cardKey: string | null) => void;
 };
 
@@ -154,15 +156,20 @@ function ScanSkeleton() {
   );
 }
 
-export function OcrResults({ candidates, isLoading, onSelect }: Props) {
-  const [selected, setSelected] = useState<string>("");
+export function OcrResults({
+  candidates,
+  isLoading,
+  selectedCardKey,
+  manualSelected = false,
+  onSelect,
+}: Props) {
   const colors = useThemeColors();
+  const selected = manualSelected ? MANUAL_VALUE : (selectedCardKey ?? "");
 
   if (isLoading) return <ScanSkeleton />;
   if (candidates.length === 0) return null;
 
   const handleChange = (value: string) => {
-    setSelected(value);
     onSelect(value === MANUAL_VALUE ? null : value);
   };
 
