@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { calcPriceSeller, type PriceHistoryResponse } from "@pokemarket/shared";
 import { createClient } from "@/lib/supabase/server";
 import { subMonths, format } from "date-fns";
 
@@ -35,8 +36,8 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-function extractBasePrice(pricing: unknown): number {
-  if (!pricing || typeof pricing !== "object") return FALLBACK_PRICE;
+function extractBasePrice(pricing: unknown): number | null {
+  if (!pricing || typeof pricing !== "object") return null;
 
   const p = pricing as Record<string, unknown>;
   const cardmarket = p.cardmarket as Record<string, unknown> | undefined;
@@ -48,7 +49,7 @@ function extractBasePrice(pricing: unknown): number {
   const avg = prices?.averageSellPrice ?? cardmarket?.averageSellPrice;
   if (typeof avg === "number" && avg > 0) return avg;
 
-  return FALLBACK_PRICE;
+  return null;
 }
 
 function generateMockHistory(
@@ -130,25 +131,79 @@ export async function GET(
 
     const { searchParams } = request.nextUrl;
     const condition = searchParams.get("condition") ?? "EXCELLENT";
-    const language = (searchParams.get("language") ?? "FR").toLowerCase();
+    const languageCanonical = (
+      searchParams.get("language") ?? "FR"
+    ).toUpperCase();
+    const language = languageCanonical.toLowerCase();
     const isGraded = searchParams.get("isGraded") === "true";
 
     const supabase = await createClient();
 
-    const { data: card } = await supabase
+    const cardQuery = supabase
       .from("tcgdex_cards")
       .select("pricing")
       .eq("card_key", card_key)
       .limit(1)
       .single();
 
-    const basePrice = extractBasePrice(card?.pricing);
+    let comparableListingsQuery = supabase
+      .from("listings")
+      .select("display_price")
+      .eq("card_ref_id", card_key)
+      .eq("status", "ACTIVE")
+      .eq("is_graded", isGraded)
+      .eq("card_language", languageCanonical)
+      .limit(50);
+
+    if (!isGraded) {
+      comparableListingsQuery = comparableListingsQuery.eq(
+        "condition",
+        condition,
+      );
+    }
+
+    const [{ data: card }, { data: comparableListings }] = await Promise.all([
+      cardQuery,
+      comparableListingsQuery,
+    ]);
+
+    const marketBasePrice = extractBasePrice(card?.pricing);
+    const basePrice = marketBasePrice ?? FALLBACK_PRICE;
 
     const conditionMul = CONDITION_MULTIPLIER[condition] ?? 1.0;
     const targetPrice =
       Math.round(
         basePrice * conditionMul * (isGraded ? GRADED_MULTIPLIER : 1) * 100,
       ) / 100;
+
+    const comparablePrices = (comparableListings ?? [])
+      .map((listing) => Number(listing.display_price))
+      .filter((price) => Number.isFinite(price) && price > 0);
+    const comparableDisplayPrice =
+      comparablePrices.length > 0
+        ? Math.round(
+            (comparablePrices.reduce((sum, price) => sum + price, 0) /
+              comparablePrices.length) *
+              100,
+          ) / 100
+        : null;
+
+    const recommendation =
+      comparableDisplayPrice != null
+        ? {
+            sellerPrice: calcPriceSeller(comparableDisplayPrice),
+            displayPrice: comparableDisplayPrice,
+            source: "pokemarket" as const,
+            sampleSize: comparablePrices.length,
+          }
+        : marketBasePrice != null
+          ? {
+              sellerPrice: calcPriceSeller(targetPrice),
+              displayPrice: targetPrice,
+              source: "cardmarket" as const,
+              sampleSize: null,
+            }
+          : null;
 
     const { data: realData } = await supabase
       .from("card_price_history")
@@ -178,15 +233,18 @@ export async function GET(
 
     const stats = computeStats(chartData);
 
-    return NextResponse.json(
-      { chartData, stats, targetPrice },
-      {
-        headers: {
-          "Cache-Control":
-            "public, s-maxage=3600, stale-while-revalidate=86400",
-        },
+    const response: PriceHistoryResponse = {
+      chartData,
+      stats,
+      targetPrice,
+      recommendation,
+    };
+
+    return NextResponse.json(response, {
+      headers: {
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
       },
-    );
+    });
   } catch (err) {
     Sentry.captureException(err);
     console.error("[price-history] Error:", err);

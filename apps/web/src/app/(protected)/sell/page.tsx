@@ -325,6 +325,7 @@ export default function SellPage() {
                 key={
                   ocr.selectedCardKey ?? (ocr.parsed ? "ocr-parsed" : "manual")
                 }
+                cardKey={ocr.selectedCardKey}
                 defaultValues={formDefaultValues}
                 onSubmit={handleFormSubmit}
                 isLoading={createListing.isPending}

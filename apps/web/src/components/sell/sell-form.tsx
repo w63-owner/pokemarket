@@ -2,13 +2,16 @@
 
 import { useForm, Controller, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { m, AnimatePresence } from "framer-motion";
-import { Euro, ShieldCheck, Loader2 } from "lucide-react";
+import { Euro, ShieldCheck, Loader2, TrendingUp } from "lucide-react";
+import { queryKeys, type PriceHistoryResponse } from "@pokemarket/shared";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -89,10 +92,33 @@ const sellFormSchema = z
 export type SellFormValues = z.infer<typeof sellFormSchema>;
 
 interface SellFormProps {
+  cardKey?: string | null;
   defaultValues?: Partial<SellFormValues>;
   onSubmit: (data: SellFormValues) => void;
   isLoading?: boolean;
   submitLabel?: string;
+}
+
+async function fetchPriceRecommendation(
+  cardKey: string,
+  condition: string,
+  language: string,
+  isGraded: boolean,
+): Promise<PriceHistoryResponse> {
+  const params = new URLSearchParams({
+    condition,
+    language,
+    isGraded: String(isGraded),
+  });
+  const response = await fetch(
+    `/api/cards/${encodeURIComponent(cardKey)}/price-history?${params}`,
+  );
+
+  if (!response.ok) {
+    throw new Error("Impossible de charger le prix conseillé");
+  }
+
+  return response.json();
 }
 
 function DisplayPricePreview({
@@ -146,6 +172,7 @@ function FieldError({ message }: { message?: string }) {
 }
 
 export function SellForm({
+  cardKey,
   defaultValues,
   onSubmit,
   isLoading,
@@ -176,6 +203,29 @@ export function SellForm({
   });
 
   const isGraded = useWatch({ control, name: "is_graded" });
+  const condition = useWatch({ control, name: "condition" });
+  const cardLanguage = useWatch({ control, name: "card_language" });
+  const safeCondition = condition ?? "EXCELLENT";
+  const languageCanonical = (cardLanguage ?? "FR").toUpperCase();
+  const canRecommend = Boolean(cardKey && (isGraded || condition));
+  const { data: priceData, isLoading: isPriceLoading } = useQuery({
+    queryKey: queryKeys.priceHistory(
+      cardKey ?? "",
+      safeCondition,
+      languageCanonical,
+      isGraded,
+    ),
+    queryFn: () =>
+      fetchPriceRecommendation(
+        cardKey!,
+        safeCondition,
+        languageCanonical.toLowerCase(),
+        isGraded,
+      ),
+    enabled: canRecommend,
+    staleTime: 5 * 60 * 1000,
+  });
+  const recommendation = priceData?.recommendation;
 
   return (
     <m.form
@@ -280,27 +330,6 @@ export function SellForm({
           placeholder="Ex : Mitsuhiro Arita"
           {...register("card_illustrator")}
         />
-      </div>
-
-      {/* Seller price */}
-      <div className="space-y-1.5">
-        <Label htmlFor="price_seller">Prix vendeur</Label>
-        <div className="relative">
-          <Euro className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-          <Input
-            id="price_seller"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0.01"
-            placeholder="0,00"
-            className="pl-8"
-            aria-invalid={!!errors.price_seller}
-            {...register("price_seller", { valueAsNumber: true })}
-          />
-        </div>
-        <FieldError message={errors.price_seller?.message} />
-        <DisplayPricePreview control={control} />
       </div>
 
       {/* Graded toggle */}
@@ -425,6 +454,47 @@ export function SellForm({
           </m.div>
         )}
       </AnimatePresence>
+
+      {/* Seller price */}
+      <div className="space-y-1.5">
+        <Label htmlFor="price_seller">Prix vendeur</Label>
+        <div className="relative">
+          <Euro className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+          <Input
+            id="price_seller"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0.01"
+            placeholder="0,00"
+            className="pl-8"
+            aria-invalid={!!errors.price_seller}
+            {...register("price_seller", { valueAsNumber: true })}
+          />
+        </div>
+        <FieldError message={errors.price_seller?.message} />
+        {canRecommend && isPriceLoading ? (
+          <Skeleton className="h-14 w-full rounded-lg" />
+        ) : recommendation ? (
+          <div className="border-primary/20 bg-primary/5 flex items-center gap-3 rounded-lg border px-3 py-2.5">
+            <TrendingUp className="text-primary size-4 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm">
+                Prix conseillé :{" "}
+                <span className="font-display text-primary font-bold">
+                  {formatPrice(recommendation.sellerPrice)}
+                </span>
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {recommendation.source === "pokemarket"
+                  ? `Moyenne de ${recommendation.sampleSize} annonce${recommendation.sampleSize === 1 ? "" : "s"} comparable${recommendation.sampleSize === 1 ? "" : "s"}`
+                  : "D'après la cotation Cardmarket"}
+              </p>
+            </div>
+          </div>
+        ) : null}
+        <DisplayPricePreview control={control} />
+      </div>
 
       {/* Submit */}
       <div className="pt-2 pb-8">

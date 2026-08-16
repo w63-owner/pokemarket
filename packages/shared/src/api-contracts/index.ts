@@ -75,6 +75,25 @@ export type OcrResponse = {
   candidates: OcrCandidate[];
 };
 
+export type PriceRecommendation = {
+  sellerPrice: number;
+  displayPrice: number;
+  source: "pokemarket" | "cardmarket";
+  sampleSize: number | null;
+};
+
+export type PriceHistoryResponse = {
+  chartData: { date: string; price: number }[];
+  stats: {
+    range12m: [number, number];
+    range3m: [number, number];
+    observations: number;
+    volatility: number;
+  };
+  targetPrice: number;
+  recommendation: PriceRecommendation | null;
+};
+
 export type PushNotificationRequest = {
   user_id: string;
   title: string;

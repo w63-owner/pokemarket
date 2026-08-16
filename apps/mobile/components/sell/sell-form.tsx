@@ -1,9 +1,10 @@
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { View } from "react-native";
 import { MotiView, AnimatePresence } from "moti";
-import { ShieldCheck } from "lucide-react-native";
+import { ShieldCheck, TrendingUp } from "lucide-react-native";
 import {
   CARD_CONDITIONS,
   CARD_LANGUAGES,
@@ -14,14 +15,18 @@ import {
   type CardCondition,
   calcDisplayPrice,
   formatPrice,
+  queryKeys,
   toCardLanguageSelectValue,
+  type PriceHistoryResponse,
 } from "@pokemarket/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { api } from "@/lib/api/client";
 import { duration } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
@@ -112,13 +117,30 @@ function FieldError({ message }: { message?: string }) {
 }
 
 type Props = {
+  cardKey?: string | null;
   defaultValues?: Partial<SellFormValues>;
   onSubmit: (data: SellFormValues) => void;
   isLoading?: boolean;
   submitLabel?: string;
 };
 
+async function fetchPriceRecommendation(
+  cardKey: string,
+  condition: string,
+  language: string,
+  isGraded: boolean,
+): Promise<PriceHistoryResponse> {
+  return api.get<PriceHistoryResponse>(
+    `/api/cards/${encodeURIComponent(cardKey)}/price-history`,
+    {
+      searchParams: { condition, language, isGraded },
+      authenticated: false,
+    },
+  );
+}
+
 export function SellForm({
+  cardKey,
   defaultValues,
   onSubmit,
   isLoading,
@@ -148,11 +170,34 @@ export function SellForm({
   });
 
   const isGraded = useWatch({ control, name: "is_graded" });
+  const condition = useWatch({ control, name: "condition" });
+  const cardLanguage = useWatch({ control, name: "card_language" });
   const priceSeller = useWatch({ control, name: "price_seller" });
   const displayPrice =
     typeof priceSeller === "number" && priceSeller > 0
       ? calcDisplayPrice(priceSeller)
       : null;
+  const safeCondition = condition ?? "EXCELLENT";
+  const languageCanonical = (cardLanguage ?? "FR").toUpperCase();
+  const canRecommend = Boolean(cardKey && (isGraded || condition));
+  const { data: priceData, isLoading: isPriceLoading } = useQuery({
+    queryKey: queryKeys.priceHistory(
+      cardKey ?? "",
+      safeCondition,
+      languageCanonical,
+      isGraded,
+    ),
+    queryFn: () =>
+      fetchPriceRecommendation(
+        cardKey!,
+        safeCondition,
+        languageCanonical.toLowerCase(),
+        isGraded,
+      ),
+    enabled: canRecommend,
+    staleTime: 5 * 60 * 1000,
+  });
+  const recommendation = priceData?.recommendation;
   const primary = useThemeColor("primary");
 
   return (
@@ -280,40 +325,6 @@ export function SellForm({
         />
       </View>
 
-      <View className="gap-1.5">
-        <Label>Prix vendeur</Label>
-        <Controller
-          control={control}
-          name="price_seller"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <Input
-              value={value != null && !Number.isNaN(value) ? String(value) : ""}
-              onChangeText={(text) => {
-                const cleaned = text.replace(",", ".");
-                const parsed = parseFloat(cleaned);
-                onChange(Number.isFinite(parsed) ? parsed : undefined);
-              }}
-              onBlur={onBlur}
-              keyboardType="decimal-pad"
-              placeholder="0,00 €"
-              error={!!errors.price_seller}
-            />
-          )}
-        />
-        <FieldError message={errors.price_seller?.message} />
-        {displayPrice != null ? (
-          <View className="mt-1 flex-row items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-            <ShieldCheck size={16} color={primary} />
-            <Text className="text-sm">
-              Prix affiché à l&apos;acheteur :{" "}
-              <Text className="font-bold text-primary">
-                {formatPrice(displayPrice)}
-              </Text>
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
       <View className="flex-row items-center justify-between rounded-2xl border border-border bg-card p-3">
         <View className="flex-1 gap-0.5">
           <Label>Carte gradée</Label>
@@ -406,6 +417,60 @@ export function SellForm({
           </MotiView>
         )}
       </AnimatePresence>
+
+      <View className="gap-1.5">
+        <Label>Prix vendeur</Label>
+        <Controller
+          control={control}
+          name="price_seller"
+          render={({ field: { value, onChange, onBlur } }) => (
+            <Input
+              value={value != null && !Number.isNaN(value) ? String(value) : ""}
+              onChangeText={(text) => {
+                const cleaned = text.replace(",", ".");
+                const parsed = parseFloat(cleaned);
+                onChange(Number.isFinite(parsed) ? parsed : undefined);
+              }}
+              onBlur={onBlur}
+              keyboardType="decimal-pad"
+              placeholder="0,00 €"
+              error={!!errors.price_seller}
+            />
+          )}
+        />
+        <FieldError message={errors.price_seller?.message} />
+        {canRecommend && isPriceLoading ? (
+          <Skeleton className="mt-1 h-16 w-full rounded-xl" />
+        ) : recommendation ? (
+          <View className="mt-1 flex-row items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+            <TrendingUp size={16} color={primary} />
+            <View className="min-w-0 flex-1">
+              <Text className="text-sm">
+                Prix conseillé :{" "}
+                <Text className="font-bold text-primary">
+                  {formatPrice(recommendation.sellerPrice)}
+                </Text>
+              </Text>
+              <Text variant="caption" numberOfLines={2}>
+                {recommendation.source === "pokemarket"
+                  ? `Moyenne de ${recommendation.sampleSize} annonce${recommendation.sampleSize === 1 ? "" : "s"} comparable${recommendation.sampleSize === 1 ? "" : "s"}`
+                  : "D'après la cotation Cardmarket"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+        {displayPrice != null ? (
+          <View className="mt-1 flex-row items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+            <ShieldCheck size={16} color={primary} />
+            <Text className="text-sm">
+              Prix affiché à l&apos;acheteur :{" "}
+              <Text className="font-bold text-primary">
+                {formatPrice(displayPrice)}
+              </Text>
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
       <Button
         onPress={handleSubmit(onSubmit)}

@@ -357,6 +357,7 @@ function SellContent() {
 
               <SellForm
                 key={ocr.selectedCardKey ?? (ocr.parsed ? "parsed" : "manual")}
+                cardKey={ocr.selectedCardKey}
                 defaultValues={formDefaultValues}
                 onSubmit={handleSubmit}
                 isLoading={createListing.isPending}
