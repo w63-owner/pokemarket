@@ -115,7 +115,11 @@ jobs:
           STRIPE_OPERATIONS_API_KEY: rk_test_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_placeholder
           STRIPE_CONNECT_WEBHOOK_SECRET: whsec_placeholder
+          STRIPE_WEBHOOK_IP_ALLOWLIST: 127.0.0.1
           SUPPORT_EMAIL: support@example.test
+          CRON_SECRET: e2e-cron-secret
+          UPSTASH_REDIS_REST_URL: https://example.invalid
+          UPSTASH_REDIS_REST_TOKEN: e2e-upstash-token
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
           NEXT_PUBLIC_SENTRY_DSN: ""
         run: npx playwright test
