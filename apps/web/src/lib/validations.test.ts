@@ -60,15 +60,16 @@ describe("listingCreateSchema", () => {
     expect(listingCreateSchema.safeParse(baseValid).success).toBe(true);
   });
 
-  it("rejects negative price", () => {
+  it("accepts the minimum price of 1 €", () => {
     expect(
-      listingCreateSchema.safeParse({ ...baseValid, price_seller: -1 }).success,
-    ).toBe(false);
+      listingCreateSchema.safeParse({ ...baseValid, price_seller: 1 }).success,
+    ).toBe(true);
   });
 
-  it("rejects zero price", () => {
+  it("rejects a price below 1 €", () => {
     expect(
-      listingCreateSchema.safeParse({ ...baseValid, price_seller: 0 }).success,
+      listingCreateSchema.safeParse({ ...baseValid, price_seller: 0.99 })
+        .success,
     ).toBe(false);
   });
 

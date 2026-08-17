@@ -2,9 +2,9 @@ import { MARKETPLACE_FIXED_FEE, MARKETPLACE_PERCENT_FEE } from "../constants";
 
 /**
  * Calculate the display price (buyer-facing) from the seller's net price.
- * display_price = round(price_seller * 1.05 + 0.70, 2)
+ * display_price = round(price_seller + 0.01, 2)
  *
- * Example: seller enters 10.00 -> display = 11.20
+ * Example: seller enters 10.00 -> display = 10.01
  */
 export function calcDisplayPrice(priceSeller: number): number {
   return (
@@ -17,9 +17,9 @@ export function calcDisplayPrice(priceSeller: number): number {
 
 /**
  * Calculate the seller net price from the display price.
- * price_seller = max(0.01, round((display_price - 0.70) / 1.05, 2))
+ * price_seller = max(0.01, round(display_price - 0.01, 2))
  *
- * Example: display 11.20 -> seller gets 10.00
+ * Example: display 10.01 -> seller gets 10.00
  */
 export function calcPriceSeller(displayPrice: number): number {
   return Math.max(
@@ -50,4 +50,25 @@ export function calcTotalBuyer(
   shippingCost: number,
 ): number {
   return Math.round((displayPrice + shippingCost) * 100) / 100;
+}
+
+/**
+ * Parse a user-entered EUR amount with either a comma or a point separator.
+ */
+export function parseDecimalPrice(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value !== "string" || value.trim() === "") {
+    return undefined;
+  }
+
+  const normalized = value.trim().replace(",", ".");
+  if (!/^\d+(?:\.\d{0,2})?$/.test(normalized)) {
+    return undefined;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

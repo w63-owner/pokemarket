@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import {
   type CardCondition,
   calcDisplayPrice,
   formatPrice,
+  parseDecimalPrice,
   queryKeys,
   toCardLanguageSelectValue,
   type PriceHistoryResponse,
@@ -45,7 +46,10 @@ const sellFormSchema = z
       ),
     price_seller: z
       .number({ message: "Entrez un prix valide" })
-      .positive("Le prix doit être supérieur à 0"),
+      .min(
+        LIMITS.MIN_LISTING_PRICE,
+        `Le prix minimum est de ${LIMITS.MIN_LISTING_PRICE} €`,
+      ),
     condition: z.string().optional(),
     is_graded: z.boolean(),
     grading_company: z.string().optional(),
@@ -114,6 +118,36 @@ function FieldError({ message }: { message?: string }) {
     <Text className="text-xs text-destructive" numberOfLines={2}>
       {message}
     </Text>
+  );
+}
+
+function DecimalPriceInput({
+  value,
+  onChange,
+  onBlur,
+  hasError,
+}: {
+  value: number | undefined;
+  onChange: (value: number | undefined) => void;
+  onBlur: () => void;
+  hasError: boolean;
+}) {
+  const [rawValue, setRawValue] = useState(
+    value != null && !Number.isNaN(value) ? String(value) : "",
+  );
+
+  return (
+    <Input
+      value={rawValue}
+      onChangeText={(text) => {
+        setRawValue(text);
+        onChange(parseDecimalPrice(text));
+      }}
+      onBlur={onBlur}
+      keyboardType="decimal-pad"
+      placeholder="1,00 €"
+      error={hasError}
+    />
   );
 }
 
@@ -433,17 +467,11 @@ export function SellForm({
           control={control}
           name="price_seller"
           render={({ field: { value, onChange, onBlur } }) => (
-            <Input
-              value={value != null && !Number.isNaN(value) ? String(value) : ""}
-              onChangeText={(text) => {
-                const cleaned = text.replace(",", ".");
-                const parsed = parseFloat(cleaned);
-                onChange(Number.isFinite(parsed) ? parsed : undefined);
-              }}
+            <DecimalPriceInput
+              value={value}
+              onChange={onChange}
               onBlur={onBlur}
-              keyboardType="decimal-pad"
-              placeholder="0,00 €"
-              error={!!errors.price_seller}
+              hasError={!!errors.price_seller}
             />
           )}
         />
