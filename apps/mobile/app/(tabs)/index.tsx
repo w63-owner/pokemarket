@@ -86,7 +86,7 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-background">
       <TabHeader title="PokeMarket" />
-      <View className="border-b border-border bg-background px-4 pb-3 pt-3">
+      <View className="bg-background px-4 pb-3 pt-3">
         <FeedFilters
           filters={filters}
           showSearch={searchEnabled}

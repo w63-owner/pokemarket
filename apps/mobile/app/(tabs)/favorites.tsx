@@ -63,7 +63,7 @@ function FavoritesContent() {
         swipeable
         fill
       >
-        <View className="border-b border-border bg-background px-4 pb-1 pt-2">
+        <View className="bg-background px-4 pb-1 pt-2">
           <TabsList>
             <TabsTrigger value="listings">Annonces</TabsTrigger>
             <TabsTrigger value="sellers">Vendeurs</TabsTrigger>

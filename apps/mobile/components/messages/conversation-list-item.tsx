@@ -57,6 +57,7 @@ const TRANSACTION_LABELS: Record<string, string> = {
   DISPUTED: "Litige",
   CANCELLED: "Annulée",
   REFUNDED: "Remboursée",
+  EXPIRED: "Expirée",
 };
 
 interface ConversationListItemProps {
@@ -117,14 +118,6 @@ export function ConversationListItem({
               {hasUnread ? (
                 <View className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
               ) : null}
-              {conversation.transaction_status ? (
-                <View className="mt-1 flex-row">
-                  <Badge variant="secondary">
-                    {TRANSACTION_LABELS[conversation.transaction_status] ??
-                      conversation.transaction_status}
-                  </Badge>
-                </View>
-              ) : null}
             </View>
 
             <View className="min-w-0 flex-1">
@@ -162,6 +155,12 @@ export function ConversationListItem({
                   Avec {other_user.username}
                   {preview ? ` · ${preview}` : ""}
                 </Text>
+                {conversation.transaction_status ? (
+                  <Badge variant="secondary" className="shrink-0">
+                    {TRANSACTION_LABELS[conversation.transaction_status] ??
+                      conversation.transaction_status}
+                  </Badge>
+                ) : null}
               </View>
 
               {hasUnread ? (

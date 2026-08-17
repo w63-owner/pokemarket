@@ -226,7 +226,7 @@ export function TabsList({ children }: { children: React.ReactNode }) {
 
   if (ctx.variant === "line") {
     return (
-      <View className="relative flex-row border-b border-border">
+      <View className="relative flex-row">
         {children}
         <Animated.View
           pointerEvents="none"

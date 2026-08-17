@@ -3,7 +3,7 @@ import { RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, Inbox, MessageCircle, Tag } from "lucide-react-native";
+import { Archive, Inbox, MessageCircle } from "lucide-react-native";
 
 import {
   FEATURE_FLAGS,
@@ -94,35 +94,25 @@ function InboxContent() {
       <TabHeader
         title="Messages"
         right={
-          <View className="flex-row">
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={() => setShowArchived((value) => !value)}
-              accessibilityLabel={
-                showArchived
-                  ? "Afficher les conversations actives"
-                  : "Afficher les conversations archivées"
-              }
-            >
-              {showArchived ? (
-                <Inbox size={18} color={primary} />
-              ) : (
-                <Archive size={18} color={primary} />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onPress={() => router.push("/offers")}
-              leftIcon={<Tag size={16} color={primary} />}
-            >
-              Offres
-            </Button>
-          </View>
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={() => setShowArchived((value) => !value)}
+            accessibilityLabel={
+              showArchived
+                ? "Afficher les conversations actives"
+                : "Afficher les conversations archivées"
+            }
+          >
+            {showArchived ? (
+              <Inbox size={18} color={primary} />
+            ) : (
+              <Archive size={18} color={primary} />
+            )}
+          </Button>
         }
       />
-      <View className="border-b border-border px-4 py-2">
+      <View className="px-4 py-2">
         <Input
           value={search}
           onChangeText={setSearch}

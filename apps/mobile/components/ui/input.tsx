@@ -1,4 +1,5 @@
 import { forwardRef, useCallback } from "react";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { TextInput, type TextInputProps } from "react-native";
 import Animated, {
   Easing,
@@ -13,6 +14,8 @@ import { useThemeColors } from "@/lib/theme-colors";
 
 export type InputProps = TextInputProps & {
   error?: boolean;
+  /** Use the bottom-sheet-aware input so its modal follows the keyboard. */
+  withinSheet?: boolean;
 };
 
 // `duration.fast` is expressed in milliseconds by the mobile motion module
@@ -23,6 +26,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   {
     className,
     error,
+    withinSheet = false,
     placeholderTextColor,
     onFocus,
     onBlur,
@@ -33,6 +37,18 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const palette = useThemeColors();
   const focus = useSharedValue(0);
+
+  const setBottomSheetRef = useCallback(
+    (instance: TextInput | null | undefined) => {
+      const normalizedInstance = instance ?? null;
+      if (typeof ref === "function") {
+        ref(normalizedInstance);
+      } else if (ref) {
+        ref.current = normalizedInstance;
+      }
+    },
+    [ref],
+  );
 
   // Use `Parameters<NonNullable<...>>` to defer to RN's own (0.81 +) typing
   // for `onFocus` / `onBlur` — the canonical `FocusEvent` / `BlurEvent`
@@ -82,19 +98,35 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       style={animatedStyle}
       className="h-12 flex-row items-center rounded-xl border border-border bg-background"
     >
-      <TextInput
-        ref={ref}
-        editable={editable}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholderTextColor={placeholderTextColor ?? palette.mutedForeground}
-        className={cn(
-          "flex-1 px-4 text-base text-foreground",
-          editable === false && "opacity-60",
-          className as string,
-        )}
-        {...rest}
-      />
+      {withinSheet ? (
+        <BottomSheetTextInput
+          ref={setBottomSheetRef}
+          editable={editable}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholderTextColor={placeholderTextColor ?? palette.mutedForeground}
+          className={cn(
+            "flex-1 px-4 text-base text-foreground",
+            editable === false && "opacity-60",
+            className as string,
+          )}
+          {...rest}
+        />
+      ) : (
+        <TextInput
+          ref={ref}
+          editable={editable}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholderTextColor={placeholderTextColor ?? palette.mutedForeground}
+          className={cn(
+            "flex-1 px-4 text-base text-foreground",
+            editable === false && "opacity-60",
+            className as string,
+          )}
+          {...rest}
+        />
+      )}
     </Animated.View>
   );
 });

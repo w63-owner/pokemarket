@@ -29,15 +29,11 @@ export type TabHeaderProps = {
  *    push, they're the canvas, so the header has no separate "lift".
  *  - Always `h2`, never overridable: keeps the visual hierarchy
  *    identical across the five tabs.
- *  - Single `border-b` so list/grid content scrolls under a hairline,
- *    not under a shadow.
+ *  - Relies on spacing rather than a divider to keep the tab canvas clean.
  */
 export function TabHeader({ title, subtitle, right }: TabHeaderProps) {
   return (
-    <SafeAreaView
-      edges={["top"]}
-      className="border-b border-border bg-background"
-    >
+    <SafeAreaView edges={["top"]} className="bg-background">
       <View className="flex-row items-center gap-3 px-4 py-3">
         <View className="min-w-0 flex-1">
           <Text variant="h2" numberOfLines={1}>

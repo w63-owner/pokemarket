@@ -312,6 +312,7 @@ function BuyerOfferEntry({
                   setAmount(v);
                   setError(null);
                 }}
+                withinSheet
                 keyboardType="decimal-pad"
                 placeholder={`Min. ${formatPrice(minOffer)}`}
                 autoFocus
