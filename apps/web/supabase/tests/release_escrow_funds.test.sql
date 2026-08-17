@@ -248,7 +248,7 @@ VALUES (
   '10000000-0000-4000-8000-000000000003',
   'Mismatch card',
   100,
-  'SHIPPED'
+  'SOLD'
 );
 INSERT INTO public.transactions (
   id, listing_id, buyer_id, seller_id,
@@ -321,7 +321,7 @@ VALUES (
   '10000000-0000-4000-8000-000000000004',
   'No-payment card',
   50,
-  'SHIPPED'
+  'SOLD'
 );
 INSERT INTO public.transactions (
   id, listing_id, buyer_id, seller_id,
