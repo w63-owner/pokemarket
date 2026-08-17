@@ -79,6 +79,11 @@ jobs:
             20260731083156 \
             20260731083214 \
             20260731083245
+          # This migration was applied to production under an older timestamp
+          # alias. Align the ledger with the canonical version in this repo
+          # without replaying its schema changes.
+          supabase migration repair --status reverted 20260816090022
+          supabase migration repair --status applied 20260816085920
 
       - name: Verify migration history
         env:
