@@ -25,6 +25,7 @@ grant all on table public.messages to service_role;
 grant all on table public.user_blocks to service_role;
 grant all on table public.conversation_participant_settings to service_role;
 grant all on table public.conversation_reports to service_role;
+grant select, insert, delete on table public.listings to service_role;
 
 -- Offer mutations remain server-owned: authenticated receives table
 -- reachability, while the intentionally absent INSERT/UPDATE RLS policies
