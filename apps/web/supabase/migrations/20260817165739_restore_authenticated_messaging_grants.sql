@@ -11,6 +11,9 @@ revoke all on table public.conversation_reports from public, anon, authenticated
 grant select, insert on table public.conversations to authenticated;
 grant select, insert on table public.messages to authenticated;
 grant update (read_at) on table public.messages to authenticated;
+grant select on table public.listings to authenticated;
+grant select on table public.profiles to authenticated;
+grant select on table public.transactions to authenticated;
 grant select, insert, delete on table public.user_blocks to authenticated;
 grant select, insert, update
   on table public.conversation_participant_settings

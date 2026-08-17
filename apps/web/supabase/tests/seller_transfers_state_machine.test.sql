@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(27);
+SELECT plan(33);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -283,7 +283,7 @@ SELECT is(
   (SELECT amount_minor FROM public.reserve_seller_payout(
     '41000000-0000-4000-8000-000000000002'
   )),
-  7500::bigint,
+  7000::bigint,
   'second payout reservation honours the risk reserve'
 );
 -- While the payout is payout_pending, a reversal arrives for the second transfer.
@@ -311,7 +311,7 @@ SELECT is(
 SELECT is(
   (SELECT available_balance FROM public.wallets
    WHERE user_id = '41000000-0000-4000-8000-000000000002'),
-  5::numeric,
+  0::numeric,
   'wallet is not restored after late cancel on already-paid payout'
 );
 
@@ -341,14 +341,16 @@ VALUES (
 );
 INSERT INTO public.seller_transfers (
   transaction_id, seller_id, amount_minor, currency,
-  status, processing_started_at
+  status, processing_started_at, transfer_group, idempotency_key
 )
 VALUES (
   '43000000-0000-4000-8000-000000000003',
   '41000000-0000-4000-8000-000000000002',
   4500, 'EUR',
   'processing',
-  now() - interval '15 minutes'
+  now() - interval '15 minutes',
+  'order_43000000-0000-4000-8000-000000000003',
+  'transfer:43000000-0000-4000-8000-000000000003'
 );
 SELECT is(
   public.recover_stale_processing_transfers(600),

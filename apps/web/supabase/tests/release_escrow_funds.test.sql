@@ -284,7 +284,7 @@ BEGIN
     '30000000-0000-4000-8000-000000000002', 'EUR'
   );
   v_platform_account_id := private.get_or_create_ledger_account(
-    'platform_revenue', NULL, NULL, 'EUR'
+    'platform_cash', NULL, NULL, 'EUR'
   );
 
   -- Only credit 80 minor (= 0.80 EUR) instead of the required 9000 minor.
