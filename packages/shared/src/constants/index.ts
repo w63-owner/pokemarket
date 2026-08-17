@@ -1,5 +1,5 @@
-export const MARKETPLACE_PERCENT_FEE = 0.05;
-export const MARKETPLACE_FIXED_FEE = 0.7;
+export const MARKETPLACE_PERCENT_FEE = 0;
+export const MARKETPLACE_FIXED_FEE = 0.01;
 
 export * from "./feature-flags";
 
@@ -107,6 +107,7 @@ export type OfferStatus = (typeof OFFER_STATUSES)[number];
 export const LIMITS = {
   MAX_OFFERS_PER_DAY: 10,
   MIN_OFFER_PERCENT: 0.7,
+  MIN_LISTING_PRICE: 1,
   MAX_MESSAGE_LENGTH: 2000,
   TITLE_MIN_LENGTH: 3,
   TITLE_MAX_LENGTH: 140,

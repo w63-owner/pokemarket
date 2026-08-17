@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(26);
+SELECT plan(28);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -217,7 +217,7 @@ SELECT is(
       WHERE transaction_id = '53000000-0000-4000-8000-000000000001'
     )
   ),
-  0::bigint,
+  0::numeric,
   'all Sprint 5 journals remain balanced'
 );
 

@@ -32,7 +32,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -110,6 +110,16 @@ jobs:
           SUPABASE_E2E_ENABLED: "true"
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          STRIPE_PAYMENTS_API_KEY: rk_test_placeholder
+          STRIPE_CONNECT_API_KEY: rk_test_placeholder
+          STRIPE_OPERATIONS_API_KEY: rk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_placeholder
+          STRIPE_CONNECT_WEBHOOK_SECRET: whsec_placeholder
+          STRIPE_WEBHOOK_IP_ALLOWLIST: 127.0.0.1
+          SUPPORT_EMAIL: support@example.test
+          CRON_SECRET: e2e-cron-secret
+          UPSTASH_REDIS_REST_URL: https://example.invalid
+          UPSTASH_REDIS_REST_TOKEN: e2e-upstash-token
           NEXT_PUBLIC_VAPID_PUBLIC_KEY: placeholder
           NEXT_PUBLIC_SENTRY_DSN: ""
         run: npx playwright test

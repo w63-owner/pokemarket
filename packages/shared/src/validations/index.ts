@@ -61,7 +61,12 @@ export const listingCreateSchema = z
         LIMITS.TITLE_MAX_LENGTH,
         `Le titre doit contenir au maximum ${LIMITS.TITLE_MAX_LENGTH} caractères`,
       ),
-    price_seller: z.number().positive("Le prix doit être supérieur à 0"),
+    price_seller: z
+      .number()
+      .min(
+        LIMITS.MIN_LISTING_PRICE,
+        `Le prix minimum est de ${LIMITS.MIN_LISTING_PRICE} €`,
+      ),
     condition: z.enum(CARD_CONDITIONS).nullish(),
     is_graded: z.boolean().default(false),
     grading_company: z.enum(GRADING_COMPANIES).nullish(),

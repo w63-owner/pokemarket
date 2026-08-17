@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(31);
+SELECT plan(28);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -248,7 +248,7 @@ VALUES (
   '10000000-0000-4000-8000-000000000003',
   'Mismatch card',
   100,
-  'SHIPPED'
+  'SOLD'
 );
 INSERT INTO public.transactions (
   id, listing_id, buyer_id, seller_id,
@@ -284,7 +284,8 @@ BEGIN
     '30000000-0000-4000-8000-000000000002', 'EUR'
   );
   v_platform_account_id := private.get_or_create_ledger_account(
-    'platform_revenue', NULL, NULL, 'EUR'
+    'platform_cash', NULL,
+    '30000000-0000-4000-8000-000000000002', 'EUR'
   );
 
   -- Only credit 80 minor (= 0.80 EUR) instead of the required 9000 minor.
@@ -321,7 +322,7 @@ VALUES (
   '10000000-0000-4000-8000-000000000004',
   'No-payment card',
   50,
-  'SHIPPED'
+  'SOLD'
 );
 INSERT INTO public.transactions (
   id, listing_id, buyer_id, seller_id,

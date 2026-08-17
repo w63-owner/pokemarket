@@ -25,6 +25,8 @@ const stripeRetrieve = vi.fn(async () => ({
   url: "https://checkout.stripe.com/existing",
   status: "open",
   payment_status: "unpaid",
+  amount_total: 5002,
+  currency: "eur",
 }));
 const stripeExpire = vi.fn(async () => ({
   id: "cs_existing",
@@ -33,6 +35,8 @@ const stripeExpire = vi.fn(async () => ({
 const piRetrieve = vi.fn(async () => ({
   id: "pi_existing",
   status: "requires_confirmation",
+  amount: 5002,
+  currency: "eur",
   client_secret: "pi_existing_secret",
   customer: "cus_existing",
 }));
@@ -388,6 +392,66 @@ describe("checkout — listing-status guards", () => {
       "EXPIRED",
     );
     expect(piCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses a mobile PaymentIntent only when its amount is still current", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-mobile-current",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: null,
+      stripe_payment_intent_id: "pi_existing",
+      created_at: new Date().toISOString(),
+    });
+    mockClient = createMockDb(sc).client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      payment_intent_id: "pi_existing",
+      transaction_id: "tx-mobile-current",
+    });
+    expect(piCreate).not.toHaveBeenCalled();
+    expect(piCancel).not.toHaveBeenCalled();
+  });
+
+  it("replaces a stale mobile PaymentIntent when the checkout amount changed", async () => {
+    piRetrieve.mockResolvedValueOnce({
+      id: "pi_stale",
+      status: "requires_confirmation",
+      amount: 845,
+      currency: "eur",
+      client_secret: "pi_stale_secret",
+      customer: "cus_existing",
+    } as any);
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-mobile-stale",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: null,
+      stripe_payment_intent_id: "pi_stale",
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+
+    expect(res.status).toBe(200);
+    expect(piCancel).toHaveBeenCalledWith("pi_stale");
+    expect(
+      db.state.transactions.find((tx) => tx.id === "tx-mobile-stale")?.status,
+    ).toBe("EXPIRED");
+    expect(piCreate).toHaveBeenCalledTimes(1);
+    expect(piCreate.mock.calls[0][0].amount).toBe(5002);
+    expect((await res.json()).transaction_id).not.toBe("tx-mobile-stale");
   });
 });
 

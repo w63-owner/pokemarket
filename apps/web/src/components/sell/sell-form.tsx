@@ -32,7 +32,7 @@ import {
   LIMITS,
 } from "@/lib/constants";
 import type { CardCondition } from "@/lib/constants";
-import { calcDisplayPrice } from "@/lib/pricing";
+import { calcDisplayPrice, parseDecimalPrice } from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 
 const sellFormSchema = z
@@ -49,7 +49,10 @@ const sellFormSchema = z
       ),
     price_seller: z
       .number({ message: "Entrez un prix valide" })
-      .positive("Le prix doit être supérieur à 0"),
+      .min(
+        LIMITS.MIN_LISTING_PRICE,
+        `Le prix minimum est de ${LIMITS.MIN_LISTING_PRICE} €`,
+      ),
     condition: z.string().optional(),
     is_graded: z.boolean(),
     grading_company: z.string().optional(),
@@ -472,14 +475,14 @@ export function SellForm({
           <Euro className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           <Input
             id="price_seller"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.01"
-            min="0.01"
-            placeholder="0,00"
+            placeholder="1,00"
             className="pl-8"
             aria-invalid={!!errors.price_seller}
-            {...register("price_seller", { valueAsNumber: true })}
+            {...register("price_seller", {
+              setValueAs: parseDecimalPrice,
+            })}
           />
         </div>
         <FieldError message={errors.price_seller?.message} />

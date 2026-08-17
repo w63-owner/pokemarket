@@ -151,6 +151,17 @@ export async function POST(request: Request) {
         ? (listing.reserved_price ?? listing.display_price)
         : listing.display_price) ?? 0;
 
+    const shippingCost = await getShippingCost(
+      "FR",
+      shipping_country,
+      listing.delivery_weight_class ?? "standard",
+    );
+
+    const priceSeller = calcPriceSeller(effectiveDisplayPrice);
+    const feeAmount = calcFeeAmount(effectiveDisplayPrice, priceSeller);
+    const totalAmount = calcTotalBuyer(effectiveDisplayPrice, shippingCost);
+    const totalAmountMinor = Math.round(totalAmount * 100);
+
     let reuseTransactionId: string | null = null;
     if (listing.status === "LOCKED" && existingTx) {
       const stripe = getStripe();
@@ -186,7 +197,15 @@ export async function POST(request: Request) {
           existingSession.status === "open" ||
           (existingSession.status === undefined &&
             existingSession.payment_status === "unpaid");
-        if (clientType === "web" && sessionIsOpen && existingSession.url) {
+        const sessionAmountIsCurrent =
+          existingSession.amount_total === totalAmountMinor &&
+          existingSession.currency === "eur";
+        if (
+          clientType === "web" &&
+          sessionIsOpen &&
+          sessionAmountIsCurrent &&
+          existingSession.url
+        ) {
           return NextResponse.json({
             url: existingSession.url,
             transaction_id: existingTx.id,
@@ -215,9 +234,13 @@ export async function POST(request: Request) {
           typeof existingPi.customer === "string"
             ? existingPi.customer
             : existingPi.customer?.id;
+        const intentAmountIsCurrent =
+          existingPi.amount === totalAmountMinor &&
+          existingPi.currency === "eur";
         if (
           clientType === "mobile" &&
           existingPi.status !== "canceled" &&
+          intentAmountIsCurrent &&
           existingPi.client_secret &&
           customerId
         ) {
@@ -254,17 +277,6 @@ export async function POST(request: Request) {
         reuseTransactionId = existingTx.id;
       }
     }
-
-    const shippingCost = await getShippingCost(
-      "FR",
-      shipping_country,
-      listing.delivery_weight_class ?? "standard",
-    );
-
-    const priceSeller = calcPriceSeller(effectiveDisplayPrice);
-    const feeAmount = calcFeeAmount(effectiveDisplayPrice, priceSeller);
-    const totalAmount = calcTotalBuyer(effectiveDisplayPrice, shippingCost);
-    const totalAmountMinor = Math.round(totalAmount * 100);
 
     if (
       launchPolicy.maxAmountMinor !== null &&
