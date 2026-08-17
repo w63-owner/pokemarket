@@ -68,7 +68,9 @@ begin
   for update;
 
   v_delta := greatest(
-    v_target - v_tx.seller_refunded_minor - v_dispute_consumed_minor,
+    v_target
+      - v_tx.seller_refunded_minor
+      - coalesce(v_dispute_consumed_minor, 0),
     0
   );
   if v_delta <= 0 then
