@@ -11,10 +11,11 @@ import Animated, {
 import { cn } from "@/lib/cn";
 import { duration } from "@/lib/motion";
 import { useThemeColors } from "@/lib/theme-colors";
+import { useIsInsideSheet } from "./sheet";
 
 export type InputProps = TextInputProps & {
   error?: boolean;
-  /** Use the bottom-sheet-aware input so its modal follows the keyboard. */
+  /** Override automatic bottom-sheet input detection when necessary. */
   withinSheet?: boolean;
 };
 
@@ -26,7 +27,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   {
     className,
     error,
-    withinSheet = false,
+    withinSheet,
     placeholderTextColor,
     onFocus,
     onBlur,
@@ -37,6 +38,8 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
 ) {
   const palette = useThemeColors();
   const focus = useSharedValue(0);
+  const isInsideSheet = useIsInsideSheet();
+  const useBottomSheetInput = withinSheet ?? isInsideSheet;
 
   const setBottomSheetRef = useCallback(
     (instance: TextInput | null | undefined) => {
@@ -98,7 +101,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       style={animatedStyle}
       className="h-12 flex-row items-center rounded-xl border border-border bg-background"
     >
-      {withinSheet ? (
+      {useBottomSheetInput ? (
         <BottomSheetTextInput
           ref={setBottomSheetRef}
           editable={editable}

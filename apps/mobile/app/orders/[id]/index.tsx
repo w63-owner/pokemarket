@@ -10,12 +10,10 @@ import {
   ChevronRight,
   ExternalLink,
   Hash,
-  Home,
   MessageCircle,
   Package,
   Receipt,
   ShoppingBag,
-  Sparkles,
   Truck,
   User as UserIcon,
 } from "lucide-react-native";
@@ -109,7 +107,6 @@ export default function PurchaseDetailScreen() {
   const mutedForeground = useThemeColor("mutedForeground");
   const foreground = useThemeColor("foreground");
   const primaryForeground = useThemeColor("primaryForeground");
-  const warning = useThemeColor("warning");
 
   const { data: purchase, isLoading } = usePurchaseDetail(id);
 
@@ -176,6 +173,7 @@ export default function PurchaseDetailScreen() {
   const showActions =
     user &&
     conversationQuery.data &&
+    !(purchase.status === "PAID" && user.id === purchase.buyer_id) &&
     ["PAID", "SHIPPED", "COMPLETED", "DISPUTED", "REFUNDED"].includes(
       purchase.status ?? "",
     );
@@ -226,22 +224,6 @@ export default function PurchaseDetailScreen() {
                 buyerId={purchase.buyer_id}
               />
             </View>
-          ) : null}
-
-          {purchase.status === "PAID" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start"
-              onPress={() =>
-                router.push(
-                  transactionRoutes.buyerSuccess(purchase.id) as never,
-                )
-              }
-              leftIcon={<Sparkles size={16} color={warning} />}
-            >
-              Animation de confirmation
-            </Button>
           ) : null}
 
           <Card className="gap-3">
@@ -379,26 +361,16 @@ export default function PurchaseDetailScreen() {
             </Card>
           ) : null}
 
-          <View className="gap-3">
-            {conversationLink ? (
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.push(conversationLink as never)}
-                leftIcon={<MessageCircle size={18} color={foreground} />}
-              >
-                Messages avec le vendeur
-              </Button>
-            ) : null}
+          {conversationLink ? (
             <Button
-              variant="ghost"
+              variant="outline"
               size="lg"
-              onPress={() => router.replace("/(tabs)" as never)}
-              leftIcon={<Home size={18} color={foreground} />}
+              onPress={() => router.push(conversationLink as never)}
+              leftIcon={<MessageCircle size={18} color={foreground} />}
             >
-              Retour au marché
+              Messages avec le vendeur
             </Button>
-          </View>
+          ) : null}
         </MotiView>
       </ScrollView>
     </View>

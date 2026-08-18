@@ -7,26 +7,26 @@ import {
 } from "./pricing";
 
 describe("calcDisplayPrice", () => {
-  it("applies the temporary 0.01€ fixed fee", () => {
-    expect(calcDisplayPrice(10)).toBe(10.01);
+  it("includes buyer protection based on maximum shipping", () => {
+    expect(calcDisplayPrice(10)).toBe(11.22);
   });
 
-  it("returns only fixed fee when seller price is 0", () => {
-    expect(calcDisplayPrice(0)).toBe(0.01);
+  it("returns the minimum simulated protection when seller price is 0", () => {
+    expect(calcDisplayPrice(0)).toBe(0.56);
   });
 
   it("handles high prices correctly", () => {
-    expect(calcDisplayPrice(1000)).toBe(1000.01);
+    expect(calcDisplayPrice(1000)).toBe(1066.55);
   });
 
   it("rounds to 2 decimal places", () => {
-    expect(calcDisplayPrice(9.99)).toBe(10);
+    expect(calcDisplayPrice(9.99)).toBe(11.21);
   });
 });
 
 describe("calcPriceSeller", () => {
   it("reverses calcDisplayPrice for standard values", () => {
-    expect(calcPriceSeller(10.01)).toBe(10);
+    expect(calcPriceSeller(11.22)).toBe(10);
   });
 
   it("floors to 0.01 minimum when display price is very low", () => {
@@ -34,13 +34,13 @@ describe("calcPriceSeller", () => {
   });
 
   it("handles high display prices", () => {
-    expect(calcPriceSeller(1000.01)).toBe(1000);
+    expect(calcPriceSeller(1066.55)).toBe(1000);
   });
 });
 
 describe("calcFeeAmount", () => {
   it("calculates platform fee correctly", () => {
-    expect(calcFeeAmount(10.01, 10)).toBe(0.01);
+    expect(calcFeeAmount(11.22, 10)).toBe(1.22);
   });
 
   it("returns 0 when display equals seller price", () => {

@@ -32,7 +32,11 @@ import {
   LIMITS,
 } from "@/lib/constants";
 import type { CardCondition } from "@/lib/constants";
-import { calcDisplayPrice, parseDecimalPrice } from "@/lib/pricing";
+import {
+  calcBuyerProtectionFee,
+  calcDisplayPrice,
+  parseDecimalPrice,
+} from "@/lib/pricing";
 import { formatPrice } from "@/lib/utils";
 
 const sellFormSchema = z
@@ -134,6 +138,8 @@ function DisplayPricePreview({
   const priceSeller = useWatch({ control, name: "price_seller" });
   const displayPrice =
     priceSeller && priceSeller > 0 ? calcDisplayPrice(priceSeller) : null;
+  const buyerProtection =
+    priceSeller && priceSeller > 0 ? calcBuyerProtectionFee(priceSeller) : null;
 
   return (
     <AnimatePresence mode="wait">
@@ -152,6 +158,12 @@ function DisplayPricePreview({
             <span className="font-display text-brand font-bold">
               {formatPrice(displayPrice)}
             </span>
+            {buyerProtection != null && (
+              <span className="text-muted-foreground">
+                {" "}
+                (dont {formatPrice(buyerProtection)} de protection acheteur)
+              </span>
+            )}
           </p>
         </m.div>
       )}

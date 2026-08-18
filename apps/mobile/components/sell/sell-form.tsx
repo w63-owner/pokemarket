@@ -14,6 +14,7 @@ import {
   LIMITS,
   RARITY_OPTIONS,
   type CardCondition,
+  calcBuyerProtectionFee,
   calcDisplayPrice,
   formatPrice,
   parseDecimalPrice,
@@ -219,6 +220,10 @@ export function SellForm({
   const displayPrice =
     typeof priceSeller === "number" && priceSeller > 0
       ? calcDisplayPrice(priceSeller)
+      : null;
+  const buyerProtection =
+    typeof priceSeller === "number" && priceSeller > 0
+      ? calcBuyerProtectionFee(priceSeller)
       : null;
   const safeCondition = condition ?? "EXCELLENT";
   const languageCanonical = (cardLanguage ?? "FR").toUpperCase();
@@ -504,6 +509,12 @@ export function SellForm({
               <Text className="font-bold text-primary">
                 {formatPrice(displayPrice)}
               </Text>
+              {buyerProtection != null ? (
+                <Text variant="caption">
+                  {" "}
+                  (dont {formatPrice(buyerProtection)} de protection acheteur)
+                </Text>
+              ) : null}
             </Text>
           </View>
         ) : null}

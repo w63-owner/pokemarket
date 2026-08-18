@@ -58,10 +58,14 @@ export default function CGVPage() {
         échéant, de la déclaration et du paiement des taxes applicables.
       </p>
       <p>
-        PokeMarket prélève une commission de [Pourcentage]% sur chaque
-        transaction finalisée. Cette commission est déduite du montant versé au
-        vendeur. Les frais de port éventuels sont à la charge de
-        l&apos;acheteur, sauf mention contraire dans l&apos;annonce.
+        Au prix net demandé par le vendeur s&apos;ajoutent des frais de
+        protection acheteur. Ils comprennent une commission PokeMarket égale à 5
+        % du prix vendeur et une estimation forfaitaire des frais de traitement
+        du paiement, calculée sur le prix vendeur augmenté du tarif de livraison
+        maximal pris en charge par la plateforme. Le prix incluant la protection
+        acheteur est affiché au vendeur avant la publication de l&apos;annonce.
+        Les frais de port correspondant à la livraison choisie sont ensuite
+        ajoutés au paiement de l&apos;acheteur.
       </p>
 
       <h2>4. Processus de vente</h2>

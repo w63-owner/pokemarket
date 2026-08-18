@@ -359,6 +359,7 @@ function ConfirmReceptionBar({
             <View className="gap-1.5">
               <Label>Commentaire (optionnel)</Label>
               <Textarea
+                withinSheet
                 placeholder="Partagez votre expérience…"
                 value={comment}
                 onChangeText={setComment}
@@ -524,6 +525,7 @@ function ReportDisputeButton({
                 Description <Text className="text-destructive">*</Text>
               </Label>
               <Textarea
+                withinSheet
                 placeholder="Décrivez le problème en détail (min. 10 caractères)…"
                 value={description}
                 onChangeText={setDescription}

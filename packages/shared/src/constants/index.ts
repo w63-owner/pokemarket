@@ -1,5 +1,12 @@
-export const MARKETPLACE_PERCENT_FEE = 0;
-export const MARKETPLACE_FIXED_FEE = 0.01;
+/** PokeMarket commission included in the buyer protection fee. */
+export const MARKETPLACE_PERCENT_FEE = 0.05;
+
+/** No fixed PokeMarket commission; Stripe's fixed processing fee is separate. */
+export const MARKETPLACE_FIXED_FEE = 0;
+
+/** Standard online-card pricing for EEA cards on the French Stripe account. */
+export const STRIPE_STANDARD_EEA_PERCENT_FEE = 0.015;
+export const STRIPE_STANDARD_EEA_FIXED_FEE = 0.25;
 
 export * from "./feature-flags";
 

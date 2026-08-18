@@ -1,6 +1,8 @@
 import {
+  createContext,
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -21,6 +23,16 @@ import {
 import type { BottomSheetMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
 import { cn } from "@/lib/cn";
 import { useThemeColor } from "@/lib/theme-colors";
+
+const SheetInputContext = createContext(false);
+
+/**
+ * Lets form controls automatically switch to Gorhom's keyboard-aware input
+ * while they are rendered anywhere inside a Sheet.
+ */
+export function useIsInsideSheet() {
+  return useContext(SheetInputContext);
+}
 
 /**
  * Mobile Sheet primitive — wraps `@gorhom/bottom-sheet`'s `BottomSheetModal`
@@ -127,15 +139,17 @@ export function Sheet({
   const renderFooter = useCallback(
     (props: BottomSheetFooterProps) =>
       footer ? (
-        <BottomSheetFooter
-          {...props}
-          bottomInset={0}
-          style={{ backgroundColor: cardBg }}
-        >
-          <View className="border-t border-border bg-card px-4 pb-6 pt-3">
-            {footer}
-          </View>
-        </BottomSheetFooter>
+        <SheetInputContext.Provider value>
+          <BottomSheetFooter
+            {...props}
+            bottomInset={0}
+            style={{ backgroundColor: cardBg }}
+          >
+            <View className="border-t border-border bg-card px-4 pb-6 pt-3">
+              {footer}
+            </View>
+          </BottomSheetFooter>
+        </SheetInputContext.Provider>
       ) : null,
     [footer, cardBg],
   );
@@ -172,18 +186,20 @@ export function Sheet({
       // on Android when expanded to a tall snap point.
       topInset={Platform.OS === "android" ? 8 : 0}
     >
-      <BottomSheetView
-        style={{
-          // Top padding only — `BottomSheetFooter` floats above content,
-          // and consumers that scroll should add their own bottom padding
-          // (≈ footer height) to clear it. Non-scrollable sheets get the
-          // default 16dp gap before the safe-area handle.
-          paddingBottom: footer ? 0 : 16,
-        }}
-        className={cn("flex-1 px-4 pt-2", className)}
-      >
-        {children}
-      </BottomSheetView>
+      <SheetInputContext.Provider value>
+        <BottomSheetView
+          style={{
+            // Top padding only — `BottomSheetFooter` floats above content,
+            // and consumers that scroll should add their own bottom padding
+            // (≈ footer height) to clear it. Non-scrollable sheets get the
+            // default 16dp gap before the safe-area handle.
+            paddingBottom: footer ? 0 : 16,
+          }}
+          className={cn("flex-1 px-4 pt-2", className)}
+        >
+          {children}
+        </BottomSheetView>
+      </SheetInputContext.Provider>
     </BottomSheetModal>
   );
 }

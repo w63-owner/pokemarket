@@ -127,13 +127,23 @@ UPDATE public.transactions
 SET status = 'SHIPPED', shipped_at = now()
 WHERE id = '30000000-0000-4000-8000-000000000001';
 
+SET LOCAL ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',
+  true
+);
+
 SELECT ok(
   public.release_escrow_funds(
     '30000000-0000-4000-8000-000000000001',
     '10000000-0000-4000-8000-000000000001'
   ),
-  'escrow release succeeds'
+  'authenticated buyer can release escrow through the public wrapper'
 );
+
+RESET ROLE;
+
 SELECT is(
   (SELECT status FROM public.transactions
    WHERE id = '30000000-0000-4000-8000-000000000001'),
