@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { View } from "react-native";
 import { router, Stack } from "expo-router";
 import {
   COUNTRY_LABELS,
@@ -10,6 +9,7 @@ import {
 
 import {
   Button,
+  FormScrollView,
   Input,
   Label,
   Skeleton,
@@ -106,95 +106,92 @@ function EditProfileForm({ profile }: { profile: Profile }) {
   ]);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 24 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="items-center gap-2">
-          <AvatarUploader
-            currentUrl={avatarUrl}
-            fallback={profile.username?.charAt(0).toUpperCase() || "?"}
-            onUploaded={handleAvatarUploaded}
-          />
-        </View>
+    <FormScrollView
+      contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 24 }}
+    >
+      <View className="items-center gap-2">
+        <AvatarUploader
+          currentUrl={avatarUrl}
+          fallback={profile.username?.charAt(0).toUpperCase() || "?"}
+          onUploaded={handleAvatarUploaded}
+        />
+      </View>
 
+      <View className="gap-2">
+        <Label>Pseudo</Label>
+        <Input
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={30}
+        />
+      </View>
+
+      <View className="gap-2">
+        <Label>Bio</Label>
+        <Textarea
+          value={bio}
+          onChangeText={setBio}
+          placeholder="Parlez de votre collection…"
+          maxLength={500}
+          numberOfLines={4}
+        />
+      </View>
+
+      <View className="gap-2">
+        <Label>Adresse</Label>
+        <AddressAutocomplete value={address} onChange={setAddress} />
+      </View>
+
+      <View className="gap-3">
+        <Text variant="muted" className="text-sm font-medium">
+          Réseaux sociaux
+        </Text>
         <View className="gap-2">
-          <Label>Pseudo</Label>
+          <Label>Instagram</Label>
           <Input
-            value={username}
-            onChangeText={setUsername}
+            value={instagram}
+            onChangeText={setInstagram}
+            placeholder="www.instagram.com/pseudo"
             autoCapitalize="none"
             autoCorrect={false}
-            maxLength={30}
+            keyboardType="url"
           />
         </View>
-
         <View className="gap-2">
-          <Label>Bio</Label>
-          <Textarea
-            value={bio}
-            onChangeText={setBio}
-            placeholder="Parlez de votre collection…"
-            maxLength={500}
-            numberOfLines={4}
+          <Label>Facebook</Label>
+          <Input
+            value={facebook}
+            onChangeText={setFacebook}
+            placeholder="www.facebook.com/pseudo"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
           />
         </View>
-
         <View className="gap-2">
-          <Label>Adresse</Label>
-          <AddressAutocomplete value={address} onChange={setAddress} />
+          <Label>TikTok</Label>
+          <Input
+            value={tiktok}
+            onChangeText={setTiktok}
+            placeholder="www.tiktok.com/@pseudo"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
         </View>
+      </View>
 
-        <View className="gap-3">
-          <Text variant="muted" className="text-sm font-medium">
-            Réseaux sociaux
-          </Text>
-          <View className="gap-2">
-            <Label>Instagram</Label>
-            <Input
-              value={instagram}
-              onChangeText={setInstagram}
-              placeholder="www.instagram.com/pseudo"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          </View>
-          <View className="gap-2">
-            <Label>Facebook</Label>
-            <Input
-              value={facebook}
-              onChangeText={setFacebook}
-              placeholder="www.facebook.com/pseudo"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          </View>
-          <View className="gap-2">
-            <Label>TikTok</Label>
-            <Input
-              value={tiktok}
-              onChangeText={setTiktok}
-              placeholder="www.tiktok.com/@pseudo"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          </View>
-        </View>
-
-        <Button
-          size="lg"
-          loading={updateProfile.isPending}
-          disabled={!username || username.trim().length < 3}
-          onPress={handleSubmit}
-        >
-          Sauvegarder
-        </Button>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button
+        size="lg"
+        loading={updateProfile.isPending}
+        disabled={!username || username.trim().length < 3}
+        onPress={handleSubmit}
+      >
+        Sauvegarder
+      </Button>
+    </FormScrollView>
   );
 }
 

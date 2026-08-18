@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import {
   KeyboardAvoidingView,
   useKeyboardState,
@@ -27,7 +27,7 @@ import { fetchMyProfile } from "@/lib/api/profile";
 import { usePayment } from "@/lib/payments";
 import { transactionRoutes } from "@/lib/routes/orders";
 import { useThemeColors } from "@/lib/theme-colors";
-import { Button, Skeleton, Text, toast } from "@/components/ui";
+import { Button, FormScrollView, Skeleton, Text, toast } from "@/components/ui";
 import { MobileHeader } from "@/components/layout";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { CountdownTimer } from "@/components/checkout/countdown-timer";
@@ -193,9 +193,8 @@ function CheckoutContent() {
           position itself, so any non-zero offset becomes a visible gap
           between the keyboard top and the bottom of the content. */}
       <KeyboardAvoidingView behavior="padding" className="flex-1">
-        <ScrollView
+        <FormScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 20 }}
-          keyboardShouldPersistTaps="handled"
         >
           <Text variant="muted">Finalisez votre achat en toute sécurité</Text>
 
@@ -242,7 +241,7 @@ function CheckoutContent() {
               jusqu&apos;à confirmation de réception de la carte.
             </Text>
           </View>
-        </ScrollView>
+        </FormScrollView>
 
         <View
           className="border-t border-border bg-card px-4 pt-3"

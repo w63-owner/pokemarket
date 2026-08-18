@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { ActivityIndicator, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertTriangle, Trash2 } from "lucide-react-native";
@@ -27,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FormScrollView } from "@/components/ui/form-scroll-view";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { MobileHeader } from "@/components/layout/mobile-header";
@@ -135,55 +135,52 @@ function EditListingContent() {
         fallbackHref={`/listing/${listing.id}`}
       />
 
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
-          keyboardShouldPersistTaps="handled"
+      <FormScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
+      >
+        <ImageUploader
+          onImagesChange={setImages}
+          initialCover={
+            listing.cover_image_url
+              ? {
+                  publicUrl: listing.cover_image_url,
+                  storagePath: extractStoragePath(listing.cover_image_url),
+                }
+              : null
+          }
+          initialBack={
+            listing.back_image_url
+              ? {
+                  publicUrl: listing.back_image_url,
+                  storagePath: extractStoragePath(listing.back_image_url),
+                }
+              : null
+          }
+        />
+
+        <View className="my-6 flex-row items-center gap-2">
+          <View className="h-px flex-1 bg-border" />
+          <Text variant="caption">Détails</Text>
+          <View className="h-px flex-1 bg-border" />
+        </View>
+
+        <SellForm
+          defaultValues={defaults}
+          onSubmit={handleSubmit}
+          isLoading={updateListing.isPending}
+          submitLabel="Enregistrer les modifications"
+        />
+
+        <Button
+          variant="destructive"
+          className="mt-6"
+          leftIcon={<Trash2 size={16} color="#fff" />}
+          onPress={() => setDeleteOpen(true)}
+          disabled={updateListing.isPending}
         >
-          <ImageUploader
-            onImagesChange={setImages}
-            initialCover={
-              listing.cover_image_url
-                ? {
-                    publicUrl: listing.cover_image_url,
-                    storagePath: extractStoragePath(listing.cover_image_url),
-                  }
-                : null
-            }
-            initialBack={
-              listing.back_image_url
-                ? {
-                    publicUrl: listing.back_image_url,
-                    storagePath: extractStoragePath(listing.back_image_url),
-                  }
-                : null
-            }
-          />
-
-          <View className="my-6 flex-row items-center gap-2">
-            <View className="h-px flex-1 bg-border" />
-            <Text variant="caption">Détails</Text>
-            <View className="h-px flex-1 bg-border" />
-          </View>
-
-          <SellForm
-            defaultValues={defaults}
-            onSubmit={handleSubmit}
-            isLoading={updateListing.isPending}
-            submitLabel="Enregistrer les modifications"
-          />
-
-          <Button
-            variant="destructive"
-            className="mt-6"
-            leftIcon={<Trash2 size={16} color="#fff" />}
-            onPress={() => setDeleteOpen(true)}
-            disabled={updateListing.isPending}
-          >
-            Supprimer l&apos;annonce
-          </Button>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          Supprimer l&apos;annonce
+        </Button>
+      </FormScrollView>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogHeader>

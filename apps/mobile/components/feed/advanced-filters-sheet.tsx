@@ -61,12 +61,24 @@ export function AdvancedFiltersSheet({
   const { isAuthenticated } = useAuth();
   const primary = useThemeColor("primary");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [openSaveAfterDismiss, setOpenSaveAfterDismiss] = useState(false);
+
+  const handleSaveSearchPress = () => {
+    setOpenSaveAfterDismiss(true);
+    onOpenChange(false);
+  };
+
+  const handleDismissComplete = () => {
+    if (!openSaveAfterDismiss) return;
+    setOpenSaveAfterDismiss(false);
+    setSaveDialogOpen(true);
+  };
 
   const footerEl = (
     <>
       {isAuthenticated && activeCount > 0 ? (
         <Pressable
-          onPress={() => setSaveDialogOpen(true)}
+          onPress={handleSaveSearchPress}
           accessibilityRole="button"
           accessibilityLabel="Sauvegarder cette recherche"
           className="mb-3 flex-row items-center justify-center gap-1.5 self-center px-3 py-1.5"
@@ -95,182 +107,185 @@ export function AdvancedFiltersSheet({
   );
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      snapPoints={["92%"]}
-      footer={footerEl}
-    >
-      <View className="flex-row items-center justify-between pb-2">
-        <Text variant="h3">Filtres avancés</Text>
-        {activeCount > 0 ? (
-          <View className="rounded-full bg-secondary px-2.5 py-0.5">
-            <Text className="text-xs font-medium">{activeCount}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* paddingBottom offsets the sticky footer so the last row isn't
-          hidden behind it (footer ≈ button 44 + paddingTop 8 + paddingBottom 24 = 76dp). */}
-      <SheetScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 76 }}
+    <>
+      <Sheet
+        open={open}
+        onOpenChange={onOpenChange}
+        onDismissComplete={handleDismissComplete}
+        snapPoints={["92%"]}
+        footer={footerEl}
       >
-        <View className="gap-1.5">
-          <Label>Bloc</Label>
-          <Input
-            placeholder="Ex: Écarlate et Violet…"
-            value={filters.series ?? ""}
-            onChangeText={(v) => onChange({ series: v || undefined })}
-          />
+        <View className="flex-row items-center justify-between pb-2">
+          <Text variant="h3">Filtres avancés</Text>
+          {activeCount > 0 ? (
+            <View className="rounded-full bg-secondary px-2.5 py-0.5">
+              <Text className="text-xs font-medium">{activeCount}</Text>
+            </View>
+          ) : null}
         </View>
 
-        <View className="mt-3 gap-1.5">
-          <Label>Série / Extension</Label>
-          <Input
-            placeholder="Ex: Flammes Obsidiennes…"
-            value={filters.set ?? ""}
-            onChangeText={(v) => onChange({ set: v || undefined })}
-          />
-        </View>
-
-        <View className="mt-3 gap-1.5">
-          <Label>N° de carte</Label>
-          <Input
-            placeholder="Ex: 25/165"
-            value={filters.card_number ?? ""}
-            onChangeText={(v) => onChange({ card_number: v || undefined })}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        <View className="mt-3 gap-1.5">
-          <Label>Rareté</Label>
-          <Select
-            value={filters.rarity ?? ""}
-            onValueChange={(val) => onChange({ rarity: val || undefined })}
-            options={RARITY_SELECT_OPTIONS}
-            placeholder="Toutes"
-            title="Rareté"
-          />
-        </View>
-
-        <View className="mt-3 gap-1.5">
-          <Label>État</Label>
-          <Select
-            value={filters.condition ?? ""}
-            onValueChange={(val) => onChange({ condition: val || undefined })}
-            options={CONDITION_SELECT_OPTIONS}
-            placeholder="Tous"
-            title="État"
-          />
-        </View>
-
-        <View className="mt-3 gap-3">
-          <View className="flex-row items-center justify-between">
-            <Label>Carte gradée</Label>
-            <Switch
-              checked={!!filters.is_graded}
-              onCheckedChange={(checked) =>
-                onChange({
-                  is_graded: checked || undefined,
-                  ...(!checked && {
-                    grade_min: undefined,
-                    grade_max: undefined,
-                  }),
-                })
-              }
+        {/* paddingBottom offsets the sticky footer so the last row isn't
+          hidden behind it (footer ≈ button 44 + paddingTop 8 + paddingBottom 24 = 76dp). */}
+        <SheetScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 76 }}
+        >
+          <View className="gap-1.5">
+            <Label>Bloc</Label>
+            <Input
+              placeholder="Ex: Écarlate et Violet…"
+              value={filters.series ?? ""}
+              onChangeText={(v) => onChange({ series: v || undefined })}
             />
           </View>
 
-          <AnimatePresence>
-            {filters.is_graded ? (
-              <MotiView
-                from={{ opacity: 0, translateY: -4 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                exit={{ opacity: 0, translateY: -4 }}
-                transition={{ type: "timing", duration: duration.fast }}
-              >
-                <View className="flex-row gap-2">
-                  <View className="flex-1 gap-1">
-                    <Text variant="caption">Note min</Text>
-                    <Input
-                      keyboardType="decimal-pad"
-                      placeholder="1"
-                      value={
-                        filters.grade_min !== undefined
-                          ? String(filters.grade_min)
-                          : ""
-                      }
-                      onChangeText={(v) =>
-                        onChange({ grade_min: parseNumberInput(v) })
-                      }
-                    />
-                  </View>
-                  <View className="flex-1 gap-1">
-                    <Text variant="caption">Note max</Text>
-                    <Input
-                      keyboardType="decimal-pad"
-                      placeholder="10"
-                      value={
-                        filters.grade_max !== undefined
-                          ? String(filters.grade_max)
-                          : ""
-                      }
-                      onChangeText={(v) =>
-                        onChange({ grade_max: parseNumberInput(v) })
-                      }
-                    />
-                  </View>
-                </View>
-              </MotiView>
-            ) : null}
-          </AnimatePresence>
-        </View>
+          <View className="mt-3 gap-1.5">
+            <Label>Série / Extension</Label>
+            <Input
+              placeholder="Ex: Flammes Obsidiennes…"
+              value={filters.set ?? ""}
+              onChangeText={(v) => onChange({ set: v || undefined })}
+            />
+          </View>
 
-        <View className="mt-3 gap-1.5">
-          <Label>Prix (€)</Label>
-          <View className="flex-row items-center gap-2">
-            <View className="flex-1">
-              <Input
-                keyboardType="decimal-pad"
-                placeholder="Min"
-                value={
-                  filters.price_min !== undefined
-                    ? String(filters.price_min)
-                    : ""
-                }
-                onChangeText={(v) =>
-                  onChange({ price_min: parseNumberInput(v) })
+          <View className="mt-3 gap-1.5">
+            <Label>N° de carte</Label>
+            <Input
+              placeholder="Ex: 25/165"
+              value={filters.card_number ?? ""}
+              onChangeText={(v) => onChange({ card_number: v || undefined })}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View className="mt-3 gap-1.5">
+            <Label>Rareté</Label>
+            <Select
+              value={filters.rarity ?? ""}
+              onValueChange={(val) => onChange({ rarity: val || undefined })}
+              options={RARITY_SELECT_OPTIONS}
+              placeholder="Toutes"
+              title="Rareté"
+            />
+          </View>
+
+          <View className="mt-3 gap-1.5">
+            <Label>État</Label>
+            <Select
+              value={filters.condition ?? ""}
+              onValueChange={(val) => onChange({ condition: val || undefined })}
+              options={CONDITION_SELECT_OPTIONS}
+              placeholder="Tous"
+              title="État"
+            />
+          </View>
+
+          <View className="mt-3 gap-3">
+            <View className="flex-row items-center justify-between">
+              <Label>Carte gradée</Label>
+              <Switch
+                checked={!!filters.is_graded}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    is_graded: checked || undefined,
+                    ...(!checked && {
+                      grade_min: undefined,
+                      grade_max: undefined,
+                    }),
+                  })
                 }
               />
             </View>
-            <Text variant="muted">–</Text>
-            <View className="flex-1">
-              <Input
-                keyboardType="decimal-pad"
-                placeholder="Max"
-                value={
-                  filters.price_max !== undefined
-                    ? String(filters.price_max)
-                    : ""
-                }
-                onChangeText={(v) =>
-                  onChange({ price_max: parseNumberInput(v) })
-                }
-              />
+
+            <AnimatePresence>
+              {filters.is_graded ? (
+                <MotiView
+                  from={{ opacity: 0, translateY: -4 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  exit={{ opacity: 0, translateY: -4 }}
+                  transition={{ type: "timing", duration: duration.fast }}
+                >
+                  <View className="flex-row gap-2">
+                    <View className="flex-1 gap-1">
+                      <Text variant="caption">Note min</Text>
+                      <Input
+                        keyboardType="decimal-pad"
+                        placeholder="1"
+                        value={
+                          filters.grade_min !== undefined
+                            ? String(filters.grade_min)
+                            : ""
+                        }
+                        onChangeText={(v) =>
+                          onChange({ grade_min: parseNumberInput(v) })
+                        }
+                      />
+                    </View>
+                    <View className="flex-1 gap-1">
+                      <Text variant="caption">Note max</Text>
+                      <Input
+                        keyboardType="decimal-pad"
+                        placeholder="10"
+                        value={
+                          filters.grade_max !== undefined
+                            ? String(filters.grade_max)
+                            : ""
+                        }
+                        onChangeText={(v) =>
+                          onChange({ grade_max: parseNumberInput(v) })
+                        }
+                      />
+                    </View>
+                  </View>
+                </MotiView>
+              ) : null}
+            </AnimatePresence>
+          </View>
+
+          <View className="mt-3 gap-1.5">
+            <Label>Prix (€)</Label>
+            <View className="flex-row items-center gap-2">
+              <View className="flex-1">
+                <Input
+                  keyboardType="decimal-pad"
+                  placeholder="Min"
+                  value={
+                    filters.price_min !== undefined
+                      ? String(filters.price_min)
+                      : ""
+                  }
+                  onChangeText={(v) =>
+                    onChange({ price_min: parseNumberInput(v) })
+                  }
+                />
+              </View>
+              <Text variant="muted">–</Text>
+              <View className="flex-1">
+                <Input
+                  keyboardType="decimal-pad"
+                  placeholder="Max"
+                  value={
+                    filters.price_max !== undefined
+                      ? String(filters.price_max)
+                      : ""
+                  }
+                  onChangeText={(v) =>
+                    onChange({ price_max: parseNumberInput(v) })
+                  }
+                />
+              </View>
             </View>
           </View>
-        </View>
-      </SheetScrollView>
+        </SheetScrollView>
+      </Sheet>
 
       <SaveSearchDialog
         open={saveDialogOpen}
         onOpenChange={setSaveDialogOpen}
         filters={filters}
       />
-    </Sheet>
+    </>
   );
 }

@@ -51,9 +51,9 @@ export function useIsInsideSheet() {
  *     content (capped at 90% of the screen) — callers with scrollable
  *     bodies should pass explicit `snapPoints` and use `SheetScrollView`
  *     / `SheetFlatList` so vertical gestures are forwarded to the lib.
- *   • Keyboard behavior is tuned for forms (interactive resize on iOS,
- *     `adjustResize` on Android) so the input stays visible when the
- *     keyboard opens (offer-bar, address-autocomplete, sell forms).
+ *   • Keyboard behavior is tuned for forms. On Android, `adjustPan` lets
+ *     Gorhom's interactive behavior move the sheet above the keyboard;
+ *     `adjustResize` disables that offset and is unreliable with edge-to-edge.
  */
 
 type Props = {
@@ -67,6 +67,8 @@ type Props = {
    * the sheet body is scrollable.
    */
   footer?: React.ReactNode;
+  /** Called after the modal has fully left the portal. */
+  onDismissComplete?: () => void;
   /**
    * Snap points expressed either as percentage strings (e.g. `"75%"`)
    * or absolute pixel numbers. When omitted, the sheet uses dynamic
@@ -81,6 +83,7 @@ export function Sheet({
   children,
   className,
   footer,
+  onDismissComplete,
   snapPoints,
 }: Props) {
   const ref = useRef<BottomSheetModal>(null);
@@ -170,6 +173,7 @@ export function Sheet({
       onDismiss={() => {
         // The lib reset its status to INITIAL via unmount(). Stay in sync.
         isPresentedRef.current = false;
+        onDismissComplete?.();
       }}
       snapPoints={resolvedSnapPoints as BottomSheetModalProps["snapPoints"]}
       enableDynamicSizing={enableDynamicSizing}
@@ -177,7 +181,7 @@ export function Sheet({
       enablePanDownToClose
       keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
+      android_keyboardInputMode="adjustPan"
       backdropComponent={renderBackdrop}
       footerComponent={footer ? renderFooter : undefined}
       backgroundStyle={{ backgroundColor: cardBg }}
@@ -216,7 +220,12 @@ export const SheetScrollView = forwardRef<
   SheetScrollViewProps
 >(function SheetScrollView({ className, ...props }, ref) {
   return (
-    <BottomSheetScrollView ref={ref} {...props} className={cn(className)} />
+    <BottomSheetScrollView
+      ref={ref}
+      keyboardShouldPersistTaps="handled"
+      {...props}
+      className={cn(className)}
+    />
   );
 });
 

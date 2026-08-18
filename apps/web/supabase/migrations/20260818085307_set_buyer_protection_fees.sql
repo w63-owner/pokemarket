@@ -6,6 +6,8 @@
 --
 -- Keep these constants aligned with packages/shared/src/constants/index.ts
 -- and packages/shared/src/lib/shipping.ts.
+begin;
+
 set local lock_timeout = '5s';
 
 alter table public.listings
@@ -39,3 +41,5 @@ create index idx_listings_active_price_asc
 create index idx_listings_active_price_desc
   on public.listings (display_price desc, id)
   where status = 'ACTIVE';
+
+commit;

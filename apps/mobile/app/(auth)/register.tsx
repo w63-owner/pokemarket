@@ -1,13 +1,19 @@
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema } from "@pokemarket/shared";
 import type { z } from "zod";
-import { Button, Input, Label, SmartBackButton, Text } from "@/components/ui";
+import {
+  Button,
+  FormScrollView,
+  Input,
+  Label,
+  SmartBackButton,
+  Text,
+} from "@/components/ui";
 import { toast } from "@/components/ui/toast";
 import { supabase } from "@/lib/supabase";
 
@@ -54,113 +60,108 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, padding: 24 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View className="mb-4">
-            <SmartBackButton fallbackHref="/(auth)/login" />
+      <FormScrollView contentContainerStyle={{ flexGrow: 1, padding: 24 }}>
+        <View className="mb-4">
+          <SmartBackButton fallbackHref="/(auth)/login" />
+        </View>
+
+        <View className="flex-1 justify-center gap-6">
+          <View className="gap-2">
+            <Text variant="h1">Créer un compte</Text>
+            <Text variant="muted">
+              Rejoins la marketplace des collectionneurs Pokémon.
+            </Text>
           </View>
 
-          <View className="flex-1 justify-center gap-6">
+          <View className="gap-4">
             <View className="gap-2">
-              <Text variant="h1">Créer un compte</Text>
-              <Text variant="muted">
-                Rejoins la marketplace des collectionneurs Pokémon.
-              </Text>
+              <Label>Pseudo</Label>
+              <Controller
+                control={control}
+                name="username"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholder="pikachu_master"
+                    error={!!errors.username}
+                  />
+                )}
+              />
+              {errors.username ? (
+                <Text variant="caption" className="text-destructive">
+                  {errors.username.message}
+                </Text>
+              ) : null}
             </View>
 
-            <View className="gap-4">
-              <View className="gap-2">
-                <Label>Pseudo</Label>
-                <Controller
-                  control={control}
-                  name="username"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      placeholder="pikachu_master"
-                      error={!!errors.username}
-                    />
-                  )}
-                />
-                {errors.username ? (
-                  <Text variant="caption" className="text-destructive">
-                    {errors.username.message}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View className="gap-2">
-                <Label>Email</Label>
-                <Controller
-                  control={control}
-                  name="email"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      textContentType="emailAddress"
-                      placeholder="vous@exemple.com"
-                      error={!!errors.email}
-                    />
-                  )}
-                />
-                {errors.email ? (
-                  <Text variant="caption" className="text-destructive">
-                    {errors.email.message}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View className="gap-2">
-                <Label>Mot de passe</Label>
-                <Controller
-                  control={control}
-                  name="password"
-                  render={({ field: { value, onChange, onBlur } }) => (
-                    <Input
-                      value={value}
-                      onChangeText={onChange}
-                      onBlur={onBlur}
-                      secureTextEntry
-                      autoComplete="new-password"
-                      textContentType="newPassword"
-                      placeholder="••••••••"
-                      error={!!errors.password}
-                    />
-                  )}
-                />
-                {errors.password ? (
-                  <Text variant="caption" className="text-destructive">
-                    {errors.password.message}
-                  </Text>
-                ) : null}
-              </View>
+            <View className="gap-2">
+              <Label>Email</Label>
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    textContentType="emailAddress"
+                    placeholder="vous@exemple.com"
+                    error={!!errors.email}
+                  />
+                )}
+              />
+              {errors.email ? (
+                <Text variant="caption" className="text-destructive">
+                  {errors.email.message}
+                </Text>
+              ) : null}
             </View>
 
-            <Button onPress={onSubmit} loading={submitting}>
-              Créer mon compte
-            </Button>
-
-            <View className="flex-row items-center justify-center gap-1">
-              <Text variant="muted">Déjà inscrit ?</Text>
-              <Pressable onPress={returnToLogin} hitSlop={4}>
-                <Text className="font-semibold text-primary">Se connecter</Text>
-              </Pressable>
+            <View className="gap-2">
+              <Label>Mot de passe</Label>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Input
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    placeholder="••••••••"
+                    error={!!errors.password}
+                  />
+                )}
+              />
+              {errors.password ? (
+                <Text variant="caption" className="text-destructive">
+                  {errors.password.message}
+                </Text>
+              ) : null}
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+          <Button onPress={onSubmit} loading={submitting}>
+            Créer mon compte
+          </Button>
+
+          <View className="flex-row items-center justify-center gap-1">
+            <Text variant="muted">Déjà inscrit ?</Text>
+            <Pressable onPress={returnToLogin} hitSlop={4}>
+              <Text className="font-semibold text-primary">Se connecter</Text>
+            </Pressable>
+          </View>
+        </View>
+      </FormScrollView>
     </SafeAreaView>
   );
 }

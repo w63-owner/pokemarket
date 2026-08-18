@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { BackHandler, Pressable, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimatePresence, MotiView } from "moti";
 import {
@@ -41,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FormScrollView } from "@/components/ui/form-scroll-view";
 import { Text } from "@/components/ui/text";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -487,133 +487,129 @@ function SellContent() {
       />
       <SellStepIndicator current={step} />
 
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <AnimatePresence exitBeforeEnter>
-            <MotiView
-              key={`sell-step-${step}`}
-              from={{ opacity: 0, translateX: direction * 20 }}
-              animate={{ opacity: 1, translateX: 0 }}
-              exit={{ opacity: 0, translateX: direction * -20 }}
-              transition={{ type: "timing", duration: duration.fast }}
-            >
-              {step === 1 ? (
-                <View className="gap-6">
-                  <View>
-                    <Text variant="h3">Photographiez votre carte</Text>
-                    <Text variant="muted" className="mt-1">
-                      Ajoutez un recto et un verso nets, sans reflet.
-                    </Text>
-                  </View>
-                  <ImageUploader
-                    key={`${images.cover?.storagePath ?? "none"}-${images.back?.storagePath ?? "none"}`}
-                    initialCover={images.cover}
-                    initialBack={images.back}
-                    onImagesChange={handleImagesChange}
-                  />
+      <FormScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+      >
+        <AnimatePresence exitBeforeEnter>
+          <MotiView
+            key={`sell-step-${step}`}
+            from={{ opacity: 0, translateX: direction * 20 }}
+            animate={{ opacity: 1, translateX: 0 }}
+            exit={{ opacity: 0, translateX: direction * -20 }}
+            transition={{ type: "timing", duration: duration.fast }}
+          >
+            {step === 1 ? (
+              <View className="gap-6">
+                <View>
+                  <Text variant="h3">Photographiez votre carte</Text>
+                  <Text variant="muted" className="mt-1">
+                    Ajoutez un recto et un verso nets, sans reflet.
+                  </Text>
                 </View>
-              ) : null}
+                <ImageUploader
+                  key={`${images.cover?.storagePath ?? "none"}-${images.back?.storagePath ?? "none"}`}
+                  initialCover={images.cover}
+                  initialBack={images.back}
+                  onImagesChange={handleImagesChange}
+                />
+              </View>
+            ) : null}
 
-              {step === 2 ? (
-                <View className="gap-6">
-                  <View>
-                    <Text variant="h3">Identifiez la carte</Text>
-                    <Text variant="muted" className="mt-1">
-                      L&apos;IA peut retrouver automatiquement la série, le
-                      numéro et la rareté.
-                    </Text>
+            {step === 2 ? (
+              <View className="gap-6">
+                <View>
+                  <Text variant="h3">Identifiez la carte</Text>
+                  <Text variant="muted" className="mt-1">
+                    L&apos;IA peut retrouver automatiquement la série, le numéro
+                    et la rareté.
+                  </Text>
+                </View>
+
+                {!ocr.hasRun ? (
+                  <View className="gap-3">
+                    <Button
+                      onPress={handleOcrScan}
+                      leftIcon={
+                        <Sparkles size={16} color={primaryForeground} />
+                      }
+                    >
+                      Scanner la carte avec l&apos;IA
+                    </Button>
+                    <Button
+                      onPress={handleManualIdentification}
+                      variant="ghost"
+                    >
+                      Saisir les informations manuellement
+                    </Button>
                   </View>
+                ) : (
+                  <View className="gap-4">
+                    <OcrResults
+                      candidates={ocr.candidates}
+                      isLoading={ocr.isLoading}
+                      selectedCardKey={ocr.selectedCardKey}
+                      manualSelected={
+                        identificationConfirmed && ocr.selectedCardKey === null
+                      }
+                      onSelect={handleCandidateSelect}
+                    />
 
-                  {!ocr.hasRun ? (
-                    <View className="gap-3">
-                      <Button
-                        onPress={handleOcrScan}
-                        leftIcon={
-                          <Sparkles size={16} color={primaryForeground} />
-                        }
-                      >
-                        Scanner la carte avec l&apos;IA
-                      </Button>
-                      <Button
-                        onPress={handleManualIdentification}
-                        variant="ghost"
-                      >
-                        Saisir les informations manuellement
-                      </Button>
-                    </View>
-                  ) : (
-                    <View className="gap-4">
-                      <OcrResults
-                        candidates={ocr.candidates}
-                        isLoading={ocr.isLoading}
-                        selectedCardKey={ocr.selectedCardKey}
-                        manualSelected={
-                          identificationConfirmed &&
-                          ocr.selectedCardKey === null
-                        }
-                        onSelect={handleCandidateSelect}
-                      />
-
-                      {!ocr.isLoading && ocr.candidates.length === 0 ? (
-                        <View className="gap-4 rounded-2xl border border-border bg-card p-4">
-                          <View className="flex-row items-start gap-3">
-                            <ScanLine size={20} color={primary} />
-                            <View className="flex-1">
-                              <Text className="font-semibold">
-                                {ocr.parsed?.name
-                                  ? "Informations partielles détectées"
-                                  : "Identification manuelle"}
-                              </Text>
-                              <Text variant="muted" className="mt-1">
-                                Vous pourrez vérifier et compléter les champs à
-                                l&apos;étape suivante.
-                              </Text>
-                            </View>
+                    {!ocr.isLoading && ocr.candidates.length === 0 ? (
+                      <View className="gap-4 rounded-2xl border border-border bg-card p-4">
+                        <View className="flex-row items-start gap-3">
+                          <ScanLine size={20} color={primary} />
+                          <View className="flex-1">
+                            <Text className="font-semibold">
+                              {ocr.parsed?.name
+                                ? "Informations partielles détectées"
+                                : "Identification manuelle"}
+                            </Text>
+                            <Text variant="muted" className="mt-1">
+                              Vous pourrez vérifier et compléter les champs à
+                              l&apos;étape suivante.
+                            </Text>
                           </View>
-                          <Button onPress={handleOcrScan} variant="outline">
-                            Relancer l&apos;analyse
-                          </Button>
                         </View>
-                      ) : null}
-                    </View>
-                  )}
-                </View>
-              ) : null}
-
-              {step === 3 ? (
-                <View className="gap-5">
-                  <Pressable
-                    onPress={() => goToStep(2)}
-                    hitSlop={8}
-                    className="flex-row items-center gap-1"
-                  >
-                    <ArrowLeft size={16} color={mutedForeground} />
-                    <Text variant="muted">Modifier l&apos;identification</Text>
-                  </Pressable>
-                  <View>
-                    <Text variant="h3">Finalisez l&apos;annonce</Text>
-                    <Text variant="muted" className="mt-1">
-                      Vérifiez les informations, l&apos;état et votre prix
-                      vendeur.
-                    </Text>
+                        <Button onPress={handleOcrScan} variant="outline">
+                          Relancer l&apos;analyse
+                        </Button>
+                      </View>
+                    ) : null}
                   </View>
-                  <SellForm
-                    key={ocr.selectedCardKey ?? "manual"}
-                    cardKey={ocr.selectedCardKey}
-                    defaultValues={formDefaultValues}
-                    onValuesChange={handleFormValuesChange}
-                    onSubmit={handleSubmit}
-                    isLoading={createListing.isPending}
-                  />
+                )}
+              </View>
+            ) : null}
+
+            {step === 3 ? (
+              <View className="gap-5">
+                <Pressable
+                  onPress={() => goToStep(2)}
+                  hitSlop={8}
+                  className="flex-row items-center gap-1"
+                >
+                  <ArrowLeft size={16} color={mutedForeground} />
+                  <Text variant="muted">Modifier l&apos;identification</Text>
+                </Pressable>
+                <View>
+                  <Text variant="h3">Finalisez l&apos;annonce</Text>
+                  <Text variant="muted" className="mt-1">
+                    Vérifiez les informations, l&apos;état et votre prix
+                    vendeur.
+                  </Text>
                 </View>
-              ) : null}
-            </MotiView>
-          </AnimatePresence>
-        </ScrollView>
-      </KeyboardAvoidingView>
+                <SellForm
+                  key={ocr.selectedCardKey ?? "manual"}
+                  cardKey={ocr.selectedCardKey}
+                  defaultValues={formDefaultValues}
+                  onValuesChange={handleFormValuesChange}
+                  onSubmit={handleSubmit}
+                  isLoading={createListing.isPending}
+                />
+              </View>
+            ) : null}
+          </MotiView>
+        </AnimatePresence>
+      </FormScrollView>
 
       {step < 3 ? (
         <SafeAreaView

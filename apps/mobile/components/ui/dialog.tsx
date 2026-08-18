@@ -4,6 +4,7 @@ import { BlurView } from "expo-blur";
 import { cn } from "@/lib/cn";
 import { duration, fadeInScale, useReducedMotionSafe } from "@/lib/motion";
 import { useEffectiveTheme } from "@/lib/stores/theme";
+import { FormScrollView } from "./form-scroll-view";
 import { Text } from "./text";
 
 type DialogProps = {
@@ -47,13 +48,7 @@ export function Dialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ type: "timing", duration: duration.fast }}
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-            }}
+            style={{ flex: 1 }}
           >
             <BlurView
               intensity={20}
@@ -62,25 +57,36 @@ export function Dialog({
             >
               <Pressable
                 onPress={() => onOpenChange(false)}
-                className="flex-1 items-center justify-center bg-black/40 px-4"
+                className="flex-1 bg-black/40 px-4"
               >
-                <Pressable
-                  onPress={(e) => e.stopPropagation()}
-                  className="w-full"
+                <FormScrollView
+                  bottomOffset={16}
+                  style={{ flex: 1, width: "100%" }}
+                  contentContainerStyle={{
+                    flexGrow: 1,
+                    justifyContent: "center",
+                  }}
                 >
-                  <MotiView
-                    from={reduceMotion ? fadeInScale.animate : fadeInScale.from}
-                    animate={fadeInScale.animate}
-                    exit={fadeInScale.exit}
-                    transition={{ type: "timing", duration: duration.fast }}
-                    className={cn(
-                      "w-full rounded-2xl border border-border bg-card p-6",
-                      className,
-                    )}
+                  <Pressable
+                    onPress={(e) => e.stopPropagation()}
+                    className="w-full py-4"
                   >
-                    {children}
-                  </MotiView>
-                </Pressable>
+                    <MotiView
+                      from={
+                        reduceMotion ? fadeInScale.animate : fadeInScale.from
+                      }
+                      animate={fadeInScale.animate}
+                      exit={fadeInScale.exit}
+                      transition={{ type: "timing", duration: duration.fast }}
+                      className={cn(
+                        "w-full rounded-2xl border border-border bg-card p-6",
+                        className,
+                      )}
+                    >
+                      {children}
+                    </MotiView>
+                  </Pressable>
+                </FormScrollView>
               </Pressable>
             </BlurView>
           </MotiView>
