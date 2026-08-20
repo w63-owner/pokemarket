@@ -23,6 +23,27 @@ vi.mock("@/lib/stripe/reconcile", () => ({
     reconcilePIImpl(txId, piId),
   ),
 }));
+
+const retrievePaymentIntent = vi.fn();
+const cancelPaymentIntent = vi.fn();
+const retrieveCheckoutSession = vi.fn();
+const expireCheckoutSession = vi.fn();
+
+vi.mock("@/lib/stripe/server", () => ({
+  getStripe: () => ({
+    paymentIntents: {
+      retrieve: (...args: unknown[]) => retrievePaymentIntent(...args),
+      cancel: (...args: unknown[]) => cancelPaymentIntent(...args),
+    },
+    checkout: {
+      sessions: {
+        retrieve: (...args: unknown[]) => retrieveCheckoutSession(...args),
+        expire: (...args: unknown[]) => expireCheckoutSession(...args),
+      },
+    },
+  }),
+}));
+
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { GET } from "./route";
@@ -31,6 +52,19 @@ beforeEach(() => {
   process.env.CRON_SECRET = "test_secret";
   reconcileSessionImpl = async () => "PENDING_PAYMENT";
   reconcilePIImpl = async () => "PENDING_PAYMENT";
+  retrievePaymentIntent.mockReset().mockImplementation(async (id: string) => ({
+    id,
+    status: "requires_payment_method",
+  }));
+  cancelPaymentIntent.mockReset().mockResolvedValue({});
+  retrieveCheckoutSession
+    .mockReset()
+    .mockImplementation(async (id: string) => ({
+      id,
+      status: "open",
+      payment_status: "unpaid",
+    }));
+  expireCheckoutSession.mockReset().mockResolvedValue({});
 });
 
 const HOUR = 60 * 60 * 1000;
@@ -205,6 +239,7 @@ describe("cron/release-expired — Fix C: réconciliation avant expiration", () 
     expect(db.state.transactions[0].status).toBe("PAID");
     // Le listing n'a PAS été relisté (reste LOCKED → SOLD géré par finalize).
     expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(expireCheckoutSession).not.toHaveBeenCalled();
   });
 
   it("transaction périmée réellement impayée (reconcile → PENDING_PAYMENT) → released>=1, EXPIRED, listing ACTIVE", async () => {
@@ -231,6 +266,7 @@ describe("cron/release-expired — Fix C: réconciliation avant expiration", () 
     expect(json.recovered).toBe(0);
     expect(db.state.transactions[0].status).toBe("EXPIRED");
     expect(db.state.listings[0].status).toBe("ACTIVE");
+    expect(expireCheckoutSession).toHaveBeenCalledWith("cs_unpaid_1");
   });
 
   it("erreur Stripe pendant reconcile → la transaction n'est PAS expirée ce tour-ci, pas de 500 global", async () => {
@@ -288,6 +324,96 @@ describe("cron/release-expired — Fix C: réconciliation avant expiration", () 
     expect(json.recovered).toBeGreaterThanOrEqual(1);
     expect(json.released).toBe(0);
     expect(db.state.transactions[0].status).toBe("PAID");
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+  });
+});
+
+describe("cron/release-expired — terminate unpaid Stripe objects", () => {
+  it("cancels an unpaid mobile PaymentIntent before EXPIRED + unlock", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx1",
+          listing_id: "L1",
+          status: "PENDING_PAYMENT",
+          stripe_payment_intent_id: "pi_unpaid_1",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+      offers: [],
+    });
+    mockClient = db.client;
+    retrievePaymentIntent.mockResolvedValue({
+      id: "pi_unpaid_1",
+      status: "requires_payment_method",
+    });
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.released).toBe(1);
+    expect(cancelPaymentIntent).toHaveBeenCalledWith("pi_unpaid_1");
+    expect(db.state.transactions[0].status).toBe("EXPIRED");
+    expect(db.state.listings[0].status).toBe("ACTIVE");
+  });
+
+  it("keeps the lock when the PaymentIntent is still processing", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx1",
+          listing_id: "L1",
+          status: "PENDING_PAYMENT",
+          stripe_payment_intent_id: "pi_processing_1",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+      offers: [],
+    });
+    mockClient = db.client;
+    retrievePaymentIntent.mockResolvedValue({
+      id: "pi_processing_1",
+      status: "processing",
+    });
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.released).toBe(0);
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.listings[0].status).toBe("LOCKED");
+  });
+
+  it("does not expire when PaymentIntent cancel fails", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx1",
+          listing_id: "L1",
+          status: "PENDING_PAYMENT",
+          stripe_payment_intent_id: "pi_cancel_fail",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+      offers: [],
+    });
+    mockClient = db.client;
+    retrievePaymentIntent.mockResolvedValue({
+      id: "pi_cancel_fail",
+      status: "requires_confirmation",
+    });
+    cancelPaymentIntent.mockRejectedValue(new Error("Stripe unavailable"));
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.released).toBe(0);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
     expect(db.state.listings[0].status).toBe("LOCKED");
   });
 });

@@ -5,9 +5,72 @@ import {
   reconcileCheckoutSession,
   reconcilePaymentIntent,
 } from "@/lib/stripe/reconcile";
+import { getStripe } from "@/lib/stripe/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type PendingExpiredTransaction = {
+  id: string;
+  listing_id: string;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+};
+
+/**
+ * After reconcile confirms the Stripe object is still unpaid, kill it before
+ * we flip the DB row to EXPIRED and unlock the listing.
+ *
+ * Mobile PaymentIntents do not inherit Checkout Session `expires_at`, so
+ * without an explicit cancel the client_secret remains payable for hours
+ * after the marketplace lock is released. A late confirmation would charge
+ * the buyer while `finalize_paid_transaction` no-ops on EXPIRED — money
+ * taken with no order, and a second buyer can purchase the same card.
+ *
+ * Returns `"keep"` when money may still move (`processing`) or a race
+ * shows the object already paid — leave the lock for the next reconcile.
+ */
+async function terminateUnpaidStripeObjects(
+  transaction: PendingExpiredTransaction,
+): Promise<"expire" | "keep"> {
+  const stripe = getStripe();
+
+  if (transaction.stripe_payment_intent_id) {
+    const intent = await stripe.paymentIntents.retrieve(
+      transaction.stripe_payment_intent_id,
+    );
+
+    if (intent.status === "succeeded") {
+      return "keep";
+    }
+
+    // SEPA / async methods can sit in `processing` past the lock window.
+    // Unlocking here would relist a card that may still settle.
+    if (intent.status === "processing") {
+      return "keep";
+    }
+
+    if (intent.status !== "canceled") {
+      await stripe.paymentIntents.cancel(intent.id);
+    }
+  }
+
+  if (transaction.stripe_checkout_session_id) {
+    const session = await stripe.checkout.sessions.retrieve(
+      transaction.stripe_checkout_session_id,
+    );
+
+    if (session.payment_status === "paid") {
+      return "keep";
+    }
+
+    if (session.status === "open") {
+      await stripe.checkout.sessions.expire(session.id);
+    }
+  }
+
+  return "expire";
+}
 
 function isAuthorized(request: Request): boolean {
   const auth = request.headers.get("authorization");
@@ -40,10 +103,10 @@ export async function GET(request: Request) {
     // (closed tab, mobile background). Expiring such a row would relist a card
     // the buyer already paid for. So we re-check Stripe first and finalize any
     // truly-paid transaction instead of expiring it.
-    const toExpire: { id: string; listing_id: string }[] = [];
+    const toExpire: PendingExpiredTransaction[] = [];
     let recovered = 0;
 
-    for (const tx of expired) {
+    for (const tx of expired as PendingExpiredTransaction[]) {
       try {
         let status: string = "PENDING_PAYMENT";
         if (tx.stripe_checkout_session_id) {
@@ -63,10 +126,19 @@ export async function GET(request: Request) {
           recovered++;
           continue;
         }
+
+        // Only terminate Stripe objects we already looked up as unpaid.
+        // Rows with no Stripe id (failed mid-checkout) can expire directly.
+        if (tx.stripe_checkout_session_id || tx.stripe_payment_intent_id) {
+          const decision = await terminateUnpaidStripeObjects(tx);
+          if (decision === "keep") {
+            continue;
+          }
+        }
       } catch (err) {
-        // Stripe lookup failed — be conservative and DON'T expire this round.
-        // We'll retry on the next cron tick rather than risk relisting a paid
-        // card on a transient Stripe error.
+        // Stripe lookup / cancel failed — be conservative and DON'T expire
+        // this round. We'll retry on the next cron tick rather than risk
+        // relisting a paid card or leaving a payable PI against an EXPIRED row.
         Sentry.captureException(err, {
           extra: {
             context: "release_expired_reconcile",
@@ -76,7 +148,7 @@ export async function GET(request: Request) {
         continue;
       }
 
-      toExpire.push({ id: tx.id, listing_id: tx.listing_id });
+      toExpire.push(tx);
     }
 
     if (toExpire.length === 0) {
