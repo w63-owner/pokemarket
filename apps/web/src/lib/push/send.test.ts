@@ -80,4 +80,40 @@ describe("sendPushNotification preferences", () => {
 
     expect(mocks.sendExpo).not.toHaveBeenCalled();
   });
+
+  it("strips absolute deep-link URLs before Expo delivery", async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: { enabled: true },
+      error: null,
+    });
+
+    await sendPushNotification(
+      "user-1",
+      "Titre",
+      "Corps",
+      "https://evil.example/phish",
+      { category: "offers" },
+    );
+
+    expect(mocks.sendExpo).toHaveBeenCalledWith("user-1", "Titre", "Corps", {
+      category: "offers",
+      url: undefined,
+    });
+  });
+
+  it("keeps relative deep-link URLs for Expo delivery", async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: { enabled: true },
+      error: null,
+    });
+
+    await sendPushNotification("user-1", "Titre", "Corps", "/messages/1", {
+      category: "offers",
+    });
+
+    expect(mocks.sendExpo).toHaveBeenCalledWith("user-1", "Titre", "Corps", {
+      category: "offers",
+      url: "/messages/1",
+    });
+  });
 });

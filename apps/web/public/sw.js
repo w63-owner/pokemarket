@@ -61,6 +61,23 @@ self.addEventListener("message", (event) => {
   }
 });
 
+function resolveNotificationUrl(raw) {
+  const fallback = "/";
+  if (typeof raw !== "string" || !raw) return fallback;
+  const trimmed = raw.trim();
+  // Same-origin relative paths only — never open absolute/external URLs from
+  // a PokeMarket-branded notification (push payloads are partially trusted).
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return fallback;
+  if (trimmed.includes("://") || trimmed.includes("\\")) return fallback;
+  try {
+    const resolved = new URL(trimmed, self.location.origin);
+    if (resolved.origin !== self.location.origin) return fallback;
+    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -70,13 +87,13 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      data: { url: data.url || "/" },
+      data: { url: resolveNotificationUrl(data.url) },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
+  const url = resolveNotificationUrl(event.notification.data?.url);
   event.waitUntil(clients.openWindow(url));
 });
