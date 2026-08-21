@@ -37,6 +37,10 @@
     {
       "path": "/api/cron/monitor-financial-operations",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/collect-cardmarket-prices",
+      "schedule": "*/5 1-12 * * *"
     }
   ]
 }

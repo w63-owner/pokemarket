@@ -62,32 +62,41 @@ export type Database = {
         Row: {
           card_key: string;
           condition: string;
+          currency: string;
           id: string;
           is_graded: boolean;
           language: string;
           price: number;
           recorded_at: string;
+          snapshot_date: string;
           source: string;
+          variant: string;
         };
         Insert: {
           card_key: string;
           condition: string;
+          currency?: string;
           id?: string;
           is_graded?: boolean;
           language: string;
           price: number;
           recorded_at?: string;
+          snapshot_date?: string;
           source?: string;
+          variant?: string;
         };
         Update: {
           card_key?: string;
           condition?: string;
+          currency?: string;
           id?: string;
           is_graded?: boolean;
           language?: string;
           price?: number;
           recorded_at?: string;
+          snapshot_date?: string;
           source?: string;
+          variant?: string;
         };
         Relationships: [
           {
@@ -98,6 +107,57 @@ export type Database = {
             referencedColumns: ["card_key"];
           },
         ];
+      };
+      card_price_collection_runs: {
+        Row: {
+          completed_at: string | null;
+          cursor_card_key: string | null;
+          failed_cards: number;
+          id: string;
+          language: string;
+          last_error: string | null;
+          priced_cards: number;
+          processed_cards: number;
+          snapshot_date: string;
+          source: string;
+          started_at: string;
+          status: string;
+          total_cards: number;
+          updated_at: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          cursor_card_key?: string | null;
+          failed_cards?: number;
+          id?: string;
+          language: string;
+          last_error?: string | null;
+          priced_cards?: number;
+          processed_cards?: number;
+          snapshot_date: string;
+          source: string;
+          started_at?: string;
+          status?: string;
+          total_cards?: number;
+          updated_at?: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          cursor_card_key?: string | null;
+          failed_cards?: number;
+          id?: string;
+          language?: string;
+          last_error?: string | null;
+          priced_cards?: number;
+          processed_cards?: number;
+          snapshot_date?: string;
+          source?: string;
+          started_at?: string;
+          status?: string;
+          total_cards?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       conversation_participant_settings: {
         Row: {
@@ -2282,6 +2342,27 @@ export type Database = {
           series_name: string;
           set_name: string;
           set_official_count: number;
+        }[];
+      };
+      get_current_cardmarket_top: {
+        Args: { p_language?: string; p_limit?: number };
+        Returns: {
+          card_key: string;
+          card_language: string;
+          card_local_id: string | null;
+          card_name: string;
+          card_rarity: string | null;
+          card_set_id: string | null;
+          currency: string;
+          price: number;
+          price_updated_at: string;
+          rank: number;
+          series_id: string | null;
+          series_name: string | null;
+          set_name: string | null;
+          set_official_count: number | null;
+          snapshot_date: string;
+          variant: string;
         }[];
       };
       release_escrow_funds: {

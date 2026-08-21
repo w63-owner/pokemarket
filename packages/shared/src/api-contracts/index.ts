@@ -46,6 +46,20 @@ export type CardMarketDetailResponse = {
   card: CardMarketDetail;
 };
 
+export type CardMarketTopEntry = CardSearchResult & {
+  rank: number;
+  variant: CardmarketVariant;
+  price: number;
+  currency: string;
+  snapshot_date: string;
+  price_updated_at: string;
+};
+
+export type CardMarketTopResponse = {
+  entries: CardMarketTopEntry[];
+  snapshot_date: string | null;
+};
+
 export type FeedParams = FeedFilters & {
   cursor_created_at?: string;
   cursor_id?: string;

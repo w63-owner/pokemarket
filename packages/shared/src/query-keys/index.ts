@@ -100,6 +100,7 @@ export const queryKeys = {
   cardMarket: {
     search: (query: string) => ["card-market", "search", query] as const,
     detail: (cardKey: string) => ["card-market", "detail", cardKey] as const,
+    top: () => ["card-market", "top"] as const,
   },
   notifications: {
     all: ["notifications"] as const,

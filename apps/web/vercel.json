@@ -40,6 +40,10 @@
     {
       "path": "/api/cron/messaging-retention",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/collect-cardmarket-prices",
+      "schedule": "*/5 1-12 * * *"
     }
   ]
 }

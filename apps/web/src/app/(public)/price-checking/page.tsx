@@ -7,6 +7,8 @@ import { BarChart3, Search, ShieldCheck, Sparkles } from "lucide-react";
 
 import { CardSearchInput } from "@/components/feed/card-search-input";
 
+import { CardMarketTop } from "./card-market-top";
+
 export default function PriceCheckingPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -57,6 +59,8 @@ export default function PriceCheckingPage() {
           </div>
         </div>
       </section>
+
+      <CardMarketTop />
 
       <section className="mx-auto grid max-w-3xl gap-4 px-4 py-8 sm:grid-cols-2">
         <div className="bg-card rounded-2xl border p-5">
