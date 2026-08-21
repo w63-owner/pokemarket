@@ -84,6 +84,11 @@ jobs:
           # without replaying its schema changes.
           supabase migration repair --status reverted 20260816090022
           supabase migration repair --status applied 20260816085920
+          # The deferred-ledger trigger fix was deployed manually with a
+          # timestamp generated a few seconds after the canonical local file.
+          # Reconcile the ledger without replaying the identical function body.
+          supabase migration repair --status reverted 20260820153052
+          supabase migration repair --status applied 20260820153011
 
       - name: Verify migration history
         env:
