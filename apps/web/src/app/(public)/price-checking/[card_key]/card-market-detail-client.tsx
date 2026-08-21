@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PriceHistoryChart } from "@/components/listing/price-history-chart";
 import { PokeMarketSales } from "./pokemarket-sales";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {
@@ -284,6 +285,11 @@ export function CardMarketDetailClient({ cardKey }: { cardKey: string }) {
               currency={card.pricing?.currency ?? "EUR"}
             />
           </section>
+
+          <PriceHistoryChart
+            cardKey={card.card_key}
+            variant={selectedVariant}
+          />
 
           <PokeMarketSales cardKey={card.card_key} variant={selectedVariant} />
 

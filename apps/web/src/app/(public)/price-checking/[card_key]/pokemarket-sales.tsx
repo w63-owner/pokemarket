@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Info, RefreshCw, ShoppingBag, TrendingUp } from "lucide-react";
+import { useState } from "react";
 import {
   queryKeys,
   type CardmarketVariant,
@@ -10,6 +11,12 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  CARD_CONDITIONS,
+  CONDITION_LABELS,
+  GRADING_COMPANIES,
+  type CardCondition,
+} from "@/lib/constants";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -25,9 +32,20 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
 async function fetchPokeMarketSales(
   cardKey: string,
   variant: CardmarketVariant,
+  condition: string | null,
+  isGraded: boolean,
+  gradingCompany: string | null,
+  gradeNote: number | null,
 ): Promise<PokeMarketSalesResponse> {
+  const params = new URLSearchParams({
+    isGraded: String(isGraded),
+    variant,
+  });
+  if (condition) params.set("condition", condition);
+  if (gradingCompany) params.set("gradingCompany", gradingCompany);
+  if (gradeNote != null) params.set("gradeNote", String(gradeNote));
   const response = await fetch(
-    `/api/cards/${encodeURIComponent(cardKey)}/sales?variant=${variant}`,
+    `/api/cards/${encodeURIComponent(cardKey)}/sales?${params}`,
   );
 
   if (!response.ok) {
@@ -44,9 +62,30 @@ export function PokeMarketSales({
   cardKey: string;
   variant: CardmarketVariant;
 }) {
+  const [condition, setCondition] = useState("NEAR_MINT");
+  const [isGraded, setIsGraded] = useState(false);
+  const [gradingCompany, setGradingCompany] = useState<string>(
+    GRADING_COMPANIES[0] ?? "PCA",
+  );
+  const [gradeNote, setGradeNote] = useState(10);
+  const filters = {
+    condition: isGraded ? null : condition,
+    gradeNote: isGraded ? gradeNote : null,
+    gradingCompany: isGraded ? gradingCompany : null,
+    isGraded,
+    variant,
+  };
   const { data, error, isLoading, refetch } = useQuery({
-    queryKey: queryKeys.pokeMarketSales.summary(cardKey, variant),
-    queryFn: () => fetchPokeMarketSales(cardKey, variant),
+    queryKey: queryKeys.pokeMarketSales.summary(cardKey, filters),
+    queryFn: () =>
+      fetchPokeMarketSales(
+        cardKey,
+        variant,
+        filters.condition,
+        isGraded,
+        filters.gradingCompany,
+        filters.gradeNote,
+      ),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -105,6 +144,82 @@ export function PokeMarketSales({
           {data.sales_volume} vente{data.sales_volume > 1 ? "s" : ""}
         </span>
       </div>
+
+      <fieldset className="mt-4 space-y-3">
+        <legend className="text-sm font-medium">Ventes comparables</legend>
+        <div
+          className="bg-muted inline-flex rounded-xl p-1"
+          role="group"
+          aria-label="Type de gradation"
+        >
+          <button
+            type="button"
+            onClick={() => setIsGraded(false)}
+            aria-pressed={!isGraded}
+            className="aria-pressed:bg-background aria-pressed:text-foreground text-muted-foreground rounded-lg px-3 py-2 text-sm font-medium transition-colors aria-pressed:shadow-sm"
+          >
+            Non gradées
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsGraded(true)}
+            aria-pressed={isGraded}
+            className="aria-pressed:bg-background aria-pressed:text-foreground text-muted-foreground rounded-lg px-3 py-2 text-sm font-medium transition-colors aria-pressed:shadow-sm"
+          >
+            Gradées
+          </button>
+        </div>
+
+        {!isGraded ? (
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-muted-foreground text-xs">État</span>
+            <select
+              value={condition}
+              onChange={(event) => setCondition(event.target.value)}
+              className="border-input bg-background h-10 rounded-lg border px-3"
+            >
+              {CARD_CONDITIONS.map((value) => (
+                <option key={value} value={value}>
+                  {CONDITION_LABELS[value as CardCondition]}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-muted-foreground text-xs">Organisme</span>
+              <select
+                value={gradingCompany}
+                onChange={(event) => setGradingCompany(event.target.value)}
+                className="border-input bg-background h-10 rounded-lg border px-3"
+              >
+                {GRADING_COMPANIES.map((company) => (
+                  <option key={company} value={company}>
+                    {company}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-muted-foreground text-xs">Note</span>
+              <select
+                value={gradeNote}
+                onChange={(event) => setGradeNote(Number(event.target.value))}
+                className="border-input bg-background h-10 rounded-lg border px-3"
+              >
+                {Array.from({ length: 19 }, (_, index) => 10 - index * 0.5).map(
+                  (note) => (
+                    <option key={note} value={note}>
+                      {note}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          </div>
+        )}
+      </fieldset>
 
       {!data.has_sufficient_volume ? (
         <div className="bg-muted/40 mt-4 rounded-xl p-4">

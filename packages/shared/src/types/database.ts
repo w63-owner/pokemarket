@@ -2371,6 +2371,10 @@ export type Database = {
       get_pokemarket_sales_summary: {
         Args: {
           p_card_key: string;
+          p_condition?: string;
+          p_grade_note?: number;
+          p_grading_company?: string;
+          p_is_graded?: boolean;
           p_limit?: number;
           p_variant?: string;
         };

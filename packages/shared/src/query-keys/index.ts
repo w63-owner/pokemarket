@@ -103,8 +103,16 @@ export const queryKeys = {
     top: () => ["card-market", "top"] as const,
   },
   pokeMarketSales: {
-    summary: (cardKey: string, variant: "normal" | "holo") =>
-      ["poke-market-sales", cardKey, variant] as const,
+    summary: (
+      cardKey: string,
+      filters: {
+        condition: string | null;
+        gradeNote: number | null;
+        gradingCompany: string | null;
+        isGraded: boolean;
+        variant: "normal" | "holo";
+      },
+    ) => ["poke-market-sales", cardKey, filters] as const,
   },
   notifications: {
     all: ["notifications"] as const,
@@ -112,8 +120,13 @@ export const queryKeys = {
   },
   priceHistory: (
     cardKey: string,
+    variant: "normal" | "holo",
+    period: "30d" | "90d" | "1y" | "all",
+  ) => ["priceHistory", cardKey, variant, period] as const,
+  priceRecommendation: (
+    cardKey: string,
     condition: string,
     language: string,
     isGraded: boolean,
-  ) => ["priceHistory", cardKey, condition, language, isGraded] as const,
+  ) => ["priceRecommendation", cardKey, condition, language, isGraded] as const,
 } as const;

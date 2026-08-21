@@ -238,7 +238,7 @@ export function SellForm({
   const languageCanonical = (cardLanguage ?? "FR").toUpperCase();
   const canRecommend = Boolean(cardKey && (isGraded || condition));
   const { data: priceData, isLoading: isPriceLoading } = useQuery({
-    queryKey: queryKeys.priceHistory(
+    queryKey: queryKeys.priceRecommendation(
       cardKey ?? "",
       safeCondition,
       languageCanonical,

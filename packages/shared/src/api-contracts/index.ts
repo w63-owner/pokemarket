@@ -47,9 +47,21 @@ export type CardMarketDetailResponse = {
 };
 
 export type PokeMarketRecentSale = {
+  condition: string | null;
+  grade_note: number | null;
+  grading_company: string | null;
+  is_graded: boolean;
   price: number;
   sold_at: string;
   variant: CardmarketVariant | null;
+};
+
+export type PokeMarketSalesFilters = {
+  condition: string | null;
+  grade_note: number | null;
+  grading_company: string | null;
+  is_graded: boolean;
+  variant: CardmarketVariant;
 };
 
 export type PokeMarketSalesResponse = {
@@ -61,6 +73,7 @@ export type PokeMarketSalesResponse = {
   has_sufficient_volume: boolean;
   minimum_volume: number;
   currency: "EUR";
+  filters: PokeMarketSalesFilters;
 };
 
 export type CardMarketTopEntry = CardSearchResult & {
@@ -158,16 +171,27 @@ export type PriceRecommendation = {
   sampleSize: number | null;
 };
 
+export type PriceHistoryPeriod = "30d" | "90d" | "1y" | "all";
+
+export type PriceHistoryPoint = {
+  date: string;
+  price: number;
+};
+
 export type PriceHistoryResponse = {
-  chartData: { date: string; price: number }[];
+  chartData: PriceHistoryPoint[];
   stats: {
-    range12m: [number, number];
-    range3m: [number, number];
+    range: [number, number] | null;
     observations: number;
     volatility: number;
   };
-  targetPrice: number;
+  availablePeriods: PriceHistoryPeriod[];
+  currency: string;
+  historyStatus: "empty" | "single" | "ready";
+  period: PriceHistoryPeriod;
   recommendation: PriceRecommendation | null;
+  source: "CARDMARKET_TCGDEX";
+  variant: CardmarketVariant;
 };
 
 export type PushNotificationRequest = {

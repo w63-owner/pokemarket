@@ -129,9 +129,10 @@ SELECT is(
   (
     SELECT sales_volume
     FROM public.get_pokemarket_sales_summary(
-      'fr-sales-observation-1',
-      'holo',
-      12
+      p_card_key => 'fr-sales-observation-1',
+      p_variant => 'holo',
+      p_condition => 'NEAR_MINT',
+      p_limit => 12
     )
   ),
   1::bigint,
@@ -142,9 +143,10 @@ SELECT is(
   (
     SELECT median_price
     FROM public.get_pokemarket_sales_summary(
-      'fr-sales-observation-1',
-      'holo',
-      12
+      p_card_key => 'fr-sales-observation-1',
+      p_variant => 'holo',
+      p_condition => 'NEAR_MINT',
+      p_limit => 12
     )
   ),
   102::numeric,
@@ -168,9 +170,10 @@ SELECT is(
   (
     SELECT sales_volume
     FROM public.get_pokemarket_sales_summary(
-      'fr-sales-observation-1',
-      'holo',
-      12
+      p_card_key => 'fr-sales-observation-1',
+      p_variant => 'holo',
+      p_condition => 'NEAR_MINT',
+      p_limit => 12
     )
   ),
   0::bigint,

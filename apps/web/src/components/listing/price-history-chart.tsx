@@ -9,48 +9,37 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, BarChart3, Activity, Eye } from "lucide-react";
+import { TrendingUp, BarChart3, Activity, Eye, Info } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { queryKeys } from "@/lib/query-keys";
 import {
-  CONDITION_LABELS,
-  CARD_LANGUAGES,
-  type CardCondition,
-} from "@/lib/constants";
+  queryKeys,
+  type CardmarketVariant,
+  type PriceHistoryPeriod,
+  type PriceHistoryResponse,
+} from "@pokemarket/shared";
+import { useState } from "react";
 
 type PriceHistoryProps = {
   cardKey: string;
-  condition: string | null;
-  language: string | null;
-  isGraded: boolean;
+  variant?: CardmarketVariant | null;
 };
 
-type ChartPoint = { date: string; price: number };
-
-type PriceHistoryResponse = {
-  chartData: ChartPoint[];
-  stats: {
-    range12m: [number, number];
-    range3m: [number, number];
-    observations: number;
-    volatility: number;
-  };
-  targetPrice: number;
+const PERIOD_LABELS: Record<PriceHistoryPeriod, string> = {
+  "30d": "30 j",
+  "90d": "3 mois",
+  "1y": "1 an",
+  all: "Tout",
 };
 
 async function fetchPriceHistory(
   cardKey: string,
-  condition: string,
-  language: string,
-  isGraded: boolean,
+  variant: CardmarketVariant,
+  period: PriceHistoryPeriod,
 ): Promise<PriceHistoryResponse> {
-  const params = new URLSearchParams({
-    condition,
-    language,
-    isGraded: String(isGraded),
-  });
+  const params = new URLSearchParams({ variant, period });
 
   const res = await fetch(
     `/api/cards/${encodeURIComponent(cardKey)}/price-history?${params}`,
@@ -65,6 +54,14 @@ async function fetchPriceHistory(
 
 function formatEuro(value: number) {
   return `${value.toFixed(2)} €`;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "2-digit",
+  }).format(new Date(`${value}T00:00:00`));
 }
 
 function getVolatilityVariant(v: number) {
@@ -100,31 +97,16 @@ function CustomTooltip({
 
 export function PriceHistoryChart({
   cardKey,
-  condition,
-  language,
-  isGraded,
+  variant: requestedVariant,
 }: PriceHistoryProps) {
-  const safeCondition = condition ?? "EXCELLENT";
-  const languageCanonical = (language ?? "FR").toUpperCase();
-  const safeLanguageQuery = languageCanonical.toLowerCase();
+  const variant = requestedVariant ?? "normal";
+  const [period, setPeriod] = useState<PriceHistoryPeriod>("30d");
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.priceHistory(
-      cardKey,
-      safeCondition,
-      languageCanonical,
-      isGraded,
-    ),
-    queryFn: () =>
-      fetchPriceHistory(cardKey, safeCondition, safeLanguageQuery, isGraded),
+    queryKey: queryKeys.priceHistory(cardKey, variant, period),
+    queryFn: () => fetchPriceHistory(cardKey, variant, period),
     staleTime: 5 * 60 * 1000,
   });
-
-  const conditionLabel =
-    CONDITION_LABELS[safeCondition as CardCondition] ?? safeCondition;
-  const languageLabel =
-    CARD_LANGUAGES.find((l) => l.value === languageCanonical)?.label ??
-    languageCanonical;
 
   if (isLoading) {
     return <Skeleton className="mt-6 h-[400px] w-full rounded-xl" />;
@@ -143,9 +125,37 @@ export function PriceHistoryChart({
   }
 
   const { chartData, stats } = data;
+  const variantLabel = data.variant === "holo" ? "Holographique" : "Normale";
+
+  if (data.historyStatus !== "ready") {
+    return (
+      <Card className="mt-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <TrendingUp className="size-5" aria-hidden="true" />
+            Historique Cardmarket
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-muted/40 rounded-xl p-5 text-center">
+            <Info
+              className="text-muted-foreground mx-auto size-6"
+              aria-hidden="true"
+            />
+            <p className="mt-2 font-medium">Historique en constitution</p>
+            <p className="text-muted-foreground mx-auto mt-1 max-w-lg text-sm">
+              {data.historyStatus === "single"
+                ? "Un premier relevé réel est disponible. La courbe apparaîtra après le prochain snapshot quotidien."
+                : "Aucun snapshot réel n’est encore disponible pour cette variante. Aucune extrapolation n’est affichée."}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const prices = chartData.map((d) => d.price);
-  const yMin = Math.floor(Math.min(...prices) * 0.9);
+  const yMin = Math.max(0, Math.floor(Math.min(...prices) * 0.9));
   const yMax = Math.ceil(Math.max(...prices) * 1.1);
 
   return (
@@ -153,25 +163,44 @@ export function PriceHistoryChart({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-lg">
           <TrendingUp className="size-5" />
-          Historique des prix
+          Historique Cardmarket
         </CardTitle>
         <p className="text-muted-foreground text-sm">
-          Cotation estimée pour : {conditionLabel} &bull; {languageLabel} &bull;{" "}
-          {isGraded ? "Gradée" : "Non gradée"}
+          Snapshots quotidiens réels · Variante {variantLabel.toLowerCase()} ·
+          Carte française non gradée
         </p>
       </CardHeader>
 
       <CardContent className="space-y-5">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-label="Période de l’historique"
+        >
+          {(["30d", "90d", "1y", "all"] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={period === value ? "default" : "outline"}
+              disabled={!data.availablePeriods.includes(value)}
+              aria-pressed={period === value}
+              onClick={() => setPeriod(value)}
+            >
+              {PERIOD_LABELS[value]}
+            </Button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <KpiBlock
             icon={<BarChart3 className="size-4" />}
-            label="Fourchette 12M"
-            value={`${formatEuro(stats.range12m[0])} – ${formatEuro(stats.range12m[1])}`}
-          />
-          <KpiBlock
-            icon={<BarChart3 className="size-4" />}
-            label="Fourchette 3M"
-            value={`${formatEuro(stats.range3m[0])} – ${formatEuro(stats.range3m[1])}`}
+            label={`Fourchette ${PERIOD_LABELS[period]}`}
+            value={
+              stats.range
+                ? `${formatEuro(stats.range[0])} – ${formatEuro(stats.range[1])}`
+                : "Indisponible"
+            }
           />
           <div className="bg-muted/50 rounded-lg p-3">
             <div className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs font-medium">
@@ -217,6 +246,7 @@ export function PriceHistoryChart({
               </defs>
               <XAxis
                 dataKey="date"
+                tickFormatter={formatDate}
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
@@ -230,7 +260,10 @@ export function PriceHistoryChart({
                 tickFormatter={(v: number) => `${v}€`}
                 className="text-muted-foreground"
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                labelFormatter={(label) => formatDate(String(label))}
+                content={<CustomTooltip />}
+              />
               <Area
                 type="monotone"
                 dataKey="price"
@@ -242,12 +275,9 @@ export function PriceHistoryChart({
           </ResponsiveContainer>
         </div>
         <p className="sr-only">
-          Le prix a évolué de {formatEuro(prices[0])} à{" "}
-          {formatEuro(prices[prices.length - 1])} sur les {chartData.length}{" "}
-          derniers points de données. Fourchette 12 mois :{" "}
-          {formatEuro(stats.range12m[0])} – {formatEuro(stats.range12m[1])}.
-          Fourchette 3 mois : {formatEuro(stats.range3m[0])} –{" "}
-          {formatEuro(stats.range3m[1])}. Volatilité : {stats.volatility}% (
+          Le prix Cardmarket a évolué de {formatEuro(prices[0])} à{" "}
+          {formatEuro(prices[prices.length - 1])} sur {chartData.length} relevés
+          réels. Volatilité : {stats.volatility}% (
           {getVolatilityLabel(stats.volatility)}).
         </p>
       </CardContent>

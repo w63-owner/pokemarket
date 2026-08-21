@@ -10,10 +10,9 @@ import Svg, {
 } from "react-native-svg";
 import { TrendingUp, BarChart3, Activity, Eye } from "lucide-react-native";
 import {
-  CONDITION_LABELS,
-  CARD_LANGUAGES,
   queryKeys,
-  type CardCondition,
+  type CardmarketVariant,
+  type PriceHistoryResponse,
 } from "@pokemarket/shared";
 
 import {
@@ -30,22 +29,12 @@ import { useThemeColor } from "@/lib/theme-colors";
 
 type ChartPoint = { date: string; price: number };
 
-type PriceHistoryResponse = {
-  chartData: ChartPoint[];
-  stats: {
-    range12m: [number, number];
-    range3m: [number, number];
-    observations: number;
-    volatility: number;
-  };
-  targetPrice: number;
-};
-
 type Props = {
   cardKey: string;
   condition: string | null;
   language: string | null;
   isGraded: boolean;
+  variant?: CardmarketVariant | null;
 };
 
 function formatEuro(value: number) {
@@ -68,14 +57,12 @@ function getVolatilityLabel(v: number) {
 
 async function fetchPriceHistory(
   cardKey: string,
-  condition: string,
-  language: string,
-  isGraded: boolean,
+  variant: CardmarketVariant,
 ): Promise<PriceHistoryResponse> {
   return api.get<PriceHistoryResponse>(
     `/api/cards/${encodeURIComponent(cardKey)}/price-history`,
     {
-      searchParams: { condition, language, isGraded },
+      searchParams: { period: "30d", variant },
       authenticated: false,
     },
   );
@@ -86,7 +73,7 @@ async function fetchPriceHistory(
  *
  *   - Same RQ key (`queryKeys.priceHistory`) for cache hits when the
  *     two platforms share a Supabase project ;
- *   - Same KPI grid (12M range, 3M range, volatility, observations) ;
+ *   - Same real Cardmarket snapshots and explicit construction state ;
  *   - Area chart drawn with `react-native-svg` paths — avoids the
  *     `@shopify/react-native-skia` native dep that `victory-native`
  *     v41 now requires (heavier and forces a prebuild) while still
@@ -94,33 +81,17 @@ async function fetchPriceHistory(
  */
 export function PriceHistoryChart({
   cardKey,
-  condition,
-  language,
-  isGraded,
+  variant: requestedVariant,
 }: Props) {
-  const safeCondition = condition ?? "EXCELLENT";
-  const languageCanonical = (language ?? "FR").toUpperCase();
-  const safeLanguageQuery = languageCanonical.toLowerCase();
+  const variant = requestedVariant ?? "normal";
   const foreground = useThemeColor("foreground");
   const mutedForeground = useThemeColor("mutedForeground");
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.priceHistory(
-      cardKey,
-      safeCondition,
-      languageCanonical,
-      isGraded,
-    ),
-    queryFn: () =>
-      fetchPriceHistory(cardKey, safeCondition, safeLanguageQuery, isGraded),
+    queryKey: queryKeys.priceHistory(cardKey, variant, "30d"),
+    queryFn: () => fetchPriceHistory(cardKey, variant),
     staleTime: 5 * 60 * 1000,
   });
-
-  const conditionLabel =
-    CONDITION_LABELS[safeCondition as CardCondition] ?? safeCondition;
-  const languageLabel =
-    CARD_LANGUAGES.find((l) => l.value === languageCanonical)?.label ??
-    languageCanonical;
 
   if (isLoading) {
     return <Skeleton className="mt-2 h-72 w-full rounded-2xl" />;
@@ -139,18 +110,30 @@ export function PriceHistoryChart({
   }
 
   const { chartData, stats } = data;
-  if (chartData.length < 2) return null;
+  if (data.historyStatus !== "ready") {
+    return (
+      <Card className="mt-2">
+        <CardContent>
+          <Text className="font-semibold">Historique en constitution</Text>
+          <Text variant="muted">
+            Les snapshots Cardmarket réels ne sont pas encore assez nombreux
+            pour afficher une courbe.
+          </Text>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mt-2">
       <CardHeader>
         <View className="flex-row items-center gap-2">
           <TrendingUp size={18} color={foreground} />
-          <CardTitle>Historique des prix</CardTitle>
+          <CardTitle>Historique Cardmarket</CardTitle>
         </View>
         <Text variant="muted">
-          Cotation estimée : {conditionLabel} • {languageLabel} •{" "}
-          {isGraded ? "Gradée" : "Non gradée"}
+          Snapshots quotidiens réels •{" "}
+          {variant === "holo" ? "Holographique" : "Normale"}
         </Text>
       </CardHeader>
 
@@ -158,13 +141,12 @@ export function PriceHistoryChart({
         <View className="flex-row flex-wrap gap-2">
           <KpiBlock
             icon={<BarChart3 size={14} color={mutedForeground} />}
-            label="Fourchette 12M"
-            value={`${formatEuro(stats.range12m[0])} – ${formatEuro(stats.range12m[1])}`}
-          />
-          <KpiBlock
-            icon={<BarChart3 size={14} color={mutedForeground} />}
-            label="Fourchette 3M"
-            value={`${formatEuro(stats.range3m[0])} – ${formatEuro(stats.range3m[1])}`}
+            label="Fourchette 30 j"
+            value={
+              stats.range
+                ? `${formatEuro(stats.range[0])} – ${formatEuro(stats.range[1])}`
+                : "Indisponible"
+            }
           />
           <KpiBlock
             icon={<Activity size={14} color={mutedForeground} />}

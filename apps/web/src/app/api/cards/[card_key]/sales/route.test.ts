@@ -30,6 +30,10 @@ beforeEach(() => {
         last_sold_at: "2026-08-20T10:00:00.000Z",
         recent_sales: [
           {
+            condition: "NEAR_MINT",
+            grade_note: null,
+            grading_company: null,
+            is_graded: false,
             price: 102,
             sold_at: "2026-08-20T10:00:00.000Z",
             variant: "holo",
@@ -51,6 +55,10 @@ describe("GET /api/cards/[card_key]/sales", () => {
     expect(response.headers.get("cache-control")).toContain("s-maxage=300");
     expect(rpc).toHaveBeenCalledWith("get_pokemarket_sales_summary", {
       p_card_key: "fr-base1-4",
+      p_condition: "NEAR_MINT",
+      p_grade_note: undefined,
+      p_grading_company: undefined,
+      p_is_graded: false,
       p_variant: "holo",
       p_limit: 12,
     });
@@ -61,6 +69,10 @@ describe("GET /api/cards/[card_key]/sales", () => {
       last_sold_at: "2026-08-20T10:00:00.000Z",
       recent_sales: [
         {
+          condition: "NEAR_MINT",
+          grade_note: null,
+          grading_company: null,
+          is_graded: false,
           price: 102,
           sold_at: "2026-08-20T10:00:00.000Z",
           variant: "holo",
@@ -69,6 +81,13 @@ describe("GET /api/cards/[card_key]/sales", () => {
       has_sufficient_volume: true,
       minimum_volume: 3,
       currency: "EUR",
+      filters: {
+        condition: "NEAR_MINT",
+        grade_note: null,
+        grading_company: null,
+        is_graded: false,
+        variant: "holo",
+      },
     });
   });
 
@@ -107,6 +126,28 @@ describe("GET /api/cards/[card_key]/sales", () => {
 
     expect(response.status).toBe(400);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("keeps graded sales homogeneous by company and grade", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://pokemarket.test/api/cards/fr-base1-4/sales?variant=holo&isGraded=true&gradingCompany=PSA&gradeNote=10",
+      ),
+      {
+        params: Promise.resolve({ card_key: "fr-base1-4" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith("get_pokemarket_sales_summary", {
+      p_card_key: "fr-base1-4",
+      p_condition: undefined,
+      p_grade_note: 10,
+      p_grading_company: "PSA",
+      p_is_graded: true,
+      p_variant: "holo",
+      p_limit: 12,
+    });
   });
 
   it("returns a controlled error when aggregation fails", async () => {

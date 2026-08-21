@@ -200,6 +200,12 @@ export default function ListingScreen() {
               condition={listing.condition}
               language={listing.card_language}
               isGraded={listing.is_graded ?? false}
+              variant={
+                listing.card_variant === "holo" ||
+                listing.card_variant === "normal"
+                  ? listing.card_variant
+                  : "normal"
+              }
             />
           ) : null}
 
