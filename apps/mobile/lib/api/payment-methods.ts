@@ -26,10 +26,13 @@ export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
 export async function createSetupIntent(): Promise<{
   client_secret: string;
   customer_id: string;
+  customer_session_client_secret: string;
 }> {
-  return api.post<{ client_secret: string; customer_id: string }>(
-    "/api/stripe/payment-methods",
-  );
+  return api.post<{
+    client_secret: string;
+    customer_id: string;
+    customer_session_client_secret: string;
+  }>("/api/stripe/payment-methods");
 }
 
 export async function setDefaultPaymentMethod(

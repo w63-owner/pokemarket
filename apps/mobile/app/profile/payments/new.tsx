@@ -41,13 +41,15 @@ export default function NewPaymentMethodScreen() {
     let cancelled = false;
     async function prepare() {
       try {
-        const { client_secret, customer_id } = await createSetupIntent();
+        const { client_secret, customer_id, customer_session_client_secret } =
+          await createSetupIntent();
         if (cancelled) return;
 
         const initResult = await initPaymentSheet({
           merchantDisplayName: "PokeMarket",
           setupIntentClientSecret: client_secret,
           customerId: customer_id,
+          customerSessionClientSecret: customer_session_client_secret,
           appearance: {
             colors: { primary: sheetPrimary },
             shapes: { borderRadius: 12 },
