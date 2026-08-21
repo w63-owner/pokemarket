@@ -9,28 +9,18 @@ import {
 } from "react";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
-import { ImageIcon, Search, X } from "lucide-react";
+import { AlertCircle, ImageIcon, Search, X } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
+import type { CardSearchResponse, CardSearchResult } from "@pokemarket/shared";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
-import { createClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
-export type CardSuggestion = {
-  card_key: string;
-  name: string;
-  set_id: string | null;
-  set_name: string | null;
-  series_id: string | null;
-  series_name: string | null;
-  local_id: string | null;
-  set_official_count: number | null;
-  language: string;
-  image_url: string | null;
-};
+export type CardSuggestion = CardSearchResult;
 
 type CardSearchInputProps = {
   value: string;
@@ -39,21 +29,12 @@ type CardSearchInputProps = {
   onSubmit: (value: string) => void;
   onSelectCard: (card: CardSuggestion) => void;
   placeholder?: string;
+  selectFirstOnSubmit?: boolean;
+  noResultsHint?: string;
 };
 
 const MIN_QUERY_LENGTH = 2;
-const PREFERRED_LANGUAGE = "fr";
 const DEBOUNCE_MS = 250;
-
-function buildTcgdexImageUrl(
-  setId: string | null,
-  seriesId: string | null,
-  localId: string | null,
-  language: string,
-): string | null {
-  if (!setId || !seriesId || !localId) return null;
-  return `https://assets.tcgdex.net/${language}/${seriesId}/${setId}/${localId}/low.webp`;
-}
 
 /**
  * Parses a free-form search like "Dracaufeu 11/25" into a name part and
@@ -71,46 +52,17 @@ function parseQuery(raw: string): { name: string; localId?: string } {
 }
 
 async function fetchCardSuggestions(query: string): Promise<CardSuggestion[]> {
-  const { name, localId } = parseQuery(query);
+  const { name } = parseQuery(query);
   if (name.length < MIN_QUERY_LENGTH) return [];
 
-  const supabase = createClient();
-  const { data, error } = await supabase.rpc("match_tcgdex_cards", {
-    p_name: name,
-    p_language: PREFERRED_LANGUAGE,
-    ...(localId ? { p_local_id: localId } : {}),
-  });
-
-  if (error) {
-    console.error("match_tcgdex_cards error:", error);
-    return [];
+  const params = new URLSearchParams({ q: query });
+  const response = await fetch(`/api/cards/search?${params}`);
+  if (!response.ok) {
+    throw new Error("La recherche de cartes est indisponible.");
   }
-  if (!data) return [];
 
-  const seen = new Set<string>();
-  const results: CardSuggestion[] = [];
-  for (const row of data) {
-    if (!row.card_key || seen.has(row.card_key)) continue;
-    seen.add(row.card_key);
-    results.push({
-      card_key: row.card_key,
-      name: row.card_name ?? "Carte inconnue",
-      set_id: row.card_set_id ?? null,
-      set_name: row.set_name ?? null,
-      series_id: row.series_id ?? null,
-      series_name: row.series_name ?? null,
-      local_id: row.card_local_id ?? null,
-      set_official_count: row.set_official_count ?? null,
-      language: row.card_language ?? PREFERRED_LANGUAGE,
-      image_url: buildTcgdexImageUrl(
-        row.card_set_id ?? null,
-        row.series_id ?? null,
-        row.card_local_id ?? null,
-        row.card_language ?? PREFERRED_LANGUAGE,
-      ),
-    });
-  }
-  return results;
+  const data: CardSearchResponse = await response.json();
+  return data.results;
 }
 
 export function CardSearchInput({
@@ -120,6 +72,8 @@ export function CardSearchInput({
   onSubmit,
   onSelectCard,
   placeholder = "Carte, série ou bloc (ex: Dracaufeu 11/25)…",
+  selectFirstOnSubmit = false,
+  noResultsHint = "Appuyez sur Entrée pour rechercher dans les annonces.",
 }: CardSearchInputProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -130,8 +84,13 @@ export function CardSearchInput({
   const parsedName = parseQuery(trimmed).name;
   const enabled = open && parsedName.length >= MIN_QUERY_LENGTH;
 
-  const { data: suggestions, isFetching } = useQuery({
-    queryKey: queryKeys.tcgdex.cards(trimmed),
+  const {
+    data: suggestions,
+    isError,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.cardMarket.search(trimmed),
     queryFn: () => fetchCardSuggestions(trimmed),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -168,6 +127,10 @@ export function CardSearchInput({
     e.preventDefault();
     if (open && safeActiveIndex >= 0 && list[safeActiveIndex]) {
       handleSelect(list[safeActiveIndex]);
+      return;
+    }
+    if (selectFirstOnSubmit && list[0]) {
+      handleSelect(list[0]);
       return;
     }
     onSubmit(value);
@@ -224,6 +187,7 @@ export function CardSearchInput({
         autoComplete="off"
         spellCheck={false}
         role="combobox"
+        aria-label="Rechercher une carte Pokémon"
         aria-expanded={showPanel}
         aria-controls={listboxId}
         aria-autocomplete="list"
@@ -262,8 +226,11 @@ export function CardSearchInput({
               listboxId={listboxId}
               suggestions={list}
               isFetching={isFetching}
+              isError={isError}
               activeIndex={safeActiveIndex}
               query={parsedName || trimmed}
+              noResultsHint={noResultsHint}
+              onRetry={() => void refetch()}
               onHover={setActiveIndex}
               onSelect={handleSelect}
             />
@@ -278,8 +245,11 @@ type SuggestionListProps = {
   listboxId: string;
   suggestions: CardSuggestion[];
   isFetching: boolean;
+  isError: boolean;
   activeIndex: number;
   query: string;
+  noResultsHint: string;
+  onRetry: () => void;
   onSelect: (card: CardSuggestion) => void;
   onHover: (idx: number) => void;
 };
@@ -288,8 +258,11 @@ function SuggestionList({
   listboxId,
   suggestions,
   isFetching,
+  isError,
   activeIndex,
   query,
+  noResultsHint,
+  onRetry,
   onSelect,
   onHover,
 }: SuggestionListProps) {
@@ -310,6 +283,21 @@ function SuggestionList({
     );
   }
 
+  if (isError) {
+    return (
+      <div
+        className="text-muted-foreground flex flex-col items-center gap-2 px-4 py-6 text-center text-sm"
+        role="alert"
+      >
+        <AlertCircle className="text-destructive size-5" />
+        <p>Impossible de rechercher les cartes pour le moment.</p>
+        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
+
   if (suggestions.length === 0 && query.length >= MIN_QUERY_LENGTH) {
     return (
       <div className="text-muted-foreground flex flex-col items-center gap-1 px-4 py-6 text-center text-sm">
@@ -318,9 +306,7 @@ function SuggestionList({
           Aucune carte trouvée pour&nbsp;
           <span className="text-foreground font-medium">« {query} »</span>
         </p>
-        <p className="text-muted-foreground/80 text-xs">
-          Appuyez sur Entrée pour rechercher dans les annonces.
-        </p>
+        <p className="text-muted-foreground/80 text-xs">{noResultsHint}</p>
       </div>
     );
   }
@@ -363,7 +349,8 @@ function SuggestionList({
                     fill
                     sizes="36px"
                     className="object-cover"
-                    unoptimized
+                    placeholder="blur"
+                    blurDataURL="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
                   />
                 ) : (
                   <div className="text-muted-foreground flex h-full w-full items-center justify-center">

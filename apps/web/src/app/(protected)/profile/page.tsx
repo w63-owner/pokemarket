@@ -20,6 +20,7 @@ import {
   FileText,
   ShieldCheck,
   Info,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -31,6 +32,7 @@ const menuItems = [
   { href: "/profile/wallet", label: "Mon portefeuille", icon: Wallet },
   { href: "/profile/payments", label: "Moyens de paiement", icon: CreditCard },
   { href: "/profile/notifications", label: "Notifications", icon: Bell },
+  { href: "/price-checking", label: "Cote des cartes", icon: BarChart3 },
 ];
 
 const legalItems = [

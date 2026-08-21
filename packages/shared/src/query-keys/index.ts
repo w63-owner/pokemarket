@@ -97,6 +97,10 @@ export const queryKeys = {
     sets: () => ["tcgdex", "sets"] as const,
     cards: (query: string) => ["tcgdex", "cards", query] as const,
   },
+  cardMarket: {
+    search: (query: string) => ["card-market", "search", query] as const,
+    detail: (cardKey: string) => ["card-market", "detail", cardKey] as const,
+  },
   notifications: {
     all: ["notifications"] as const,
     preferences: () => ["notifications", "preferences"] as const,

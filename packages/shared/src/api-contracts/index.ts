@@ -1,5 +1,50 @@
+import { z } from "zod";
+
 import type { FeedFilters } from "../query-keys";
 import type { Message } from "../types";
+import type {
+  CardmarketVariant,
+  TcgdexCardmarketPricing,
+} from "../lib/cardmarket";
+
+export const cardSearchParamsSchema = z.object({
+  q: z.string().trim().min(2).max(80),
+});
+
+export const cardKeySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(160)
+  .regex(/^fr-[A-Za-z0-9][A-Za-z0-9._-]*$/);
+
+export type CardSearchResult = {
+  card_key: string;
+  name: string;
+  set_id: string | null;
+  set_name: string | null;
+  series_id: string | null;
+  series_name: string | null;
+  local_id: string | null;
+  set_official_count: number | null;
+  rarity: string | null;
+  language: string;
+  image_url: string | null;
+};
+
+export type CardSearchResponse = {
+  results: CardSearchResult[];
+};
+
+export type CardMarketDetail = CardSearchResult & {
+  illustrator: string | null;
+  available_variants: CardmarketVariant[];
+  pricing: TcgdexCardmarketPricing | null;
+};
+
+export type CardMarketDetailResponse = {
+  card: CardMarketDetail;
+};
 
 export type FeedParams = FeedFilters & {
   cursor_created_at?: string;
