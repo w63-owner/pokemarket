@@ -45,6 +45,7 @@ export async function createListingAction(
       cover_image_url: d.cover_image_url,
       back_image_url: d.back_image_url,
       card_ref_id: d.card_ref_id ?? null,
+      card_variant: d.card_variant ?? null,
       card_series: d.card_series ?? null,
       card_block: d.card_block ?? null,
       card_number: d.card_number ?? null,

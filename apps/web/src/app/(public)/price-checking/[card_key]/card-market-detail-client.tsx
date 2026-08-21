@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PokeMarketSales } from "./pokemarket-sales";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -283,6 +284,8 @@ export function CardMarketDetailClient({ cardKey }: { cardKey: string }) {
               currency={card.pricing?.currency ?? "EUR"}
             />
           </section>
+
+          <PokeMarketSales cardKey={card.card_key} variant={selectedVariant} />
 
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             <Button

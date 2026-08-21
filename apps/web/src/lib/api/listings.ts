@@ -113,6 +113,7 @@ export type CreateListingInput = {
   cover_image_url: string;
   back_image_url: string;
   card_ref_id?: string | null;
+  card_variant?: "normal" | "holo" | null;
   card_series?: string | null;
   card_block?: string | null;
   card_number?: string | null;
@@ -167,6 +168,7 @@ export type UpdateListingInput = {
   grade_note?: number | null;
   cover_image_url: string;
   back_image_url: string;
+  card_variant?: "normal" | "holo" | null;
   card_series?: string | null;
   card_block?: string | null;
   card_number?: string | null;
@@ -197,6 +199,7 @@ export async function updateListing(
       grade_note: input.is_graded ? (input.grade_note ?? null) : null,
       cover_image_url: input.cover_image_url,
       back_image_url: input.back_image_url,
+      card_variant: input.card_variant ?? null,
       card_series: input.card_series ?? null,
       card_block: input.card_block ?? null,
       card_number: input.card_number ?? null,

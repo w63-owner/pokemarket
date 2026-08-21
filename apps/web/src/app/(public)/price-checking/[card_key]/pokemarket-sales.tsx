@@ -1,0 +1,186 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { Info, RefreshCw, ShoppingBag, TrendingUp } from "lucide-react";
+import {
+  queryKeys,
+  type CardmarketVariant,
+  type PokeMarketSalesResponse,
+} from "@pokemarket/shared";
+
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const currencyFormatter = new Intl.NumberFormat("fr-FR", {
+  style: "currency",
+  currency: "EUR",
+});
+
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+async function fetchPokeMarketSales(
+  cardKey: string,
+  variant: CardmarketVariant,
+): Promise<PokeMarketSalesResponse> {
+  const response = await fetch(
+    `/api/cards/${encodeURIComponent(cardKey)}/sales?variant=${variant}`,
+  );
+
+  if (!response.ok) {
+    throw new Error("Impossible de charger les ventes PokeMarket.");
+  }
+
+  return response.json();
+}
+
+export function PokeMarketSales({
+  cardKey,
+  variant,
+}: {
+  cardKey: string;
+  variant: CardmarketVariant;
+}) {
+  const { data, error, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.pokeMarketSales.summary(cardKey, variant),
+    queryFn: () => fetchPokeMarketSales(cardKey, variant),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return <PokeMarketSalesSkeleton />;
+  }
+
+  if (error || !data) {
+    return (
+      <section
+        className="border-border mt-8 rounded-2xl border p-5"
+        aria-labelledby="pokemarket-sales-title"
+      >
+        <h2
+          id="pokemarket-sales-title"
+          className="flex items-center gap-2 font-semibold"
+        >
+          <ShoppingBag className="size-4" aria-hidden="true" />
+          Ventes sur PokeMarket
+        </h2>
+        <p className="text-muted-foreground mt-2 text-sm">
+          Les ventes réelles sont temporairement indisponibles.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={() => void refetch()}
+        >
+          <RefreshCw className="size-4" aria-hidden="true" />
+          Réessayer
+        </Button>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="border-border mt-8 rounded-2xl border p-5"
+      aria-labelledby="pokemarket-sales-title"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2
+            id="pokemarket-sales-title"
+            className="flex items-center gap-2 font-semibold"
+          >
+            <ShoppingBag className="size-4" aria-hidden="true" />
+            Ventes sur PokeMarket
+          </h2>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Prix carte réellement conclu, hors livraison
+          </p>
+        </div>
+        <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-xs font-medium">
+          {data.sales_volume} vente{data.sales_volume > 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {!data.has_sufficient_volume ? (
+        <div className="bg-muted/40 mt-4 rounded-xl p-4">
+          <Info className="text-muted-foreground size-5" aria-hidden="true" />
+          <p className="mt-2 text-sm font-medium">Historique en constitution</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Il faut au moins {data.minimum_volume} ventes comparables pour
+            afficher une cote fiable. Aucune annonce ni donnée fictive n’est
+            utilisée.
+          </p>
+        </div>
+      ) : (
+        <>
+          <dl className="mt-4 grid grid-cols-2 gap-2">
+            <div className="bg-primary/5 border-primary/15 rounded-xl border p-3">
+              <dt className="text-muted-foreground text-xs">Prix médian</dt>
+              <dd className="mt-1 text-lg font-bold">
+                {currencyFormatter.format(data.median_price ?? 0)}
+              </dd>
+            </div>
+            <div className="bg-muted/50 rounded-xl p-3">
+              <dt className="text-muted-foreground text-xs">Prix moyen</dt>
+              <dd className="mt-1 text-lg font-semibold">
+                {currencyFormatter.format(data.average_price ?? 0)}
+              </dd>
+            </div>
+          </dl>
+
+          {data.recent_sales.length > 0 && (
+            <div className="mt-5">
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <TrendingUp className="size-4" aria-hidden="true" />
+                Ventes récentes
+              </p>
+              <ul className="mt-2 divide-y text-sm">
+                {data.recent_sales
+                  .slice(-5)
+                  .reverse()
+                  .map((sale) => (
+                    <li
+                      key={`${sale.sold_at}-${sale.price}`}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <time
+                        dateTime={sale.sold_at}
+                        className="text-muted-foreground"
+                      >
+                        {dateFormatter.format(new Date(sale.sold_at))}
+                      </time>
+                      <span className="font-medium">
+                        {currencyFormatter.format(sale.price)}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function PokeMarketSalesSkeleton() {
+  return (
+    <section
+      className="border-border mt-8 rounded-2xl border p-5"
+      aria-label="Chargement des ventes PokeMarket"
+      aria-busy="true"
+    >
+      <Skeleton className="h-5 w-48" />
+      <Skeleton className="mt-2 h-4 w-64 max-w-full" />
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Skeleton className="h-20 rounded-xl" />
+        <Skeleton className="h-20 rounded-xl" />
+      </div>
+    </section>
+  );
+}

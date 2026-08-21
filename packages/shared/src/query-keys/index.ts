@@ -102,6 +102,10 @@ export const queryKeys = {
     detail: (cardKey: string) => ["card-market", "detail", cardKey] as const,
     top: () => ["card-market", "top"] as const,
   },
+  pokeMarketSales: {
+    summary: (cardKey: string, variant: "normal" | "holo") =>
+      ["poke-market-sales", cardKey, variant] as const,
+  },
   notifications: {
     all: ["notifications"] as const,
     preferences: () => ["notifications", "preferences"] as const,

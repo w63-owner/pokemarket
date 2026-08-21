@@ -264,6 +264,7 @@ export default function SellPage() {
           cover_image_url: images.coverUrl,
           back_image_url: images.backUrl,
           card_ref_id: ocr.selectedCandidate?.card_key ?? null,
+          card_variant: data.card_variant,
           card_series: data.card_series ?? null,
           card_block: data.card_block ?? null,
           card_number: data.card_number ?? null,

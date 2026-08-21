@@ -69,6 +69,9 @@ const sellFormSchema = z
     card_block: z.string().optional(),
     card_number: z.string().optional(),
     card_language: z.string().optional(),
+    card_variant: z.enum(["normal", "holo"], {
+      message: "Variante requise",
+    }),
     card_rarity: z.string().optional(),
     card_illustrator: z.string().optional(),
   })
@@ -214,6 +217,7 @@ export function SellForm({
       card_block: undefined,
       card_number: undefined,
       card_language: undefined,
+      card_variant: undefined,
       card_rarity: undefined,
       card_illustrator: undefined,
       ...defaultValues,
@@ -292,7 +296,7 @@ export function SellForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor="card_number">Numéro</Label>
           <Input
@@ -324,6 +328,28 @@ export function SellForm({
               </Select>
             )}
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Variante</Label>
+          <Controller
+            name="card_variant"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger
+                  className="w-full"
+                  aria-invalid={!!errors.card_variant}
+                >
+                  <SelectValue placeholder="Variante" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normale</SelectItem>
+                  <SelectItem value="holo">Holographique</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <FieldError message={errors.card_variant?.message} />
         </div>
         <div className="space-y-1.5">
           <Label>Rareté</Label>

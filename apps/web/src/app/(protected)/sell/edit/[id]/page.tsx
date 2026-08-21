@@ -107,6 +107,7 @@ export default function EditListingPage() {
           grade_note: data.is_graded ? (data.grade_note ?? null) : null,
           cover_image_url: images.coverUrl,
           back_image_url: images.backUrl,
+          card_variant: data.card_variant,
           card_series: data.card_series ?? null,
           card_block: data.card_block ?? null,
           card_number: data.card_number ?? null,
@@ -161,6 +162,10 @@ export default function EditListingPage() {
     card_number: listing.card_number ?? undefined,
     card_language:
       toCardLanguageSelectValue(listing.card_language) || undefined,
+    card_variant:
+      listing.card_variant === "normal" || listing.card_variant === "holo"
+        ? listing.card_variant
+        : undefined,
     card_rarity: listing.card_rarity ?? undefined,
     card_illustrator: listing.card_illustrator ?? undefined,
   };

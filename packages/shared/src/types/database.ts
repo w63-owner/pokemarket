@@ -777,6 +777,7 @@ export type Database = {
           card_rarity: string | null;
           card_ref_id: string | null;
           card_series: string | null;
+          card_variant: string | null;
           condition: string | null;
           cover_image_url: string | null;
           created_at: string | null;
@@ -803,6 +804,7 @@ export type Database = {
           card_rarity?: string | null;
           card_ref_id?: string | null;
           card_series?: string | null;
+          card_variant?: string | null;
           condition?: string | null;
           cover_image_url?: string | null;
           created_at?: string | null;
@@ -829,6 +831,7 @@ export type Database = {
           card_rarity?: string | null;
           card_ref_id?: string | null;
           card_series?: string | null;
+          card_variant?: string | null;
           condition?: string | null;
           cover_image_url?: string | null;
           created_at?: string | null;
@@ -2363,6 +2366,20 @@ export type Database = {
           set_official_count: number | null;
           snapshot_date: string;
           variant: string;
+        }[];
+      };
+      get_pokemarket_sales_summary: {
+        Args: {
+          p_card_key: string;
+          p_limit?: number;
+          p_variant?: string;
+        };
+        Returns: {
+          average_price: number | null;
+          last_sold_at: string | null;
+          median_price: number | null;
+          recent_sales: Json;
+          sales_volume: number;
         }[];
       };
       release_escrow_funds: {

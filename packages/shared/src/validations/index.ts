@@ -75,6 +75,7 @@ export const listingCreateSchema = z
     cover_image_url: z.string().url("Photo recto requise"),
     back_image_url: z.string().url("Photo verso requise"),
     card_ref_id: z.string().nullish(),
+    card_variant: z.enum(["normal", "holo"]).nullish(),
     card_series: z.string().nullish(),
     card_block: z.string().nullish(),
     card_number: z.string().nullish(),
@@ -91,7 +92,11 @@ export const listingCreateSchema = z
       message: "État de la carte ou informations de gradation requises",
       path: ["condition"],
     },
-  );
+  )
+  .refine((data) => !data.card_ref_id || data.card_variant != null, {
+    message: "La variante est requise pour une carte identifiée",
+    path: ["card_variant"],
+  });
 
 export const offerSchema = z.object({
   listing_id: z.string().uuid(),

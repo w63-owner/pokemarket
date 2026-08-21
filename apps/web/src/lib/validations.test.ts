@@ -60,6 +60,22 @@ describe("listingCreateSchema", () => {
     expect(listingCreateSchema.safeParse(baseValid).success).toBe(true);
   });
 
+  it("requires a variant for an identified catalog card", () => {
+    expect(
+      listingCreateSchema.safeParse({
+        ...baseValid,
+        card_ref_id: "fr-base1-4",
+      }).success,
+    ).toBe(false);
+    expect(
+      listingCreateSchema.safeParse({
+        ...baseValid,
+        card_ref_id: "fr-base1-4",
+        card_variant: "holo",
+      }).success,
+    ).toBe(true);
+  });
+
   it("accepts the minimum price of 1 €", () => {
     expect(
       listingCreateSchema.safeParse({ ...baseValid, price_seller: 1 }).success,

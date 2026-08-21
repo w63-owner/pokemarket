@@ -46,6 +46,23 @@ export type CardMarketDetailResponse = {
   card: CardMarketDetail;
 };
 
+export type PokeMarketRecentSale = {
+  price: number;
+  sold_at: string;
+  variant: CardmarketVariant | null;
+};
+
+export type PokeMarketSalesResponse = {
+  median_price: number | null;
+  average_price: number | null;
+  sales_volume: number;
+  last_sold_at: string | null;
+  recent_sales: PokeMarketRecentSale[];
+  has_sufficient_volume: boolean;
+  minimum_volume: number;
+  currency: "EUR";
+};
+
 export type CardMarketTopEntry = CardSearchResult & {
   rank: number;
   variant: CardmarketVariant;
