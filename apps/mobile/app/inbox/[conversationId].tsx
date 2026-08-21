@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -77,6 +77,8 @@ function ConversationThreadContent() {
   } = useConversationThread(conversationId);
 
   const listRef = useRef<FlashListRef<ConversationRow>>(null);
+  const isNearLatestRef = useRef(true);
+  const latestRowIdRef = useRef<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [replyingTo, setReplyingTo] = useState<ReplySnapshot | null>(null);
   const [actionsMessage, setActionsMessage] = useState<Message | null>(null);
@@ -85,6 +87,28 @@ function ConversationThreadContent() {
 
   const otherUsername = conversation?.other_user.username ?? "";
   const currentUserId = user?.id ?? "";
+  const latestRowId =
+    rows[0]?.kind === "date" ? rows[0].id : rows[0]?.message.id;
+
+  useEffect(() => {
+    const previousLatestRowId = latestRowIdRef.current;
+    latestRowIdRef.current = latestRowId ?? null;
+
+    if (
+      !previousLatestRowId ||
+      !latestRowId ||
+      previousLatestRowId === latestRowId ||
+      !isNearLatestRef.current
+    ) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [latestRowId]);
 
   const handleReport = useCallback(
     async (message: Message) => {
@@ -260,8 +284,12 @@ function ConversationThreadContent() {
               onScroll={(e) => {
                 // Inverted list: offset 0 == newest (bottom). Reveal the
                 // jump-to-latest pill once the user scrolls into history.
-                const next = e.nativeEvent.contentOffset.y > 240;
-                setShowScrollDown((prev) => (prev === next ? prev : next));
+                const offset = e.nativeEvent.contentOffset.y;
+                isNearLatestRef.current = offset <= 80;
+                const shouldShowScrollDown = offset > 240;
+                setShowScrollDown((prev) =>
+                  prev === shouldShowScrollDown ? prev : shouldShowScrollDown,
+                );
               }}
               scrollEventThrottle={16}
               onEndReached={() => {
