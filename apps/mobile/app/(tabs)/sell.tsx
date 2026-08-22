@@ -382,6 +382,7 @@ function SellContent() {
           cover_image_url: images.cover.publicUrl,
           back_image_url: images.back.publicUrl,
           card_ref_id: ocr.selectedCardKey,
+          card_variant: data.card_variant,
           card_series: data.card_series ?? null,
           card_block: data.card_block ?? null,
           card_number: data.card_number ?? null,
