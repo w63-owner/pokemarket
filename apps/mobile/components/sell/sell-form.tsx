@@ -63,6 +63,9 @@ const sellFormSchema = z
     card_block: z.string().optional(),
     card_number: z.string().optional(),
     card_language: z.string().optional(),
+    card_variant: z.enum(["normal", "holo"], {
+      message: "Variante requise",
+    }),
     card_rarity: z.string().optional(),
     card_illustrator: z.string().optional(),
   })
@@ -97,6 +100,11 @@ const LANGUAGE_OPTIONS: SelectOption[] = CARD_LANGUAGES.map((l) => ({
   value: l.value,
   label: l.label,
 }));
+
+const VARIANT_OPTIONS: SelectOption[] = [
+  { value: "normal", label: "Normale" },
+  { value: "holo", label: "Holographique" },
+];
 
 const RARITY_SELECT_OPTIONS: SelectOption[] = RARITY_OPTIONS.map((r) => ({
   value: r.value,
@@ -201,6 +209,7 @@ export function SellForm({
       card_block: undefined,
       card_number: undefined,
       card_language: undefined,
+      card_variant: undefined,
       card_rarity: undefined,
       card_illustrator: undefined,
       ...defaultValues,
@@ -337,6 +346,24 @@ export function SellForm({
             )}
           />
         </View>
+      </View>
+
+      <View className="gap-1.5">
+        <Label>Variante</Label>
+        <Controller
+          control={control}
+          name="card_variant"
+          render={({ field: { value, onChange } }) => (
+            <Select
+              value={value ?? null}
+              onValueChange={onChange}
+              options={VARIANT_OPTIONS}
+              placeholder="Variante"
+              title="Variante"
+            />
+          )}
+        />
+        <FieldError message={errors.card_variant?.message} />
       </View>
 
       <View className="gap-1.5">

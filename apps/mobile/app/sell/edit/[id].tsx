@@ -74,6 +74,7 @@ function EditListingContent() {
           grade_note: data.is_graded ? (data.grade_note ?? null) : null,
           cover_image_url: coverUrl,
           back_image_url: backUrl,
+          card_variant: data.card_variant,
           card_series: data.card_series ?? null,
           card_block: data.card_block ?? null,
           card_number: data.card_number ?? null,
@@ -229,6 +230,10 @@ function buildFormDefaults(listing: Listing): Partial<SellFormValues> {
     card_number: listing.card_number ?? undefined,
     card_language:
       toCardLanguageSelectValue(listing.card_language) || undefined,
+    card_variant:
+      listing.card_variant === "normal" || listing.card_variant === "holo"
+        ? listing.card_variant
+        : undefined,
     card_rarity: listing.card_rarity ?? undefined,
     card_illustrator: listing.card_illustrator ?? undefined,
   };
