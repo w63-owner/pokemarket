@@ -112,11 +112,18 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
+          AUTO_SUBMIT=""
+          if [ "${{ steps.profile.outputs.profile }}" = "production" ] && \
+             { [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event.inputs.submit }}" = "true" ]; }; then
+            AUTO_SUBMIT="--auto-submit-with-profile production"
+          fi
+
           eas build \
             --profile "${{ steps.profile.outputs.profile }}" \
             --platform all \
             --non-interactive \
-            --no-wait
+            --no-wait \
+            $AUTO_SUBMIT
 
       - name: Push App Store Connect metadata
         if: steps.profile.outputs.profile == 'production'
@@ -141,21 +148,10 @@ jobs:
             exit 1
           fi
 
-      - name: Submit to stores (when requested)
-        if: |
-          steps.profile.outputs.profile == 'production' &&
-          (github.event_name == 'push' || github.event.inputs.submit == 'true')
-        working-directory: apps/mobile
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          eas submit --platform ios --profile production --latest --non-interactive
-          eas submit --platform android --profile production --latest --non-interactive
-
       - name: Summary
         if: always()
         run: |
           echo "## Mobile release run" >> "$GITHUB_STEP_SUMMARY"
           echo "- profile: \`${{ steps.profile.outputs.profile }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- ref: \`${{ github.ref }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- builds queued asynchronously on EAS — follow at https://expo.dev" >> "$GITHUB_STEP_SUMMARY"
+          echo "- builds and requested submissions queued asynchronously on EAS — follow at https://expo.dev" >> "$GITHUB_STEP_SUMMARY"

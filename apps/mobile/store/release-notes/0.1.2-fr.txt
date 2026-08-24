@@ -1,0 +1,4 @@
+• Consultez la cote Cardmarket actuelle de vos cartes.
+• Recherchez une carte par nom, extension ou numéro.
+• Retrouvez son historique de prix et les ventes comparables sur DeckDealr.
+• Identité TheDeckDealr harmonisée sur les écrans d’accueil.
