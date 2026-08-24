@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Heart, PlusCircle, MessageCircle, User } from "lucide-react";
-import { FEATURE_FLAGS, type FeatureFlag } from "@pokemarket/shared";
+import { FEATURE_FLAGS, type FeatureFlag } from "@deckdealr/shared";
 import { cn } from "@/lib/utils";
 import { m } from "framer-motion";
 import { useUnreadCount } from "@/hooks/use-conversations";

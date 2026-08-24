@@ -70,7 +70,7 @@ beforeEach(() => {
 
 describe("GET /api/cards/[card_key]", () => {
   it("rejects card keys outside the French catalog contract", async () => {
-    const response = await GET(new Request("https://pokemarket.test"), {
+    const response = await GET(new Request("https://thedeckdealr.test"), {
       params: Promise.resolve({ card_key: "../secret" }),
     });
 
@@ -79,7 +79,7 @@ describe("GET /api/cards/[card_key]", () => {
   });
 
   it("returns parsed normal and holo quotes with cache headers", async () => {
-    const response = await GET(new Request("https://pokemarket.test"), {
+    const response = await GET(new Request("https://thedeckdealr.test"), {
       params: Promise.resolve({ card_key: "fr-base1-4" }),
     });
 
@@ -106,7 +106,7 @@ describe("GET /api/cards/[card_key]", () => {
   it("returns 404 without fabricating a quote", async () => {
     rows.tcgdex_cards = { data: null, error: null };
 
-    const response = await GET(new Request("https://pokemarket.test"), {
+    const response = await GET(new Request("https://thedeckdealr.test"), {
       params: Promise.resolve({ card_key: "fr-missing-1" }),
     });
 

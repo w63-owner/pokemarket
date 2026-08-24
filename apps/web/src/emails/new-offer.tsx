@@ -37,7 +37,7 @@ export default function NewOfferEmail({
       </Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={logo}>PokeMarket</Heading>
+          <Heading style={logo}>DeckDealr</Heading>
           <Hr style={hr} />
 
           <Heading as="h2" style={heading}>
@@ -77,7 +77,7 @@ export default function NewOfferEmail({
           </Text>
 
           <Hr style={hr} />
-          <Text style={footer}>PokeMarket — La marketplace des dresseurs</Text>
+          <Text style={footer}>DeckDealr — La marketplace des dresseurs</Text>
         </Container>
       </Body>
     </Html>

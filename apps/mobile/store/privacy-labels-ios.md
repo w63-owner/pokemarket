@@ -3,7 +3,7 @@
 > Source de vérité pour le formulaire **App Privacy** dans App Store Connect.
 > À mettre à jour à chaque ajout/suppression d'un type de donnée collectée.
 > Toutes les déclarations doivent matcher la politique de confidentialité
-> publiée sur https://pokemarket.app/legal/privacy.
+> publiée sur https://thedeckdealr.com/legal/privacy.
 
 ## Vue d'ensemble
 
@@ -17,7 +17,7 @@
 | Usage Data      | Product Interaction (vues écran, taps) | ❌               | ❌              | Analytics                           |
 | Diagnostics     | Crash Data, Performance Data           | ❌               | ❌              | Analytics                           |
 
-`Tracking: NO` — PokeMarket ne fait **pas** de cross-app/site tracking
+`Tracking: NO` — DeckDealr ne fait **pas** de cross-app/site tracking
 au sens d'ATT (App Tracking Transparency). Aucun SDK pub, aucun ID partagé
 avec d'autres app/sites.
 

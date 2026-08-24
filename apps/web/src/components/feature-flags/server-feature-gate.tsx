@@ -1,5 +1,5 @@
 import { Power } from "lucide-react";
-import type { FeatureFlag } from "@pokemarket/shared";
+import type { FeatureFlag } from "@deckdealr/shared";
 import { EmptyState } from "@/components/shared/empty-state";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
 

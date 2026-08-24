@@ -17,7 +17,7 @@ const anon = createClient(SUPABASE_URL, SUPABASE_ANON, {
 });
 
 const stamp = Date.now();
-const email = `qa.chaos+${stamp}@pokemarket.local`;
+const email = `qa.chaos+${stamp}@thedeckdealr.local`;
 const password = "TestPassword!2026";
 let userId = null;
 

@@ -1,7 +1,7 @@
 name: Deploy - staging (post-deploy smoke)
 
 # Vercel deploie automatiquement la branche `staging` sur le projet
-# pokemarket-staging des qu'un push arrive. Ce workflow tourne EN PARALLELE
+# deckdealr-staging des qu'un push arrive. Ce workflow tourne EN PARALLELE
 # du deploy Vercel : il attend que le /api/health renvoie 200 puis lance
 # les smoke tests Playwright.
 #
@@ -76,7 +76,7 @@ jobs:
       - name: Run smoke tests
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_APP_URL }}
-        run: npm run test:smoke --workspace @pokemarket/web
+        run: npm run test:smoke --workspace @deckdealr/web
 
       - name: Upload smoke report
         if: always()

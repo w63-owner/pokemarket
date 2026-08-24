@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { Stack } from "expo-router";
-import { getLegalDocument } from "@pokemarket/shared";
+import { getLegalDocument } from "@deckdealr/shared";
 import { LegalContent } from "@/components/legal/legal-content";
 import { MobileHeader } from "@/components/layout/mobile-header";
 

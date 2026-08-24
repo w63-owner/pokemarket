@@ -7,7 +7,7 @@ import {
   formatPrice,
   formatRelativeDate,
   type Listing,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { Badge, Text } from "@/components/ui";
 import { fadeInUp, staggerDelay, useReducedMotionSafe } from "@/lib/motion";

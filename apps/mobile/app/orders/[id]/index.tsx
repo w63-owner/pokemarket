@@ -21,7 +21,7 @@ import {
   CONDITION_LABELS,
   formatPrice,
   type CardCondition,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { useAuth } from "@/hooks/use-auth";
 import { usePurchaseDetail } from "@/hooks/use-transactions";

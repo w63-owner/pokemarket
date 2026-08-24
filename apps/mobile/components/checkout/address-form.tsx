@@ -5,7 +5,7 @@ import {
   COUNTRY_LABELS,
   SHIPPING_COUNTRIES,
   type ShippingCountry,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { Input, Label, Select, Text } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme-colors";
 

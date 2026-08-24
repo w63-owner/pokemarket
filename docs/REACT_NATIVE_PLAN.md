@@ -1,13 +1,13 @@
-# React Native cross-platform PokeMarket — Plan détaillé
+# React Native cross-platform DeckDealr — Plan détaillé
 
-> Plan d'exécution sprint-par-sprint pour livrer une app mobile iOS + Android de PokeMarket avec parité quasi-totale (hors admin), basée sur Expo SDK 54+ dans un monorepo Turborepo qui réutilise le backend Next.js et un package `@pokemarket/shared`.
+> Plan d'exécution sprint-par-sprint pour livrer une app mobile iOS + Android de DeckDealr avec parité quasi-totale (hors admin), basée sur Expo SDK 54+ dans un monorepo Turborepo qui réutilise le backend Next.js et un package `@deckdealr/shared`.
 
 ## Statut d'exécution
 
 | Sprint | Description                                                                                                     | Statut                                                |
 | ------ | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | 0      | Setup monorepo, Expo, NativeWind, Supabase mobile, EAS                                                          | ✅ Complété                                           |
-| 1      | Extraction `@pokemarket/shared` (types, validations, constants, query-keys, pricing, utils, api-contracts)      | ✅ Complété                                           |
+| 1      | Extraction `@deckdealr/shared` (types, validations, constants, query-keys, pricing, utils, api-contracts)       | ✅ Complété                                           |
 | 2      | Auth (4 écrans) + root layout + tab navigator + design system (22 composants UI)                                | ✅ Complété                                           |
 | 3      | Read flows (8 écrans + 12 hooks + composants feed/listing/profile)                                              | ✅ Complété                                           |
 | 4      | Messaging realtime + offers (3 écrans, presence, cleanup AppState)                                              | ✅ Complété                                           |
@@ -29,7 +29,7 @@
 
 ```mermaid
 flowchart TB
-  subgraph monorepo [pokemarket monorepo]
+  subgraph monorepo [deckdealr monorepo]
     subgraph web [apps/web]
       WebUI[Next.js 16 UI]
       ApiRoutes["API routes /api/*"]
@@ -71,9 +71,9 @@ flowchart TB
 Ces 4 décisions changent matériellement le plan ; à valider avant Sprint 0 :
 
 - **D1 — KYC mobile** : faire l'onboarding Stripe Connect dans une WebView (`expo-web-browser`) avec deep link retour.
-- **D2 — Bundle ID & store presence** : confirmer le bundle id (`app.pokemarket.mobile` ?), le nom store ("PokeMarket"), et créer les comptes Apple Developer Program (99 €/an) + Google Play Console (25 € one-time) dès Sprint 0.
-- **D3 — Domaine API public** : confirmer l'URL de prod du backend (`https://pokemarket.app/api` ?). Le mobile l'utilisera via `EXPO_PUBLIC_API_URL`. Prévoir aussi staging.
-- **D4 — Stratégie auth deep link** : utiliser le scheme `pokemarket://auth/callback` pour les redirects OAuth Supabase et `pokemarket://wallet/return` pour Stripe Connect.
+- **D2 — Bundle ID & store presence** : confirmer le bundle id (`app.pokemarket.mobile` ?), le nom store ("DeckDealr"), et créer les comptes Apple Developer Program (99 €/an) + Google Play Console (25 € one-time) dès Sprint 0.
+- **D3 — Domaine API public** : confirmer l'URL de prod du backend (`https://thedeckdealr.com/api` ?). Le mobile l'utilisera via `EXPO_PUBLIC_API_URL`. Prévoir aussi staging.
+- **D4 — Stratégie auth deep link** : utiliser le scheme `deckdealr://auth/callback` pour les redirects OAuth Supabase et `deckdealr://wallet/return` pour Stripe Connect.
 
 ## 4. Sprints
 
@@ -109,7 +109,7 @@ Extraire un par un (avec `git mv` + maj des imports) :
 - `src/lib/utils.ts` (helpers purs uniquement) → `packages/shared/src/lib/utils.ts`
 - Créer `packages/shared/src/api-contracts/` : types des endpoints `/api/*` (CheckoutResponse, OffersResponse, PriceHistoryResponse, OcrResponse, etc.) — ces types feront foi des deux côtés.
 
-**Critère de sortie** : `npm run type-check && npm run test && npm run lint` passent dans toute la monorepo. `apps/web` consomme exclusivement `@pokemarket/shared` pour ces modules.
+**Critère de sortie** : `npm run type-check && npm run test && npm run lint` passent dans toute la monorepo. `apps/web` consomme exclusivement `@deckdealr/shared` pour ces modules.
 
 ### Sprint 2 — Auth + navigation shell + design system (1.5 semaine)
 
@@ -237,7 +237,7 @@ Hooks à porter (mêmes signatures, source : `src/hooks/`) :
 
 **Logique** :
 
-- "Activer mes encaissements" → call `src/app/api/stripe-connect/onboard/route.ts` → reçoit URL d'onboarding → `WebBrowser.openAuthSessionAsync(url, "pokemarket://wallet/return")`
+- "Activer mes encaissements" → call `src/app/api/stripe-connect/onboard/route.ts` → reçoit URL d'onboarding → `WebBrowser.openAuthSessionAsync(url, "deckdealr://wallet/return")`
 - App reprend la main sur le deep link return → refresh status via `src/app/api/stripe-connect/status/route.ts`
 - Bouton "Demander un virement" → `src/app/api/stripe-connect/payout/route.ts`
 
@@ -255,7 +255,7 @@ Hooks à porter (mêmes signatures, source : `src/hooks/`) :
 
 - `apple-app-site-association` à servir depuis `apps/web/public/` (`/.well-known/apple-app-site-association`)
 - `assetlinks.json` pour Android (`/.well-known/assetlinks.json`)
-- Routes : `pokemarket.app/listing/123` ouvre l'app si installée
+- Routes : `thedeckdealr.com/listing/123` ouvre l'app si installée
 - Configurer `app.json` `ios.associatedDomains` et `android.intentFilters`
 
 **Biométrie** :
@@ -377,7 +377,7 @@ Trois skills + trois rules sont déjà installées et activées :
 ### Sprint 1 — état réel
 
 - `CheckoutResponse` (web) a été conservé et `MobileCheckoutResponse` expose le PaymentIntent Stripe pour PaymentSheet.
-- Tous les fichiers d'origine (`src/lib/constants.ts`, etc.) ont été remplacés par des re-exports vers `@pokemarket/shared` pour préserver tous les imports existants `@/lib/...` du web.
+- Tous les fichiers d'origine (`src/lib/constants.ts`, etc.) ont été remplacés par des re-exports vers `@deckdealr/shared` pour préserver tous les imports existants `@/lib/...` du web.
 
 ### Sprint 2 — état réel
 
@@ -429,7 +429,7 @@ Trois skills + trois rules sont déjà installées et activées :
 - **Webhook Stripe étendu** : `payment_intent.succeeded` réutilise `finalizePaidTransaction()` (même side-effects que la Checkout Session) — flips PAID, marque le listing SOLD, crédite le wallet vendeur, envoie messages/emails/push. Ajout aussi de `payment_intent.payment_failed` et `.canceled` qui réutilisent le rollback partagé `applyFailureToTransaction()`.
 - **Couche paiements mobile** (`apps/mobile/lib/payments/`) :
   - `types.ts` — interface `PaymentProviderClient` + `PaymentResult` discriminé (`succeeded` | `cancelled` | `failed`).
-  - `stripe-provider.ts` — utilise `initPaymentSheet` + `presentPaymentSheet` de `@stripe/stripe-react-native`. Apple Pay sur iOS, Google Pay sur Android (avec `testEnv` auto-détecté via le préfixe `pk_test_`/`pk_live_`). `returnURL: "pokemarket://stripe-redirect"` pour la sortie 3DS.
+  - `stripe-provider.ts` — utilise `initPaymentSheet` + `presentPaymentSheet` de `@stripe/stripe-react-native`. Apple Pay sur iOS, Google Pay sur Android (avec `testEnv` auto-détecté via le préfixe `pk_test_`/`pk_live_`). `returnURL: "deckdealr://stripe-redirect"` pour la sortie 3DS.
   - `index.ts` — hook unifié `usePayment()` qui dispatch sur `intent.provider`. Les écrans appellent `startPayment({ listing_id, ... })` sans connaître le provider.
 - **API mobile** :
   - `lib/api/checkout.ts` — `startCheckout(input)` POST `/api/checkout?client=mobile` ; `fetchTransactionForBuyer(id)` lit la transaction côté acheteur via RLS pour la page success.
@@ -455,7 +455,7 @@ Trois skills + trois rules sont déjà installées et activées :
 
 - **Auth Bearer transversal (suite)** : `getRequestUser` ajouté à `/api/stripe-connect/onboard`, `/api/stripe-connect/status`, `/api/stripe-connect/payout`, `/api/orders/shipped-notify`. Toutes les routes wallet/KYC sont désormais appelables aussi bien depuis le cookie web que depuis le Bearer mobile.
 - **Nouveau helper `getRequestUserClient(request)`** dans `apps/web/src/lib/auth/api.ts` : retourne **à la fois** le user ET un client Supabase qui transporte la session (cookie SSR pour le web, anon-client + header `Authorization: Bearer <jwt>` pour le mobile). Indispensable pour les routes qui appellent une RPC reposant sur `auth.uid()` (cas de `release_escrow_funds`).
-- **`/api/stripe-connect/onboard?client=mobile`** : quand le flag est présent, le `return_url` / `refresh_url` envoyés à Stripe deviennent `pokemarket://wallet/return` et `pokemarket://wallet`. Le mobile passe par `WebBrowser.openAuthSessionAsync(url, "pokemarket://wallet/return")` qui dismisse l'in-app browser dès que Stripe redirige.
+- **`/api/stripe-connect/onboard?client=mobile`** : quand le flag est présent, le `return_url` / `refresh_url` envoyés à Stripe deviennent `deckdealr://wallet/return` et `deckdealr://wallet`. Le mobile passe par `WebBrowser.openAuthSessionAsync(url, "deckdealr://wallet/return")` qui dismisse l'in-app browser dès que Stripe redirige.
 - **Nouveau endpoint `/api/transactions/confirm-reception`** (REST) : miroir 1:1 du Server Action `confirmReceptionAction`. Les Server Actions ne sont pas appelables depuis RN (cookie-only), donc le mobile passe par cette route. Utilise `getRequestUserClient` pour appeler la RPC `release_escrow_funds` avec la session de l'acheteur.
 - **API mobile** :
   - `lib/api/wallet.ts` — `fetchWalletBalance`, `fetchStripeConnectStatus`, `getOnboardingUrl`, `requestPayout`. Les 3 dernières passent par `apiFetch` (Bearer auto-injecté).
@@ -495,7 +495,7 @@ Trois skills + trois rules sont déjà installées et activées :
 - **Universal / App Links** :
   - Routes Next.js `/.well-known/apple-app-site-association` et `/.well-known/assetlinks.json` servies via `app/api/well-known/*/route.ts` + rewrites dans `next.config.ts` (les dossiers commençant par `.` sont ignorés par l'App Router). `Content-Type: application/json` correct, edge runtime + `revalidate: 3600`.
   - Variables d'env requises (documentées dans `.env.local.example`) : `IOS_APP_TEAM_ID`, `IOS_APP_BUNDLE_ID`, `ANDROID_APP_PACKAGE_NAME`, `ANDROID_APP_SHA256_FINGERPRINTS` (CSV). Sans elles, les fichiers répondent 200 avec un placeholder qui ne validera pas Apple-side mais ne crashe pas le build.
-  - Schemes `pokemarket://` + `https://pokemarket.app` configurés dans `app.json` (`ios.associatedDomains`, `android.intentFilters`). Le `handleIncomingUrl` dans `lib/notifications` fait un rewrite `/messages/<id>` → `/inbox/<id>` pour matcher la nomenclature mobile, et exclut `/stripe-redirect` qui est consommé synchroneously par `WebBrowser.openAuthSessionAsync`.
+  - Schemes `deckdealr://` + `https://thedeckdealr.com` configurés dans `app.json` (`ios.associatedDomains`, `android.intentFilters`). Le `handleIncomingUrl` dans `lib/notifications` fait un rewrite `/messages/<id>` → `/inbox/<id>` pour matcher la nomenclature mobile, et exclut `/stripe-redirect` qui est consommé synchroneously par `WebBrowser.openAuthSessionAsync`.
   - 4 tests Vitest sur les 2 routes `well-known` (avec `vi.resetModules()` pour isoler les mutations d'env entre cas).
 
 - **Biométrie** :
@@ -548,7 +548,7 @@ Trois skills + trois rules sont déjà installées et activées :
 - **`apps/mobile/eas.json` étendu** : section `submit.production` complétée avec placeholders `ascAppId`, `appleId`, `appleTeamId`, `ascApiKey*` (ASC API Key plutôt qu'app-specific password — plus stable). Nouveau profil `production-prod-track` qui hérite de `production` avec `track: production` + `rollout: 0.1` pour le staged rollout 10 % Android. Section `metadata.production` pointe vers `store.config.json`.
 - **`apps/mobile/eas-hooks/eas-build-on-success.sh`** (chmod +x) — hook EAS Build qui upload les sourcemaps Sentry uniquement pour le profil production, via `npx sentry-expo-upload-sourcemaps dist`. Skip silencieux si secrets non définis (ne casse pas le build). Wiré dans `eas.json` `production.hooks.onSuccess`.
 - **`apps/mobile/lib/sentry.ts` enrichi** — passe maintenant `release: <bundleId>@<version>+<runtimeVersion>` et `dist: <buildNumber|versionCode>` à `Sentry.init`, dérivés depuis `Constants.expoConfig`. Ces 2 champs doivent matcher exactement ce que le hook upload côté Sentry, sinon les stacks restent minifiés en prod. Ajout aussi de `environment: __DEV__ ? "development" : "production"`.
-- **`apps/mobile/scripts/seed-reviewer-account.mjs`** + script `npm run seed:reviewer -- --reset`. Seed idempotent : `reviewer@pokemarket.app` (seller, 12 listings ACTIVE avec covers PNG réelles), `buddy.reviewer@pokemarket.app` (buyer, 1 conversation + offre PENDING + transaction SHIPPED), wallet seller crédité 350 €. Imprime un JSON utilisable pour coller dans App Review Information ou la console GH Actions. Pattern miroir de `apps/web/scripts/qa-buyer-setup.mjs`.
+- **`apps/mobile/scripts/seed-reviewer-account.mjs`** + script `npm run seed:reviewer -- --reset`. Seed idempotent : `reviewer@thedeckdealr.com` (seller, 12 listings ACTIVE avec covers PNG réelles), `buddy.reviewer@thedeckdealr.com` (buyer, 1 conversation + offre PENDING + transaction SHIPPED), wallet seller crédité 350 €. Imprime un JSON utilisable pour coller dans App Review Information ou la console GH Actions. Pattern miroir de `apps/web/scripts/qa-buyer-setup.mjs`.
 - **`.github/workflows/mobile-release.yml`** — workflow déclenché sur tag `mobile-vX.Y.Z` (ou `workflow_dispatch` pour des dry runs preview). Steps : checkout → setup Expo → `eas build --profile production --platform all --no-wait` (les builds tournent ensuite asynchrones sur les workers EAS) → `eas metadata:push` → `eas submit --latest` (iOS + Android). Environnement GH `mobile-production` pour gater la promotion (required reviewer optionnel).
 - **`docs/MOBILE_RELEASE.md`** (560 lignes) — runbook complet : pré-requis comptes, secrets EAS / GH, workflow standard release, métadonnées EAS push, bêta TestFlight + Play closed track, soumission production avec phased release iOS, OTA `eas update`, source maps Sentry, rollback / hotfix (incl. Apple "Expedited Review" et halt rollout Android), inventaire des secrets et des responsables.
 - **`apps/mobile/package.json`** — nouveaux scripts `submit:android:prod-track`, `metadata:pull / push / lint`, `seed:reviewer`.

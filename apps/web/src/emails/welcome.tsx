@@ -26,23 +26,23 @@ export default function WelcomeEmail({
     <Html>
       <Head />
       <Preview>
-        Bienvenue sur PokeMarket, {username} ! Achetez et vendez vos cartes
+        Bienvenue sur DeckDealr, {username} ! Achetez et vendez vos cartes
         Pokémon.
       </Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={logo}>PokeMarket</Heading>
+          <Heading style={logo}>DeckDealr</Heading>
           <Hr style={hr} />
 
           <Heading as="h2" style={heading}>
-            Bienvenue sur PokeMarket !
+            Bienvenue sur DeckDealr !
           </Heading>
 
           <Text style={paragraph}>Bonjour {username},</Text>
           <Text style={paragraph}>
-            Merci de nous rejoindre ! PokeMarket est la marketplace pensée par
-            et pour les dresseurs. Achetez des cartes rares en toute confiance
-            ou vendez celles de votre collection en quelques secondes.
+            Merci de nous rejoindre ! DeckDealr est la marketplace pensée par et
+            pour les dresseurs. Achetez des cartes rares en toute confiance ou
+            vendez celles de votre collection en quelques secondes.
           </Text>
 
           <Section style={stepsBox}>
@@ -72,7 +72,7 @@ export default function WelcomeEmail({
           </Section>
 
           <Hr style={hr} />
-          <Text style={footer}>PokeMarket — La marketplace des dresseurs</Text>
+          <Text style={footer}>DeckDealr — La marketplace des dresseurs</Text>
         </Container>
       </Body>
     </Html>

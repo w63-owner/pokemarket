@@ -5,7 +5,7 @@ import {
   Package,
   Truck,
 } from "lucide-react-native";
-import type { Transaction } from "@pokemarket/shared";
+import type { Transaction } from "@deckdealr/shared";
 import { Text } from "@/components/ui";
 import { useThemeColors } from "@/lib/theme-colors";
 

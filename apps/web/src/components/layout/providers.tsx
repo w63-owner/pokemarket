@@ -5,7 +5,7 @@ import { LazyMotion, domMax } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
-import { FEATURE_FLAGS } from "@pokemarket/shared";
+import { FEATURE_FLAGS } from "@deckdealr/shared";
 import { NavigationHistoryTracker } from "@/hooks/use-navigation-history";
 import { useUnreadCountSubscription } from "@/hooks/use-conversations";
 import { useFeatureFlag } from "@/hooks/use-feature-flags";

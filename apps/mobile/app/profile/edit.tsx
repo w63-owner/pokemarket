@@ -5,7 +5,7 @@ import {
   COUNTRY_LABELS,
   type Profile,
   type ShippingCountry,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   Button,

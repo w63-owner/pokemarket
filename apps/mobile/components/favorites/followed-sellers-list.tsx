@@ -7,7 +7,7 @@ import {
   countryCodeToFlag,
   queryKeys,
   regionDisplayName,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { useFollowedSellers } from "@/hooks/use-followed-sellers";
 import { EmptyState } from "@/components/shared";

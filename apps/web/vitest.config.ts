@@ -8,7 +8,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     server: {
       deps: {
-        inline: ["@pokemarket/shared"],
+        inline: ["@deckdealr/shared"],
       },
     },
   },
@@ -20,7 +20,7 @@ export default defineConfig({
         replacement: path.resolve(__dirname, "./src/test-utils/server-only.ts"),
       },
       {
-        find: "@pokemarket/shared",
+        find: "@deckdealr/shared",
         replacement: path.resolve(__dirname, "../../packages/shared/src"),
       },
     ],

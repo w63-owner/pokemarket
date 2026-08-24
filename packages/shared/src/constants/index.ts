@@ -1,7 +1,7 @@
-/** PokeMarket commission included in the buyer protection fee. */
+/** DeckDealr commission included in the buyer protection fee. */
 export const MARKETPLACE_PERCENT_FEE = 0.05;
 
-/** No fixed PokeMarket commission; Stripe's fixed processing fee is separate. */
+/** No fixed DeckDealr commission; Stripe's fixed processing fee is separate. */
 export const MARKETPLACE_FIXED_FEE = 0;
 
 /** Standard online-card pricing for EEA cards on the French Stripe account. */

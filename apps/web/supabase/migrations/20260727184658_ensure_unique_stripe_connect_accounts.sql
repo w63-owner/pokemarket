@@ -1,4 +1,4 @@
--- A Stripe connected account belongs to exactly one PokeMarket profile.
+-- A Stripe connected account belongs to exactly one DeckDealr profile.
 -- Together with the deterministic Stripe idempotency key used at account
 -- creation, this prevents concurrent onboarding retries from linking the same
 -- account to multiple sellers.

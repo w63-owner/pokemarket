@@ -1,4 +1,4 @@
-🎉 Première version publique de PokeMarket !
+🎉 Première version publique de DeckDealr !
 
 • Achat & vente de cartes Pokémon en toute sécurité
 • Scan IA en 30 secondes pour publier vos annonces

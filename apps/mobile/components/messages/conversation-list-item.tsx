@@ -5,7 +5,7 @@ import { MotiView } from "moti";
 import {
   formatRelativeDate,
   type ConversationPreview,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { Badge, Skeleton, Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {

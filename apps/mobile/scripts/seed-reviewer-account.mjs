@@ -4,7 +4,7 @@
  * Google Play Console can use to validate the app.
  *
  * Creates / resets:
- *   - reviewer@pokemarket.app  (with username "reviewer_pokemarket")
+ *   - reviewer@thedeckdealr.com  (with username "reviewer_deckdealr")
  *   - 12 ACTIVE listings with public covers
  *   - 1 PAID transaction in transit
  *   - 1 conversation with a PENDING offer
@@ -19,8 +19,8 @@
  *   NEXT_PUBLIC_SUPABASE_URL
  *   NEXT_PUBLIC_SUPABASE_ANON_KEY
  *   SUPABASE_SERVICE_ROLE_KEY    (admin, NEVER commit)
- *   SEED_REVIEWER_PWD            password for reviewer@pokemarket.app
- *   SEED_BUDDY_PWD               password for buddy.reviewer@pokemarket.app
+ *   SEED_REVIEWER_PWD            password for reviewer@thedeckdealr.com
+ *   SEED_BUDDY_PWD               password for buddy.reviewer@thedeckdealr.com
  *
  * Outputs the credentials + IDs as JSON on stdout so the calling shell
  * can feed App Store Connect or paste into reviewer notes.
@@ -56,8 +56,8 @@ if (!REVIEWER_PASSWORD || !BUDDY_PASSWORD) {
 const args = new Set(process.argv.slice(2));
 const RESET = args.has("--reset");
 
-const REVIEWER_EMAIL = "reviewer@pokemarket.app";
-const BUDDY_EMAIL = "buddy.reviewer@pokemarket.app";
+const REVIEWER_EMAIL = "reviewer@thedeckdealr.com";
+const BUDDY_EMAIL = "buddy.reviewer@thedeckdealr.com";
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
@@ -183,7 +183,7 @@ async function main() {
   const reviewer = await createUser(
     REVIEWER_EMAIL,
     REVIEWER_PASSWORD,
-    "reviewer_pokemarket",
+    "reviewer_deckdealr",
   );
 
   const reviewerClient = createClient(SUPABASE_URL, SUPABASE_ANON);

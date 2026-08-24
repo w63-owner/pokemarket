@@ -5,7 +5,7 @@ import type {
   PayoutPolicy,
   StripeConnectOnboardingRequest,
   Wallet,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 export type PayoutHistoryResponse = {
   payouts: Payout[];

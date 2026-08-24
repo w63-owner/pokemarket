@@ -15,7 +15,7 @@ export default function CGUPage() {
       <h2>1. Objet</h2>
       <p>
         Les présentes Conditions Générales d&apos;Utilisation (ci-après « CGU »)
-        définissent les règles d&apos;utilisation de la plateforme PokeMarket,
+        définissent les règles d&apos;utilisation de la plateforme DeckDealr,
         accessible à l&apos;adresse [URL du site], éditée par [Nom de
         l&apos;entreprise].
       </p>
@@ -26,8 +26,8 @@ export default function CGUPage() {
 
       <h2>2. Description du service</h2>
       <p>
-        PokeMarket est une marketplace communautaire (C2C) dédiée à la vente et
-        à l&apos;achat de cartes à collectionner Pokémon TCG entre particuliers.
+        DeckDealr est une marketplace communautaire (C2C) dédiée à la vente et à
+        l&apos;achat de cartes à collectionner Pokémon TCG entre particuliers.
         La plateforme propose notamment :
       </p>
       <ul>
@@ -56,7 +56,7 @@ export default function CGUPage() {
         identifiants de connexion. Toute activité réalisée depuis son compte est
         réputée effectuée par lui. En cas de suspicion d&apos;utilisation
         frauduleuse, l&apos;utilisateur doit contacter immédiatement
-        l&apos;équipe PokeMarket à [Email de contact].
+        l&apos;équipe DeckDealr à [Email de contact].
       </p>
 
       <h2>4. Obligations des utilisateurs</h2>
@@ -112,7 +112,7 @@ export default function CGUPage() {
 
       <h2>6. Modération et sanctions</h2>
       <p>
-        PokeMarket se réserve le droit de modérer les contenus publiés et de
+        DeckDealr se réserve le droit de modérer les contenus publiés et de
         suspendre ou supprimer tout compte ne respectant pas les présentes CGU.
         Les mesures applicables incluent :
       </p>
@@ -134,8 +134,8 @@ export default function CGUPage() {
 
       <h2>8. Disponibilité du service</h2>
       <p>
-        PokeMarket s&apos;efforce d&apos;assurer un accès continu à la
-        plateforme. Toutefois, PokeMarket ne garantit pas la disponibilité
+        DeckDealr s&apos;efforce d&apos;assurer un accès continu à la
+        plateforme. Toutefois, DeckDealr ne garantit pas la disponibilité
         permanente du service et ne saurait être tenu responsable des
         interruptions temporaires liées à la maintenance, aux mises à jour ou à
         des causes de force majeure.
@@ -143,8 +143,8 @@ export default function CGUPage() {
 
       <h2>9. Limitation de responsabilité</h2>
       <p>
-        PokeMarket agit en qualité d&apos;hébergeur au sens de la loi pour la
-        confiance dans l&apos;économie numérique (LCEN). À ce titre, PokeMarket
+        DeckDealr agit en qualité d&apos;hébergeur au sens de la loi pour la
+        confiance dans l&apos;économie numérique (LCEN). À ce titre, DeckDealr
         n&apos;est pas tenu d&apos;une obligation générale de surveillance des
         contenus publiés, mais s&apos;engage à retirer promptement tout contenu
         manifestement illicite qui lui serait signalé.
@@ -152,7 +152,7 @@ export default function CGUPage() {
 
       <h2>10. Modification des CGU</h2>
       <p>
-        PokeMarket se réserve le droit de modifier les présentes CGU à tout
+        DeckDealr se réserve le droit de modifier les présentes CGU à tout
         moment. Les utilisateurs seront informés de toute modification
         substantielle. La poursuite de l&apos;utilisation de la plateforme vaut
         acceptation des CGU modifiées.

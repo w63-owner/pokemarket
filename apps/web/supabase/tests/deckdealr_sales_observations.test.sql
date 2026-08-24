@@ -76,7 +76,7 @@ WHERE id = '63000000-0000-4000-8000-000000000001';
 SELECT is(
   (
     SELECT count(*)
-    FROM private.pokemarket_sale_observations
+    FROM private.deckdealr_sale_observations
     WHERE transaction_id = '63000000-0000-4000-8000-000000000001'
   ),
   1::bigint,
@@ -86,7 +86,7 @@ SELECT is(
 SELECT is(
   (
     SELECT card_price
-    FROM private.pokemarket_sale_observations
+    FROM private.deckdealr_sale_observations
     WHERE transaction_id = '63000000-0000-4000-8000-000000000001'
   ),
   102::numeric,
@@ -96,7 +96,7 @@ SELECT is(
 SELECT results_eq(
   $$
     SELECT card_key, condition, language, is_graded, variant
-    FROM private.pokemarket_sale_observations
+    FROM private.deckdealr_sale_observations
     WHERE transaction_id = '63000000-0000-4000-8000-000000000001'
   $$,
   $$
@@ -118,7 +118,7 @@ WHERE id = '63000000-0000-4000-8000-000000000001';
 SELECT is(
   (
     SELECT count(*)
-    FROM private.pokemarket_sale_observations
+    FROM private.deckdealr_sale_observations
     WHERE transaction_id = '63000000-0000-4000-8000-000000000001'
   ),
   1::bigint,
@@ -128,7 +128,7 @@ SELECT is(
 SELECT is(
   (
     SELECT sales_volume
-    FROM public.get_pokemarket_sales_summary(
+    FROM public.get_deckdealr_sales_summary(
       p_card_key => 'fr-sales-observation-1',
       p_variant => 'holo',
       p_condition => 'NEAR_MINT',
@@ -142,7 +142,7 @@ SELECT is(
 SELECT is(
   (
     SELECT median_price
-    FROM public.get_pokemarket_sales_summary(
+    FROM public.get_deckdealr_sales_summary(
       p_card_key => 'fr-sales-observation-1',
       p_variant => 'holo',
       p_condition => 'NEAR_MINT',
@@ -160,7 +160,7 @@ WHERE id = '63000000-0000-4000-8000-000000000001';
 SELECT ok(
   (
     SELECT excluded_from_aggregates
-    FROM private.pokemarket_sale_observations
+    FROM private.deckdealr_sale_observations
     WHERE transaction_id = '63000000-0000-4000-8000-000000000001'
   ),
   'a partial refund marks the observation as excluded'
@@ -169,7 +169,7 @@ SELECT ok(
 SELECT is(
   (
     SELECT sales_volume
-    FROM public.get_pokemarket_sales_summary(
+    FROM public.get_deckdealr_sales_summary(
       p_card_key => 'fr-sales-observation-1',
       p_variant => 'holo',
       p_condition => 'NEAR_MINT',

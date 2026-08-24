@@ -5,7 +5,7 @@ import { z } from "zod";
 import type {
   OnboardingResponse,
   StripeConnectOnboardingRequest,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { getRequestUser } from "@/lib/auth/api";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
               business_url: `${requestOrigin}/profile/${user.id}`,
               doing_business_as: profile.username,
               product_description:
-                "Vente de cartes Pokémon entre collectionneurs sur PokeMarket",
+                "Vente de cartes Pokémon entre collectionneurs sur DeckDealr",
             },
             responsibilities: {
               fees_collector: "application",

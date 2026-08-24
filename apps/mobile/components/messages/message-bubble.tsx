@@ -11,8 +11,8 @@ import {
   Clock,
   ImageOff,
 } from "lucide-react-native";
-import type { Message } from "@pokemarket/shared";
-import { formatTime, queryKeys } from "@pokemarket/shared";
+import type { Message } from "@deckdealr/shared";
+import { formatTime, queryKeys } from "@deckdealr/shared";
 import { Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { spring, useReducedMotionSafe } from "@/lib/motion";

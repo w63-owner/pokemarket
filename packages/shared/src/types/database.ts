@@ -2368,6 +2368,24 @@ export type Database = {
           variant: string;
         }[];
       };
+      get_deckdealr_sales_summary: {
+        Args: {
+          p_card_key: string;
+          p_condition?: string;
+          p_grade_note?: number;
+          p_grading_company?: string;
+          p_is_graded?: boolean;
+          p_limit?: number;
+          p_variant?: string;
+        };
+        Returns: {
+          average_price: number | null;
+          last_sold_at: string | null;
+          median_price: number | null;
+          recent_sales: Json;
+          sales_volume: number;
+        }[];
+      };
       get_pokemarket_sales_summary: {
         Args: {
           p_card_key: string;

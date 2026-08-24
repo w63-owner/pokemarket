@@ -1,4 +1,4 @@
-import type { Database, PushNotificationCategory } from "@pokemarket/shared";
+import type { Database, PushNotificationCategory } from "@deckdealr/shared";
 
 import { supabase } from "@/lib/supabase";
 

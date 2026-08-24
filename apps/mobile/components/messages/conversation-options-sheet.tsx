@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, BellOff, Flag, ShieldBan } from "lucide-react-native";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 import {
   blockUser,
   reportConversation,

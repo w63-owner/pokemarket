@@ -35,8 +35,8 @@ const PASSWORD = "TestPassword!2026";
 const stamp = Date.now();
 
 async function main() {
-  const sellerEmail = `qa.seller+${stamp}@pokemarket.local`;
-  const buyerEmail = `qa.buyer+${stamp}@pokemarket.local`;
+  const sellerEmail = `qa.seller+${stamp}@thedeckdealr.local`;
+  const buyerEmail = `qa.buyer+${stamp}@thedeckdealr.local`;
 
   // ─── seller ──────────────────────────────────────────────────────────────
   const { data: sCreated, error: sCErr } = await admin.auth.admin.createUser({

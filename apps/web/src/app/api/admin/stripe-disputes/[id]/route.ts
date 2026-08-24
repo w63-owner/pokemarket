@@ -92,7 +92,7 @@ export async function POST(
       const updated = await stripe.disputes.update(dispute.stripe_dispute_id, {
         evidence,
         submit,
-        metadata: { pokemarket_dispute_id: dispute.id },
+        metadata: { deckdealr_dispute_id: dispute.id },
       });
       stripeStatus = updated.status;
       actionType = submit

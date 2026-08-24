@@ -56,7 +56,7 @@ vi.mock("@/lib/stripe/server", () => ({
 }));
 
 vi.mock("@/lib/env", () => ({
-  getAppUrl: () => "https://pokemarket.test",
+  getAppUrl: () => "https://thedeckdealr.test",
 }));
 
 vi.mock("@/lib/stripe/idempotency", () => ({
@@ -71,7 +71,7 @@ vi.mock("@sentry/nextjs", () => ({
 
 import { GET, PATCH, POST } from "./route";
 
-const endpoint = "https://pokemarket.test/api/stripe/payment-methods";
+const endpoint = "https://thedeckdealr.test/api/stripe/payment-methods";
 
 beforeEach(() => {
   vi.clearAllMocks();

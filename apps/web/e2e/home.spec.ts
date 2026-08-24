@@ -6,7 +6,7 @@ test.describe("Home page", () => {
 
     const heading = page.getByRole("heading", { level: 1 });
     await expect(heading).toBeVisible();
-    await expect(heading).toContainText("PokeMarket");
+    await expect(heading).toContainText("DeckDealr");
   });
 
   test("shows the subtitle", async ({ page }) => {

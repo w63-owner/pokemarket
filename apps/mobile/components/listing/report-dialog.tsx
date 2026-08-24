@@ -11,7 +11,7 @@ import {
   REPORT_REASON_LABELS,
   reportSchema,
   type ReportReason,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import {
   Button,
   Label,

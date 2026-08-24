@@ -7,7 +7,7 @@ import {
   FEATURE_FLAGS,
   toCardLanguageSelectValue,
   type Listing,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import {
   useDeleteListing,
   useOwnedListing,

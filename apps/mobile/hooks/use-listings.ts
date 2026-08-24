@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys, type Listing } from "@pokemarket/shared";
+import { queryKeys, type Listing } from "@deckdealr/shared";
 import {
   createListing,
   deleteListing,

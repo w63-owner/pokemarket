@@ -3,7 +3,7 @@ import {
   buildTcgdexCardImageUrl,
   type CardMarketTopResponse,
   type CardmarketVariant,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { NextResponse } from "next/server";
 
 import { createPublicClient } from "@/lib/supabase/public";

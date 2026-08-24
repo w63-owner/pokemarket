@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { queryKeys, type InboxCursor } from "@pokemarket/shared";
+import { queryKeys, type InboxCursor } from "@deckdealr/shared";
 import { useAuth } from "@/hooks/use-auth";
 import {
   fetchConversations,

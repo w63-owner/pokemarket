@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { queryKeys, type FeedFilters } from "@pokemarket/shared";
+import { queryKeys, type FeedFilters } from "@deckdealr/shared";
 import { fetchListingsFeed, type FeedCursor } from "@/lib/api/listings";
 import { useAuth } from "./use-auth";
 

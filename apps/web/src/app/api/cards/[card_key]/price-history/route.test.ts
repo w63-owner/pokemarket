@@ -67,7 +67,7 @@ describe("GET /api/cards/[card_key]/price-history", () => {
   it("returns only real snapshots and a cacheable construction state", async () => {
     const response = await GET(
       new NextRequest(
-        "https://pokemarket.test/api/cards/fr-base1-4/price-history?variant=normal&period=30d",
+        "https://thedeckdealr.test/api/cards/fr-base1-4/price-history?variant=normal&period=30d",
       ),
       { params: Promise.resolve({ card_key: "fr-base1-4" }) },
     );
@@ -90,7 +90,7 @@ describe("GET /api/cards/[card_key]/price-history", () => {
   it("rejects incompatible market dimensions", async () => {
     const response = await GET(
       new NextRequest(
-        "https://pokemarket.test/api/cards/fr-base1-4/price-history?variant=reverse",
+        "https://thedeckdealr.test/api/cards/fr-base1-4/price-history?variant=reverse",
       ),
       { params: Promise.resolve({ card_key: "fr-base1-4" }) },
     );

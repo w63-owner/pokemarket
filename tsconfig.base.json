@@ -14,8 +14,8 @@
     "allowJs": true,
     "jsx": "preserve",
     "paths": {
-      "@pokemarket/shared": ["./packages/shared/src"],
-      "@pokemarket/shared/*": ["./packages/shared/src/*"]
+      "@deckdealr/shared": ["./packages/shared/src"],
+      "@deckdealr/shared/*": ["./packages/shared/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", ".next", "build"]

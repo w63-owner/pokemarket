@@ -1,6 +1,6 @@
 {
-  "name": "PokeMarket — Marketplace Pokémon TCG",
-  "short_name": "PokeMarket",
+  "name": "DeckDealr — Marketplace Pokémon TCG",
+  "short_name": "DeckDealr",
   "description": "Achetez et vendez des cartes Pokémon TCG entre particuliers.",
   "start_url": "/",
   "scope": "/",

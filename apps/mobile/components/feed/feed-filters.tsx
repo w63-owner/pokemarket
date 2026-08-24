@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { SlidersHorizontal, X } from "lucide-react-native";
-import type { FeedFilters as FeedFiltersType } from "@pokemarket/shared";
+import type { FeedFilters as FeedFiltersType } from "@deckdealr/shared";
 
 import { Badge, Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";

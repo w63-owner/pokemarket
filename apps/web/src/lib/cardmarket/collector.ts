@@ -3,7 +3,7 @@ import "server-only";
 import {
   parseTcgdexCardmarketPricing,
   type CardmarketVariant,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/database";

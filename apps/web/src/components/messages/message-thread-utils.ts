@@ -1,4 +1,4 @@
-import { isSameDay } from "@pokemarket/shared";
+import { isSameDay } from "@deckdealr/shared";
 import type { Message } from "@/types";
 
 const SYSTEM_TYPES = new Set([

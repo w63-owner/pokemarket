@@ -37,7 +37,7 @@ Avant chaque déploiement staging ou live, exécuter la réconciliation avec les
 variables de l'environnement cible :
 
 ```bash
-npm run validate:stripe-launch --workspace=@pokemarket/web
+npm run validate:stripe-launch --workspace=@deckdealr/web
 ```
 
 La commande refuse une RAK live sans `--allow-live`. Elle compare chaque
@@ -76,10 +76,10 @@ Pour chaque scénario, conserver l'ID transaction, `cs_` ou `pi_`, `ch_`,
 - [ ] Connect — payout failed/canceled, fonds restaurés une seule fois, puis
       événement paid tardif sans régression.
 - [ ] Mobile iOS physique — carte, 3DS, Apple Pay Sandbox et retour
-      `pokemarket://stripe-redirect`.
+      `deckdealr://stripe-redirect`.
 - [ ] Mobile Android physique — carte, 3DS, Google Pay test et même retour.
 - [ ] Mobile — onboarding particulier/professionnel, puis deep links
-      `pokemarket://wallet/return` et `pokemarket://wallet/refresh`.
+      `deckdealr://wallet/return` et `deckdealr://wallet/refresh`.
 - [ ] Redélivrer un événement réussi et un événement précédemment échoué ;
       confirmer respectivement no-op et reprise.
 - [ ] `validate:stripe-launch` retourne zéro écart après chaque séquence.
@@ -141,7 +141,7 @@ Les deux environnements (staging `mmgrqdistbwivmqhqhfw` et production
 
 **Procédure avant toute application distante :**
 
-1. Exécuter `npm run validate:stripe-launch --workspace=@pokemarket/web` avec
+1. Exécuter `npm run validate:stripe-launch --workspace=@deckdealr/web` avec
    les RAK staging (confirme zéro écart avant migration).
 2. Confirmer séparément pour staging, puis appliquer les 8 migrations.
 3. Exécuter les pgTAP et advisors sur staging.

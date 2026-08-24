@@ -20,7 +20,7 @@ import {
   CONDITION_LABELS,
   formatPrice,
   type CardCondition,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useSaleDetail } from "@/hooks/use-transactions";
@@ -319,7 +319,7 @@ export default function SaleDetailScreen() {
                 value={formatPrice(sale.total_amount)}
               />
               <Row
-                label="Commission PokeMarket"
+                label="Commission DeckDealr"
                 value={`-${formatPrice(sale.fee_amount)}`}
                 accentClassName="text-destructive"
               />

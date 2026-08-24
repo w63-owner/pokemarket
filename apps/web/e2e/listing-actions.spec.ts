@@ -19,7 +19,7 @@ test.describe("Public marketplace landing", () => {
     await page.goto("/");
     const heading = page.getByRole("heading", { level: 1 });
     await expect(heading).toBeVisible();
-    await expect(heading).toContainText("PokeMarket");
+    await expect(heading).toContainText("DeckDealr");
 
     // Strip out known noise: 3rd-party tracking, image 404s in dev.
     const meaningful = consoleErrors.filter(

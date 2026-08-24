@@ -1,4 +1,4 @@
-import type { OcrResponse } from "@pokemarket/shared";
+import type { OcrResponse } from "@deckdealr/shared";
 import { api } from "./client";
 import { env } from "@/lib/env";
 

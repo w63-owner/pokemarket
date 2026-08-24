@@ -15,7 +15,7 @@ import { GET } from "./route";
 
 function request(variant = "holo") {
   return new NextRequest(
-    `https://pokemarket.test/api/cards/fr-base1-4/sales?variant=${variant}`,
+    `https://thedeckdealr.test/api/cards/fr-base1-4/sales?variant=${variant}`,
   );
 }
 
@@ -53,7 +53,7 @@ describe("GET /api/cards/[card_key]/sales", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("s-maxage=300");
-    expect(rpc).toHaveBeenCalledWith("get_pokemarket_sales_summary", {
+    expect(rpc).toHaveBeenCalledWith("get_deckdealr_sales_summary", {
       p_card_key: "fr-base1-4",
       p_condition: "NEAR_MINT",
       p_grade_note: undefined,
@@ -131,7 +131,7 @@ describe("GET /api/cards/[card_key]/sales", () => {
   it("keeps graded sales homogeneous by company and grade", async () => {
     const response = await GET(
       new NextRequest(
-        "https://pokemarket.test/api/cards/fr-base1-4/sales?variant=holo&isGraded=true&gradingCompany=PSA&gradeNote=10",
+        "https://thedeckdealr.test/api/cards/fr-base1-4/sales?variant=holo&isGraded=true&gradingCompany=PSA&gradeNote=10",
       ),
       {
         params: Promise.resolve({ card_key: "fr-base1-4" }),
@@ -139,7 +139,7 @@ describe("GET /api/cards/[card_key]/sales", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith("get_pokemarket_sales_summary", {
+    expect(rpc).toHaveBeenCalledWith("get_deckdealr_sales_summary", {
       p_card_key: "fr-base1-4",
       p_condition: undefined,
       p_grade_note: 10,
@@ -159,7 +159,7 @@ describe("GET /api/cards/[card_key]/sales", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: "Les ventes PokeMarket sont momentanément indisponibles.",
+      error: "Les ventes DeckDealr sont momentanément indisponibles.",
     });
   });
 });

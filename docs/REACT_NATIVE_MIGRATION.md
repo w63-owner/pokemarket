@@ -1,4 +1,4 @@
-# React Native Migration — PokeMarket
+# React Native Migration — DeckDealr
 
 Plan de migration de la PWA Next.js 16 vers une application mobile cross-platform (iOS + Android) basée sur **Expo + React Native**, dans un **monorepo** réutilisant un maximum de code.
 
@@ -37,7 +37,7 @@ pokemarket/
 
 - Le **backend reste sur Vercel** (Next.js API routes, webhooks Stripe, OCR, emails).
 - **Aucune UI partagée** entre web et mobile (le coût de l'abstraction dépasse toujours le bénéfice).
-- **Toute la logique pure** (validations Zod, types Supabase, query keys, formatting) vit dans `@pokemarket/shared` et est consommée par les deux apps.
+- **Toute la logique pure** (validations Zod, types Supabase, query keys, formatting) vit dans `@deckdealr/shared` et est consommée par les deux apps.
 
 ---
 
@@ -183,7 +183,7 @@ Ces modules ne migrent PAS, et ne sont PAS partagés :
 - `src/lib/env.ts` (validation env serveur)
 - Middleware Next.js
 
-Le mobile consomme ces backends via `fetch` vers `https://pokemarket.app/api/*` (auth via Bearer token Supabase).
+Le mobile consomme ces backends via `fetch` vers `https://thedeckdealr.com/api/*` (auth via Bearer token Supabase).
 
 ---
 

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { startCheckout } from "@/lib/api/checkout";
 import { stripeProvider } from "./stripe-provider";
 import type { PaymentResult } from "./types";
-import type { CheckoutRequest } from "@pokemarket/shared";
+import type { CheckoutRequest } from "@deckdealr/shared";
 
 export type { PaymentResult } from "./types";
 
@@ -29,7 +29,7 @@ export function usePayment() {
       try {
         const intent = await startCheckout(input);
         return await stripeProvider.present({
-          merchantDisplayName: "PokeMarket",
+          merchantDisplayName: "DeckDealr",
           intent,
         });
       } catch (err) {

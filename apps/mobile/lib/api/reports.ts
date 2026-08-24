@@ -1,4 +1,4 @@
-import type { ReportReason } from "@pokemarket/shared";
+import type { ReportReason } from "@deckdealr/shared";
 import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 

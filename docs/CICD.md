@@ -1,4 +1,4 @@
-# CI/CD — PokeMarket
+# CI/CD — DeckDealr
 
 Pipeline complete pour 3 environnements : **dev local / staging / prod**, basee sur GitHub Actions, Vercel et Supabase.
 
@@ -44,14 +44,14 @@ Pipeline complete pour 3 environnements : **dev local / staging / prod**, basee 
 
 ### 2.1 Creer le projet Supabase staging
 
-1. Va sur [supabase.com/dashboard](https://supabase.com/dashboard) et cree un nouveau projet `pokemarket-staging` en **Pro tier** (meme plan que la prod), region la plus proche de tes utilisateurs (eu-west par defaut).
+1. Va sur [supabase.com/dashboard](https://supabase.com/dashboard) et cree un nouveau projet `deckdealr-staging` en **Pro tier** (meme plan que la prod), region la plus proche de tes utilisateurs (eu-west par defaut).
    - Pourquoi Pro et pas Free : evite l'auto-pause apres 7 jours d'inactivite, donne acces aux backups quotidiens, supprime les limites de bandwidth qui peuvent biaiser les tests de charge.
 2. Note les valeurs suivantes (tu en auras besoin) :
    - Project Ref (visible dans l'URL : `app.supabase.com/project/<REF>`)
    - DB Password (definie a la creation)
    - URL : `https://<REF>.supabase.co`
    - `anon` key et `service_role` key (Settings > API)
-3. **Backups** : Pro inclut deja des **backups quotidiens automatiques retenus 7 jours** (gratuit). Pour PokeMarket en pre-launch c'est suffisant. **Ne pas activer PITR** pour l'instant — c'est un add-on a ~100 USD/mois pour 7j de retention seconde-par-seconde, qu'on activera au moment du go-live public quand la perte de quelques heures de transactions deviendra critique (cf. checklist section 6).
+3. **Backups** : Pro inclut deja des **backups quotidiens automatiques retenus 7 jours** (gratuit). Pour DeckDealr en pre-launch c'est suffisant. **Ne pas activer PITR** pour l'instant — c'est un add-on a ~100 USD/mois pour 7j de retention seconde-par-seconde, qu'on activera au moment du go-live public quand la perte de quelques heures de transactions deviendra critique (cf. checklist section 6).
 4. Genere un **Access Token** personnel (une seule fois, partage entre staging et prod) :
    - [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens) > Generate new token > nom `github-actions`
 5. Sur ton terminal local, lie le repo au nouveau projet pour la **toute premiere fois** afin d'appliquer les 47 migrations existantes :
@@ -65,7 +65,7 @@ Pipeline complete pour 3 environnements : **dev local / staging / prod**, basee 
 ### 2.2 Creer le projet Vercel staging
 
 1. Sur [vercel.com](https://vercel.com), clique **Add New > Project** et importe le meme repo GitHub.
-2. Nomme-le `pokemarket-staging`.
+2. Nomme-le `deckdealr-staging`.
 3. Dans **Settings > Git** :
    - **Production Branch** = `staging` (ce projet considere `staging` comme sa "prod")
    - Desactive les Preview Deployments pour les branches autres que `staging` (sinon double deploys avec le projet prod)
@@ -84,8 +84,8 @@ Pipeline complete pour 3 environnements : **dev local / staging / prod**, basee 
    - `RESEND_API_KEY` = utilise un domaine Resend secondaire ou la sandbox
    - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` = **regenere une nouvelle paire** (`npx web-push generate-vapid-keys`)
    - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` = base Upstash dediee staging
-   - `NEXT_PUBLIC_SENTRY_DSN` = nouveau projet Sentry `pokemarket-staging` (ou meme projet avec env tag)
-   - `NEXT_PUBLIC_APP_URL` = `https://pokemarket-staging.vercel.app` (ou ton domaine staging)
+   - `NEXT_PUBLIC_SENTRY_DSN` = nouveau projet Sentry `deckdealr-staging` (ou meme projet avec env tag)
+   - `NEXT_PUBLIC_APP_URL` = `https://staging.thedeckdealr.com` (ou ton domaine staging)
    - `CRON_SECRET` = nouvelle valeur aleatoire **differente** de la prod
 
 ### 2.3 Renommer / verifier le projet Vercel prod existant
@@ -134,7 +134,7 @@ Sur **Settings > Environments** :
   - `SUPABASE_ACCESS_TOKEN` (token personnel cree au 2.1)
   - `SUPABASE_STAGING_PROJECT_REF`
   - `SUPABASE_STAGING_DB_PASSWORD`
-  - `STAGING_APP_URL` = `https://pokemarket-staging.vercel.app`
+  - `STAGING_APP_URL` = `https://staging.thedeckdealr.com`
 
 #### Environment `production`
 
@@ -242,9 +242,9 @@ git push origin staging
 | Sentry                            | Free (5k erreurs/mois)               | 0 EUR                       | depend du trafic                                  |
 | **Total CI/CD + infra**           |                                      | **~50 USD/mois pre-launch** | **~80 USD/mois post-launch (sans PITR)**          |
 
-> **Backups vs PITR** : Pro inclut deja des **backups quotidiens automatiques 7 jours**, gratuits. C'est suffisant pour PokeMarket pre-launch. **PITR** (Point-in-Time Recovery) permet de restaurer a la seconde pres mais coute ~100 USD/mois pour 7j de retention. A activer **uniquement au go-live public**, quand la perte de quelques heures de transactions Stripe sous escrow devient critique (cf. checklist section 6).
+> **Backups vs PITR** : Pro inclut deja des **backups quotidiens automatiques 7 jours**, gratuits. C'est suffisant pour DeckDealr pre-launch. **PITR** (Point-in-Time Recovery) permet de restaurer a la seconde pres mais coute ~100 USD/mois pour 7j de retention. A activer **uniquement au go-live public**, quand la perte de quelques heures de transactions Stripe sous escrow devient critique (cf. checklist section 6).
 
-> **Optimisation cout staging** : tu peux remettre staging sur Free tier pour economiser ~25 USD/mois — mais le projet sera mis en pause apres 7 jours sans activite et tu perdras les backups quotidiens. Pour PokeMarket je recommande de garder les 2 projets en Pro (predictibilite + Branching disponible si besoin, voir [`CONTRIBUTING.md`](../CONTRIBUTING.md)).
+> **Optimisation cout staging** : tu peux remettre staging sur Free tier pour economiser ~25 USD/mois — mais le projet sera mis en pause apres 7 jours sans activite et tu perdras les backups quotidiens. Pour DeckDealr je recommande de garder les 2 projets en Pro (predictibilite + Branching disponible si besoin, voir [`CONTRIBUTING.md`](../CONTRIBUTING.md)).
 
 ---
 
@@ -254,10 +254,10 @@ A passer au peigne fin la semaine avant l'ouverture aux vrais utilisateurs.
 
 ### Vercel
 
-1. Upgrade le projet `pokemarket-prod` vers Pro (~20 USD/mois) — **fait**.
+1. Upgrade le projet `deckdealr-prod` vers Pro (~20 USD/mois) — **fait**.
 2. Migration des 3 crons vers `vercel.json` natif — **fait** (cf. [`vercel.json`](../vercel.json), workflows GHA cron supprimes).
-3. Active la protection par mot de passe sur les Preview Deployments du projet `pokemarket-staging` si tu veux le rendre prive.
-4. Configure un domaine custom + HTTPS sur le projet prod (optionnel tant que tu utilises `pokemarket-seven.vercel.app`).
+3. Active la protection par mot de passe sur les Preview Deployments du projet `deckdealr-staging` si tu veux le rendre prive.
+4. Configure un domaine custom + HTTPS sur le projet prod (optionnel tant que tu utilises `thedeckdealr.com`).
 5. Installe l'**integration Sentry Marketplace** sur le projet Vercel prod : Settings > Integrations > Browse Marketplace > Sentry. Indispensable pour l'upload automatique des sourcemaps -> stack traces lisibles dans Sentry.
 
 ### Supabase prod
@@ -311,7 +311,7 @@ Verifier que `SENTRY_AUTH_TOKEN` a bien le scope `project:releases` (pas seuleme
 
 ### Vercel deploie sur main alors que je veux qu'il deploie staging
 
-Les 2 projets Vercel (`pokemarket-prod` et `pokemarket-staging`) sont lies au meme repo mais ont chacun une `Production Branch` differente. Verifie que le projet staging a bien `Production Branch = staging` dans Settings > Git.
+Les 2 projets Vercel (`deckdealr-prod` et `deckdealr-staging`) sont lies au meme repo mais ont chacun une `Production Branch` differente. Verifie que le projet staging a bien `Production Branch = staging` dans Settings > Git.
 
 ---
 
@@ -340,23 +340,23 @@ flowchart LR
      `STRIPE_OPERATIONS_API_KEY`, avec les droits minimaux de
      `docs/STRIPE.md`; active une restriction d'acces par cle
 4. Cree les deux event destinations **Live** :
-   - URL : `https://pokemarket-seven.vercel.app/api/webhooks/stripe`
+   - URL : `https://thedeckdealr.com/api/webhooks/stripe`
    - Events v1 : liste exhaustive de `docs/STRIPE.md`, incluant paiements
      asynchrones, PaymentIntents, refunds, disputes, transfers et payouts
    - Signing secret -> `STRIPE_WEBHOOK_SECRET` Vercel prod
    - URL Accounts v2 :
-     `https://pokemarket-seven.vercel.app/api/webhooks/stripe/accounts-v2`
+     `https://thedeckdealr.com/api/webhooks/stripe/accounts-v2`
    - Events v2 : liste Accounts v2 de `docs/STRIPE.md`
    - Signing secret -> `STRIPE_CONNECT_WEBHOOK_SECRET` Vercel prod
 5. Active la **2FA** sur le compte Stripe.
 
-### 8.2 Vercel — env vars projet `pokemarket-prod`
+### 8.2 Vercel — env vars projet `deckdealr-prod`
 
 Settings > Environment Variables, scope **Production** uniquement :
 
 | Variable                             | Valeur                                               | Notes                                           |
 | ------------------------------------ | ---------------------------------------------------- | ----------------------------------------------- |
-| `NEXT_PUBLIC_APP_URL`                | `https://pokemarket-seven.vercel.app`                | Sans slash final                                |
+| `NEXT_PUBLIC_APP_URL`                | `https://thedeckdealr.com`                           | Sans slash final                                |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_live_...`                                        | depuis Stripe                                   |
 | `STRIPE_PAYMENTS_API_KEY`            | `rk_live_...`                                        | RAK paiements minimale                          |
 | `STRIPE_CONNECT_API_KEY`             | `rk_live_...`                                        | RAK Connect minimale                            |
@@ -366,7 +366,7 @@ Settings > Environment Variables, scope **Production** uniquement :
 | `STRIPE_WEBHOOK_IP_ALLOWLIST`        | Liste officielle Stripe                              | synchroniser avec `ips_webhooks.txt`            |
 | `NEXT_PUBLIC_SENTRY_DSN`             | DSN du projet Sentry prod                            |                                                 |
 | `RESEND_API_KEY`                     | cle Resend prod                                      |                                                 |
-| `RESEND_FROM_EMAIL`                  | `PokeMarket <noreply@<domaine-verifie>>`             | cf. 8.4                                         |
+| `RESEND_FROM_EMAIL`                  | `DeckDealr <noreply@<domaine-verifie>>`              | cf. 8.4                                         |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`       | regenere via `npx web-push generate-vapid-keys`      | **paire differente** de staging                 |
 | `VAPID_PRIVATE_KEY`                  | idem                                                 |                                                 |
 | `VAPID_SUBJECT`                      | `mailto:contact@<domaine>` ou ton email personnel    |                                                 |
@@ -382,7 +382,7 @@ Settings > Environment Variables, scope **Production** uniquement :
 ### 8.3 Supabase prod
 
 1. Settings > Auth > URL Configuration :
-   - **Site URL** = `https://pokemarket-seven.vercel.app`
+   - **Site URL** = `https://thedeckdealr.com`
    - **Redirect URLs** = retire toutes les entrees `localhost` et `127.0.0.1`. Garde uniquement les domaines staging + prod.
 2. Settings > Database > Network restrictions : optionnel, restreint l'acces direct DB a tes IPs admin.
 3. Settings > Database > Backups : envisage **PITR** (~100 USD/mois pour 7j de retention seconde-par-seconde) au moment du go-live public — la perte de quelques heures de transactions sous escrow devient irrattrapable sans PITR.
@@ -398,11 +398,11 @@ Deux chemins possibles, choisis l'un OU l'autre :
 1. Achete un domaine (Cloudflare Registrar, Namecheap, OVH...).
 2. Dans Resend > Domains > Add Domain, ajoute-le et copie les enregistrements DNS (SPF, DKIM, DMARC).
 3. Cree-les chez ton registrar, attends la verification.
-4. Mets a jour `RESEND_FROM_EMAIL` Vercel prod : `PokeMarket <noreply@tondomaine.tld>`.
+4. Mets a jour `RESEND_FROM_EMAIL` Vercel prod : `DeckDealr <noreply@tondomaine.tld>`.
 
 **Chemin B (temporaire, pre-launch)** : reste sur le sender de test Resend.
 
-1. `RESEND_FROM_EMAIL=PokeMarket <onboarding@resend.dev>` (valeur par defaut).
+1. `RESEND_FROM_EMAIL=DeckDealr <onboarding@resend.dev>` (valeur par defaut).
 2. **Limites** : 100 emails/jour max, et **les emails ne partent qu'a l'adresse rattachee a ton compte Resend**. Aucun utilisateur final ne recevra ses emails (welcome, offre recue, rappel d'expedition).
 3. A bascule sur le chemin A des que tu acquiers un domaine — les emails sont indispensables pour les vendeurs (rappel d'expedition, nouvelle offre).
 
@@ -422,7 +422,7 @@ Deux chemins possibles, choisis l'un OU l'autre :
 
 ### 8.7 Monitoring externe
 
-1. Configure UptimeRobot ou BetterStack pour pinger `https://pokemarket-seven.vercel.app/api/health` toutes les minutes.
+1. Configure UptimeRobot ou BetterStack pour pinger `https://thedeckdealr.com/api/health` toutes les minutes.
 2. Alerte email/Slack si != 200 pendant 2 minutes consecutives.
 
 ### 8.8 Validation finale
@@ -434,7 +434,7 @@ Apres avoir applique 8.1 a 8.7 :
 git push origin staging
 
 # 2. Tester un checkout Stripe en mode Live avec une vraie carte (rembourse-toi).
-#    Verifier que success_url pointe sur https://pokemarket-seven.vercel.app/...
+#    Verifier que success_url pointe sur https://thedeckdealr.com/...
 
 # 3. Verifier que Vercel Cron tourne (Dashboard projet > Cron > derniere execution < 15 min).
 

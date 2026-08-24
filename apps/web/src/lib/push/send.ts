@@ -1,6 +1,6 @@
 import webpush from "web-push";
 import * as Sentry from "@sentry/nextjs";
-import type { PushNotificationCategory } from "@pokemarket/shared";
+import type { PushNotificationCategory } from "@deckdealr/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendExpoPushNotification } from "@/lib/push/expo";
 

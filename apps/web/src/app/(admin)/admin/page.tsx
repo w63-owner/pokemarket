@@ -90,7 +90,7 @@ export default function AdminDashboardPage() {
           Dashboard
         </h1>
         <p className="text-muted-foreground text-sm">
-          Vue d&apos;ensemble de l&apos;activité PokeMarket
+          Vue d&apos;ensemble de l&apos;activité DeckDealr
         </p>
       </div>
 

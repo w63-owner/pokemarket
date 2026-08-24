@@ -6,8 +6,8 @@ import { useState } from "react";
 import {
   queryKeys,
   type CardmarketVariant,
-  type PokeMarketSalesResponse,
-} from "@pokemarket/shared";
+  type DeckDealrSalesResponse,
+} from "@deckdealr/shared";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,14 +29,14 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   year: "numeric",
 });
 
-async function fetchPokeMarketSales(
+async function fetchDeckDealrSales(
   cardKey: string,
   variant: CardmarketVariant,
   condition: string | null,
   isGraded: boolean,
   gradingCompany: string | null,
   gradeNote: number | null,
-): Promise<PokeMarketSalesResponse> {
+): Promise<DeckDealrSalesResponse> {
   const params = new URLSearchParams({
     isGraded: String(isGraded),
     variant,
@@ -49,13 +49,13 @@ async function fetchPokeMarketSales(
   );
 
   if (!response.ok) {
-    throw new Error("Impossible de charger les ventes PokeMarket.");
+    throw new Error("Impossible de charger les ventes DeckDealr.");
   }
 
   return response.json();
 }
 
-export function PokeMarketSales({
+export function DeckDealrSales({
   cardKey,
   variant,
 }: {
@@ -76,9 +76,9 @@ export function PokeMarketSales({
     variant,
   };
   const { data, error, isLoading, refetch } = useQuery({
-    queryKey: queryKeys.pokeMarketSales.summary(cardKey, filters),
+    queryKey: queryKeys.deckDealrSales.summary(cardKey, filters),
     queryFn: () =>
-      fetchPokeMarketSales(
+      fetchDeckDealrSales(
         cardKey,
         variant,
         filters.condition,
@@ -90,21 +90,21 @@ export function PokeMarketSales({
   });
 
   if (isLoading) {
-    return <PokeMarketSalesSkeleton />;
+    return <DeckDealrSalesSkeleton />;
   }
 
   if (error || !data) {
     return (
       <section
         className="border-border mt-8 rounded-2xl border p-5"
-        aria-labelledby="pokemarket-sales-title"
+        aria-labelledby="deckdealr-sales-title"
       >
         <h2
-          id="pokemarket-sales-title"
+          id="deckdealr-sales-title"
           className="flex items-center gap-2 font-semibold"
         >
           <ShoppingBag className="size-4" aria-hidden="true" />
-          Ventes sur PokeMarket
+          Ventes sur DeckDealr
         </h2>
         <p className="text-muted-foreground mt-2 text-sm">
           Les ventes réelles sont temporairement indisponibles.
@@ -125,16 +125,16 @@ export function PokeMarketSales({
   return (
     <section
       className="border-border mt-8 rounded-2xl border p-5"
-      aria-labelledby="pokemarket-sales-title"
+      aria-labelledby="deckdealr-sales-title"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2
-            id="pokemarket-sales-title"
+            id="deckdealr-sales-title"
             className="flex items-center gap-2 font-semibold"
           >
             <ShoppingBag className="size-4" aria-hidden="true" />
-            Ventes sur PokeMarket
+            Ventes sur DeckDealr
           </h2>
           <p className="text-muted-foreground mt-1 text-xs">
             Prix carte réellement conclu, hors livraison
@@ -283,11 +283,11 @@ export function PokeMarketSales({
   );
 }
 
-function PokeMarketSalesSkeleton() {
+function DeckDealrSalesSkeleton() {
   return (
     <section
       className="border-border mt-8 rounded-2xl border p-5"
-      aria-label="Chargement des ventes PokeMarket"
+      aria-label="Chargement des ventes DeckDealr"
       aria-busy="true"
     >
       <Skeleton className="h-5 w-48" />

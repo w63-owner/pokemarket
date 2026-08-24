@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { MotiView } from "moti";
 import { AlertTriangle, CheckCircle2 } from "lucide-react-native";
-import { queryKeys, type KycStatus } from "@pokemarket/shared";
+import { queryKeys, type KycStatus } from "@deckdealr/shared";
 
 import { fetchStripeConnectStatus } from "@/lib/api/wallet";
 import { stripeConnectStatusKey } from "@/hooks/use-wallet";
@@ -17,7 +17,7 @@ type Phase = "checking" | "success" | "error";
 
 /**
  * Reached after Stripe Connect onboarding closes the in-app browser via
- * the `pokemarket://wallet/return` deep link. Refreshes the cached KYC
+ * the `deckdealr://wallet/return` deep link. Refreshes the cached KYC
  * status, primes React Query so `/wallet` shows the new state instantly,
  * then bounces back after 2.5s.
  */

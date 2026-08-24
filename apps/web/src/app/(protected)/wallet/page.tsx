@@ -19,7 +19,7 @@ import { useSearchParams } from "next/navigation";
 import type {
   StripeConnectEntityType,
   StripeConnectStatusResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

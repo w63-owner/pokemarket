@@ -3,7 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { router } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
-import { LIMITS, formatPrice, queryKeys, type Offer } from "@pokemarket/shared";
+import { LIMITS, formatPrice, queryKeys, type Offer } from "@deckdealr/shared";
 import { Check, ShoppingCart, Tag } from "lucide-react-native";
 
 import {

@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
-import { formatPrice } from "@pokemarket/shared";
+import { formatPrice } from "@deckdealr/shared";
 import { Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";
 

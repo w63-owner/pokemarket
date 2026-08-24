@@ -2,7 +2,7 @@ import type {
   CheckoutRequest,
   MobileCheckoutResponse,
   Transaction,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { getCurrentUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 import { api } from "./client";

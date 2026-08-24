@@ -5,7 +5,7 @@ import {
   queryKeys,
   type FeatureFlag,
   type FeatureFlagsSnapshot,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { api } from "@/lib/api/client";
 
 async function fetchFeatureFlags(): Promise<FeatureFlagsSnapshot> {

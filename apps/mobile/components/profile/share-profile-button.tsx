@@ -15,7 +15,7 @@ export function ShareProfileButton({ username, size = 20 }: Props) {
     const url = buildProfileUrl(username);
     try {
       await Share.share({
-        message: `Découvrez @${username} sur PokeMarket : ${url}`,
+        message: `Découvrez @${username} sur DeckDealr : ${url}`,
         url,
       });
     } catch {

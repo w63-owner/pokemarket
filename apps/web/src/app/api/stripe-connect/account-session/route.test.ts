@@ -29,7 +29,7 @@ import { getRequestUser } from "@/lib/auth/api";
 
 function makeReq() {
   return new Request(
-    "https://pokemarket.test/api/stripe-connect/account-session",
+    "https://thedeckdealr.test/api/stripe-connect/account-session",
     { method: "POST" },
   );
 }

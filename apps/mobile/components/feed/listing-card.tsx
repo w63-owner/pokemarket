@@ -9,8 +9,8 @@ import Animated, {
 import { Image } from "expo-image";
 import { Link } from "expo-router";
 import { Heart } from "lucide-react-native";
-import type { FeedItem } from "@pokemarket/shared";
-import { formatPrice } from "@pokemarket/shared";
+import type { FeedItem } from "@deckdealr/shared";
+import { formatPrice } from "@deckdealr/shared";
 import { Badge, Text } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { haptic } from "@/lib/haptics";

@@ -18,7 +18,7 @@ import {
   LIMITS,
   SHIPPING_COUNTRIES,
   type ShippingCountry,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useListing } from "@/hooks/use-listings";

@@ -14,7 +14,7 @@ export default function MentionsPage() {
 
       <h2>1. Éditeur du site</h2>
       <p>
-        Le site PokeMarket est édité par :<br />
+        Le site DeckDealr est édité par :<br />
         <strong>[Nom de l&apos;entreprise]</strong>
         <br />
         [Forme juridique] au capital de [Montant du capital] €<br />
@@ -61,7 +61,7 @@ export default function MentionsPage() {
 
       <h2>3. Propriété intellectuelle</h2>
       <p>
-        L&apos;ensemble des contenus présents sur le site PokeMarket (textes,
+        L&apos;ensemble des contenus présents sur le site DeckDealr (textes,
         graphismes, logo, icônes, images, code source) est la propriété
         exclusive de [Nom de l&apos;entreprise], sauf mention contraire. Toute
         reproduction, représentation, modification, publication ou adaptation de

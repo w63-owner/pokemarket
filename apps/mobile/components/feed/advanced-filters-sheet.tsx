@@ -7,7 +7,7 @@ import {
   CONDITION_LABELS,
   RARITY_OPTIONS,
   type FeedFilters,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   Button,

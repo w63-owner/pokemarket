@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { StripeConnectAccountSessionResponse } from "@pokemarket/shared";
+import type { StripeConnectAccountSessionResponse } from "@deckdealr/shared";
 
 import { getRequestUser } from "@/lib/auth/api";
 import { createAdminClient } from "@/lib/supabase/admin";

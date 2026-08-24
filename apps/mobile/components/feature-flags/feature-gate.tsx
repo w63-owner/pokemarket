@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Power } from "lucide-react-native";
 import { View } from "react-native";
-import type { FeatureFlag } from "@pokemarket/shared";
+import type { FeatureFlag } from "@deckdealr/shared";
 import { EmptyState } from "@/components/shared";
 import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { useThemeColor } from "@/lib/theme-colors";

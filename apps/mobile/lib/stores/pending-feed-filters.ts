@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { FeedFilters } from "@pokemarket/shared";
+import type { FeedFilters } from "@deckdealr/shared";
 
 type PendingFeedFiltersState = {
   /**

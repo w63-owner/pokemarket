@@ -1,8 +1,8 @@
-PokeMarket — the marketplace built for Pokémon cards
+DeckDealr — the marketplace built for Pokémon cards
 
-Buy, sell and collect Pokémon cards securely from your iPhone. Whether you're a collector, a competitive player or an investor, PokeMarket gives you a focused experience designed for fans of the franchise.
+Buy, sell and collect Pokémon cards securely from your iPhone. Whether you're a collector, a competitive player or an investor, DeckDealr gives you a focused experience designed for fans of the franchise.
 
-WHY POKEMARKET?
+WHY DECKDEALR?
 
 • List a card in under 30 seconds with our AI scan. Point your camera, OCR auto-detects the name, set and number.
 • One-tap checkout with Apple Pay and Face ID. No card numbers to type, no passwords to remember.
@@ -38,8 +38,8 @@ COMMUNITY
 
 Join the largest French community dedicated to Pokémon cards. Chat with other collectors, negotiate, share your pulls.
 
-PokeMarket is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
+DeckDealr is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
 
-Download PokeMarket now and bring your collection back to life.
+Download DeckDealr now and bring your collection back to life.
 
-— The PokeMarket team
+— The DeckDealr team

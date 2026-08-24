@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { m, AnimatePresence } from "framer-motion";
 import { Euro, ShieldCheck, Loader2, TrendingUp } from "lucide-react";
-import { queryKeys, type PriceHistoryResponse } from "@pokemarket/shared";
+import { queryKeys, type PriceHistoryResponse } from "@deckdealr/shared";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -537,7 +537,7 @@ export function SellForm({
                 </span>
               </p>
               <p className="text-muted-foreground text-xs">
-                {recommendation.source === "pokemarket"
+                {recommendation.source === "thedeckdealr"
                   ? `Moyenne de ${recommendation.sampleSize} annonce${recommendation.sampleSize === 1 ? "" : "s"} comparable${recommendation.sampleSize === 1 ? "" : "s"}`
                   : "D'après la cotation Cardmarket"}
               </p>

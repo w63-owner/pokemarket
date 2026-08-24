@@ -5,7 +5,7 @@ import {
   sendMessageRequestSchema,
   type Json,
   type SendMessageResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";
 import { sendPushNotification } from "@/lib/push/send";

@@ -14,10 +14,10 @@ export default function PrivacyPage() {
 
       <p>
         La présente Politique de Confidentialité décrit comment [Nom de
-        l&apos;entreprise] (ci-après « PokeMarket », « nous ») collecte,
-        utilise, stocke et protège vos données personnelles conformément au
-        Règlement Général sur la Protection des Données (RGPD — Règlement UE
-        2016/679) et à la loi Informatique et Libertés.
+        l&apos;entreprise] (ci-après « DeckDealr », « nous ») collecte, utilise,
+        stocke et protège vos données personnelles conformément au Règlement
+        Général sur la Protection des Données (RGPD — Règlement UE 2016/679) et
+        à la loi Informatique et Libertés.
       </p>
 
       <h2>1. Responsable du traitement</h2>
@@ -45,7 +45,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Paiement :</strong> les données bancaires sont traitées
-          exclusivement par Stripe (conforme PCI-DSS). PokeMarket ne stocke
+          exclusivement par Stripe (conforme PCI-DSS). DeckDealr ne stocke
           aucune donnée bancaire directement
         </li>
         <li>

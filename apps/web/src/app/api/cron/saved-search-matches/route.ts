@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushNotification } from "@/lib/push/send";
-import type { FeedFilters } from "@pokemarket/shared";
+import type { FeedFilters } from "@deckdealr/shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

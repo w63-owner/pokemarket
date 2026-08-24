@@ -4,7 +4,7 @@ import { usePathname, useSegments, Link, router } from "expo-router";
 import { Text } from "@/components/ui/text";
 
 // Until `expo-dev-client` is included in the native build, the dev-launcher
-// intent (`pokemarket://expo-development-client/?url=...`) is delivered to
+// intent (`deckdealr://expo-development-client/?url=...`) is delivered to
 // the JS layer instead of being intercepted natively. Expo Router then
 // treats `/expo-development-client` as an unmatched route. Bounce it back
 // to the root so `app/index.tsx` can take over the cold-start routing.

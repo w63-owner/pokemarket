@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Archive, BellOff, Flag, MoreVertical, ShieldBan } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 import {
   blockUser,
   reportConversation,

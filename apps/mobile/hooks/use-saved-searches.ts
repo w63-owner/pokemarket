@@ -4,7 +4,7 @@ import {
   queryKeys,
   type FeedFilters,
   type SavedSearch,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   createSavedSearch,

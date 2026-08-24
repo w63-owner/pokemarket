@@ -4,7 +4,7 @@ import {
   presentPaymentSheet,
   PaymentSheetError,
 } from "@stripe/stripe-react-native";
-import type { MobileCheckoutResponse } from "@pokemarket/shared";
+import type { MobileCheckoutResponse } from "@deckdealr/shared";
 
 import { stripeProvider } from "./stripe-provider";
 
@@ -38,14 +38,14 @@ describe("Stripe mobile PaymentSheet", () => {
 
   it("configures Apple Pay, 3DS return, and webhook-owned settlement on iOS", async () => {
     const result = await stripeProvider.present({
-      merchantDisplayName: "PokeMarket",
+      merchantDisplayName: "DeckDealr",
       intent,
     });
 
     expect(mockInitPaymentSheet).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentIntentClientSecret: "pi_test_secret",
-        returnURL: "pokemarket://stripe-redirect",
+        returnURL: "deckdealr://stripe-redirect",
         allowsDelayedPaymentMethods: false,
         applePay: { merchantCountryCode: "FR" },
       }),
@@ -63,7 +63,7 @@ describe("Stripe mobile PaymentSheet", () => {
     });
 
     await stripeProvider.present({
-      merchantDisplayName: "PokeMarket",
+      merchantDisplayName: "DeckDealr",
       intent,
     });
 
@@ -88,7 +88,7 @@ describe("Stripe mobile PaymentSheet", () => {
     });
 
     await expect(
-      stripeProvider.present({ merchantDisplayName: "PokeMarket", intent }),
+      stripeProvider.present({ merchantDisplayName: "DeckDealr", intent }),
     ).resolves.toEqual({
       status: "cancelled",
       transactionId: "transaction-1",
@@ -105,7 +105,7 @@ describe("Stripe mobile PaymentSheet", () => {
     });
 
     await expect(
-      stripeProvider.present({ merchantDisplayName: "PokeMarket", intent }),
+      stripeProvider.present({ merchantDisplayName: "DeckDealr", intent }),
     ).resolves.toEqual({
       status: "failed",
       transactionId: "transaction-1",

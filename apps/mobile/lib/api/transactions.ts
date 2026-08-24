@@ -3,7 +3,7 @@ import type {
   Profile,
   Transaction,
   TransactionWithDetails,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";

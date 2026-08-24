@@ -6,5 +6,5 @@ export function GET(request: Request) {
     return NextResponse.json({ error: "Cible invalide" }, { status: 400 });
   }
 
-  return NextResponse.redirect(`pokemarket://wallet/${target}`);
+  return NextResponse.redirect(`deckdealr://wallet/${target}`);
 }

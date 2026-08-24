@@ -11,11 +11,11 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "Les présentes Conditions Générales de Vente (ci-après « CGV ») régissent l'ensemble des transactions réalisées entre vendeurs et acheteurs sur la plateforme PokeMarket, éditée par [Nom de l'entreprise], [Forme juridique] au capital de [Montant du capital] €, immatriculée au RCS de [Ville] sous le numéro [Numéro SIRET/SIREN], dont le siège social est situé au [Adresse].",
+          text: "Les présentes Conditions Générales de Vente (ci-après « CGV ») régissent l'ensemble des transactions réalisées entre vendeurs et acheteurs sur la plateforme DeckDealr, éditée par Nerio Invest SAS, [Forme juridique] au capital de [Montant du capital] €, immatriculée au RCS de [Ville] sous le numéro [Numéro SIRET/SIREN], dont le siège social est situé au [Adresse].",
         },
         {
           type: "p",
-          text: "Le contrat de vente de la carte est conclu entre le vendeur et l'acheteur. PokeMarket agit comme intermédiaire pour cette vente et comme marchand officiel (« merchant of record ») pour le traitement du paiement : PokeMarket encaisse l'acheteur, émet les justificatifs de paiement et assume la gestion des remboursements, contestations et demandes de support liées au paiement.",
+          text: "Le contrat de vente de la carte est conclu entre le vendeur et l'acheteur. DeckDealr agit comme intermédiaire pour cette vente et comme marchand officiel (« merchant of record ») pour le traitement du paiement : DeckDealr encaisse l'acheteur, émet les justificatifs de paiement et assume la gestion des remboursements, contestations et demandes de support liées au paiement.",
         },
       ],
     },
@@ -25,15 +25,15 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket met à disposition un espace sécurisé de mise en relation permettant aux utilisateurs de publier des annonces de vente, de consulter les annonces d'autres utilisateurs, de négocier via un système d'offres, de communiquer via la messagerie intégrée et d'effectuer des paiements sécurisés via Stripe Connect.",
+          text: "DeckDealr met à disposition un espace sécurisé de mise en relation permettant aux utilisateurs de publier des annonces de vente, de consulter les annonces d'autres utilisateurs, de négocier via un système d'offres, de communiquer via la messagerie intégrée et d'effectuer des paiements sécurisés via Stripe Connect.",
         },
         {
           type: "p",
-          text: "PokeMarket n'est ni vendeur, ni acheteur, ni garant de la qualité des articles mis en vente. La responsabilité de la description fidèle des articles incombe exclusivement au vendeur.",
+          text: "DeckDealr n'est ni vendeur, ni acheteur, ni garant de la qualité des articles mis en vente. La responsabilité de la description fidèle des articles incombe exclusivement au vendeur.",
         },
         {
           type: "p",
-          text: "Stripe fournit l'infrastructure de paiement à PokeMarket. Le vendeur n'encaisse pas directement le paiement par carte de l'acheteur et ne doit pas contacter Stripe pour le support de la transaction.",
+          text: "Stripe fournit l'infrastructure de paiement à DeckDealr. Le vendeur n'encaisse pas directement le paiement par carte de l'acheteur et ne doit pas contacter Stripe pour le support de la transaction.",
         },
       ],
     },
@@ -47,7 +47,7 @@ export const cgvFr: LegalDocument = {
         },
         {
           type: "p",
-          text: "Au prix net demandé par le vendeur s'ajoutent des frais de protection acheteur. Ils comprennent une commission PokeMarket égale à 5 % du prix vendeur et une estimation forfaitaire des frais de traitement du paiement, calculée sur le prix vendeur augmenté du tarif de livraison maximal pris en charge par la plateforme. Le prix incluant la protection acheteur est affiché au vendeur avant la publication de l'annonce. Les frais de port correspondant à la livraison choisie sont ensuite ajoutés au paiement de l'acheteur.",
+          text: "Au prix net demandé par le vendeur s'ajoutent des frais de protection acheteur. Ils comprennent une commission DeckDealr égale à 5 % du prix vendeur et une estimation forfaitaire des frais de traitement du paiement, calculée sur le prix vendeur augmenté du tarif de livraison maximal pris en charge par la plateforme. Le prix incluant la protection acheteur est affiché au vendeur avant la publication de l'annonce. Les frais de port correspondant à la livraison choisie sont ensuite ajoutés au paiement de l'acheteur.",
         },
       ],
     },
@@ -82,7 +82,7 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket encaisse le paiement via Stripe Connect. Le montant dû au vendeur reste indisponible jusqu'à la confirmation de réception par l'acheteur ou l'expiration du délai de réclamation de [Nombre] jours, puis peut être transféré sur le compte Stripe Connect du vendeur. Ce mécanisme de disponibilité différée ne constitue pas un service de séquestre.",
+          text: "DeckDealr encaisse le paiement via Stripe Connect. Le montant dû au vendeur reste indisponible jusqu'à la confirmation de réception par l'acheteur ou l'expiration du délai de réclamation de [Nombre] jours, puis peut être transféré sur le compte Stripe Connect du vendeur. Ce mécanisme de disponibilité différée ne constitue pas un service de séquestre.",
         },
       ],
     },
@@ -102,7 +102,7 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "Conformément à l'article L221-18 du Code de la consommation, les transactions entre particuliers ne sont pas soumises au droit de rétractation de 14 jours. Toutefois, PokeMarket encourage les utilisateurs à trouver des solutions amiables en cas de litige.",
+          text: "Conformément à l'article L221-18 du Code de la consommation, les transactions entre particuliers ne sont pas soumises au droit de rétractation de 14 jours. Toutefois, DeckDealr encourage les utilisateurs à trouver des solutions amiables en cas de litige.",
         },
       ],
     },
@@ -112,7 +112,7 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "En cas de non-conformité de l'article reçu (article différent de la description, contrefaçon, article endommagé), l'acheteur dispose de [Nombre] jours après réception pour ouvrir une réclamation via la plateforme. PokeMarket centralise le support paiement, instruit la réclamation et peut rembourser l'acheteur, en totalité ou en partie, en cas de litige avéré.",
+          text: "En cas de non-conformité de l'article reçu (article différent de la description, contrefaçon, article endommagé), l'acheteur dispose de [Nombre] jours après réception pour ouvrir une réclamation via la plateforme. DeckDealr centralise le support paiement, instruit la réclamation et peut rembourser l'acheteur, en totalité ou en partie, en cas de litige avéré.",
         },
       ],
     },
@@ -122,7 +122,7 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket ne saurait être tenu responsable des dommages directs ou indirects résultant de l'utilisation de la plateforme, de la qualité des articles vendus, des retards de livraison ou de la perte de colis.",
+          text: "DeckDealr ne saurait être tenu responsable des dommages directs ou indirects résultant de l'utilisation de la plateforme, de la qualité des articles vendus, des retards de livraison ou de la perte de colis.",
         },
       ],
     },
@@ -132,7 +132,7 @@ export const cgvFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket se réserve le droit de modifier les présentes CGV à tout moment. Les utilisateurs seront informés de toute modification par notification sur la plateforme. L'utilisation continue de la plateforme après notification vaut acceptation des CGV modifiées.",
+          text: "DeckDealr se réserve le droit de modifier les présentes CGV à tout moment. Les utilisateurs seront informés de toute modification par notification sur la plateforme. L'utilisation continue de la plateforme après notification vaut acceptation des CGV modifiées.",
         },
       ],
     },

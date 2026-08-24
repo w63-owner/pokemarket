@@ -1,11 +1,11 @@
 # Stripe — architecture financière et runbook
 
-Stripe est l'unique prestataire de paiement de PokeMarket. La plateforme
+Stripe est l'unique prestataire de paiement de DeckDealr. La plateforme
 encaisse les acheteurs puis transfère les fonds aux vendeurs après réception.
 
 ## Décisions non négociables
 
-- PokeMarket est le `merchant of record` du paiement : la plateforme encaisse
+- DeckDealr est le `merchant of record` du paiement : la plateforme encaisse
   l'acheteur et porte les frais Stripe, remboursements, litiges et soldes
   négatifs. Le vendeur reste le vendeur juridique de la carte.
 - Le modèle est `separate charges and transfers`. La commission est retenue
@@ -50,11 +50,11 @@ Aucun override de version par environnement n'est autorisé.
 ## Configuration cible Connect
 
 - Dashboard : `express`
-- Collecteur des frais : `application` (PokeMarket)
-- Responsable des pertes/soldes négatifs : `application` (PokeMarket)
+- Collecteur des frais : `application` (DeckDealr)
+- Responsable des pertes/soldes négatifs : `application` (DeckDealr)
 - Configuration : `recipient` uniquement
 - Capability : `stripe_balance.stripe_transfers`
-- Encaissement : plateforme PokeMarket
+- Encaissement : plateforme DeckDealr
 - Transfert : différé jusqu'à la réception
 - Payout : seulement après transfert réussi
 
@@ -67,8 +67,8 @@ Le web expose `notification_banner`, `account_management` et `payouts` par une
 Account Session courte durée, et utilise l'onboarding hébergé. Le mobile reste
 sur l'onboarding hébergé afin de conserver la version Stripe officiellement
 compatible avec Expo SDK 54 ; les retours HTTPS sont relayés vers
-`pokemarket://wallet/return` et les liens expirés vers
-`pokemarket://wallet/refresh`. L'accès mobile au Dashboard Express utilise un
+`deckdealr://wallet/return` et les liens expirés vers
+`deckdealr://wallet/refresh`. L'accès mobile au Dashboard Express utilise un
 login link à usage unique. Les URLs et secrets temporaires ne sont ni
 persistés ni journalisés.
 
@@ -76,7 +76,7 @@ persistés ni journalisés.
 
 Vérifié le 26 juillet 2026 :
 
-- [x] Sandbox PokeMarket distincte du mode test historique et du compte live.
+- [x] Sandbox DeckDealr distincte du mode test historique et du compte live.
 - [x] `POST /v2/core/accounts` accessible sans activation préalable.
 - [x] Recipient français jetable créé avec Dashboard Express,
       `fees_collector=application`, `losses_collector=application` et
@@ -370,7 +370,7 @@ Réponse d'astreinte :
 2. noter les IDs sans copier de secret, examiner Sentry et Stripe Workbench ;
 3. rejouer le cron ou le webhook avec la même clé d'idempotence ;
 4. vérifier `/admin/finance` puis `npm run reconcile:ledger
---workspace=@pokemarket/web` ;
+--workspace=@deckdealr/web` ;
 5. ne rouvrir les payouts qu'après disparition des écarts et journalisation de
    la décision.
 
@@ -388,8 +388,8 @@ donnée financière réelle n'existe, les anciennes commandes sandbox doivent
 Reconstruction manuelle des projections, pour tous les vendeurs ou un vendeur :
 
 ```bash
-npm run reconcile:ledger --workspace=@pokemarket/web
-npm run reconcile:ledger --workspace=@pokemarket/web -- <user-uuid>
+npm run reconcile:ledger --workspace=@deckdealr/web
+npm run reconcile:ledger --workspace=@deckdealr/web -- <user-uuid>
 ```
 
 Cette commande exige la clé `service_role` et ne contacte jamais Stripe. Avant

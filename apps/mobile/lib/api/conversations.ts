@@ -7,7 +7,7 @@ import {
   type Message,
   type SendMessageRequest,
   type SendMessageResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { api } from "@/lib/api/client";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import {

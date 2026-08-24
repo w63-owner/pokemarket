@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 import { supabase } from "@/lib/supabase";
 import { unregisterPushToken } from "@/lib/notifications";
 import { disableBiometry } from "@/lib/biometry";

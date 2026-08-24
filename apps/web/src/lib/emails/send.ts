@@ -8,9 +8,9 @@ import ShippingReminderEmail from "@/emails/shipping-reminder";
 // Resend's free testing sender works without domain verification but is capped
 // at 100 emails/day and only delivers to the email address tied to the Resend
 // account. For a real production launch, verify a domain in Resend and set
-// RESEND_FROM_EMAIL to e.g. "PokeMarket <noreply@yourdomain.tld>".
+// RESEND_FROM_EMAIL to e.g. "DeckDealr <noreply@yourdomain.tld>".
 const FROM_ADDRESS =
-  process.env.RESEND_FROM_EMAIL ?? "PokeMarket <onboarding@resend.dev>";
+  process.env.RESEND_FROM_EMAIL ?? "DeckDealr <onboarding@resend.dev>";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -67,7 +67,7 @@ export async function sendWelcomeEmail(
 ): Promise<void> {
   await sendEmail(
     to,
-    `Bienvenue sur PokeMarket, ${data.username} !`,
+    `Bienvenue sur DeckDealr, ${data.username} !`,
     WelcomeEmail({ username: data.username }),
   );
 }

@@ -1,9 +1,9 @@
-import type { Profile, ProfileWithStats } from "@pokemarket/shared";
+import type { Profile, ProfileWithStats } from "@deckdealr/shared";
 import {
   getSellerReputation,
   normalizeUrl,
   profileUpdateSchema,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 

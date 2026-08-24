@@ -53,7 +53,7 @@ export const stripeProvider: PaymentProviderClient = {
       // The deep-link return URL Stripe needs to bounce back to the app
       // after 3DS (Stripe opens the challenge in an in-app browser tab).
       // Configured in app.json `scheme`.
-      returnURL: "pokemarket://stripe-redirect",
+      returnURL: "deckdealr://stripe-redirect",
       allowsDelayedPaymentMethods: false,
       ...(Platform.OS === "ios"
         ? {

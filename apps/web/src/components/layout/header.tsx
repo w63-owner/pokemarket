@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, Heart, PlusCircle, MessageCircle, User } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
-import { FEATURE_FLAGS, type FeatureFlag } from "@pokemarket/shared";
+import { FEATURE_FLAGS, type FeatureFlag } from "@deckdealr/shared";
 import { cn } from "@/lib/utils";
 import { useUnreadCount } from "@/hooks/use-conversations";
 import { useScrollDirection } from "@/hooks/use-scroll-direction";
@@ -57,7 +57,7 @@ export function Header() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="font-heading text-xl font-bold">
-          Poke<span className="text-brand">Market</span>
+          TheDeck<span className="text-brand">Dealr</span>
         </Link>
 
         <nav className="flex items-center gap-1">

@@ -246,11 +246,11 @@ export async function handleIncomingUrl(url: string) {
     fragmentParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
 
     if (url.startsWith("http")) {
-      // https://pokemarket.app/listing/123 → /listing/123
+      // https://thedeckdealr.com/listing/123 → /listing/123
       path = parsed.pathname + parsed.search;
       searchParams = parsed.searchParams;
-    } else if (url.startsWith("pokemarket://")) {
-      // Custom scheme: pokemarket://wallet/return → /wallet/return
+    } else if (url.startsWith("deckdealr://")) {
+      // Custom scheme: deckdealr://wallet/return → /wallet/return
       path = `/${parsed.host}${parsed.pathname}${parsed.search}`;
       searchParams = parsed.searchParams;
     } else {
@@ -319,7 +319,7 @@ export async function handleIncomingUrl(url: string) {
 
   // Don't intercept links that already correspond to our own scheme returns
   // handled inline by callers (e.g. WebBrowser.openAuthSessionAsync resolves
-  // to `pokemarket://wallet/return` synchronously — the wallet flow handles
+  // to `deckdealr://wallet/return` synchronously — the wallet flow handles
   // that one without us pushing it on top of itself).
   if (path.startsWith("/stripe-redirect")) return;
 

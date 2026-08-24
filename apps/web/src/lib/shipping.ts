@@ -1,4 +1,4 @@
-import { FALLBACK_SHIPPING_COST } from "@pokemarket/shared";
+import { FALLBACK_SHIPPING_COST } from "@deckdealr/shared";
 
 /**
  * Temporary flat shipping cost used for every route.

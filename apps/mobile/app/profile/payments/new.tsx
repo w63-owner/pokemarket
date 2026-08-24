@@ -46,7 +46,7 @@ export default function NewPaymentMethodScreen() {
         if (cancelled) return;
 
         const initResult = await initPaymentSheet({
-          merchantDisplayName: "PokeMarket",
+          merchantDisplayName: "DeckDealr",
           setupIntentClientSecret: client_secret,
           customerId: customer_id,
           customerSessionClientSecret: customer_session_client_secret,
@@ -54,7 +54,7 @@ export default function NewPaymentMethodScreen() {
             colors: { primary: sheetPrimary },
             shapes: { borderRadius: 12 },
           },
-          returnURL: "pokemarket://stripe-redirect",
+          returnURL: "deckdealr://stripe-redirect",
           // On Android, Google Pay needs a country to render the
           // alternative payment method tile in setup mode.
           ...(Platform.OS === "android"

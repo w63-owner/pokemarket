@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys, type Profile } from "@pokemarket/shared";
+import { queryKeys, type Profile } from "@deckdealr/shared";
 import {
   fetchMyProfile,
   fetchPublicProfile,

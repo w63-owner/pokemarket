@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import type { Json, PushNotificationCategory } from "@pokemarket/shared";
+import type { Json, PushNotificationCategory } from "@deckdealr/shared";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;

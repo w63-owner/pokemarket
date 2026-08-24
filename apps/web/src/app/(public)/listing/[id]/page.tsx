@@ -45,10 +45,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title,
-    description: `${listing.title} en vente sur PokeMarket – ${(listing.display_price ?? 0).toFixed(2)} €`,
+    description: `${listing.title} en vente sur DeckDealr – ${(listing.display_price ?? 0).toFixed(2)} €`,
     openGraph: {
-      title: `${title} | PokeMarket`,
-      description: `${listing.title} en vente sur PokeMarket`,
+      title: `${title} | DeckDealr`,
+      description: `${listing.title} en vente sur DeckDealr`,
       images: listing.cover_image_url ? [{ url: listing.cover_image_url }] : [],
     },
   };

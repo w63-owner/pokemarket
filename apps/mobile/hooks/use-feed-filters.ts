@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
-import type { FeedFilters } from "@pokemarket/shared";
+import type { FeedFilters } from "@deckdealr/shared";
 
 // Re-export the shared helper so existing call sites (`import { useFeedFilters,
 // countActiveFilters } from "@/hooks/use-feed-filters"`) keep working without
-// having to switch every import to `@pokemarket/shared`.
-export { countActiveFilters } from "@pokemarket/shared";
+// having to switch every import to `@deckdealr/shared`.
+export { countActiveFilters } from "@deckdealr/shared";
 
 export function useFeedFilters(initial: FeedFilters = {}) {
   const [filters, setFilters] = useState<FeedFilters>(initial);

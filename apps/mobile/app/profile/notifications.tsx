@@ -12,7 +12,7 @@ import {
   ShoppingBag,
   ShoppingCart,
 } from "lucide-react-native";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 
 import {
   fetchNotificationPreferences,

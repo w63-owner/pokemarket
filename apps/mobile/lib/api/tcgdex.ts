@@ -1,4 +1,4 @@
-import { CARD_SEARCH_MIN_LENGTH, parseCardQuery } from "@pokemarket/shared";
+import { CARD_SEARCH_MIN_LENGTH, parseCardQuery } from "@deckdealr/shared";
 import { supabase } from "@/lib/supabase";
 
 const PREFERRED_LANGUAGE = "fr";

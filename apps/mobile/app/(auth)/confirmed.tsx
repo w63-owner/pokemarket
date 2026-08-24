@@ -53,7 +53,7 @@ export default function EmailConfirmedScreen() {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: "pokemarket://auth/confirm",
+        emailRedirectTo: "deckdealr://auth/confirm",
       },
     });
     setResending(false);
@@ -93,7 +93,7 @@ export default function EmailConfirmedScreen() {
                 Email confirmé, bienvenue !
               </Text>
               <Text variant="muted" className="mt-3 max-w-sm text-center">
-                Ton compte PokeMarket est maintenant actif. Tu peux commencer à
+                Ton compte DeckDealr est maintenant actif. Tu peux commencer à
                 découvrir les cartes disponibles.
               </Text>
               <Button

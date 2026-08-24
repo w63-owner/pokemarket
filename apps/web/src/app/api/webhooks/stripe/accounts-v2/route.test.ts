@@ -33,7 +33,7 @@ import { POST } from "./route";
 
 function request() {
   return new Request(
-    "https://pokemarket.test/api/webhooks/stripe/accounts-v2",
+    "https://thedeckdealr.test/api/webhooks/stripe/accounts-v2",
     {
       method: "POST",
       headers: { "stripe-signature": "sig_test" },

@@ -1,4 +1,4 @@
-import { FEATURE_FLAGS } from "@pokemarket/shared";
+import { FEATURE_FLAGS } from "@deckdealr/shared";
 import { ServerFeatureGate } from "@/components/feature-flags/server-feature-gate";
 
 export default function FavoritesLayout({

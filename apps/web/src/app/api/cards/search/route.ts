@@ -4,7 +4,7 @@ import {
   cardSearchParamsSchema,
   type CardSearchResponse,
   type CardSearchResult,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createPublicClient } from "@/lib/supabase/public";

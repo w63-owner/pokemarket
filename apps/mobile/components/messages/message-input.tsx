@@ -6,7 +6,7 @@ import { ImagePlus, Send, X } from "lucide-react-native";
 import { MotiView } from "moti";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardState } from "react-native-keyboard-controller";
-import { LIMITS } from "@pokemarket/shared";
+import { LIMITS } from "@deckdealr/shared";
 import { cn } from "@/lib/cn";
 import { haptic } from "@/lib/haptics";
 import { spring } from "@/lib/motion";

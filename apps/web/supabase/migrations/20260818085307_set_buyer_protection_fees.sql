@@ -1,5 +1,5 @@
 -- Replace the temporary €0.01 fee with buyer protection that includes:
---   - PokeMarket commission: 5% of the seller's requested price
+--   - DeckDealr commission: 5% of the seller's requested price
 --   - simulated Stripe France standard EEA-card pricing: 1.5% + €0.25
 --   - Stripe simulation based on the seller price plus maximum shipping (€19.90)
 -- The gross-up covers Stripe's 1.5% charge on buyer protection itself.

@@ -19,7 +19,7 @@ compte démo doit être fourni dans **App Review Information**.
    ```
 
    Le script :
-   - supprime l'ancien compte `reviewer@pokemarket.app` s'il existe
+   - supprime l'ancien compte `reviewer@thedeckdealr.com` s'il existe
    - le re-crée avec le mot de passe `ReviewerPass2026!`
    - seed 12 listings ACTIVE avec covers réelles (cartes iconiques)
    - crée 2 conversations (1 avec offre PENDING)

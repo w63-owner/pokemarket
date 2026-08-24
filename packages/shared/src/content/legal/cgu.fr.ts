@@ -11,7 +11,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») définissent les règles d'utilisation de la plateforme PokeMarket, accessible à l'adresse [URL du site], éditée par [Nom de l'entreprise].",
+          text: "Les présentes Conditions Générales d'Utilisation (ci-après « CGU ») définissent les règles d'utilisation de la plateforme DeckDealr, accessible à l'adresse https://thedeckdealr.com, éditée par Nerio Invest SAS.",
         },
         {
           type: "p",
@@ -25,7 +25,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket est une marketplace communautaire (C2C) dédiée à la vente et à l'achat de cartes à collectionner Pokémon TCG entre particuliers. La plateforme propose notamment :",
+          text: "DeckDealr est une marketplace communautaire (C2C) dédiée à la vente et à l'achat de cartes à collectionner Pokémon TCG entre particuliers. La plateforme propose notamment :",
         },
         {
           type: "ul",
@@ -62,7 +62,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "L'utilisateur est seul responsable de la confidentialité de ses identifiants de connexion. Toute activité réalisée depuis son compte est réputée effectuée par lui. En cas de suspicion d'utilisation frauduleuse, l'utilisateur doit contacter immédiatement l'équipe PokeMarket à [Email de contact].",
+          text: "L'utilisateur est seul responsable de la confidentialité de ses identifiants de connexion. Toute activité réalisée depuis son compte est réputée effectuée par lui. En cas de suspicion d'utilisation frauduleuse, l'utilisateur doit contacter immédiatement l'équipe DeckDealr à [Email de contact].",
         },
       ],
     },
@@ -126,7 +126,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket se réserve le droit de modérer les contenus publiés et de suspendre ou supprimer tout compte ne respectant pas les présentes CGU. Les mesures applicables incluent :",
+          text: "DeckDealr se réserve le droit de modérer les contenus publiés et de suspendre ou supprimer tout compte ne respectant pas les présentes CGU. Les mesures applicables incluent :",
         },
         {
           type: "ul",
@@ -145,7 +145,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "L'ensemble des éléments constituant la plateforme (design, logo, code source, textes) sont la propriété exclusive de [Nom de l'entreprise] et sont protégés par le droit de la propriété intellectuelle. Pokémon et Pokémon TCG sont des marques déposées de The Pokémon Company / Nintendo.",
+          text: "L'ensemble des éléments constituant la plateforme (design, logo, code source, textes) sont la propriété exclusive de Nerio Invest SAS et sont protégés par le droit de la propriété intellectuelle. Pokémon et Pokémon TCG sont des marques déposées de The Pokémon Company / Nintendo.",
         },
       ],
     },
@@ -155,7 +155,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket s'efforce d'assurer un accès continu à la plateforme. Toutefois, PokeMarket ne garantit pas la disponibilité permanente du service et ne saurait être tenu responsable des interruptions temporaires liées à la maintenance, aux mises à jour ou à des causes de force majeure.",
+          text: "DeckDealr s'efforce d'assurer un accès continu à la plateforme. Toutefois, DeckDealr ne garantit pas la disponibilité permanente du service et ne saurait être tenu responsable des interruptions temporaires liées à la maintenance, aux mises à jour ou à des causes de force majeure.",
         },
       ],
     },
@@ -165,7 +165,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket agit en qualité d'hébergeur au sens de la loi pour la confiance dans l'économie numérique (LCEN). À ce titre, PokeMarket n'est pas tenu d'une obligation générale de surveillance des contenus publiés, mais s'engage à retirer promptement tout contenu manifestement illicite qui lui serait signalé.",
+          text: "DeckDealr agit en qualité d'hébergeur au sens de la loi pour la confiance dans l'économie numérique (LCEN). À ce titre, DeckDealr n'est pas tenu d'une obligation générale de surveillance des contenus publiés, mais s'engage à retirer promptement tout contenu manifestement illicite qui lui serait signalé.",
         },
       ],
     },
@@ -175,7 +175,7 @@ export const cguFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "PokeMarket se réserve le droit de modifier les présentes CGU à tout moment. Les utilisateurs seront informés de toute modification substantielle. La poursuite de l'utilisation de la plateforme vaut acceptation des CGU modifiées.",
+          text: "DeckDealr se réserve le droit de modifier les présentes CGU à tout moment. Les utilisateurs seront informés de toute modification substantielle. La poursuite de l'utilisation de la plateforme vaut acceptation des CGU modifiées.",
         },
       ],
     },

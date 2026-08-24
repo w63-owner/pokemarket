@@ -1,1 +1,1 @@
-export * from "@pokemarket/shared/query-keys";
+export * from "@deckdealr/shared/query-keys";

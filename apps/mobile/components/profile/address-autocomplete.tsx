@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { MapPin, X } from "lucide-react-native";
-import { SHIPPING_COUNTRIES, type ShippingCountry } from "@pokemarket/shared";
+import { SHIPPING_COUNTRIES, type ShippingCountry } from "@deckdealr/shared";
 
 import { Input, Sheet, SheetScrollView, Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";

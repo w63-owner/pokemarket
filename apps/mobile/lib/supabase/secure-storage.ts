@@ -32,7 +32,7 @@ const SECURE_STORE_MAX_BYTES = 1800;
 // for SecureStore on Android. Read-path checks AsyncStorage when SecureStore
 // returns null so the marker isn't strictly required, but keeping it makes
 // debugging in dev logs trivial.
-const OVERSIZED_PREFIX = "pokemarket.secure-storage.oversized:";
+const OVERSIZED_PREFIX = "deckdealr.secure-storage.oversized:";
 
 function byteLength(value: string): number {
   // Hermes ships a Buffer polyfill via `Buffer.from(value).length` but it's

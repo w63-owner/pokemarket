@@ -17,7 +17,7 @@ import {
   formatRelativeDate,
   type Payout,
   type PayoutStatus,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { usePayoutHistory } from "@/hooks/use-wallet";
 import { Badge, Skeleton, Text } from "@/components/ui";

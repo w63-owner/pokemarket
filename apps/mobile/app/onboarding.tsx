@@ -18,7 +18,9 @@ import { haptic } from "@/lib/haptics";
 import { duration } from "@/lib/motion";
 import { useThemeColors, type ThemeColorName } from "@/lib/theme-colors";
 
-export const ONBOARDING_DONE_KEY = "pokemarket.onboarding.done";
+export const ONBOARDING_DONE_KEY = "deckdealr.onboarding.done";
+/** @deprecated Legacy key — read once then migrate. */
+export const LEGACY_ONBOARDING_DONE_KEY = "pokemarket.onboarding.done";
 
 type SlideDef = {
   icon: typeof Camera;

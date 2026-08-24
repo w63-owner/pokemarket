@@ -158,7 +158,7 @@ export function InstallPrompt() {
 
             <div className="min-w-0 flex-1">
               <p id="pwa-install-title" className="text-sm font-semibold">
-                Installer PokeMarket
+                Installer DeckDealr
               </p>
               <p className="text-muted-foreground text-xs">
                 {showIOS

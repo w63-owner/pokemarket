@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MotiView } from "moti";
 import { CircleHelp, ScanLine, Sparkles } from "lucide-react-native";
-import type { OcrCandidate } from "@pokemarket/shared";
+import type { OcrCandidate } from "@deckdealr/shared";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";

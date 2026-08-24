@@ -7,9 +7,9 @@ import {
   FEATURE_FLAG_KEYS,
   type FeatureFlag,
   type FeatureFlagsSnapshot,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
-const GLOBAL_DISTINCT_ID = "pokemarket-global";
+const GLOBAL_DISTINCT_ID = "deckdealr-global";
 const REVALIDATE_SECONDS = 10;
 
 let postHogClient: PostHog | null | undefined;

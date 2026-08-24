@@ -370,7 +370,7 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
   const listingId = intent.metadata?.listing_id;
 
   if (!transactionId) {
-    // Not a PokeMarket checkout PaymentIntent — ignore silently.
+    // Not a DeckDealr checkout PaymentIntent — ignore silently.
     return;
   }
 

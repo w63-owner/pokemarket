@@ -22,7 +22,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { queryKeys } from "@/lib/query-keys";
 import { fetchPayoutHistory } from "@/lib/api/wallet";
 import { formatPrice, formatDate } from "@/lib/utils";
-import type { PayoutStatus, Payout } from "@pokemarket/shared";
+import type { PayoutStatus, Payout } from "@deckdealr/shared";
 
 const STATUS_CONFIG: Record<
   PayoutStatus,

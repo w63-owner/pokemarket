@@ -67,7 +67,7 @@ process.on("uncaughtException", async (e) => {
 
 async function main() {
   // ─── 1. Create test user ──────────────────────────────────────────────────
-  const email = `qa.ocr+${stamp}@pokemarket.local`;
+  const email = `qa.ocr+${stamp}@thedeckdealr.local`;
   const password = "TestPassword!2026";
   const { data: created, error: createErr } = await admin.auth.admin.createUser(
     {

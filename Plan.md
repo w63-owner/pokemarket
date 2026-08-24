@@ -1,4 +1,4 @@
-# PokeMarket -- Master Plan d'Execution V1
+# DeckDealr -- Master Plan d'Execution V1
 
 Marketplace C2C de cartes Pokemon TCG
 Chaque tache (- [ ]) est atomique et realisable en un seul prompt Cursor.

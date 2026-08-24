@@ -10,8 +10,8 @@
     "types": ["expo-router", "nativewind/types", "react-native", "jest"],
     "paths": {
       "@/*": ["./*"],
-      "@pokemarket/shared": ["../../packages/shared/src"],
-      "@pokemarket/shared/*": ["../../packages/shared/src/*"]
+      "@deckdealr/shared": ["../../packages/shared/src"],
+      "@deckdealr/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

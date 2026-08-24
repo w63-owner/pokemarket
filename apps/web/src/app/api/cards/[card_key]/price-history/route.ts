@@ -9,7 +9,7 @@ import {
   type PriceHistoryPeriod,
   type PriceHistoryPoint,
   type PriceHistoryResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { createClient } from "@/lib/supabase/server";
 
 const CONDITION_MULTIPLIER: Record<string, number> = {
@@ -200,7 +200,7 @@ export async function GET(
         ? {
             sellerPrice: calcPriceSeller(comparableDisplayPrice),
             displayPrice: comparableDisplayPrice,
-            source: "pokemarket" as const,
+            source: "thedeckdealr" as const,
             sampleSize: comparablePrices.length,
           }
         : targetPrice != null

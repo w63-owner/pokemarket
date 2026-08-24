@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { registerSchema } from "@pokemarket/shared";
+import { registerSchema } from "@deckdealr/shared";
 import type { z } from "zod";
 import { MailCheck } from "lucide-react-native";
 import {
@@ -54,7 +54,7 @@ export default function RegisterScreen() {
       password,
       options: {
         data: { username },
-        emailRedirectTo: "pokemarket://auth/confirm",
+        emailRedirectTo: "deckdealr://auth/confirm",
       },
     });
     setSubmitting(false);

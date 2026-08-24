@@ -1,4 +1,4 @@
-# Contributing to PokeMarket
+# Contributing to DeckDealr
 
 > Strategie de branches, flux de release, et conventions de developpement.
 
@@ -8,12 +8,12 @@ Pour la mise en place complete du CI/CD (creation des projets Supabase/Vercel st
 
 ## Branches
 
-| Branche                         | Role                  | Deploye sur                 | Migrations DB               | Protected |
-| ------------------------------- | --------------------- | --------------------------- | --------------------------- | --------- |
-| `main`                          | Production            | Vercel `pokemarket-prod`    | Supabase prod (gate manuel) | Oui       |
-| `staging`                       | Pre-production        | Vercel `pokemarket-staging` | Supabase staging (auto)     | Oui       |
-| `feature/*`, `fix/*`, `chore/*` | Travail en cours      | Vercel Preview              | Aucune                      | Non       |
-| `hotfix/*`                      | Correctif urgent prod | Vercel Preview puis prod    | Supabase prod (gate manuel) | Non       |
+| Branche                         | Role                  | Deploye sur                | Migrations DB               | Protected |
+| ------------------------------- | --------------------- | -------------------------- | --------------------------- | --------- |
+| `main`                          | Production            | Vercel `deckdealr-prod`    | Supabase prod (gate manuel) | Oui       |
+| `staging`                       | Pre-production        | Vercel `deckdealr-staging` | Supabase staging (auto)     | Oui       |
+| `feature/*`, `fix/*`, `chore/*` | Travail en cours      | Vercel Preview             | Aucune                      | Non       |
+| `hotfix/*`                      | Correctif urgent prod | Vercel Preview puis prod   | Supabase prod (gate manuel) | Non       |
 
 ### Regles d'or
 

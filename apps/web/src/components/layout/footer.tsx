@@ -12,7 +12,8 @@ export function Footer() {
     <footer className="border-border border-t py-6 pb-20 lg:pb-6">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 sm:flex-row sm:justify-between">
         <p className="text-muted-foreground text-xs">
-          © {new Date().getFullYear()} PokeMarket. Tous droits réservés.
+          © {new Date().getFullYear()} Nerio Invest SAS — DeckDealr. Tous droits
+          réservés.
         </p>
         <nav
           aria-label="Liens légaux"

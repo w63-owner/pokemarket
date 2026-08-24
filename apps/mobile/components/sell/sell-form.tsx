@@ -21,7 +21,7 @@ import {
   queryKeys,
   toCardLanguageSelectValue,
   type PriceHistoryResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -494,7 +494,7 @@ export function SellForm({
                 </Text>
               </Text>
               <Text variant="caption" numberOfLines={2}>
-                {recommendation.source === "pokemarket"
+                {recommendation.source === "thedeckdealr"
                   ? `Moyenne de ${recommendation.sampleSize} annonce${recommendation.sampleSize === 1 ? "" : "s"} comparable${recommendation.sampleSize === 1 ? "" : "s"}`
                   : "D'après la cotation Cardmarket"}
               </Text>

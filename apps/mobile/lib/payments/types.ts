@@ -1,4 +1,4 @@
-import type { MobileCheckoutResponse } from "@pokemarket/shared";
+import type { MobileCheckoutResponse } from "@deckdealr/shared";
 
 export type PaymentResult =
   | { status: "succeeded"; transactionId: string }

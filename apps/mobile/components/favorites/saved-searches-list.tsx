@@ -7,7 +7,7 @@ import {
   type FeedFilters,
   filtersToLabel,
   type SavedSearch,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   Badge,

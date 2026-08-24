@@ -95,7 +95,7 @@ export function LoginDialog() {
             {confirmationEmail
               ? "Une dernière étape est nécessaire pour finaliser votre inscription."
               : mode === "login"
-                ? "Connectez-vous pour continuer sur PokeMarket."
+                ? "Connectez-vous pour continuer sur DeckDealr."
                 : "Rejoignez la marketplace des collectionneurs Pokémon."}
           </DialogDescription>
         </DialogHeader>

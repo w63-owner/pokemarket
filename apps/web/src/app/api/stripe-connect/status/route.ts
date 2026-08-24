@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import type { StripeConnectStatusResponse } from "@pokemarket/shared";
+import type { StripeConnectStatusResponse } from "@deckdealr/shared";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRequestUser } from "@/lib/auth/api";

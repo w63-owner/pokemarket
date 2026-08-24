@@ -10,4 +10,4 @@ export {
   formatRelativeDate,
   formatDate,
   truncate,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";

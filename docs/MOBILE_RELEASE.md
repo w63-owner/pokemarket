@@ -1,4 +1,4 @@
-# Mobile release runbook — PokeMarket iOS + Android
+# Mobile release runbook — DeckDealr iOS + Android
 
 > Procédure complète pour livrer une version de l'app mobile en bêta puis
 > en production. Couvre EAS Build, EAS Submit, métadonnées App Store /
@@ -48,7 +48,7 @@
 cd apps/mobile
 
 eas secret:create --scope project --name SENTRY_AUTH_TOKEN --value "<token>"
-eas secret:create --scope project --name SENTRY_ORG --value "pokemarket"
+eas secret:create --scope project --name SENTRY_ORG --value "deckdealr"
 eas secret:create --scope project --name SENTRY_PROJECT --value "react-native"
 
 # 2. EAS Submit — credentials Apple + Android
@@ -84,7 +84,7 @@ Mettre à jour `apps/mobile/app.json` :
 -    "extra": { "eas": { "projectId": "TODO_SET_AFTER_EAS_INIT" } }
 +    "extra": { "eas": { "projectId": "<uuid imprimé par eas init>" } }
 -    "owner": "TODO_SET_EAS_OWNER"
-+    "owner": "pokemarket"
++    "owner": "deckdealr"
 ```
 
 Et `apps/mobile/eas.json` (section `submit.production`) :
@@ -94,7 +94,7 @@ Et `apps/mobile/eas.json` (section `submit.production`) :
 -      "appleId": "TODO_APPLE_ID_EMAIL",
 -      "appleTeamId": "TODO_APPLE_TEAM_ID",
 +      "ascAppId": "1234567890",
-+      "appleId": "ops@pokemarket.app",
++      "appleId": "ops@thedeckdealr.com",
 +      "appleTeamId": "ABCD1234EF",
 ```
 
@@ -240,7 +240,7 @@ Avant de soumettre en production :
 - ✅ Apple Pay testé sur device physique iOS
 - ✅ Google Pay testé sur device physique Android
 - ✅ Push notifications testées sur iOS + Android
-- ✅ Deep links `https://pokemarket.app/listing/...` testés
+- ✅ Deep links `https://thedeckdealr.com/listing/...` testés
 - ✅ Compte reviewer reseed et credentials copiés dans
   `app-review notes`
 
@@ -269,7 +269,7 @@ npm run submit:ios
 
 Délai review Apple : 24-72 h en général. Surveiller App Store Connect
 
-- inbox `ops@pokemarket.app`.
+- inbox `ops@thedeckdealr.com`.
 
 ### Android — Play Store
 
@@ -332,7 +332,7 @@ Les profils `development` et `preview` définissent
 
 Vérifier après un build :
 
-1. Aller sur https://sentry.io/organizations/pokemarket/releases/
+1. Aller sur https://sentry.io/organizations/deckdealr/releases/
 2. La release doit apparaître sous le format
    `app.pokemarket.mobile@1.0.0+1` (version + buildNumber/versionCode).
 3. Tab **Files** : doit lister `index.android.bundle` ou `main.jsbundle`
@@ -397,14 +397,14 @@ secrets/
 ```
 
 → Doit déjà être dans `.gitignore`. Stocké dans 1Password vault
-"PokeMarket Mobile Releases".
+"DeckDealr Mobile Releases".
 
 ### Liens rapides
 
 - App Store Connect : https://appstoreconnect.apple.com/
 - Play Console : https://play.google.com/console
-- Expo dashboard : https://expo.dev/accounts/pokemarket/projects/pokemarket
-- Sentry mobile : https://sentry.io/organizations/pokemarket/projects/react-native/
+- Expo dashboard : https://expo.dev/accounts/deckdealr/projects/pokemarket
+- Sentry mobile : https://sentry.io/organizations/deckdealr/projects/react-native/
 - Stripe dashboard : https://dashboard.stripe.com/
 
 ### Personnes responsables

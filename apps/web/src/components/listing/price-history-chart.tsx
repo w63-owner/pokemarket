@@ -19,7 +19,7 @@ import {
   type CardmarketVariant,
   type PriceHistoryPeriod,
   type PriceHistoryResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { useState } from "react";
 
 type PriceHistoryProps = {

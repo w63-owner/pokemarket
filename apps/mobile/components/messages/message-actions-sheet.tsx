@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Copy, Flag, Reply } from "lucide-react-native";
-import type { Message } from "@pokemarket/shared";
+import type { Message } from "@deckdealr/shared";
 import { Sheet, Text, toast } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { useThemeColor } from "@/lib/theme-colors";

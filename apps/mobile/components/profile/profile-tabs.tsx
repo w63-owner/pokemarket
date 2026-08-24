@@ -11,7 +11,7 @@ import {
   type FeedItem,
   type Listing,
   type Profile,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   Avatar,

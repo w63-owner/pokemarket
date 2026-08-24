@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Keyboard, View } from "react-native";
-import { FEATURE_FLAGS } from "@pokemarket/shared";
+import { FEATURE_FLAGS } from "@deckdealr/shared";
 
 import { useInfiniteFeed } from "@/hooks/use-infinite-feed";
 import { useFeedFilters, countActiveFilters } from "@/hooks/use-feed-filters";
@@ -85,7 +85,7 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <TabHeader title="PokeMarket" />
+      <TabHeader title="DeckDealr" />
       <View className="bg-background px-4 pb-3 pt-3">
         <FeedFilters
           filters={filters}

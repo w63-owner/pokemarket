@@ -20,7 +20,7 @@ import {
   formatPrice,
   type KycStatus,
   type StripeConnectEntityType,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { ApiError } from "@/lib/api/client";
 import { getStripeDashboardUrl } from "@/lib/api/wallet";
@@ -126,7 +126,7 @@ export default function WalletScreen() {
   const openHostedOnboarding = useCallback(async (url: string) => {
     const result = await WebBrowser.openAuthSessionAsync(
       url,
-      "pokemarket://wallet/return",
+      "deckdealr://wallet/return",
     );
     if (result.type !== "success" && result.type !== "dismiss") return;
 

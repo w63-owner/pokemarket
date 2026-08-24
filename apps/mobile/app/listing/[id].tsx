@@ -4,7 +4,7 @@ import { BlurView } from "expo-blur";
 import { MotiView } from "moti";
 import { Heart, Share2 } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
-import { formatPrice, formatRelativeDate } from "@pokemarket/shared";
+import { formatPrice, formatRelativeDate } from "@deckdealr/shared";
 
 import { useListing, useSellerReputation } from "@/hooks/use-listings";
 import {
@@ -56,7 +56,7 @@ export default function ListingScreen() {
     try {
       await Share.share({
         title: listing.title,
-        message: `${listing.title} — ${priceLabel} sur PokeMarket : ${url}`,
+        message: `${listing.title} — ${priceLabel} sur DeckDealr : ${url}`,
         url,
       });
     } catch {

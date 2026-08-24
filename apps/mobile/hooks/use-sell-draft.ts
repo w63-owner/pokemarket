@@ -3,7 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { toast } from "@/components/ui/toast";
 
-const STORAGE_KEY = "@pokemarket/sell-draft/v1";
+const STORAGE_KEY = "@deckdealr/sell-draft/v2";
+const LEGACY_STORAGE_KEY = "@pokemarket/sell-draft/v1";
 
 // Minimum delay between two "Brouillon enregistré" toasts. The wizard
 // can call `update()` very often (every photo change, every form blur),
@@ -43,13 +44,31 @@ export function useSellDraft() {
   useEffect(() => {
     let cancelled = false;
     AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
+      .then(async (raw) => {
         if (cancelled) return;
         if (raw) {
           try {
             setDraft(JSON.parse(raw) as SellDraftPayload);
           } catch {
             setDraft(null);
+          }
+        } else {
+          // Migrate draft saved under the legacy key on first run after rebrand.
+          const legacy = await AsyncStorage.getItem(LEGACY_STORAGE_KEY).catch(
+            () => null,
+          );
+          if (legacy) {
+            await AsyncStorage.setItem(STORAGE_KEY, legacy).catch(
+              () => undefined,
+            );
+            await AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(
+              () => undefined,
+            );
+            try {
+              setDraft(JSON.parse(legacy) as SellDraftPayload);
+            } catch {
+              setDraft(null);
+            }
           }
         }
       })

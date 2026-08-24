@@ -21,7 +21,7 @@ function floorToCents(value: number): number {
 /**
  * Calculate the buyer protection fee from the seller's requested net price.
  *
- * The fee contains PokeMarket's commission and a conservative simulation of
+ * The fee contains DeckDealr's commission and a conservative simulation of
  * Stripe's standard French EEA-card fee. The Stripe estimate uses the highest
  * supported shipping price because the buyer's destination is not yet known.
  * Grossing up by `(1 - Stripe rate)` also covers Stripe's percentage charged

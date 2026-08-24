@@ -22,7 +22,7 @@ export default function PriceCheckingScreen() {
         <Text variant="h4">Bientôt disponible</Text>
         <Text variant="muted" className="text-center">
           La cote des cartes Pokémon arrive prochainement sur mobile. Pour
-          l&apos;instant, tu peux la consulter sur pokemarket.app.
+          l&apos;instant, tu peux la consulter sur thedeckdealr.com.
         </Text>
       </View>
     </View>

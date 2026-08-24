@@ -2,9 +2,9 @@ import * as Sentry from "@sentry/nextjs";
 import {
   cardKeySchema,
   type CardmarketVariant,
-  type PokeMarketRecentSale,
-  type PokeMarketSalesResponse,
-} from "@pokemarket/shared";
+  type DeckDealrRecentSale,
+  type DeckDealrSalesResponse,
+} from "@deckdealr/shared";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
@@ -26,7 +26,7 @@ function parseVariant(value: string | null): CardmarketVariant | null {
   return value === "normal" || value === "holo" ? value : null;
 }
 
-function parseRecentSales(value: unknown): PokeMarketRecentSale[] {
+function parseRecentSales(value: unknown): DeckDealrRecentSale[] {
   if (!Array.isArray(value)) return [];
 
   return value.flatMap((entry) => {
@@ -124,7 +124,7 @@ export async function GET(
 
   try {
     const supabase = createPublicClient();
-    const { data, error } = await supabase.rpc("get_pokemarket_sales_summary", {
+    const { data, error } = await supabase.rpc("get_deckdealr_sales_summary", {
       p_card_key: cardKey.data,
       p_condition: condition ?? undefined,
       p_grade_note: gradeNote ?? undefined,
@@ -138,7 +138,7 @@ export async function GET(
 
     const summary = data?.[0];
     const salesVolume = Number(summary?.sales_volume ?? 0);
-    const response: PokeMarketSalesResponse = {
+    const response: DeckDealrSalesResponse = {
       median_price:
         summary?.median_price == null ? null : Number(summary.median_price),
       average_price:
@@ -164,7 +164,7 @@ export async function GET(
   } catch (error) {
     Sentry.captureException(error);
     return NextResponse.json(
-      { error: "Les ventes PokeMarket sont momentanément indisponibles." },
+      { error: "Les ventes DeckDealr sont momentanément indisponibles." },
       { status: 500 },
     );
   }

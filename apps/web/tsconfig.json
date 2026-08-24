@@ -13,8 +13,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@pokemarket/shared": ["../../packages/shared/src"],
-      "@pokemarket/shared/*": ["../../packages/shared/src/*"]
+      "@deckdealr/shared": ["../../packages/shared/src"],
+      "@deckdealr/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

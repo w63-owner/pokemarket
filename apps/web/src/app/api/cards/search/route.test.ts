@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("GET /api/cards/search", () => {
   it("validates short queries", async () => {
     const response = await GET(
-      new NextRequest("https://pokemarket.test/api/cards/search?q=D"),
+      new NextRequest("https://thedeckdealr.test/api/cards/search?q=D"),
     );
 
     expect(response.status).toBe(400);
@@ -47,7 +47,7 @@ describe("GET /api/cards/search", () => {
   it("returns rich French suggestions with CDN caching", async () => {
     const response = await GET(
       new NextRequest(
-        "https://pokemarket.test/api/cards/search?q=Dracaufeu%204%2F102",
+        "https://thedeckdealr.test/api/cards/search?q=Dracaufeu%204%2F102",
       ),
     );
 
@@ -75,7 +75,7 @@ describe("GET /api/cards/search", () => {
     rpc.mockResolvedValue({ data: null, error: new Error("database down") });
 
     const response = await GET(
-      new NextRequest("https://pokemarket.test/api/cards/search?q=Dracaufeu"),
+      new NextRequest("https://thedeckdealr.test/api/cards/search?q=Dracaufeu"),
     );
 
     expect(response.status).toBe(500);

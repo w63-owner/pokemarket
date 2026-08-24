@@ -23,7 +23,7 @@ import { GET } from "./route";
 
 function request(secret?: string) {
   return new Request(
-    "https://pokemarket.test/api/cron/collect-cardmarket-prices",
+    "https://thedeckdealr.test/api/cron/collect-cardmarket-prices",
     {
       headers: secret ? { authorization: `Bearer ${secret}` } : undefined,
     },

@@ -1,7 +1,7 @@
 import "react-native-url-polyfill/auto";
 import { AppState, type AppStateStatus } from "react-native";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@pokemarket/shared";
+import type { Database } from "@deckdealr/shared";
 import { env } from "./env";
 import { secureStorage } from "./supabase/secure-storage";
 

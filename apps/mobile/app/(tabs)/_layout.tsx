@@ -24,7 +24,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { FEATURE_FLAGS, type FeatureFlag } from "@pokemarket/shared";
+import { FEATURE_FLAGS, type FeatureFlag } from "@deckdealr/shared";
 
 import { Text } from "@/components/ui/text";
 import { useUnreadCount } from "@/hooks/use-conversations";

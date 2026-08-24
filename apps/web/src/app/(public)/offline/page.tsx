@@ -52,7 +52,7 @@ export default function OfflinePage() {
         </Button>
 
         <p className="text-muted-foreground/60 text-xs">
-          PokeMarket nécessite une connexion pour fonctionner
+          DeckDealr nécessite une connexion pour fonctionner
         </p>
       </m.div>
     </main>

@@ -8,7 +8,7 @@ import {
   Star,
   Truck,
 } from "lucide-react-native";
-import type { Transaction } from "@pokemarket/shared";
+import type { Transaction } from "@deckdealr/shared";
 
 import {
   Button,

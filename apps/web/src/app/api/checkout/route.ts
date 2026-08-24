@@ -19,7 +19,7 @@ import {
   FEATURE_FLAGS,
   type CheckoutResponse,
   type MobileCheckoutResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 export async function POST(request: Request) {
   try {
@@ -421,7 +421,7 @@ export async function POST(request: Request) {
         payment_intent_data: {
           transfer_group: `order_${transaction.id}`,
         },
-        integration_identifier: "pokemarket-web-checkout-pkjhbnxq",
+        integration_identifier: "deckdealr-web-checkout-pkjhbnxq",
         success_url: `${appUrl!}/orders/${transaction.id}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl!}/listing/${listing_id}?checkout=cancelled`,
         expires_at:

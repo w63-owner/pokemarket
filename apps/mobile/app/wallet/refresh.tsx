@@ -17,10 +17,7 @@ export default function StripeConnectRefreshScreen() {
       try {
         const url = await getOnboardingUrl();
         if (cancelled) return;
-        await WebBrowser.openAuthSessionAsync(
-          url,
-          "pokemarket://wallet/return",
-        );
+        await WebBrowser.openAuthSessionAsync(url, "deckdealr://wallet/return");
         if (!cancelled) router.replace("/wallet/return");
       } catch {
         if (!cancelled) router.replace("/wallet");

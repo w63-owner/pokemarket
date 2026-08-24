@@ -18,7 +18,7 @@ export default function HomePage() {
       <div className="mx-auto max-w-7xl">
         <header className="mb-6">
           <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-            Poke<span className="text-brand">Market</span>
+            TheDeck<span className="text-brand">Dealr</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Les dernières cartes Pokémon en vente

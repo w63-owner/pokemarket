@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@pokemarket/shared";
-import type { FeedItem } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
+import type { FeedItem } from "@deckdealr/shared";
 import {
   fetchFavoriteListingIds,
   fetchFavoriteListings,

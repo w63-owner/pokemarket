@@ -23,16 +23,16 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "PokeMarket — Marketplace de cartes Pokémon TCG",
-    template: "%s | PokeMarket",
+    default: "DeckDealr — Marketplace de cartes Pokémon TCG",
+    template: "%s | DeckDealr",
   },
   description:
     "Achetez et vendez des cartes Pokémon TCG entre particuliers. Paiement sécurisé, négociation par offres, messagerie temps réel.",
   manifest: "/manifest.json",
-  applicationName: "PokeMarket",
+  applicationName: "DeckDealr",
   appleWebApp: {
     capable: true,
-    title: "PokeMarket",
+    title: "DeckDealr",
     statusBarStyle: "black-translucent",
   },
   formatDetection: {
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "fr_FR",
-    siteName: "PokeMarket",
+    siteName: "DeckDealr",
   },
 };
 

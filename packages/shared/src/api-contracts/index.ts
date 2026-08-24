@@ -46,7 +46,7 @@ export type CardMarketDetailResponse = {
   card: CardMarketDetail;
 };
 
-export type PokeMarketRecentSale = {
+export type DeckDealrRecentSale = {
   condition: string | null;
   grade_note: number | null;
   grading_company: string | null;
@@ -56,7 +56,7 @@ export type PokeMarketRecentSale = {
   variant: CardmarketVariant | null;
 };
 
-export type PokeMarketSalesFilters = {
+export type DeckDealrSalesFilters = {
   condition: string | null;
   grade_note: number | null;
   grading_company: string | null;
@@ -64,16 +64,16 @@ export type PokeMarketSalesFilters = {
   variant: CardmarketVariant;
 };
 
-export type PokeMarketSalesResponse = {
+export type DeckDealrSalesResponse = {
   median_price: number | null;
   average_price: number | null;
   sales_volume: number;
   last_sold_at: string | null;
-  recent_sales: PokeMarketRecentSale[];
+  recent_sales: DeckDealrRecentSale[];
   has_sufficient_volume: boolean;
   minimum_volume: number;
   currency: "EUR";
-  filters: PokeMarketSalesFilters;
+  filters: DeckDealrSalesFilters;
 };
 
 export type CardMarketTopEntry = CardSearchResult & {
@@ -167,7 +167,7 @@ export type OcrResponse = {
 export type PriceRecommendation = {
   sellerPrice: number;
   displayPrice: number;
-  source: "pokemarket" | "cardmarket";
+  source: "thedeckdealr" | "cardmarket";
   sampleSize: number | null;
 };
 

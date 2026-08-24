@@ -1,1 +1,1 @@
-export * from "@pokemarket/shared/constants";
+export * from "@deckdealr/shared/constants";

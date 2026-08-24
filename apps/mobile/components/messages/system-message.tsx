@@ -9,7 +9,7 @@ import {
   Tag,
   XCircle,
 } from "lucide-react-native";
-import type { Message } from "@pokemarket/shared";
+import type { Message } from "@deckdealr/shared";
 import { Text } from "@/components/ui";
 import { fadeInScale, spring, useReducedMotionSafe } from "@/lib/motion";
 import { useThemeColors } from "@/lib/theme-colors";

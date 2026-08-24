@@ -34,9 +34,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${username} — Vendeur`,
     description:
-      profile?.bio ?? `Découvrez le profil de ${username} sur PokeMarket`,
+      profile?.bio ?? `Découvrez le profil de ${username} sur DeckDealr`,
     openGraph: {
-      title: `${username} — Vendeur sur PokeMarket`,
+      title: `${username} — Vendeur sur DeckDealr`,
       ...(profile?.avatar_url && {
         images: [{ url: profile.avatar_url, width: 200, height: 200 }],
       }),

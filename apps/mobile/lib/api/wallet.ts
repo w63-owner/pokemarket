@@ -5,7 +5,7 @@ import type {
   StripeConnectOnboardingRequest,
   StripeConnectStatusResponse,
   Wallet,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
@@ -62,8 +62,8 @@ export async function fetchStripeConnectStatus(): Promise<StripeConnectStatus> {
 
 /**
  * Asks the backend for an Account Onboarding link. The mobile flag tells
- * Stripe to use deep-link return / refresh URLs (`pokemarket://wallet/return`,
- * `pokemarket://wallet/refresh`) instead of bouncing through web pages.
+ * Stripe to use deep-link return / refresh URLs (`deckdealr://wallet/return`,
+ * `deckdealr://wallet/refresh`) instead of bouncing through web pages.
  */
 export async function getOnboardingUrl(
   input: Omit<StripeConnectOnboardingRequest, "client"> = {},

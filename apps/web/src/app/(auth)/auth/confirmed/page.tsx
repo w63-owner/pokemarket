@@ -86,8 +86,8 @@ function ConfirmedContent() {
             Email confirmé, bienvenue !
           </h1>
           <p className="text-muted-foreground mt-3">
-            Votre compte PokeMarket est maintenant actif. Vous pouvez commencer
-            à découvrir les cartes disponibles.
+            Votre compte DeckDealr est maintenant actif. Vous pouvez commencer à
+            découvrir les cartes disponibles.
           </p>
           <Button
             type="button"

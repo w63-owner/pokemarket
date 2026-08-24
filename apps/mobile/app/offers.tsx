@@ -22,7 +22,7 @@ import {
   formatRelativeDate,
   type OfferWithContext,
   type SentOfferWithContext,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { subscription, useRealtime } from "@/hooks/use-realtime";
 import { channels } from "@/lib/realtime/channels";

@@ -15,7 +15,7 @@ import {
   ImageOff,
   Reply,
 } from "lucide-react";
-import { formatTime, queryKeys } from "@pokemarket/shared";
+import { formatTime, queryKeys } from "@deckdealr/shared";
 import { cn } from "@/lib/utils";
 import { getMessageAttachmentSignedUrl } from "@/lib/api/conversations";
 import {

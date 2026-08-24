@@ -5,7 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
-import { queryKeys, type Database, type InboxCursor } from "@pokemarket/shared";
+import { queryKeys, type Database, type InboxCursor } from "@deckdealr/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { subscription, useRealtime } from "@/hooks/use-realtime";
 import {

@@ -1,8 +1,8 @@
 import { router } from "expo-router";
 import { View } from "react-native";
 import { MotiView } from "moti";
-import type { Listing } from "@pokemarket/shared";
-import { formatPrice } from "@pokemarket/shared";
+import type { Listing } from "@deckdealr/shared";
+import { formatPrice } from "@deckdealr/shared";
 
 import { Badge, Button } from "@/components/ui";
 import { spring } from "@/lib/motion";

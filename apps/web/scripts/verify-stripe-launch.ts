@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@pokemarket/shared";
+import type { Database } from "@deckdealr/shared";
 import { config } from "dotenv";
 import { resolve } from "path";
 import Stripe from "stripe";

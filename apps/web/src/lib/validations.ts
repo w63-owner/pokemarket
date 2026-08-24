@@ -1,1 +1,1 @@
-export * from "@pokemarket/shared/validations";
+export * from "@deckdealr/shared/validations";

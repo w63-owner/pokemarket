@@ -21,7 +21,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import type { Json } from "@/types/database";
-import type { PushNotificationCategory } from "@pokemarket/shared";
+import type { PushNotificationCategory } from "@deckdealr/shared";
 
 type PermissionState = "default" | "granted" | "denied";
 type CategoryPreference = PushNotificationCategory;

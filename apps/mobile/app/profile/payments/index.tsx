@@ -11,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { MotiView } from "moti";
 import { CreditCard, Plus, ShieldCheck } from "lucide-react-native";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 
 import {
   deletePaymentMethod,
@@ -137,8 +137,7 @@ export default function PaymentsScreen() {
           <ShieldCheck size={20} color={primary} />
           <Text className="flex-1 text-xs leading-5 text-muted-foreground">
             Vos informations bancaires sont stockées de manière sécurisée par
-            Stripe. PokeMarket ne voit ni ne stocke jamais votre numéro de
-            carte.
+            Stripe. DeckDealr ne voit ni ne stocke jamais votre numéro de carte.
           </Text>
         </View>
       </ScrollView>

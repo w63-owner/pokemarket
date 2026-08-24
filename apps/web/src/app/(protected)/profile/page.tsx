@@ -117,7 +117,8 @@ export default function ProfileHubPage() {
           ))}
         </div>
         <p className="text-muted-foreground mt-4 text-center text-xs">
-          © {new Date().getFullYear()} PokeMarket. Tous droits réservés.
+          © {new Date().getFullYear()} Nerio Invest SAS — DeckDealr. Tous droits
+          réservés.
         </p>
       </div>
     </div>

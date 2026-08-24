@@ -139,7 +139,7 @@ const STATUS_COPY: Record<string, { title: string; description: string }> = {
   COMPLETED: {
     title: "Vente terminée",
     description:
-      "Cette vente est terminée. Merci pour votre achat sur PokeMarket !",
+      "Cette vente est terminée. Merci pour votre achat sur DeckDealr !",
   },
 };
 

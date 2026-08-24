@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "PokeMarket",
-    "slug": "pokemarket",
-    "scheme": "pokemarket",
+    "name": "DeckDealr",
+    "slug": "deckdealr",
+    "scheme": "deckdealr",
     "version": "0.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,14 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.pokemarket.mobile",
-      "associatedDomains": ["applinks:pokemarket.app"],
+      "associatedDomains": ["applinks:thedeckdealr.com"],
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "PokeMarket utilise l'appareil photo pour scanner vos cartes Pokémon et préremplir automatiquement vos annonces.",
-        "NSPhotoLibraryUsageDescription": "PokeMarket accède à votre galerie pour ajouter des photos à vos annonces.",
-        "NSFaceIDUsageDescription": "PokeMarket utilise Face ID pour sécuriser l'accès à votre compte."
+        "NSCameraUsageDescription": "DeckDealr utilise l'appareil photo pour scanner vos cartes Pokémon et préremplir automatiquement vos annonces.",
+        "NSPhotoLibraryUsageDescription": "DeckDealr accède à votre galerie pour ajouter des photos à vos annonces.",
+        "NSFaceIDUsageDescription": "DeckDealr utilise Face ID pour sécuriser l'accès à votre compte."
       }
     },
     "android": {
@@ -49,7 +49,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "pokemarket.app"
+              "host": "thedeckdealr.com"
             }
           ],
           "category": ["BROWSABLE", "DEFAULT"]
@@ -58,7 +58,7 @@
           "action": "VIEW",
           "data": [
             {
-              "scheme": "pokemarket",
+              "scheme": "deckdealr",
               "host": "wallet"
             }
           ],
@@ -72,19 +72,19 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "PokeMarket utilise l'appareil photo pour scanner vos cartes Pokémon."
+          "cameraPermission": "DeckDealr utilise l'appareil photo pour scanner vos cartes Pokémon."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "PokeMarket accède à votre galerie pour vos annonces."
+          "photosPermission": "DeckDealr accède à votre galerie pour vos annonces."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "PokeMarket utilise Face ID pour sécuriser votre compte."
+          "faceIDPermission": "DeckDealr utilise Face ID pour sécuriser votre compte."
         }
       ],
       [

@@ -252,7 +252,7 @@ describe("checkout — listing-status guards", () => {
       "payment_method_types",
     );
     expect(stripeCreate.mock.calls[0][0].integration_identifier).toBe(
-      "pokemarket-web-checkout-pkjhbnxq",
+      "deckdealr-web-checkout-pkjhbnxq",
     );
     expect(stripeCreate.mock.calls[0][1].idempotencyKey).toBe(
       `checkout-session-${json.transaction_id}`,

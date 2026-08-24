@@ -13,7 +13,7 @@ import {
   queryKeys,
   reconcileOptimisticMessages,
   type Message,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { useAuth } from "@/hooks/use-auth";
 import {
   subscription,

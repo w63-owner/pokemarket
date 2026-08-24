@@ -5,7 +5,7 @@ import {
   type FeedFilters,
   filtersToLabel,
   suggestSearchName,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   Button,

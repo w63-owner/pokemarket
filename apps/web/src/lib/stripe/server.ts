@@ -18,7 +18,7 @@ export function getStripe(service: StripeService = "payments"): Stripe {
       apiVersion: STRIPE_API_VERSION,
       typescript: true,
       appInfo: {
-        name: `PokeMarket ${service}`,
+        name: `DeckDealr ${service}`,
       },
     });
   }

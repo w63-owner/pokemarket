@@ -55,7 +55,7 @@ export default function PriceCheckingPage() {
           </div>
           <div className="text-muted-foreground mt-4 flex items-center gap-2 text-xs">
             <ShieldCheck className="size-3.5" aria-hidden="true" />
-            Source distincte des annonces et ventes PokeMarket
+            Source distincte des annonces et ventes DeckDealr
           </div>
         </div>
       </section>

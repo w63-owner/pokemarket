@@ -1,6 +1,6 @@
 # Feature flags
 
-PokeMarket uses PostHog as a server-side control plane for global capability
+DeckDealr uses PostHog as a server-side control plane for global capability
 switches. Web and mobile read the same `/api/feature-flags` snapshot, so a
 switch applies consistently without publishing a new build.
 

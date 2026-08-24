@@ -1,4 +1,4 @@
-# 🃏 PokeMarket
+# 🃏 DeckDealr
 
 ![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
-PokeMarket est une marketplace C2C (Customer to Customer) ultra-moderne dédiée à l'achat et la revente de cartes Pokémon (TCG). Conçue comme une Progressive Web App (PWA) "mobile-first", elle intègre des fonctionnalités avancées comme la reconnaissance de cartes par intelligence artificielle, un paiement Stripe à transfert différé, et une messagerie en temps réel.
+DeckDealr est une marketplace C2C (Customer to Customer) ultra-moderne dédiée à l'achat et la revente de cartes Pokémon (TCG). Conçue comme une Progressive Web App (PWA) "mobile-first", elle intègre des fonctionnalités avancées comme la reconnaissance de cartes par intelligence artificielle, un paiement Stripe à transfert différé, et une messagerie en temps réel.
 
 ## ✨ Fonctionnalités Principales
 

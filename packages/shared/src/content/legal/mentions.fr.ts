@@ -11,7 +11,7 @@ export const mentionsFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "Le site PokeMarket est édité par : [Nom de l'entreprise], [Forme juridique] au capital de [Montant du capital] €. Siège social : [Adresse]. RCS [Ville] — SIRET : [Numéro SIRET]. Numéro de TVA intracommunautaire : [Numéro TVA]. Directeur de la publication : [Nom du directeur de publication]. Email : [Email de contact]. Téléphone : [Numéro de téléphone].",
+          text: "Le site DeckDealr est édité par : Nerio Invest SAS, [Forme juridique] au capital de [Montant du capital] €. Siège social : [Adresse]. RCS [Ville] — SIRET : [Numéro SIRET]. Numéro de TVA intracommunautaire : [Numéro TVA]. Directeur de la publication : [Nom du directeur de publication]. Email : [Email de contact]. Téléphone : [Numéro de téléphone].",
         },
       ],
     },
@@ -35,7 +35,7 @@ export const mentionsFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "L'ensemble des contenus présents sur le site PokeMarket (textes, graphismes, logo, icônes, images, code source) est la propriété exclusive de [Nom de l'entreprise], sauf mention contraire. Toute reproduction, représentation, modification, publication ou adaptation de tout ou partie des éléments du site est interdite sans autorisation écrite préalable.",
+          text: "L'ensemble des contenus présents sur le site DeckDealr (textes, graphismes, logo, icônes, images, code source) est la propriété exclusive de Nerio Invest SAS, sauf mention contraire. Toute reproduction, représentation, modification, publication ou adaptation de tout ou partie des éléments du site est interdite sans autorisation écrite préalable.",
         },
         {
           type: "p",

@@ -1,7 +1,7 @@
 -- 00049_stripe_disputes.sql
 --
 -- Sprint 2 (Stripe best practices) — track Stripe chargebacks (bank-initiated
--- disputes) separately from PokeMarket's internal C2C disputes.
+-- disputes) separately from DeckDealr's internal C2C disputes.
 --
 -- Why a separate table from `disputes` (00007_reviews_disputes.sql)?
 --   • Different lifecycle: chargebacks have a hard deadline (`evidence_due_by`)

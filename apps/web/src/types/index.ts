@@ -1,1 +1,1 @@
-export * from "@pokemarket/shared/types";
+export * from "@deckdealr/shared/types";

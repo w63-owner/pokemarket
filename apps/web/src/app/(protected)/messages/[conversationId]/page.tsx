@@ -30,7 +30,7 @@ import {
   isSameDay,
   prependMessageIfMissing,
   reconcileOptimisticMessages,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import {

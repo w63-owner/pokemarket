@@ -19,7 +19,7 @@ import {
   type OcrCandidate,
   type OcrParsed,
   type OcrResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { TabHeader } from "@/components/layout";
 import {

@@ -6,12 +6,12 @@
 
 ## 1. Data collection and security
 
-| Question                                                                      | Réponse                                                               |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Does your app collect or share any of the required user data types?           | **Oui**                                                               |
-| Is all of the user data collected by your app encrypted in transit?           | **Oui** (HTTPS/TLS partout)                                           |
-| Do you provide a way for users to request that their data be deleted?         | **Oui** (depuis Profil > Paramètres + email à privacy@pokemarket.app) |
-| Has your app been independently validated against a global security standard? | Non (V1)                                                              |
+| Question                                                                      | Réponse                                                                 |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Does your app collect or share any of the required user data types?           | **Oui**                                                                 |
+| Is all of the user data collected by your app encrypted in transit?           | **Oui** (HTTPS/TLS partout)                                             |
+| Do you provide a way for users to request that their data be deleted?         | **Oui** (depuis Profil > Paramètres + email à privacy@thedeckdealr.com) |
+| Has your app been independently validated against a global security standard? | Non (V1)                                                                |
 
 ## 2. Data types collected
 

@@ -1,4 +1,4 @@
-import type { FeedFilters, Json, SavedSearch } from "@pokemarket/shared";
+import type { FeedFilters, Json, SavedSearch } from "@deckdealr/shared";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";
 

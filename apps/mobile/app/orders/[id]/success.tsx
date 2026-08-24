@@ -12,7 +12,7 @@ import {
   ShoppingBag,
   Sparkles,
 } from "lucide-react-native";
-import { formatPrice, queryKeys } from "@pokemarket/shared";
+import { formatPrice, queryKeys } from "@deckdealr/shared";
 
 import {
   fetchTransactionForBuyer,

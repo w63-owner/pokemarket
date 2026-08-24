@@ -1,4 +1,4 @@
-# PokeMarket — PRD Définitif V1
+# DeckDealr — PRD Définitif V1
 
 > **Marketplace C2C de cartes Pokémon TCG**
 > Document de Référence Produit — Version définitive
@@ -23,7 +23,7 @@
 
 ### 1.1 Pitch
 
-**PokeMarket** est une marketplace C2C (Consumer-to-Consumer) permettant aux collectionneurs de cartes Pokémon TCG d'acheter et de vendre leurs cartes entre particuliers. L'application offre un système de paiement sécurisé via escrow (Stripe Connect), une négociation par offres, et une messagerie temps réel intégrée.
+**DeckDealr** est une marketplace C2C (Consumer-to-Consumer) permettant aux collectionneurs de cartes Pokémon TCG d'acheter et de vendre leurs cartes entre particuliers. L'application offre un système de paiement sécurisé via escrow (Stripe Connect), une négociation par offres, et une messagerie temps réel intégrée.
 
 L'application est une **PWA française, mobile-first**, construite sur :
 
@@ -854,7 +854,7 @@ PENDING_PAYMENT → PAID → SHIPPED → COMPLETED
 
 ### 6.1 Philosophie de Design
 
-PokeMarket s'inspire des meilleures apps de marketplace mobile (StockX, Vinted, GOAT) avec une identité visuelle unique centrée sur l'univers Pokémon sans être enfantine. L'objectif est une application **premium, fluide, et addictive**.
+DeckDealr s'inspire des meilleures apps de marketplace mobile (StockX, Vinted, GOAT) avec une identité visuelle unique centrée sur l'univers Pokémon sans être enfantine. L'objectif est une application **premium, fluide, et addictive**.
 
 **Principes UX fondamentaux :**
 
@@ -2209,6 +2209,6 @@ CRON_SECRET=
 
 ---
 
-> **Ce PRD est le document de référence définitif pour PokeMarket V1.**
+> **Ce PRD est le document de référence définitif pour DeckDealr V1.**
 > Chaque phase du plan d'exécution est conçue pour être autonome et testable indépendamment.
 > L'exécution se fera tâche par tâche, phase par phase.

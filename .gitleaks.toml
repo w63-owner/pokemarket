@@ -1,6 +1,6 @@
-# Gitleaks configuration for PokeMarket.
+# Gitleaks configuration for DeckDealr.
 # Extends the default ruleset and whitelists known-safe placeholders.
-title = "PokeMarket gitleaks config"
+title = "DeckDealr gitleaks config"
 
 [extend]
 useDefault = true

@@ -7,8 +7,8 @@ import type {
   MessageReplySnapshot,
   SendMessageRequest,
   SendMessageResponse,
-} from "@pokemarket/shared";
-import { getNextMessageCursor } from "@pokemarket/shared";
+} from "@deckdealr/shared";
+import { getNextMessageCursor } from "@deckdealr/shared";
 
 const MESSAGE_ATTACHMENTS_BUCKET = "message_attachments";
 

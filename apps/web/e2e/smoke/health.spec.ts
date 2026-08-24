@@ -33,13 +33,13 @@ test.describe("@smoke /api/health", () => {
 });
 
 test.describe("@smoke Public landing", () => {
-  test("home page loads with PokeMarket heading", async ({ page }) => {
+  test("home page loads with DeckDealr heading", async ({ page }) => {
     const response = await page.goto("/", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBeLessThan(400);
 
     const heading = page.getByRole("heading", { level: 1 });
     await expect(heading).toBeVisible();
-    await expect(heading).toContainText("PokeMarket");
+    await expect(heading).toContainText("DeckDealr");
   });
 
   test("anonymous user is redirected to /auth on protected routes", async ({

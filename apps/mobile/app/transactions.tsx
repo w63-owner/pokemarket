@@ -15,7 +15,7 @@ import {
   formatPrice,
   formatRelativeDate,
   type TransactionWithDetails,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { usePurchases, useSales } from "@/hooks/use-transactions";
 import {

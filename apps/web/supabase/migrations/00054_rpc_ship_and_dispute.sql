@@ -145,7 +145,7 @@ BEGIN
   END IF;
 
   -- API contract: clients send lowercase reasons (DisputeReason enum in
-  -- @pokemarket/shared). The disputes_reason_check constraint requires
+  -- @deckdealr/shared). The disputes_reason_check constraint requires
   -- uppercase ('DAMAGED_CARD', 'WRONG_CARD', 'EMPTY_PACKAGE', 'OTHER').
   -- Normalize at the DB boundary so the JS API surface stays lowercase
   -- and the historical SQL CHECK stays untouched.

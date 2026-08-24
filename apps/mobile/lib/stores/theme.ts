@@ -32,7 +32,7 @@ export const useThemeStore = create<ThemeState>()(
       _setSystemScheme: (scheme) => set({ systemScheme: scheme }),
     }),
     {
-      name: "pokemarket.theme",
+      name: "deckdealr.theme",
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ preference: state.preference }),
     },

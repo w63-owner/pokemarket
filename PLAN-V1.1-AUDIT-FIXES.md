@@ -591,4 +591,4 @@ L'intégralité des 25 tâches réparties sur 4 sprints a été exécutée avec 
 ✓ 40 routes générées (Static ○ / SSG ● / Dynamic ƒ)
 ```
 
-**PokeMarket V1.1 est officiellement prêt pour la production.** 🚀
+**DeckDealr V1.1 est officiellement prêt pour la production.** 🚀

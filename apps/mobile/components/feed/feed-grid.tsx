@@ -3,7 +3,7 @@ import { RefreshControl, useWindowDimensions, View } from "react-native";
 import { FlashList, type ListRenderItemInfo } from "@shopify/flash-list";
 import { MotiView } from "moti";
 import { AlertCircle, PackageOpen } from "lucide-react-native";
-import type { FeedItem } from "@pokemarket/shared";
+import type { FeedItem } from "@deckdealr/shared";
 
 import { ListingCard } from "./listing-card";
 import { ListingCardSkeleton } from "./listing-card-skeleton";

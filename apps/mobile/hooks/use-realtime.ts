@@ -4,7 +4,7 @@ import type {
   RealtimeChannel,
   RealtimePostgresChangesPayload,
 } from "@supabase/supabase-js";
-import type { Database } from "@pokemarket/shared";
+import type { Database } from "@deckdealr/shared";
 import { supabase } from "@/lib/supabase";
 import { Sentry } from "@/lib/sentry";
 

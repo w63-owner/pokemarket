@@ -2,7 +2,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { ImageIcon, Search } from "lucide-react-native";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 
 import { Skeleton, Text } from "@/components/ui";
 import { useThemeColor } from "@/lib/theme-colors";

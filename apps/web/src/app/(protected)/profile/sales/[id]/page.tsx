@@ -187,7 +187,7 @@ export default function SaleDetailPage({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Commission PokeMarket
+                    Commission DeckDealr
                   </span>
                   <span className="text-destructive">
                     -{formatPrice(sale.fee_amount)}

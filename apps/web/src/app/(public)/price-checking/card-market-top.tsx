@@ -14,7 +14,7 @@ import {
   queryKeys,
   type CardMarketTopResponse,
   type CardmarketVariant,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

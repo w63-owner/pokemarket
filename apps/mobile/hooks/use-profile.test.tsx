@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react-native";
-import type { Profile } from "@pokemarket/shared";
+import type { Profile } from "@deckdealr/shared";
 import { fetchMyProfile } from "@/lib/api/profile";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyProfile } from "./use-profile";

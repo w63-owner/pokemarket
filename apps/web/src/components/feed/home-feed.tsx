@@ -1,6 +1,6 @@
 "use client";
 
-import { FEATURE_FLAGS } from "@pokemarket/shared";
+import { FEATURE_FLAGS } from "@deckdealr/shared";
 import { useFiltersFromUrl } from "@/hooks/use-feed-filters";
 import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { FeedFilters } from "@/components/feed/feed-filters";

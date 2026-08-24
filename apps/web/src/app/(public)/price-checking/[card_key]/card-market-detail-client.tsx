@@ -19,13 +19,13 @@ import {
   type CardMarketDetailResponse,
   type CardmarketVariant,
   type CardmarketVariantQuote,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PriceHistoryChart } from "@/components/listing/price-history-chart";
-import { PokeMarketSales } from "./pokemarket-sales";
+import { DeckDealrSales } from "./deckdealr-sales";
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -291,7 +291,7 @@ export function CardMarketDetailClient({ cardKey }: { cardKey: string }) {
             variant={selectedVariant}
           />
 
-          <PokeMarketSales cardKey={card.card_key} variant={selectedVariant} />
+          <DeckDealrSales cardKey={card.card_key} variant={selectedVariant} />
 
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             <Button

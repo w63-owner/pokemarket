@@ -13,7 +13,7 @@ import {
   queryKeys,
   type CardmarketVariant,
   type PriceHistoryResponse,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 
 import {
   Badge,

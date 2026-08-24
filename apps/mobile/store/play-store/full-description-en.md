@@ -1,8 +1,8 @@
-PokeMarket — The marketplace built 100% for Pokémon cards
+DeckDealr — The marketplace built 100% for Pokémon cards
 
 Buy and sell your favorite Pokémon cards stress-free, from your phone. A French C2C platform dedicated to collectors, players and investors of the franchise.
 
-✨ WHY POKEMARKET?
+✨ WHY DECKDEALR?
 
 🤖 30-second AI scan
 Point your camera at your card, AI auto-detects the name, set, number and rarity. No more typing everything by hand.
@@ -51,8 +51,8 @@ Join the largest French community dedicated to Pokémon cards. Chat, negotiate, 
 
 📜 LEGAL
 
-PokeMarket is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
+DeckDealr is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
 
-Download PokeMarket now and bring your collection back to life!
+Download DeckDealr now and bring your collection back to life!
 
-— The PokeMarket team
+— The DeckDealr team

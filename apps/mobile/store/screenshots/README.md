@@ -47,7 +47,7 @@ L'ordre **est** l'ordre dans lequel ils apparaîtront sur le store :
 ## 3. Données de démo à utiliser pendant la capture
 
 Utiliser le compte généré par
-`npm run -w @pokemarket/mobile seed:reviewer` (cf. `../reviewer/seed-reviewer-account.md`)
+`npm run -w @deckdealr/mobile seed:reviewer` (cf. `../reviewer/seed-reviewer-account.md`)
 qui crée :
 
 - 12 listings ACTIVE avec covers réelles

@@ -8,7 +8,7 @@ export function ShareProfileButton({ username }: { username: string }) {
   async function handleShare() {
     const url = `${window.location.origin}/u/${username}`;
     const shareData = {
-      title: `${username} sur PokeMarket`,
+      title: `${username} sur DeckDealr`,
       url,
     };
 

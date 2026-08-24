@@ -19,7 +19,7 @@ import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useColorScheme } from "nativewind";
-import { FEATURE_FLAGS } from "@pokemarket/shared";
+import { FEATURE_FLAGS } from "@deckdealr/shared";
 
 import { initSentry, Sentry } from "@/lib/sentry";
 import { recordChannelCount, recordColdStart } from "@/lib/metrics";

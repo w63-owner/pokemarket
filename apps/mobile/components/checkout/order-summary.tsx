@@ -1,10 +1,6 @@
 import { View } from "react-native";
 import { Image } from "expo-image";
-import {
-  calcPriceSeller,
-  calcFeeAmount,
-  formatPrice,
-} from "@pokemarket/shared";
+import { calcPriceSeller, calcFeeAmount, formatPrice } from "@deckdealr/shared";
 import { Badge, Separator, Text } from "@/components/ui";
 
 type OrderSummaryProps = {

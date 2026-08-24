@@ -30,7 +30,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 
 const getAllowedCheckoutOriginMock: any = vi.fn(
-  () => "https://pokemarket.test",
+  () => "https://thedeckdealr.test",
 );
 vi.mock("@/lib/env", () => ({
   getAllowedCheckoutOrigin: (origin: any) =>
@@ -46,11 +46,11 @@ vi.mock("@/lib/supabase/admin", () => ({
 import { POST } from "./route";
 
 function request(body: object) {
-  return new Request("https://pokemarket.test/api/stripe-connect/onboard", {
+  return new Request("https://thedeckdealr.test/api/stripe-connect/onboard", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      origin: "https://pokemarket.test",
+      origin: "https://thedeckdealr.test",
     },
     body: JSON.stringify(body),
   });
@@ -123,7 +123,7 @@ describe("Stripe Connect Accounts v2 onboarding", () => {
         use_case: expect.objectContaining({
           account_onboarding: expect.objectContaining({
             return_url:
-              "https://pokemarket.test/api/stripe-connect/mobile-redirect?target=return",
+              "https://thedeckdealr.test/api/stripe-connect/mobile-redirect?target=return",
           }),
         }),
       }),
@@ -182,9 +182,9 @@ describe("Stripe Connect Accounts v2 onboarding", () => {
         use_case: expect.objectContaining({
           account_onboarding: expect.objectContaining({
             return_url:
-              "https://pokemarket.test/api/stripe-connect/mobile-redirect?target=return",
+              "https://thedeckdealr.test/api/stripe-connect/mobile-redirect?target=return",
             refresh_url:
-              "https://pokemarket.test/api/stripe-connect/mobile-redirect?target=refresh",
+              "https://thedeckdealr.test/api/stripe-connect/mobile-redirect?target=refresh",
           }),
         }),
       }),
@@ -234,9 +234,9 @@ describe("Stripe Connect Accounts v2 onboarding", () => {
       expect.objectContaining({
         use_case: expect.objectContaining({
           account_onboarding: expect.objectContaining({
-            return_url: "https://pokemarket.test/wallet/return",
+            return_url: "https://thedeckdealr.test/wallet/return",
             refresh_url:
-              "https://pokemarket.test/wallet?stripe_connect=refresh",
+              "https://thedeckdealr.test/wallet?stripe_connect=refresh",
           }),
         }),
       }),

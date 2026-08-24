@@ -14,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react-native";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 import { getMessageAttachmentSignedUrl } from "@/lib/api/conversations";
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);

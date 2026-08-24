@@ -102,7 +102,7 @@ export const queryKeys = {
     detail: (cardKey: string) => ["card-market", "detail", cardKey] as const,
     top: () => ["card-market", "top"] as const,
   },
-  pokeMarketSales: {
+  deckDealrSales: {
     summary: (
       cardKey: string,
       filters: {
@@ -112,7 +112,7 @@ export const queryKeys = {
         isGraded: boolean;
         variant: "normal" | "holo";
       },
-    ) => ["poke-market-sales", cardKey, filters] as const,
+    ) => ["deck-dealr-sales", cardKey, filters] as const,
   },
   notifications: {
     all: ["notifications"] as const,

@@ -21,7 +21,7 @@ import {
   FEATURE_FLAGS,
   formatDateLabel,
   type Message,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import {
   useConversationThread,
   type ConversationRow,

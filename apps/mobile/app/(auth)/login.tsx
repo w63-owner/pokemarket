@@ -4,7 +4,7 @@ import { Link, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema } from "@pokemarket/shared";
+import { loginSchema } from "@deckdealr/shared";
 import type { z } from "zod";
 import { Fingerprint } from "lucide-react-native";
 import {
@@ -96,7 +96,7 @@ export default function LoginScreen() {
         <View className="flex-1 justify-center gap-6">
           <View className="gap-2">
             <Text variant="h1">Bon retour</Text>
-            <Text variant="muted">Connecte-toi à ton compte PokeMarket.</Text>
+            <Text variant="muted">Connecte-toi à ton compte DeckDealr.</Text>
           </View>
 
           <View className="gap-4">

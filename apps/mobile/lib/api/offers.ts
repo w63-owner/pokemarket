@@ -2,7 +2,7 @@ import type {
   Offer,
   OfferWithContext,
   SentOfferWithContext,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { api } from "@/lib/api/client";
 import { requireUserId } from "@/lib/auth/current-user";
 import { supabase } from "@/lib/supabase";

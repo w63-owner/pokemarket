@@ -3,7 +3,7 @@ import type {
   LegalBlock,
   LegalDocument,
   LegalSection,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { Text } from "@/components/ui";
 
 type Props = {

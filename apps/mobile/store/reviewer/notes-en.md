@@ -8,7 +8,7 @@
 
 Hi App Review team,
 
-Thank you for reviewing PokeMarket, a C2C marketplace dedicated to
+Thank you for reviewing DeckDealr, a C2C marketplace dedicated to
 collectible Pokémon trading cards.
 
 ## Demo account
@@ -22,7 +22,7 @@ and messaging without leaving the sandbox. The account already has:
 - A funded wallet (350.00 EUR available)
 
 ```
-Email:    reviewer@pokemarket.app
+Email:    reviewer@thedeckdealr.com
 Password: ReviewerPass2026!
 ```
 
@@ -46,7 +46,7 @@ Password: ReviewerPass2026!
 
 ## Notes for specific guidelines
 
-- **Guideline 3.1.1 (In-App Purchase)** — All transactions on PokeMarket
+- **Guideline 3.1.1 (In-App Purchase)** — All transactions on DeckDealr
   are physical-goods (collectible cards shipped between users). They
   are explicitly **out of scope** of IAP per guideline 3.1.5(a). We use
   Apple Pay (via Stripe) for all checkouts.
@@ -58,8 +58,8 @@ Password: ReviewerPass2026!
   haptics, deep links and Apple Pay.
 - **Guideline 5.1.1 (Privacy)** — All required NSUsageDescription strings
   are present and explain in plain French why each capability is needed.
-  Privacy policy is at https://pokemarket.app/legal/privacy.
-- **Trademark — Pokémon** — PokeMarket is an independent C2C platform.
+  Privacy policy is at https://thedeckdealr.com/legal/privacy.
+- **Trademark — Pokémon** — DeckDealr is an independent C2C platform.
   We are not affiliated with The Pokémon Company / Nintendo / Game Freak
   / Creatures. The store description includes this disclaimer. We have
   the right to refer to the trademark for nominative use (cards being
@@ -70,9 +70,9 @@ Password: ReviewerPass2026!
 
 For any question during review:
 
-- Email: review@pokemarket.app (monitored 24/7)
+- Email: review@thedeckdealr.com (monitored 24/7)
 - Phone: +33 6 XX XX XX XX (PT lead, French + English)
 
 Thank you!
 
-— The PokeMarket team
+— The DeckDealr team

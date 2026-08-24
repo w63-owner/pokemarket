@@ -4,8 +4,11 @@ import { Platform } from "react-native";
 
 import { supabase } from "@/lib/supabase";
 
-const SECURE_KEY = "pokemarket.biometric.session";
-const PREF_KEY = "pokemarket.biometric.enabled";
+const SECURE_KEY = "deckdealr.biometric.session";
+const PREF_KEY = "deckdealr.biometric.enabled";
+// Legacy keys from pre-rebrand — read once then migrate silently.
+const LEGACY_SECURE_KEY = "pokemarket.biometric.session";
+const LEGACY_PREF_KEY = "pokemarket.biometric.enabled";
 
 type StoredSession = {
   access_token: string;
@@ -60,7 +63,15 @@ export async function getBiometryCapability(): Promise<BiometryCapability> {
  */
 export async function isBiometryEnabled(): Promise<boolean> {
   try {
-    return (await SecureStore.getItemAsync(PREF_KEY)) === "1";
+    const value = await SecureStore.getItemAsync(PREF_KEY);
+    if (value !== null) return value === "1";
+    // Migrate from legacy key on first run after rebrand.
+    const legacy = await SecureStore.getItemAsync(LEGACY_PREF_KEY);
+    if (legacy !== null) {
+      await SecureStore.setItemAsync(PREF_KEY, legacy);
+      await SecureStore.deleteItemAsync(LEGACY_PREF_KEY).catch(() => undefined);
+    }
+    return legacy === "1";
   } catch {
     return false;
   }
@@ -165,7 +176,19 @@ export async function unlockWithBiometry(): Promise<UnlockResult> {
     return { ok: false, reason: "biometry-failed" };
   }
 
-  const raw = await SecureStore.getItemAsync(SECURE_KEY);
+  let raw = await SecureStore.getItemAsync(SECURE_KEY);
+  if (!raw) {
+    // Migrate legacy session key on first run after rebrand.
+    raw = await SecureStore.getItemAsync(LEGACY_SECURE_KEY);
+    if (raw) {
+      await SecureStore.setItemAsync(SECURE_KEY, raw, {
+        requireAuthentication: false,
+      });
+      await SecureStore.deleteItemAsync(LEGACY_SECURE_KEY).catch(
+        () => undefined,
+      );
+    }
+  }
   if (!raw) return { ok: false, reason: "no-session" };
 
   let stored: StoredSession;

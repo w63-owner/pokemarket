@@ -9,7 +9,7 @@ import {
   FEATURE_FLAGS,
   queryKeys,
   type ConversationPreview,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
 import { usePresence } from "@/hooks/use-presence";

@@ -4,12 +4,12 @@ import type {
   FeedItem,
   Listing,
   ListingWithSeller,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import {
   getSellerReputation,
   listingCreateSchema,
   type SellerReputation,
-} from "@pokemarket/shared";
+} from "@deckdealr/shared";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import {
   uploadImageFromUri,
@@ -112,7 +112,7 @@ export async function fetchListing(id: string): Promise<ListingWithSeller> {
 /**
  * Pull the rating + review count for a seller through the shared
  * `get_seller_reputation` RPC. Wraps the helper from
- * `@pokemarket/shared/lib/reputation` to keep call-sites in the
+ * `@deckdealr/shared/lib/reputation` to keep call-sites in the
  * mobile feature folders free of any direct RPC import.
  */
 export async function fetchSellerReputation(

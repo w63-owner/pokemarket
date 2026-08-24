@@ -11,7 +11,7 @@ import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, ImageIcon, Search, X } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
-import type { CardSearchResponse, CardSearchResult } from "@pokemarket/shared";
+import type { CardSearchResponse, CardSearchResult } from "@deckdealr/shared";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

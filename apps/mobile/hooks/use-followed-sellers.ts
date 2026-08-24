@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@pokemarket/shared";
+import { queryKeys } from "@deckdealr/shared";
 
 import { useAuth } from "@/hooks/use-auth";
 import { fetchFavoriteSellers } from "@/lib/api/favorites";

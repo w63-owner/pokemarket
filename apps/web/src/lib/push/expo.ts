@@ -3,7 +3,7 @@ import {
   type ExpoPushMessage,
   type ExpoPushTicket,
 } from "expo-server-sdk";
-import type { PushNotificationCategory } from "@pokemarket/shared";
+import type { PushNotificationCategory } from "@deckdealr/shared";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SendExpoPushOptions = {

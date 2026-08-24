@@ -7,7 +7,7 @@ export const privacyFr: LegalDocument = {
   intro: [
     {
       type: "p",
-      text: "La présente Politique de Confidentialité décrit comment [Nom de l'entreprise] (ci-après « PokeMarket », « nous ») collecte, utilise, stocke et protège vos données personnelles conformément au Règlement Général sur la Protection des Données (RGPD — Règlement UE 2016/679) et à la loi Informatique et Libertés.",
+      text: "La présente Politique de Confidentialité décrit comment Nerio Invest SAS (ci-après « DeckDealr », « nous ») collecte, utilise, stocke et protège vos données personnelles conformément au Règlement Général sur la Protection des Données (RGPD — Règlement UE 2016/679) et à la loi Informatique et Libertés.",
     },
   ],
   sections: [
@@ -17,7 +17,7 @@ export const privacyFr: LegalDocument = {
       body: [
         {
           type: "p",
-          text: "Le responsable du traitement des données personnelles est : [Nom de l'entreprise], [Adresse]. Email : [Email de contact]. SIRET : [Numéro SIRET].",
+          text: "Le responsable du traitement des données personnelles est : Nerio Invest SAS, [Adresse]. Email : [Email de contact]. SIRET : [Numéro SIRET].",
         },
       ],
     },
@@ -35,7 +35,7 @@ export const privacyFr: LegalDocument = {
           items: [
             "Inscription : adresse email, nom d'utilisateur, mot de passe (hashé), avatar",
             "Profil vendeur : nom complet, adresse postale (pour l'expédition), numéro de téléphone (optionnel)",
-            "Paiement : les données bancaires sont traitées exclusivement par Stripe (conforme PCI-DSS). PokeMarket ne stocke aucune donnée bancaire directement",
+            "Paiement : les données bancaires sont traitées exclusivement par Stripe (conforme PCI-DSS). DeckDealr ne stocke aucune donnée bancaire directement",
             "Messagerie : contenu des messages échangés entre utilisateurs",
             "Annonces : photos de cartes, descriptions, prix",
           ],

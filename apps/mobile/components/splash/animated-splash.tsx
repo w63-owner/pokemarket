@@ -44,7 +44,8 @@ import { useThemeColor } from "@/lib/theme-colors";
  * first paint.
  */
 
-const STORAGE_KEY = "pokemarket.hasSeenSplash";
+const STORAGE_KEY = "deckdealr.hasSeenSplash";
+const LEGACY_STORAGE_KEY = "pokemarket.hasSeenSplash";
 
 const CARD_ASPECT = 63 / 88;
 const CARD_WIDTH_RATIO = 0.45;
@@ -79,10 +80,22 @@ export function AnimatedSplash() {
   useEffect(() => {
     let cancelled = false;
     AsyncStorage.getItem(STORAGE_KEY)
-      .then((value) => {
+      .then(async (value) => {
         if (cancelled) return;
         if (value === "1") {
           setShouldRender(false);
+        } else {
+          // Migrate legacy key on first run after rebrand.
+          const legacy = await AsyncStorage.getItem(LEGACY_STORAGE_KEY).catch(
+            () => null,
+          );
+          if (legacy === "1") {
+            await AsyncStorage.setItem(STORAGE_KEY, "1").catch(() => undefined);
+            await AsyncStorage.removeItem(LEGACY_STORAGE_KEY).catch(
+              () => undefined,
+            );
+            setShouldRender(false);
+          }
         }
         setDecided(true);
       })

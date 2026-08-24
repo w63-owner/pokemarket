@@ -1,4 +1,4 @@
-const CACHE_NAME = "pokemarket-v1";
+const CACHE_NAME = "deckdealr-v1";
 const STATIC_ASSETS = ["/offline.html", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -66,7 +66,7 @@ self.addEventListener("push", (event) => {
 
   const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title || "PokeMarket", {
+    self.registration.showNotification(data.title || "DeckDealr", {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
