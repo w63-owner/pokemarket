@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Keyboard, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { FEATURE_FLAGS } from "@deckdealr/shared";
 
 import { useInfiniteFeed } from "@/hooks/use-infinite-feed";
@@ -13,8 +14,16 @@ import { TabHeader } from "@/components/layout";
 import { CARD_SEARCH_MIN_LENGTH, parseCardQuery } from "@/lib/api/tcgdex";
 
 export default function HomeScreen() {
-  const { filters, update, reset } = useFeedFilters();
-  const [searchValue, setSearchValue] = useState(filters.q ?? "");
+  const { q: rawQuery } = useLocalSearchParams<{
+    q?: string | string[];
+  }>();
+  const routeQuery = Array.isArray(rawQuery)
+    ? (rawQuery[0] ?? "")
+    : (rawQuery ?? "");
+  const { filters, update, reset } = useFeedFilters({
+    q: routeQuery || undefined,
+  });
+  const [searchValue, setSearchValue] = useState(routeQuery);
   const [searchFocused, setSearchFocused] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const { enabled: searchEnabled } = useFeatureFlag(FEATURE_FLAGS.HOME_SEARCH);
@@ -30,6 +39,12 @@ export default function HomeScreen() {
 
   const query = useInfiniteFeed(filters);
   const items = query.data?.pages.flatMap((p) => p.items) ?? [];
+
+  useEffect(() => {
+    if (!routeQuery) return;
+    setSearchValue(routeQuery);
+    update({ q: routeQuery });
+  }, [routeQuery, update]);
 
   useEffect(() => {
     const next = debouncedSearch.trim();
