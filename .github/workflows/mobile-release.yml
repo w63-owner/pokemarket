@@ -105,6 +105,22 @@ jobs:
           done
           echo "All Sentry sourcemap env vars present."
 
+      - name: Configure Google Play service account
+        if: |
+          steps.profile.outputs.profile == 'production' &&
+          (github.event_name == 'push' || github.event.inputs.submit == 'true')
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT" ]; then
+            echo "::error::GOOGLE_SERVICE_ACCOUNT is missing from the mobile-production environment."
+            exit 1
+          fi
+          mkdir -p secrets
+          printf '%s' "$GOOGLE_SERVICE_ACCOUNT" > secrets/play-store-service-account.json
+          chmod 600 secrets/play-store-service-account.json
+
       # SENTRY_* in this job env are NOT sent to EAS cloud builders — configure
       # them as EAS project secrets (`eas secret:create`) for production builds.
       - name: Trigger EAS build (iOS + Android)
