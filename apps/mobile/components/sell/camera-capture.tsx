@@ -174,7 +174,7 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
             Accès caméra requis
           </Text>
           <Text className="text-center text-white/70">
-            PokeMarket a besoin d&apos;utiliser votre appareil photo pour
+            TheDeckDealr a besoin d&apos;utiliser votre appareil photo pour
             scanner vos cartes.
           </Text>
           <Button onPress={() => requestPermission()} className="w-full">

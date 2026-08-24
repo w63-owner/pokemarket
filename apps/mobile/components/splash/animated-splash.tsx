@@ -470,7 +470,7 @@ function LogoPhase({
             color: foreground,
           }}
         >
-          Poke
+          TheDeck
           <Text
             style={{
               color: brand,
@@ -479,7 +479,7 @@ function LogoPhase({
               letterSpacing: -0.5,
             }}
           >
-            Market
+            Dealr
           </Text>
         </Text>
       </Animated.View>

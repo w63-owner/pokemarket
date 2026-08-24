@@ -153,7 +153,7 @@ export function SplashScreen() {
                   transition={{ type: "spring", stiffness: 400, damping: 12 }}
                 >
                   <h1 className="font-heading text-4xl font-extrabold tracking-tight">
-                    Poke<span className="text-brand">Market</span>
+                    TheDeck<span className="text-brand">Dealr</span>
                   </h1>
 
                   <m.p
