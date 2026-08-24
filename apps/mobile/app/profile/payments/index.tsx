@@ -137,7 +137,8 @@ export default function PaymentsScreen() {
           <ShieldCheck size={20} color={primary} />
           <Text className="flex-1 text-xs leading-5 text-muted-foreground">
             Vos informations bancaires sont stockées de manière sécurisée par
-            Stripe. DeckDealr ne voit ni ne stocke jamais votre numéro de carte.
+            Stripe. TheDeckDealr ne voit ni ne stocke jamais votre numéro de
+            carte.
           </Text>
         </View>
       </ScrollView>

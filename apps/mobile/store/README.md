@@ -1,7 +1,7 @@
 # `apps/mobile/store/`
 
 Tous les artefacts marketing & store-listing pour la soumission iOS + Android
-de DeckDealr Mobile v1.0.0.
+de TheDeckDealr Mobile v1.0.0.
 
 ```
 store/

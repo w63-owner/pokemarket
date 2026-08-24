@@ -29,7 +29,7 @@ export const CRITICAL_FONTS = {
 } as const;
 
 /**
- * Hook returning `[loaded, error]` for the critical DeckDealr typography
+ * Hook returning `[loaded, error]` for the critical TheDeckDealr typography
  * bundle. Blocks the splash screen until resolved.
  */
 export function useAppFonts(): [boolean, Error | null] {

@@ -96,7 +96,7 @@ export default function LoginScreen() {
         <View className="flex-1 justify-center gap-6">
           <View className="gap-2">
             <Text variant="h1">Bon retour</Text>
-            <Text variant="muted">Connecte-toi à ton compte DeckDealr.</Text>
+            <Text variant="muted">Connecte-toi à ton compte TheDeckDealr.</Text>
           </View>
 
           <View className="gap-4">

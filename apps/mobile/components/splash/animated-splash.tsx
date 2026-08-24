@@ -13,14 +13,13 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 
-import { Text } from "@/components/ui/text";
+import { BrandWordmark } from "@/components/layout/brand-wordmark";
 import { useReducedMotionSafe } from "@/lib/motion";
 import { useThemeColor } from "@/lib/theme-colors";
 
@@ -30,8 +29,7 @@ import { useThemeColor } from "@/lib/theme-colors";
  *  - Phase 1 ("scan"): a card-shaped frame (63/88 ratio) with a brand
  *    laser sweeping top→bottom→top, four pulsing brackets at the
  *    corners, and a soft brand glow pulse.
- *  - Phase 2 ("logo"): the wordmark springs in from scale 0.5 and the
- *    tagline fades up from below.
+ *  - Phase 2 ("logo"): the wordmark springs in from scale 0.5.
  *
  * Behaviour aligns with the web:
  *  - Skipped if `hasSeenSplash` flag is set in AsyncStorage (1× / install).
@@ -68,8 +66,6 @@ export function AnimatedSplash() {
 
   const background = useThemeColor("background");
   const brand = useThemeColor("brand");
-  const muted = useThemeColor("mutedForeground");
-  const foreground = useThemeColor("foreground");
 
   const [phase, setPhase] = useState<"scan" | "logo" | "done">("scan");
   const [shouldRender, setShouldRender] = useState(true);
@@ -160,12 +156,7 @@ export function AnimatedSplash() {
       {phase === "scan" ? (
         <ScanPhase brand={brand} reduceMotion={reduceMotion} />
       ) : (
-        <LogoPhase
-          foreground={foreground}
-          brand={brand}
-          muted={muted}
-          reduceMotion={reduceMotion}
-        />
+        <LogoPhase reduceMotion={reduceMotion} />
       )}
     </Animated.View>
   );
@@ -393,21 +384,9 @@ function ScanBracket({
 
 // ─── Phase 2 ──────────────────────────────────────────────────────────────────
 
-function LogoPhase({
-  foreground,
-  brand,
-  muted,
-  reduceMotion,
-}: {
-  foreground: string;
-  brand: string;
-  muted: string;
-  reduceMotion: boolean;
-}) {
+function LogoPhase({ reduceMotion }: { reduceMotion: boolean }) {
   const logoScale = useSharedValue(reduceMotion ? 1 : 0.5);
   const logoOpacity = useSharedValue(0);
-  const taglineY = useSharedValue(reduceMotion ? 0 : 6);
-  const taglineOpacity = useSharedValue(0);
 
   useEffect(() => {
     // Custom: spring 400/12/1 mirrors the web `splash-screen.tsx` logo
@@ -426,75 +405,21 @@ function LogoPhase({
       });
     }
 
-    const taglineDelay = reduceMotion ? 80 : 200;
-    taglineOpacity.value = withDelay(
-      taglineDelay,
-      withTiming(0.7, {
-        duration: reduceMotion ? 120 : 300,
-        easing: Easing.out(Easing.cubic),
-      }),
-    );
-    if (!reduceMotion) {
-      taglineY.value = withDelay(
-        taglineDelay,
-        withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) }),
-      );
-    }
-
     return () => {
       cancelAnimation(logoScale);
       cancelAnimation(logoOpacity);
-      cancelAnimation(taglineY);
-      cancelAnimation(taglineOpacity);
     };
-  }, [logoOpacity, logoScale, reduceMotion, taglineOpacity, taglineY]);
+  }, [logoOpacity, logoScale, reduceMotion]);
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
     transform: [{ scale: logoScale.value }],
   }));
 
-  const taglineStyle = useAnimatedStyle(() => ({
-    opacity: taglineOpacity.value,
-    transform: [{ translateY: taglineY.value }],
-  }));
-
   return (
     <View style={styles.logoWrap}>
       <Animated.View style={logoStyle}>
-        <Text
-          style={{
-            fontFamily: "PlusJakartaSans_800ExtraBold",
-            fontSize: 36,
-            letterSpacing: -0.5,
-            color: foreground,
-          }}
-        >
-          TheDeck
-          <Text
-            style={{
-              color: brand,
-              fontFamily: "PlusJakartaSans_800ExtraBold",
-              fontSize: 36,
-              letterSpacing: -0.5,
-            }}
-          >
-            Dealr
-          </Text>
-        </Text>
-      </Animated.View>
-
-      <Animated.View style={taglineStyle}>
-        <Text
-          style={{
-            fontSize: 11,
-            letterSpacing: 2,
-            color: muted,
-            textTransform: "uppercase",
-          }}
-        >
-          Attrapez-les tous
-        </Text>
+        <BrandWordmark variant="display" />
       </Animated.View>
     </View>
   );

@@ -93,8 +93,8 @@ export default function EmailConfirmedScreen() {
                 Email confirmé, bienvenue !
               </Text>
               <Text variant="muted" className="mt-3 max-w-sm text-center">
-                Ton compte DeckDealr est maintenant actif. Tu peux commencer à
-                découvrir les cartes disponibles.
+                Ton compte TheDeckDealr est maintenant actif. Tu peux commencer
+                à découvrir les cartes disponibles.
               </Text>
               <Button
                 className="mt-8 w-full max-w-sm"

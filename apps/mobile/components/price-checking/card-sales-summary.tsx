@@ -115,7 +115,7 @@ export function CardSalesSummary({
       <Card className="mt-4 gap-3">
         <View className="flex-row items-center gap-2">
           <ShoppingBag size={18} color={foreground} />
-          <Text className="font-semibold">Ventes sur DeckDealr</Text>
+          <Text className="font-semibold">Ventes sur TheDeckDealr</Text>
         </View>
         <Text variant="muted">
           Les ventes réelles sont temporairement indisponibles.
@@ -139,7 +139,7 @@ export function CardSalesSummary({
         <View className="min-w-0 flex-1">
           <View className="flex-row items-center gap-2">
             <ShoppingBag size={18} color={foreground} />
-            <Text className="font-semibold">Ventes sur DeckDealr</Text>
+            <Text className="font-semibold">Ventes sur TheDeckDealr</Text>
           </View>
           <Text variant="caption" className="mt-1">
             Prix carte réellement conclu, hors livraison

@@ -217,7 +217,7 @@ export default function PriceCheckingScreen() {
           <View className="my-5 flex-row items-center justify-center gap-2">
             <ShieldCheck size={14} color={mutedForeground} />
             <Text variant="caption">
-              Données distinctes des annonces et ventes DeckDealr
+              Données distinctes des annonces et ventes TheDeckDealr
             </Text>
           </View>
 

@@ -1,8 +1,8 @@
-DeckDealr — The marketplace built 100% for Pokémon cards
+TheDeckDealr — The marketplace for trading card games (TCG)
 
-Buy and sell your favorite Pokémon cards stress-free, from your phone. A French C2C platform dedicated to collectors, players and investors of the franchise.
+Buy and sell your favorite trading cards stress-free, from your phone. A French C2C platform dedicated to collectors, players and trading card game enthusiasts.
 
-✨ WHY DECKDEALR?
+✨ WHY THEDECKDEALR?
 
 🤖 30-second AI scan
 Point your camera at your card, AI auto-detects the name, set, number and rarity. No more typing everything by hand.
@@ -47,12 +47,12 @@ Auto-verification of PSA, BGS, CGC and ARS cards with certificate number display
 
 🎮 FRENCH COMMUNITY
 
-Join the largest French community dedicated to Pokémon cards. Chat, negotiate, share your pulls and find the rare gem.
+Join a French community dedicated to trading card games. Chat, negotiate, share your best pulls and find the rare gem.
 
 📜 LEGAL
 
-DeckDealr is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
+TheDeckDealr is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
 
-Download DeckDealr now and bring your collection back to life!
+Download TheDeckDealr now and bring your collection back to life!
 
-— The DeckDealr team
+— TheDeckDealr team

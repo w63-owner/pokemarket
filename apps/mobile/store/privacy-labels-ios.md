@@ -17,7 +17,7 @@
 | Usage Data      | Product Interaction (vues écran, taps) | ❌               | ❌              | Analytics                           |
 | Diagnostics     | Crash Data, Performance Data           | ❌               | ❌              | Analytics                           |
 
-`Tracking: NO` — DeckDealr ne fait **pas** de cross-app/site tracking
+`Tracking: NO` — TheDeckDealr ne fait **pas** de cross-app/site tracking
 au sens d'ATT (App Tracking Transparency). Aucun SDK pub, aucun ID partagé
 avec d'autres app/sites.
 

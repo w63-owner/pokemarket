@@ -139,7 +139,7 @@ export default function RegisterScreen() {
           <View className="gap-2">
             <Text variant="h1">Créer un compte</Text>
             <Text variant="muted">
-              Rejoins la marketplace des collectionneurs Pokémon.
+              Rejoins la marketplace des collectionneurs de cartes TCG.
             </Text>
           </View>
 

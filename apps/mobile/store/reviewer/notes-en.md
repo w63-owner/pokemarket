@@ -8,8 +8,8 @@
 
 Hi App Review team,
 
-Thank you for reviewing DeckDealr, a C2C marketplace dedicated to
-collectible Pokémon trading cards.
+Thank you for reviewing TheDeckDealr, a C2C marketplace dedicated to
+collectible trading card games (TCG).
 
 ## Demo account
 
@@ -46,7 +46,7 @@ Password: ReviewerPass2026!
 
 ## Notes for specific guidelines
 
-- **Guideline 3.1.1 (In-App Purchase)** — All transactions on DeckDealr
+- **Guideline 3.1.1 (In-App Purchase)** — All transactions on TheDeckDealr
   are physical-goods (collectible cards shipped between users). They
   are explicitly **out of scope** of IAP per guideline 3.1.5(a). We use
   Apple Pay (via Stripe) for all checkouts.
@@ -59,7 +59,7 @@ Password: ReviewerPass2026!
 - **Guideline 5.1.1 (Privacy)** — All required NSUsageDescription strings
   are present and explain in plain French why each capability is needed.
   Privacy policy is at https://thedeckdealr.com/legal/privacy.
-- **Trademark — Pokémon** — DeckDealr is an independent C2C platform.
+- **Trademark — Pokémon** — TheDeckDealr is an independent C2C platform.
   We are not affiliated with The Pokémon Company / Nintendo / Game Freak
   / Creatures. The store description includes this disclaimer. We have
   the right to refer to the trademark for nominative use (cards being
@@ -75,4 +75,4 @@ For any question during review:
 
 Thank you!
 
-— The DeckDealr team
+— TheDeckDealr team

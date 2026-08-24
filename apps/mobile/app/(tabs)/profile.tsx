@@ -285,7 +285,7 @@ export default function ProfileScreen() {
         </View>
 
         <Text variant="caption" className="text-center">
-          {`© ${new Date().getFullYear()} Nerio Invest SAS — DeckDealr. Tous droits réservés.`}
+          {`© ${new Date().getFullYear()} Nerio Invest SAS — TheDeckDealr. Tous droits réservés.`}
         </Text>
       </Animated.ScrollView>
     </View>

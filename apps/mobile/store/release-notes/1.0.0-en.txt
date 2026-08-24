@@ -1,6 +1,6 @@
-🎉 DeckDealr goes live!
+🎉 TheDeckDealr goes live!
 
-• Buy & sell Pokémon cards securely
+• Buy & sell trading cards securely
 • AI scan to list a card in under 30 seconds
 • Apple Pay / Google Pay at checkout
 • Secure delayed transfers + dispute mediation

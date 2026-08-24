@@ -10,7 +10,7 @@ import { useFeatureFlag } from "@/hooks/use-feature-flags";
 import { FeedGrid } from "@/components/feed/feed-grid";
 import { FeedFilters } from "@/components/feed/feed-filters";
 import { CardSuggestionsList } from "@/components/feed/card-suggestions-list";
-import { TabHeader } from "@/components/layout";
+import { BrandWordmark, TabHeader } from "@/components/layout";
 import { CARD_SEARCH_MIN_LENGTH, parseCardQuery } from "@/lib/api/tcgdex";
 
 export default function HomeScreen() {
@@ -100,7 +100,7 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <TabHeader title="DeckDealr" />
+      <TabHeader title={<BrandWordmark />} />
       <View className="bg-background px-4 pb-3 pt-3">
         <FeedFilters
           filters={filters}

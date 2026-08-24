@@ -98,7 +98,7 @@ export async function POST(request: Request) {
               business_url: `${requestOrigin}/profile/${user.id}`,
               doing_business_as: profile.username,
               product_description:
-                "Vente de cartes Pokémon entre collectionneurs sur DeckDealr",
+                "Vente de cartes à collectionner TCG entre particuliers sur TheDeckDealr",
             },
             responsibilities: {
               fees_collector: "application",

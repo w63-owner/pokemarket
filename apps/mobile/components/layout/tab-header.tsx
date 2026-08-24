@@ -5,8 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/ui/text";
 
 export type TabHeaderProps = {
-  /** Main heading for the tab — always rendered as `h2`. */
-  title: string;
+  /** Main heading for the tab, or a custom branded wordmark. */
+  title: ReactNode;
   /** Optional secondary line, rendered as a muted small text. */
   subtitle?: string;
   /**
@@ -27,8 +27,7 @@ export type TabHeaderProps = {
  *  - Reserves the top safe-area inset (status bar / notch).
  *  - Uses the `bg-background` surface (not `bg-card`) — tabs aren't a
  *    push, they're the canvas, so the header has no separate "lift".
- *  - Always `h2`, never overridable: keeps the visual hierarchy
- *    identical across the five tabs.
+ *  - String titles render as `h2`; the home tab can provide its wordmark.
  *  - Relies on spacing rather than a divider to keep the tab canvas clean.
  */
 export function TabHeader({ title, subtitle, right }: TabHeaderProps) {
@@ -36,9 +35,13 @@ export function TabHeader({ title, subtitle, right }: TabHeaderProps) {
     <SafeAreaView edges={["top"]} className="bg-background">
       <View className="flex-row items-center gap-3 px-4 py-3">
         <View className="min-w-0 flex-1">
-          <Text variant="h2" numberOfLines={1}>
-            {title}
-          </Text>
+          {typeof title === "string" ? (
+            <Text variant="h2" numberOfLines={1}>
+              {title}
+            </Text>
+          ) : (
+            title
+          )}
           {subtitle ? (
             <Text variant="muted" numberOfLines={1} className="mt-0.5">
               {subtitle}

@@ -15,7 +15,7 @@ export default function CGUPage() {
       <h2>1. Objet</h2>
       <p>
         Les présentes Conditions Générales d&apos;Utilisation (ci-après « CGU »)
-        définissent les règles d&apos;utilisation de la plateforme DeckDealr,
+        définissent les règles d&apos;utilisation de la plateforme TheDeckDealr,
         accessible à l&apos;adresse [URL du site], éditée par [Nom de
         l&apos;entreprise].
       </p>
@@ -26,9 +26,9 @@ export default function CGUPage() {
 
       <h2>2. Description du service</h2>
       <p>
-        DeckDealr est une marketplace communautaire (C2C) dédiée à la vente et à
-        l&apos;achat de cartes à collectionner Pokémon TCG entre particuliers.
-        La plateforme propose notamment :
+        TheDeckDealr est une marketplace communautaire (C2C) dédiée à la vente
+        et à l&apos;achat de cartes à collectionner TCG entre particuliers. La
+        plateforme propose notamment :
       </p>
       <ul>
         <li>

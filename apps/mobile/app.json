@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DeckDealr",
+    "name": "TheDeckDealr",
     "slug": "pokemarket",
     "scheme": "deckdealr",
     "version": "0.1.2",
@@ -21,9 +21,9 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "DeckDealr utilise l'appareil photo pour scanner vos cartes Pokémon et préremplir automatiquement vos annonces.",
-        "NSPhotoLibraryUsageDescription": "DeckDealr accède à votre galerie pour ajouter des photos à vos annonces.",
-        "NSFaceIDUsageDescription": "DeckDealr utilise Face ID pour sécuriser l'accès à votre compte."
+        "NSCameraUsageDescription": "TheDeckDealr utilise l'appareil photo pour scanner vos cartes TCG et préremplir automatiquement vos annonces.",
+        "NSPhotoLibraryUsageDescription": "TheDeckDealr accède à votre galerie pour ajouter des photos à vos annonces.",
+        "NSFaceIDUsageDescription": "TheDeckDealr utilise Face ID pour sécuriser l'accès à votre compte."
       }
     },
     "android": {
@@ -72,19 +72,19 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "DeckDealr utilise l'appareil photo pour scanner vos cartes Pokémon."
+          "cameraPermission": "TheDeckDealr utilise l'appareil photo pour scanner vos cartes TCG."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "DeckDealr accède à votre galerie pour vos annonces."
+          "photosPermission": "TheDeckDealr accède à votre galerie pour vos annonces."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "DeckDealr utilise Face ID pour sécuriser votre compte."
+          "faceIDPermission": "TheDeckDealr utilise Face ID pour sécuriser votre compte."
         }
       ],
       [

@@ -21,7 +21,7 @@ export default function HomePage() {
             TheDeck<span className="text-brand">Dealr</span>
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Les dernières cartes Pokémon en vente
+            Les dernières cartes TCG en vente
           </p>
         </header>
 

@@ -319,7 +319,7 @@ export default function SaleDetailScreen() {
                 value={formatPrice(sale.total_amount)}
               />
               <Row
-                label="Commission DeckDealr"
+                label="Commission TheDeckDealr"
                 value={`-${formatPrice(sale.fee_amount)}`}
                 accentClassName="text-destructive"
               />

@@ -56,7 +56,7 @@ export default function ListingScreen() {
     try {
       await Share.share({
         title: listing.title,
-        message: `${listing.title} — ${priceLabel} sur DeckDealr : ${url}`,
+        message: `${listing.title} — ${priceLabel} sur TheDeckDealr : ${url}`,
         url,
       });
     } catch {

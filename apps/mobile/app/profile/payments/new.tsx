@@ -46,7 +46,7 @@ export default function NewPaymentMethodScreen() {
         if (cancelled) return;
 
         const initResult = await initPaymentSheet({
-          merchantDisplayName: "DeckDealr",
+          merchantDisplayName: "TheDeckDealr",
           setupIntentClientSecret: client_secret,
           customerId: customer_id,
           customerSessionClientSecret: customer_session_client_secret,

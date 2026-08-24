@@ -1,8 +1,8 @@
-DeckDealr — the marketplace built for Pokémon cards
+TheDeckDealr — the marketplace built for trading card games (TCG)
 
-Buy, sell and collect Pokémon cards securely from your iPhone. Whether you're a collector, a competitive player or an investor, DeckDealr gives you a focused experience designed for fans of the franchise.
+Buy, sell and collect trading cards securely from your iPhone. Whether you're a collector, a competitive player or an investor, TheDeckDealr gives you a focused experience designed for trading card game enthusiasts.
 
-WHY DECKDEALR?
+WHY THEDECKDEALR?
 
 • List a card in under 30 seconds with our AI scan. Point your camera, OCR auto-detects the name, set and number.
 • One-tap checkout with Apple Pay and Face ID. No card numbers to type, no passwords to remember.
@@ -36,10 +36,10 @@ SAFETY AND TRANSPARENCY
 
 COMMUNITY
 
-Join the largest French community dedicated to Pokémon cards. Chat with other collectors, negotiate, share your pulls.
+Join a French community dedicated to trading card games. Chat with other collectors, negotiate, and share your best pulls.
 
-DeckDealr is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
+TheDeckDealr is an independent C2C platform. We are not affiliated with The Pokémon Company, Nintendo, Game Freak or Creatures. Pokémon and Pokémon character names are trademarks of Nintendo.
 
-Download DeckDealr now and bring your collection back to life.
+Download TheDeckDealr now and bring your collection back to life.
 
-— The DeckDealr team
+— TheDeckDealr team

@@ -59,7 +59,7 @@ const config = {
     categories: ["SHOPPING", "LIFESTYLE"],
     info: {
       "fr-FR": {
-        title: "DeckDealr",
+        title: "TheDeckDealr",
         subtitle: readText("store/app-store/subtitle-fr.txt"),
         description: readText("store/app-store/description-fr.md"),
         keywords: keywordsFromFile("store/app-store/keywords-fr.txt"),
@@ -70,7 +70,7 @@ const config = {
         privacyPolicyUrl: "https://thedeckdealr.com/legal/privacy",
       },
       "en-US": {
-        title: "DeckDealr",
+        title: "TheDeckDealr",
         subtitle: readText("store/app-store/subtitle-en.txt"),
         description: readText("store/app-store/description-en.md"),
         keywords: keywordsFromFile("store/app-store/keywords-en.txt"),

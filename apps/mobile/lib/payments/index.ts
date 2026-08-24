@@ -29,7 +29,7 @@ export function usePayment() {
       try {
         const intent = await startCheckout(input);
         return await stripeProvider.present({
-          merchantDisplayName: "DeckDealr",
+          merchantDisplayName: "TheDeckDealr",
           intent,
         });
       } catch (err) {

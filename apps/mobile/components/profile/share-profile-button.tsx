@@ -15,7 +15,7 @@ export function ShareProfileButton({ username, size = 20 }: Props) {
     const url = buildProfileUrl(username);
     try {
       await Share.share({
-        message: `Découvrez @${username} sur DeckDealr : ${url}`,
+        message: `Découvrez @${username} sur TheDeckDealr : ${url}`,
         url,
       });
     } catch {

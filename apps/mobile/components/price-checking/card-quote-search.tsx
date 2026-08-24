@@ -112,7 +112,7 @@ export function CardQuoteSearch() {
           autoCapitalize="words"
           returnKeyType="search"
           className="pl-11 pr-11"
-          accessibilityLabel="Rechercher une carte Pokémon"
+          accessibilityLabel="Rechercher une carte TCG"
         />
         {query.length > 0 ? (
           <Pressable

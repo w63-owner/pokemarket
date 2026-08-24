@@ -1,6 +1,6 @@
-🎉 Première version publique de DeckDealr !
+🎉 Première version publique de TheDeckDealr !
 
-• Achat & vente de cartes Pokémon en toute sécurité
+• Achat & vente de cartes TCG en toute sécurité
 • Scan IA en 30 secondes pour publier vos annonces
 • Apple Pay / Google Pay au checkout
 • Paiement sécurisé à transfert différé + médiation des litiges
