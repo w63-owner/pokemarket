@@ -6,6 +6,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { registerSchema } from "@pokemarket/shared";
 import type { z } from "zod";
+import { MailCheck } from "lucide-react-native";
 import {
   Button,
   FormScrollView,
@@ -16,14 +17,21 @@ import {
 } from "@/components/ui";
 import { toast } from "@/components/ui/toast";
 import { supabase } from "@/lib/supabase";
+import { useThemeColors } from "@/lib/theme-colors";
 
 type FormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterScreen() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [checkingConfirmation, setCheckingConfirmation] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
+    null,
+  );
+  const colors = useThemeColors();
   const {
     control,
+    getValues,
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
@@ -41,7 +49,7 @@ export default function RegisterScreen() {
 
   const onSubmit = handleSubmit(async ({ email, password, username }) => {
     setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -54,9 +62,71 @@ export default function RegisterScreen() {
       toast.error("Inscription échouée", error.message);
       return;
     }
-    toast.success("Compte créé", "Vérifie tes emails pour confirmer.");
-    returnToLogin();
+    if (data.session) {
+      router.replace("/(tabs)");
+      return;
+    }
+    setConfirmationEmail(email);
   });
+
+  async function checkConfirmation() {
+    const { email, password } = getValues();
+    setCheckingConfirmation(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    setCheckingConfirmation(false);
+
+    if (error) {
+      toast.error(
+        "Confirmation en attente",
+        "Clique d’abord sur le lien reçu dans ta boîte mail.",
+      );
+      return;
+    }
+
+    router.replace("/(tabs)");
+  }
+
+  if (confirmationEmail) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="w-full max-w-sm items-center">
+            <View className="rounded-full bg-primary/10 p-5">
+              <MailCheck size={48} color={colors.primary} strokeWidth={1.8} />
+            </View>
+            <Text variant="h2" className="mt-6 text-center">
+              Consulte ta boîte mail
+            </Text>
+            <Text className="mt-3 text-center">
+              Nous avons envoyé un email à{" "}
+              <Text className="font-semibold">{confirmationEmail}</Text>.
+            </Text>
+            <Text variant="muted" className="mt-3 text-center">
+              Clique sur le lien reçu pour confirmer ton adresse et finaliser
+              ton inscription. Pense à vérifier tes courriers indésirables.
+            </Text>
+            <Button
+              className="mt-8 w-full"
+              onPress={checkConfirmation}
+              loading={checkingConfirmation}
+            >
+              J&apos;ai confirmé mon email
+            </Button>
+            <Button
+              variant="ghost"
+              className="mt-2 w-full"
+              onPress={returnToLogin}
+            >
+              Retour à la connexion
+            </Button>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>

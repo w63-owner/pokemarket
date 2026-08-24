@@ -38,13 +38,21 @@ export function useAuth() {
   }, []);
 
   const signUp = useCallback(
-    async (email: string, password: string, username: string) => {
-      const { error } = await createClient().auth.signUp({
+    async (email: string, password: string, username: string, next = "/") => {
+      const confirmationUrl = new URL("/auth/callback", window.location.origin);
+      if (next.startsWith("/") && !next.startsWith("//")) {
+        confirmationUrl.searchParams.set("next", next);
+      }
+
+      const { data, error } = await createClient().auth.signUp({
         email,
         password,
-        options: { data: { username } },
+        options: {
+          data: { username },
+          emailRedirectTo: confirmationUrl.toString(),
+        },
       });
-      return { error };
+      return { data, error };
     },
     [],
   );

@@ -240,19 +240,19 @@ export async function handleIncomingUrl(url: string) {
 
   let path: string;
   let searchParams: URLSearchParams;
+  let fragmentParams: URLSearchParams;
   try {
+    const parsed = new URL(url);
+    fragmentParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+
     if (url.startsWith("http")) {
       // https://pokemarket.app/listing/123 → /listing/123
-      const parsed = new URL(url);
       path = parsed.pathname + parsed.search;
       searchParams = parsed.searchParams;
     } else if (url.startsWith("pokemarket://")) {
       // Custom scheme: pokemarket://wallet/return → /wallet/return
-      const stripped = url.slice("pokemarket://".length);
-      const [pathPart, queryPart] = stripped.split("?");
-      path =
-        "/" + pathPart.replace(/^\/+/, "") + (queryPart ? `?${queryPart}` : "");
-      searchParams = new URLSearchParams(queryPart ?? "");
+      path = `/${parsed.host}${parsed.pathname}${parsed.search}`;
+      searchParams = parsed.searchParams;
     } else {
       return;
     }
@@ -280,12 +280,41 @@ export async function handleIncomingUrl(url: string) {
       if (!error) {
         if (type === "recovery") {
           router.replace("/(auth)/reset-password");
+        } else if (type === "signup") {
+          router.replace("/(auth)/confirmed?status=success" as never);
         } else {
           router.replace("/(tabs)");
         }
+      } else if (type === "signup") {
+        router.replace("/(auth)/confirmed?status=error" as never);
       }
       return;
     }
+  }
+
+  // Depending on the Supabase Auth flow configured for the project, the
+  // confirmation redirect can contain either a PKCE code or implicit-flow
+  // tokens. Support both so links work consistently across email clients.
+  if (path.split("?")[0] === "/auth/confirm") {
+    const code = searchParams.get("code");
+    const accessToken = fragmentParams.get("access_token");
+    const refreshToken = fragmentParams.get("refresh_token");
+
+    const { error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : accessToken && refreshToken
+        ? await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+        : { error: new Error("Missing confirmation credentials") };
+
+    router.replace(
+      error
+        ? ("/(auth)/confirmed?status=error" as never)
+        : ("/(auth)/confirmed?status=success" as never),
+    );
+    return;
   }
 
   // Don't intercept links that already correspond to our own scheme returns

@@ -6,16 +6,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MailCheck } from "lucide-react";
 import { SmartBackButton } from "@/components/ui/smart-back-button";
 
 function AuthForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const router = useRouter();
@@ -36,6 +40,13 @@ function AuthForm() {
     router.back();
   }
 
+  function returnToLogin() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("mode");
+    setConfirmationEmail(null);
+    router.replace(`/auth${params.size ? `?${params.toString()}` : ""}`);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -53,13 +64,18 @@ function AuthForm() {
         setLoading(false);
         return;
       }
-      const { error } = await signUp(email, password, username);
+      const { data, error } = await signUp(email, password, username, next);
       if (error) {
         toast.error(error.message);
         setLoading(false);
         return;
       }
-      toast.success("Vérifiez votre email pour confirmer votre compte");
+      if (data.session) {
+        router.push(next);
+        router.refresh();
+        return;
+      }
+      setConfirmationEmail(email);
       setLoading(false);
       return;
     }
@@ -112,79 +128,112 @@ function AuthForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {mode === "register" && (
-          <div className="space-y-2">
-            <Label htmlFor="username">Pseudo</Label>
-            <Input
-              id="username"
-              type="text"
-              placeholder="votre_pseudo"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              minLength={3}
-              maxLength={30}
-            />
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="vous@exemple.fr"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Mot de passe</Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-        </div>
-
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading
-            ? "Chargement..."
-            : mode === "login"
-              ? "Se connecter"
-              : "Créer mon compte"}
-        </Button>
-      </form>
-
-      <div className="space-y-2 text-center text-sm">
-        <button
-          type="button"
-          onClick={mode === "login" ? showRegister : showLogin}
-          className="text-brand hover:underline"
+      {confirmationEmail ? (
+        <div
+          className="flex flex-col items-center gap-5 text-center"
+          aria-live="polite"
         >
-          {mode === "login"
-            ? "Pas encore de compte ? Inscrivez-vous"
-            : "Déjà un compte ? Connectez-vous"}
-        </button>
-
-        {mode === "login" && (
-          <div>
-            <Link
-              href="/auth/forgot-password"
-              className="text-muted-foreground hover:underline"
-            >
-              Mot de passe oublié ?
-            </Link>
+          <div className="bg-brand/10 flex size-20 items-center justify-center rounded-full">
+            <MailCheck className="text-brand size-10" aria-hidden="true" />
           </div>
-        )}
-      </div>
+          <div className="space-y-2">
+            <h2 className="font-heading text-xl font-semibold">
+              Consultez votre boîte mail
+            </h2>
+            <p className="text-sm">
+              Nous avons envoyé un email à{" "}
+              <strong className="break-all">{confirmationEmail}</strong>.
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Cliquez sur le lien reçu pour confirmer votre adresse et finaliser
+              votre inscription. Pensez à vérifier vos courriers indésirables.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={returnToLogin}
+          >
+            Retour à la connexion
+          </Button>
+        </div>
+      ) : (
+        <>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "register" && (
+              <div className="space-y-2">
+                <Label htmlFor="username">Pseudo</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="votre_pseudo"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  minLength={3}
+                  maxLength={30}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="vous@exemple.fr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe</Label>
+              <PasswordInput
+                id="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading
+                ? "Chargement..."
+                : mode === "login"
+                  ? "Se connecter"
+                  : "Créer mon compte"}
+            </Button>
+          </form>
+
+          <div className="space-y-2 text-center text-sm">
+            <button
+              type="button"
+              onClick={mode === "login" ? showRegister : showLogin}
+              className="text-brand hover:underline"
+            >
+              {mode === "login"
+                ? "Pas encore de compte ? Inscrivez-vous"
+                : "Déjà un compte ? Connectez-vous"}
+            </button>
+
+            {mode === "login" && (
+              <div>
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-muted-foreground hover:underline"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

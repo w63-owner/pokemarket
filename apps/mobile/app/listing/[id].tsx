@@ -19,6 +19,7 @@ import { ListingActions } from "@/components/listing/listing-actions";
 import { PriceHistoryChart } from "@/components/listing/price-history-chart";
 import { ReportDialog } from "@/components/listing/report-dialog";
 import { MobileHeader } from "@/components/layout/mobile-header";
+import { ErrorState } from "@/components/shared";
 import { Badge, Skeleton, Text, toast } from "@/components/ui";
 import { useEffectiveTheme } from "@/lib/stores/theme";
 import { useThemeColor } from "@/lib/theme-colors";
@@ -27,8 +28,11 @@ import { tapScale } from "@/lib/motion";
 import { env } from "@/lib/env";
 
 export default function ListingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: listing, isLoading } = useListing(id);
+  const { id: rawId } = useLocalSearchParams<{
+    id?: string | string[];
+  }>();
+  const id = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
+  const { data: listing, isLoading, isError, refetch } = useListing(id);
   const { user } = useAuth();
   const { data: favIds = [] } = useFavoriteListingIds();
   const { data: reputation } = useSellerReputation(listing?.seller_id);
@@ -60,7 +64,7 @@ export default function ListingScreen() {
     }
   };
 
-  if (isLoading || !listing) {
+  if (isLoading) {
     return (
       <View className="flex-1 bg-background">
         <Stack.Screen options={{ headerShown: false }} />
@@ -73,6 +77,34 @@ export default function ListingScreen() {
           <Skeleton className="h-12 w-full rounded-2xl" />
           <Skeleton className="h-16 w-full rounded-2xl" />
           <Skeleton className="h-32 w-full rounded-2xl" />
+        </View>
+      </View>
+    );
+  }
+
+  if (!id || isError || !listing) {
+    return (
+      <View className="flex-1 bg-background">
+        <Stack.Screen options={{ headerShown: false }} />
+        <MobileHeader title="Annonce indisponible" fallbackHref="/(tabs)" />
+        <View className="flex-1 justify-center px-4">
+          <ErrorState
+            variant="card"
+            title="Impossible de charger l’annonce"
+            description={
+              !id
+                ? "Le lien de cette annonce est invalide."
+                : "Vérifiez votre connexion puis réessayez."
+            }
+            action={
+              id
+                ? {
+                    label: "Réessayer",
+                    onPress: () => void refetch(),
+                  }
+                : undefined
+            }
+          />
         </View>
       </View>
     );
