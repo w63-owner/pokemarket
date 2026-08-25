@@ -3,7 +3,7 @@
     "name": "TheDeckDealr",
     "slug": "pokemarket",
     "scheme": "deckdealr",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

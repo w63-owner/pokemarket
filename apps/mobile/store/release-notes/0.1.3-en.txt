@@ -1,0 +1,4 @@
+• Redesigned listing page with purchase actions always within reach.
+• Improved card photos, zoom, and richer card details.
+• Clearer shipping, buyer protection, and seller information.
+• Accessibility, sharing, and stability improvements.
