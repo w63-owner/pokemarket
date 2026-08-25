@@ -34,7 +34,7 @@ function CornerBracket({ position }: { position: "tl" | "tr" | "bl" | "br" }) {
         height: BRACKET_LEN,
         ...(isTop ? { top: -BRACKET_W / 2 } : { bottom: -BRACKET_W / 2 }),
         ...(isLeft ? { left: -BRACKET_W / 2 } : { right: -BRACKET_W / 2 }),
-        borderColor: "hsl(var(--brand))",
+        borderColor: "var(--brand)",
         borderStyle: "solid",
         borderWidth: 0,
         ...(isTop

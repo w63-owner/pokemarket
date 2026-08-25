@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { BadgeCheck, ChevronRight, MapPin } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { StarRating } from "@/components/shared/star-rating";
 import { cn } from "@/lib/utils";
@@ -12,12 +12,18 @@ interface SellerBlockProps {
     avatar_url: string | null;
     avg_rating: number | null;
     review_count: number;
+    kyc_status?: string | null;
+    city?: string | null;
+    country_code?: string | null;
   };
   className?: string;
 }
 
 export function SellerBlock({ seller, className }: SellerBlockProps) {
   const initials = seller.username.slice(0, 2).toUpperCase();
+  const location = [seller.city, seller.country_code]
+    .filter((value): value is string => Boolean(value))
+    .join(", ");
 
   return (
     <Link
@@ -35,9 +41,20 @@ export function SellerBlock({ seller, className }: SellerBlockProps) {
       </Avatar>
 
       <div className="min-w-0 flex-1">
-        <p className="text-foreground truncate text-sm font-semibold">
-          {seller.username}
-        </p>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="text-foreground truncate text-sm font-semibold">
+            {seller.username}
+          </p>
+          {seller.kyc_status === "VERIFIED" && (
+            <span
+              className="text-primary inline-flex shrink-0 items-center gap-1 text-xs font-medium"
+              aria-label="Identité vérifiée"
+            >
+              <BadgeCheck className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Vérifié</span>
+            </span>
+          )}
+        </div>
 
         <div className="mt-0.5 flex items-center gap-1.5">
           {seller.avg_rating !== null ? (
@@ -58,9 +75,18 @@ export function SellerBlock({ seller, className }: SellerBlockProps) {
             </span>
           )}
         </div>
+        {location && (
+          <p className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
+            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{location}</span>
+          </p>
+        )}
       </div>
 
-      <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight
+        className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+        aria-hidden="true"
+      />
     </Link>
   );
 }

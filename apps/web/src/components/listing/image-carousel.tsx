@@ -10,6 +10,13 @@ import {
 } from "framer-motion";
 import { X, ZoomIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CarouselImage {
   url: string;
@@ -65,7 +72,7 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
     return (
       <div
         className={cn(
-          "bg-muted flex aspect-square items-center justify-center rounded-2xl",
+          "bg-muted flex aspect-[63/88] items-center justify-center rounded-2xl",
           className,
         )}
       >
@@ -101,7 +108,7 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
           className,
         )}
       >
-        <div className="relative aspect-square">
+        <div className="relative aspect-[63/88]">
           <AnimatePresence initial={false} custom={direction} mode="popLayout">
             <m.div
               key={currentIndex}
@@ -137,16 +144,16 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
           <button
             type="button"
             onClick={() => handleZoom(images[currentIndex])}
-            className="absolute right-3 bottom-3 z-10 flex size-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+            className="absolute right-3 bottom-3 z-10 flex size-11 items-center justify-center rounded-full border border-white/20 bg-black/55 text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-black/70 focus-visible:ring-3 focus-visible:ring-white/70 focus-visible:outline-none"
             aria-label="Voir en grand"
           >
-            <ZoomIn className="size-4" />
+            <ZoomIn className="size-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Dot indicators */}
         {images.length > 1 && (
-          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+          <div className="absolute bottom-1 left-1/2 z-10 flex -translate-x-1/2">
             {images.map((_, i) => (
               <button
                 key={i}
@@ -156,60 +163,73 @@ export function ImageCarousel({ images, className }: ImageCarouselProps) {
                   setCurrentIndex(i);
                 }}
                 className={cn(
-                  "size-2 rounded-full transition-all duration-200",
-                  i === currentIndex
-                    ? "w-5 bg-white"
-                    : "bg-white/50 hover:bg-white/75",
+                  "group flex size-11 items-center justify-center rounded-full focus-visible:ring-3 focus-visible:ring-white/70 focus-visible:outline-none",
                 )}
-                aria-label={`Image ${i + 1}`}
-                aria-current={i === currentIndex ? "true" : undefined}
-              />
+                aria-label={`Afficher l’image ${i + 1} sur ${images.length}`}
+                aria-pressed={i === currentIndex}
+              >
+                <span
+                  className={cn(
+                    "h-2 rounded-full shadow-sm transition-all duration-200",
+                    i === currentIndex
+                      ? "w-5 bg-white"
+                      : "w-2 bg-white/55 group-hover:bg-white/80",
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* Fullscreen zoom overlay */}
-      <AnimatePresence>
+      <Dialog
+        open={zoomedImage !== null}
+        onOpenChange={(open) => {
+          if (!open) setZoomedImage(null);
+        }}
+      >
         {zoomedImage && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
-            onClick={() => setZoomedImage(null)}
+          <DialogContent
+            showCloseButton={false}
+            className="h-dvh w-screen max-w-none place-items-center rounded-none border-0 bg-black/95 p-4 ring-0 sm:max-w-none"
           >
-            <button
-              type="button"
-              onClick={() => setZoomedImage(null)}
-              className="absolute top-4 right-4 z-10 flex size-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-              aria-label="Fermer"
+            <DialogTitle className="sr-only">Aperçu de l’image</DialogTitle>
+            <DialogDescription className="sr-only">
+              Image agrandie. Appuyez sur Échap ou utilisez le bouton fermer
+              pour revenir à l’annonce.
+            </DialogDescription>
+            <DialogClose
+              render={
+                <button
+                  type="button"
+                  className="absolute top-4 right-4 z-10 flex size-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-sm transition-colors hover:bg-white/20 focus-visible:ring-3 focus-visible:ring-white/70 focus-visible:outline-none"
+                  aria-label="Fermer l’aperçu"
+                />
+              }
             >
-              <X className="size-5" />
-            </button>
+              <X className="size-5" aria-hidden="true" />
+            </DialogClose>
 
             <m.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="relative h-[85vh] w-[90vw] max-w-3xl"
-              onClick={(e) => e.stopPropagation()}
+              className="relative h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-4xl"
             >
               <Image
                 src={zoomedImage.hdUrl || zoomedImage.url}
                 alt={zoomedImage.alt}
                 fill
-                sizes="90vw"
+                sizes="100vw"
                 className="object-contain"
                 quality={95}
                 priority
               />
             </m.div>
-          </m.div>
+          </DialogContent>
         )}
-      </AnimatePresence>
+      </Dialog>
     </>
   );
 }

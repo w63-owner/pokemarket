@@ -25,6 +25,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://staging.thedeckdealr.com",
+        "EXPO_PUBLIC_WEB_APP_URL": "https://staging.thedeckdealr.com",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EAS_USE_CACHE": "1"
       }
@@ -46,6 +47,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://staging.thedeckdealr.com",
+        "EXPO_PUBLIC_WEB_APP_URL": "https://staging.thedeckdealr.com",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EAS_USE_CACHE": "1"
       }
@@ -66,6 +68,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://thedeckdealr.com",
+        "EXPO_PUBLIC_WEB_APP_URL": "https://thedeckdealr.com",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EAS_USE_CACHE": "1",
         "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",

@@ -55,7 +55,7 @@ export function Header() {
       transition={spring.snappy}
       className="border-border bg-background/80 sticky top-0 z-50 hidden border-b backdrop-blur-lg lg:block"
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-8">
         <Link href="/" className="font-heading text-xl font-bold">
           TheDeck<span className="text-brand">Dealr</span>
         </Link>

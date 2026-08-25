@@ -104,6 +104,7 @@ export async function fetchListingsFeed(
 
 export type CreateListingInput = {
   title: string;
+  description?: string | null;
   price_seller: number;
   condition?: string | null;
   is_graded: boolean;
@@ -161,6 +162,7 @@ export async function fetchMyListings({
 export type UpdateListingInput = {
   id: string;
   title: string;
+  description?: string | null;
   price_seller: number;
   condition?: string | null;
   is_graded: boolean;
@@ -192,6 +194,7 @@ export async function updateListing(
     .from("listings")
     .update({
       title: input.title,
+      description: input.description || null,
       price_seller: input.price_seller,
       condition: input.is_graded ? null : (input.condition ?? null),
       is_graded: input.is_graded,

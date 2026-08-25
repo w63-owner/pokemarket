@@ -10,6 +10,7 @@ import { Euro, ShieldCheck, Loader2, TrendingUp } from "lucide-react";
 import { queryKeys, type PriceHistoryResponse } from "@deckdealr/shared";
 
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +52,7 @@ const sellFormSchema = z
         LIMITS.TITLE_MAX_LENGTH,
         `Maximum ${LIMITS.TITLE_MAX_LENGTH} caractères`,
       ),
+    description: z.string().max(1000, "Maximum 1000 caractères").optional(),
     price_seller: z
       .number({ message: "Entrez un prix valide" })
       .min(
@@ -208,6 +210,7 @@ export function SellForm({
     resolver: zodResolver(sellFormSchema),
     defaultValues: {
       title: "",
+      description: "",
       price_seller: undefined as unknown as number,
       condition: undefined,
       is_graded: false,
@@ -274,6 +277,22 @@ export function SellForm({
           {...register("title")}
         />
         <FieldError message={errors.title?.message} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="description">Description de la carte</Label>
+        <Textarea
+          id="description"
+          rows={4}
+          maxLength={1000}
+          placeholder="Précisez les éventuels plis, rayures, défauts de centrage ou particularités visibles."
+          aria-invalid={!!errors.description}
+          {...register("description")}
+        />
+        <p className="text-muted-foreground text-xs">
+          Décrivez honnêtement l’état réel pour rassurer l’acheteur.
+        </p>
+        <FieldError message={errors.description?.message} />
       </div>
 
       {/* Card metadata: Série, Bloc, Numéro */}

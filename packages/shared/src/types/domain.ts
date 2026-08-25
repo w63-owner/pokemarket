@@ -142,7 +142,10 @@ export type ReviewInsert = Database["public"]["Tables"]["reviews"]["Insert"];
 
 // Joined / enriched types
 export type ListingWithSeller = Listing & {
-  seller: Pick<Profile, "username" | "avatar_url">;
+  seller: Pick<
+    Profile,
+    "username" | "avatar_url" | "kyc_status" | "city" | "country_code"
+  >;
 };
 
 export type ConversationPreview = Conversation & {

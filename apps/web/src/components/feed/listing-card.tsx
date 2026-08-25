@@ -24,16 +24,16 @@ export function ListingCard({
   priority = false,
 }: ListingCardProps) {
   return (
-    <m.div {...tapScale}>
-      <Link href={`/listing/${listing.id}`} className="group block">
-        <div className="bg-card overflow-hidden rounded-xl shadow-sm transition-shadow hover:shadow-md">
+    <m.div {...tapScale} className="h-full">
+      <Link href={`/listing/${listing.id}`} className="group block h-full">
+        <div className="bg-card border-border/70 group-hover:border-brand/20 h-full overflow-hidden rounded-xl border shadow-sm transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md">
           <div className="bg-muted relative aspect-[4/5] overflow-hidden">
             {listing.cover_image_url ? (
               <Image
                 src={listing.cover_image_url}
                 alt={listing.title}
                 fill
-                sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, 25vw"
+                sizes="(max-width: 639px) 50vw, (max-width: 1023px) 33vw, (max-width: 1279px) 25vw, (max-width: 1535px) 20vw, 16vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 placeholder="blur"
                 blurDataURL={BLUR_PLACEHOLDER}
@@ -55,7 +55,7 @@ export function ListingCard({
             )}
           </div>
 
-          <div className="space-y-1 p-3">
+          <div className="flex min-h-32 flex-col gap-1 p-3">
             <h3 className="text-foreground truncate text-sm font-medium">
               {listing.title}
             </h3>
@@ -88,7 +88,10 @@ export function ListingCard({
               )}
             </div>
 
-            <PriceDisplay price={listing.display_price} />
+            <PriceDisplay
+              price={listing.display_price}
+              className="mt-auto pt-1"
+            />
           </div>
         </div>
       </Link>

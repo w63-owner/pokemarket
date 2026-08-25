@@ -1,14 +1,12 @@
-import type {
-  Database,
-  FeedFilters,
-  FeedItem,
-  Listing,
-  ListingWithSeller,
-} from "@deckdealr/shared";
 import {
   getSellerReputation,
   listingCreateSchema,
   type SellerReputation,
+  type Database,
+  type FeedFilters,
+  type FeedItem,
+  type Listing,
+  type ListingWithSeller,
 } from "@deckdealr/shared";
 import { getCurrentUserId, requireUserId } from "@/lib/auth/current-user";
 import {
@@ -101,7 +99,9 @@ export async function fetchListingsFeed(
 export async function fetchListing(id: string): Promise<ListingWithSeller> {
   const { data, error } = await supabase
     .from("listings")
-    .select("*, seller:profiles!listings_seller_id_fkey(username, avatar_url)")
+    .select(
+      "*, seller:profiles!listings_seller_id_fkey(username, avatar_url, kyc_status, city, country_code)",
+    )
     .eq("id", id)
     .single();
 
@@ -155,6 +155,7 @@ export async function fetchSellerListings(
 
 export type CreateListingInput = {
   title: string;
+  description?: string | null;
   price_seller: number;
   condition?: string | null;
   is_graded: boolean;
@@ -190,6 +191,7 @@ export async function createListing(
     .insert({
       seller_id: userId,
       title: d.title,
+      description: d.description || null,
       price_seller: d.price_seller,
       condition: d.is_graded ? null : (d.condition ?? null),
       is_graded: d.is_graded,
@@ -217,6 +219,7 @@ export async function createListing(
 export type UpdateListingInput = {
   id: string;
   title: string;
+  description?: string | null;
   price_seller: number;
   condition?: string | null;
   is_graded: boolean;
@@ -241,6 +244,7 @@ export async function updateListing(
     .from("listings")
     .update({
       title: input.title,
+      description: input.description || null,
       price_seller: input.price_seller,
       condition: input.is_graded ? null : (input.condition ?? null),
       is_graded: input.is_graded,

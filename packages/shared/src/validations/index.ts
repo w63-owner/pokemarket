@@ -61,6 +61,12 @@ export const listingCreateSchema = z
         LIMITS.TITLE_MAX_LENGTH,
         `Le titre doit contenir au maximum ${LIMITS.TITLE_MAX_LENGTH} caractères`,
       ),
+    description: z
+      .string()
+      .trim()
+      .max(1000, "La description ne peut pas dépasser 1000 caractères")
+      .optional()
+      .nullable(),
     price_seller: z
       .number()
       .min(

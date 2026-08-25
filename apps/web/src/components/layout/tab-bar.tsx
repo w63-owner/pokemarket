@@ -63,68 +63,74 @@ export function TabBar() {
   if (isHidden) return null;
 
   return (
-    <nav
-      aria-label="Navigation principale"
-      className="border-border bg-background/80 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:hidden"
-    >
-      <div className="flex items-center justify-around pb-[env(safe-area-inset-bottom)]">
-        {tabs
-          .filter(
-            (tab) =>
-              tab.flag === null || (featureFlags?.flags[tab.flag] ?? true),
-          )
-          .map((tab) => {
-            const isActive =
-              tab.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(tab.href);
+    <>
+      <div
+        className="h-[calc(4rem+env(safe-area-inset-bottom))] lg:hidden"
+        aria-hidden="true"
+      />
+      <nav
+        aria-label="Navigation principale"
+        className="border-border bg-background/80 fixed right-0 bottom-0 left-0 z-50 border-t backdrop-blur-lg lg:hidden"
+      >
+        <div className="flex items-center justify-around pb-[env(safe-area-inset-bottom)]">
+          {tabs
+            .filter(
+              (tab) =>
+                tab.flag === null || (featureFlags?.flags[tab.flag] ?? true),
+            )
+            .map((tab) => {
+              const isActive =
+                tab.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(tab.href);
 
-            const messageBadge =
-              tab.href === "/messages" && !!unreadCount && unreadCount > 0;
-            const favBadge =
-              tab.href === "/favorites" && savedSearchNewTotal > 0;
-            const badgeCount = messageBadge
-              ? unreadCount
-              : favBadge
-                ? savedSearchNewTotal
-                : 0;
+              const messageBadge =
+                tab.href === "/messages" && !!unreadCount && unreadCount > 0;
+              const favBadge =
+                tab.href === "/favorites" && savedSearchNewTotal > 0;
+              const badgeCount = messageBadge
+                ? unreadCount
+                : favBadge
+                  ? savedSearchNewTotal
+                  : 0;
 
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "relative flex flex-col items-center gap-0.5 px-3 py-2 text-xs transition-colors",
-                  isActive
-                    ? "text-brand"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <m.div {...tapScaleSmall} className="relative">
-                  <tab.icon className="size-5" />
-                  {badgeCount > 0 && (
-                    <span
-                      aria-live="polite"
-                      aria-atomic="true"
-                      aria-label={`${badgeCount} non lu${badgeCount > 1 ? "s" : ""}`}
-                      className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white"
-                    >
-                      {badgeCount > 99 ? "99" : badgeCount}
-                    </span>
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={cn(
+                    "relative flex flex-col items-center gap-0.5 px-3 py-2 text-xs transition-colors",
+                    isActive
+                      ? "text-brand"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
-                </m.div>
-                <span>{tab.label}</span>
-                {isActive && (
-                  <m.div
-                    layoutId="tab-indicator"
-                    className="bg-brand absolute -top-px right-3 left-3 h-0.5 rounded-full"
-                    transition={spring.gentle}
-                  />
-                )}
-              </Link>
-            );
-          })}
-      </div>
-    </nav>
+                >
+                  <m.div {...tapScaleSmall} className="relative">
+                    <tab.icon className="size-5" />
+                    {badgeCount > 0 && (
+                      <span
+                        aria-live="polite"
+                        aria-atomic="true"
+                        aria-label={`${badgeCount} non lu${badgeCount > 1 ? "s" : ""}`}
+                        className="absolute -top-1.5 -right-2 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] leading-none font-bold text-white"
+                      >
+                        {badgeCount > 99 ? "99" : badgeCount}
+                      </span>
+                    )}
+                  </m.div>
+                  <span>{tab.label}</span>
+                  {isActive && (
+                    <m.div
+                      layoutId="tab-indicator"
+                      className="bg-brand absolute -top-px right-3 left-3 h-0.5 rounded-full"
+                      transition={spring.gentle}
+                    />
+                  )}
+                </Link>
+              );
+            })}
+        </div>
+      </nav>
+    </>
   );
 }

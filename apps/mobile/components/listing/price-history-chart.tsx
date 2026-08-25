@@ -21,6 +21,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Button,
   Skeleton,
   Text,
 } from "@/components/ui";
@@ -87,7 +88,7 @@ export function PriceHistoryChart({
   const foreground = useThemeColor("foreground");
   const mutedForeground = useThemeColor("mutedForeground");
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: queryKeys.priceHistory(cardKey, variant, "30d"),
     queryFn: () => fetchPriceHistory(cardKey, variant),
     staleTime: 5 * 60 * 1000,
@@ -100,10 +101,19 @@ export function PriceHistoryChart({
   if (isError || !data) {
     return (
       <Card className="mt-2">
-        <CardContent>
-          <Text variant="muted">
-            Impossible de charger l&apos;historique des prix pour cette carte.
+        <CardContent className="flex-row items-center gap-3">
+          <Text variant="muted" className="min-w-0 flex-1">
+            Historique des prix indisponible.
           </Text>
+          <Button
+            size="sm"
+            variant="outline"
+            loading={isFetching}
+            onPress={() => void refetch()}
+            accessibilityLabel="Réessayer de charger l’historique des prix"
+          >
+            Réessayer
+          </Button>
         </CardContent>
       </Card>
     );

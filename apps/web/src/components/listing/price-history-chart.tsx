@@ -9,7 +9,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, BarChart3, Activity, Eye, Info } from "lucide-react";
+import {
+  TrendingUp,
+  BarChart3,
+  Activity,
+  Eye,
+  Info,
+  AlertCircle,
+  RotateCcw,
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,7 +110,7 @@ export function PriceHistoryChart({
   const variant = requestedVariant ?? "normal";
   const [period, setPeriod] = useState<PriceHistoryPeriod>("30d");
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: queryKeys.priceHistory(cardKey, variant, period),
     queryFn: () => fetchPriceHistory(cardKey, variant, period),
     staleTime: 5 * 60 * 1000,
@@ -115,10 +123,27 @@ export function PriceHistoryChart({
   if (isError || !data) {
     return (
       <Card className="mt-6">
-        <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            Impossible de charger l&apos;historique des prix pour cette carte.
+        <CardContent className="flex items-center gap-3 py-4">
+          <AlertCircle
+            className="text-muted-foreground size-5 shrink-0"
+            aria-hidden="true"
+          />
+          <p className="text-muted-foreground min-w-0 flex-1 text-sm">
+            Historique des prix indisponible.
           </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isFetching}
+            onClick={() => void refetch()}
+          >
+            <RotateCcw
+              className={isFetching ? "size-3.5 animate-spin" : "size-3.5"}
+              aria-hidden="true"
+            />
+            Réessayer
+          </Button>
         </CardContent>
       </Card>
     );
@@ -234,12 +259,12 @@ export function PriceHistoryChart({
                 <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop
                     offset="0%"
-                    stopColor="hsl(var(--primary))"
+                    stopColor="var(--primary)"
                     stopOpacity={0.3}
                   />
                   <stop
                     offset="100%"
-                    stopColor="hsl(var(--primary))"
+                    stopColor="var(--primary)"
                     stopOpacity={0}
                   />
                 </linearGradient>
@@ -267,7 +292,7 @@ export function PriceHistoryChart({
               <Area
                 type="monotone"
                 dataKey="price"
-                stroke="hsl(var(--primary))"
+                stroke="var(--primary)"
                 strokeWidth={2}
                 fill="url(#priceGradient)"
               />

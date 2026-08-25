@@ -7,6 +7,7 @@ const emptyToUndefined = (v: unknown) =>
 
 const envSchema = z.object({
   API_URL: z.string().url(),
+  WEB_APP_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(20),
   STRIPE_PUBLISHABLE_KEY: z
@@ -17,6 +18,7 @@ const envSchema = z.object({
 
 const parsed = envSchema.safeParse({
   API_URL: process.env.EXPO_PUBLIC_API_URL,
+  WEB_APP_URL: process.env.EXPO_PUBLIC_WEB_APP_URL,
   SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   STRIPE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,

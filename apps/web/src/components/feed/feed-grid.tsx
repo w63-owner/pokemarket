@@ -9,6 +9,15 @@ import { ListingCard } from "@/components/feed/listing-card";
 import { ListingCardSkeleton } from "@/components/feed/listing-card-skeleton";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SORT_OPTIONS } from "@/lib/constants";
+import { useUpdateFilters } from "@/hooks/use-feed-filters";
+import {
   staggerContainer,
   fadeInUp,
   safeVariants,
@@ -20,6 +29,51 @@ const SKELETON_COUNT = 10;
 
 interface FeedGridProps {
   filters?: FeedFilters;
+}
+
+function FeedToolbar({
+  filters,
+  itemCount,
+  hasMore = false,
+}: {
+  filters: FeedFilters;
+  itemCount?: number;
+  hasMore?: boolean;
+}) {
+  const { updateFilters } = useUpdateFilters();
+
+  return (
+    <div className="flex min-h-8 items-center justify-between gap-3">
+      <p className="text-sm font-medium" aria-live="polite">
+        {itemCount === undefined
+          ? "Chargement des annonces…"
+          : `${itemCount}${hasMore ? "+" : ""} annonce${itemCount > 1 ? "s" : ""}`}
+      </p>
+      <Select
+        value={filters.sort ?? "date_desc"}
+        onValueChange={(sort) =>
+          updateFilters({
+            sort: !sort || sort === "date_desc" ? undefined : sort,
+          })
+        }
+      >
+        <SelectTrigger
+          size="sm"
+          className="bg-background"
+          aria-label="Trier les annonces"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {SORT_OPTIONS.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 export function FeedGrid({ filters = {} }: FeedGridProps) {
@@ -51,56 +105,72 @@ export function FeedGrid({ filters = {} }: FeedGridProps) {
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <div className="bg-destructive/10 rounded-full p-4">
-          <RefreshCw className="text-destructive h-8 w-8" />
+      <div className="space-y-4">
+        <FeedToolbar filters={filters} />
+        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+          <div className="bg-destructive/10 rounded-full p-4">
+            <RefreshCw className="text-destructive h-8 w-8" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-foreground font-medium">
+              Impossible de charger les annonces
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {error?.message ?? "Une erreur inattendue est survenue."}
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Réessayer
+          </Button>
         </div>
-        <div className="space-y-1">
-          <p className="text-foreground font-medium">
-            Impossible de charger les annonces
-          </p>
-          <p className="text-muted-foreground text-sm">
-            {error?.message ?? "Une erreur inattendue est survenue."}
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => refetch()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Réessayer
-        </Button>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
-          <ListingCardSkeleton key={i} />
-        ))}
+      <div className="space-y-4">
+        <FeedToolbar filters={filters} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4 xl:grid-cols-5 2xl:grid-cols-6">
+          {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+            <ListingCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (allItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <div className="bg-muted rounded-full p-4">
-          <PackageOpen className="text-muted-foreground h-8 w-8" />
-        </div>
-        <div className="space-y-1">
-          <p className="text-foreground font-medium">Aucune annonce trouvée</p>
-          <p className="text-muted-foreground text-sm">
-            Le marché est vide pour le moment. Revenez bientôt !
-          </p>
+      <div className="space-y-4">
+        <FeedToolbar filters={filters} itemCount={0} />
+        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+          <div className="bg-muted rounded-full p-4">
+            <PackageOpen className="text-muted-foreground h-8 w-8" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-foreground font-medium">
+              Aucune annonce trouvée
+            </p>
+            <p className="text-muted-foreground text-sm">
+              Le marché est vide pour le moment. Revenez bientôt !
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-4">
+      <FeedToolbar
+        filters={filters}
+        itemCount={allItems.length}
+        hasMore={hasNextPage}
+      />
       <m.div
-        className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4 xl:grid-cols-5 2xl:grid-cols-6"
         variants={safeVariants(staggerContainer(0.05), prefersReducedMotion)}
         initial={safeInitial(prefersReducedMotion)}
         animate="visible"
@@ -123,6 +193,6 @@ export function FeedGrid({ filters = {} }: FeedGridProps) {
       {hasNextPage && (
         <div ref={sentinelRef} className="h-10" aria-hidden="true" />
       )}
-    </>
+    </div>
   );
 }

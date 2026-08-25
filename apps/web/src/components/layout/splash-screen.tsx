@@ -22,7 +22,7 @@ function ScanBracket({ position }: { position: BracketPosition }) {
         height: 22,
         ...(isTop ? { top: -1 } : { bottom: -1 }),
         ...(isLeft ? { left: -1 } : { right: -1 }),
-        borderColor: "hsl(var(--brand))",
+        borderColor: "var(--brand)",
         borderStyle: "solid",
         borderWidth: 0,
         ...(isTop ? { borderTopWidth: 2.5 } : { borderBottomWidth: 2.5 }),
@@ -90,7 +90,7 @@ export function SplashScreen() {
               className="pointer-events-none absolute inset-0"
               style={{
                 background:
-                  "radial-gradient(circle at 50% 45%, hsl(var(--brand) / 0.06) 0%, transparent 60%)",
+                  "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--brand) 6%, transparent) 0%, transparent 60%)",
               }}
             />
 
@@ -121,9 +121,9 @@ export function SplashScreen() {
                     className="absolute inset-x-1 h-[2px]"
                     style={{
                       background:
-                        "linear-gradient(90deg, transparent, hsl(var(--brand)), transparent)",
+                        "linear-gradient(90deg, transparent, var(--brand), transparent)",
                       boxShadow:
-                        "0 0 8px 2px hsl(var(--brand) / 0.5), 0 0 24px 4px hsl(var(--brand) / 0.15)",
+                        "0 0 8px 2px color-mix(in srgb, var(--brand) 50%, transparent), 0 0 24px 4px color-mix(in srgb, var(--brand) 15%, transparent)",
                     }}
                     initial={{ top: "2%" }}
                     animate={{ top: ["2%", "96%", "2%"] }}
@@ -135,9 +135,9 @@ export function SplashScreen() {
                     className="absolute inset-0 rounded-lg"
                     animate={{
                       boxShadow: [
-                        "0 0 0px 0px hsl(var(--brand) / 0)",
-                        "0 0 20px 4px hsl(var(--brand) / 0.1)",
-                        "0 0 0px 0px hsl(var(--brand) / 0)",
+                        "0 0 0 0 transparent",
+                        "0 0 20px 4px color-mix(in srgb, var(--brand) 10%, transparent)",
+                        "0 0 0 0 transparent",
                       ],
                     }}
                     transition={{ duration: 1.5, ease: "easeInOut" }}

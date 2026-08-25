@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
  * SKIP with a clear message instead of failing.
  */
 test.describe("Public marketplace landing", () => {
-  test("home loads, displays marketplace heading, no console errors", async ({
+  test("home loads, displays marketplace navigation, no console errors", async ({
     page,
   }) => {
     const consoleErrors: string[] = [];
@@ -17,9 +17,10 @@ test.describe("Public marketplace landing", () => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
     });
     await page.goto("/");
-    const heading = page.getByRole("heading", { level: 1 });
-    await expect(heading).toBeVisible();
-    await expect(heading).toContainText("DeckDealr");
+    await expect(
+      page.getByRole("link", { name: "TheDeckDealr" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Marketplace" })).toBeVisible();
 
     // Strip out known noise: 3rd-party tracking, image 404s in dev.
     const meaningful = consoleErrors.filter(

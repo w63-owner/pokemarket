@@ -1,10 +1,30 @@
-import { Platform, Pressable, ScrollView, Share, View } from "react-native";
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Share,
+  View,
+  type AccessibilityState,
+} from "react-native";
+import {
+  router,
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+} from "expo-router";
 import { BlurView } from "expo-blur";
 import { MotiView } from "moti";
-import { Heart, Share2 } from "lucide-react-native";
+import { Heart, Share2, ShieldCheck } from "lucide-react-native";
 import { useMutation } from "@tanstack/react-query";
-import { formatPrice, formatRelativeDate } from "@deckdealr/shared";
+import {
+  CONDITION_LABELS,
+  formatPrice,
+  formatRelativeDate,
+  type CardCondition,
+} from "@deckdealr/shared";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useListing, useSellerReputation } from "@/hooks/use-listings";
 import {
@@ -33,12 +53,34 @@ export default function ListingScreen() {
   }>();
   const id = Array.isArray(rawId) ? (rawId[0] ?? "") : (rawId ?? "");
   const { data: listing, isLoading, isError, refetch } = useListing(id);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const { user } = useAuth();
   const { data: favIds = [] } = useFavoriteListingIds();
   const { data: reputation } = useSellerReputation(listing?.seller_id);
   const toggleFavorite = useToggleFavorite();
   const isFavorite = favIds.includes(id);
   const primary = useThemeColor("primary");
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!id || listing?.status === "SOLD") return;
+
+      const interval = setInterval(() => {
+        void refetch();
+      }, 30_000);
+
+      return () => clearInterval(interval);
+    }, [id, listing?.status, refetch]),
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setIsPullRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsPullRefreshing(false);
+    }
+  }, [refetch]);
 
   const contactMutation = useMutation({
     mutationFn: (listingId: string) => fetchOrCreateConversation(listingId),
@@ -50,7 +92,7 @@ export default function ListingScreen() {
 
   const handleShare = async () => {
     if (!listing) return;
-    const base = env.API_URL.replace(/\/$/, "");
+    const base = (env.WEB_APP_URL ?? env.API_URL).replace(/\/$/, "");
     const url = `${base}/listing/${listing.id}`;
     const priceLabel = formatPrice(listing.display_price ?? 0);
     try {
@@ -68,6 +110,7 @@ export default function ListingScreen() {
     return (
       <View className="flex-1 bg-background">
         <Stack.Screen options={{ headerShown: false }} />
+        <MobileHeader title="Annonce" fallbackHref="/(tabs)" />
         {/* Hero — matches the carousel aspect ratio (Pokémon TCG: 63x88 ≈ 0.72) so
             there is no layout shift when the image loads. */}
         <Skeleton className="w-full" style={{ aspectRatio: 0.72 }} />
@@ -118,11 +161,35 @@ export default function ListingScreen() {
   const sellerRating =
     reputation && reputation.reviewCount > 0 ? reputation.avgRating : null;
   const sellerReviewCount = reputation?.reviewCount ?? 0;
+  const conditionLabel = listing.condition
+    ? (CONDITION_LABELS[listing.condition as CardCondition] ??
+      listing.condition)
+    : null;
+
+  const handleContact = () => {
+    if (!user) {
+      router.push("/(auth)/login");
+      return;
+    }
+    if (user.id === listing.seller_id) return;
+    contactMutation.mutate(listing.id);
+  };
 
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isPullRefreshing}
+            onRefresh={() => void handleRefresh()}
+            tintColor={primary}
+            colors={[primary]}
+          />
+        }
+      >
         <View className="relative">
           <ImageCarousel images={images} />
           <MobileHeader
@@ -139,7 +206,13 @@ export default function ListingScreen() {
                     }
                     toggleFavorite.mutate({ listingId: id, isFavorite });
                   }}
-                  accessibilityLabel="Ajouter aux favoris"
+                  accessibilityLabel={
+                    isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"
+                  }
+                  accessibilityState={{
+                    selected: isFavorite,
+                    busy: toggleFavorite.isPending,
+                  }}
                 >
                   <Heart
                     size={20}
@@ -181,47 +254,63 @@ export default function ListingScreen() {
             </View>
           </View>
 
-          <ListingActions
-            listing={listing}
-            viewerId={user?.id ?? null}
-            onContact={() => {
-              if (!user) {
-                router.push("/(auth)/login");
-                return;
-              }
-              if (user.id === listing.seller_id) return;
-              contactMutation.mutate(listing.id);
-            }}
-          />
-
           <SellerBlock
             username={listing.seller.username ?? "vendeur"}
             avatarUrl={listing.seller.avatar_url}
             rating={sellerRating}
             reviewCount={sellerReviewCount}
+            kycStatus={listing.seller.kyc_status}
+            city={listing.seller.city}
+            countryCode={listing.seller.country_code}
           />
+
+          {listing.description ? (
+            <View className="rounded-2xl border border-border bg-card p-4">
+              <Text className="font-semibold">Description du vendeur</Text>
+              <Text className="mt-2 leading-6" selectable>
+                {listing.description}
+              </Text>
+            </View>
+          ) : null}
 
           {listing.condition ? (
             <View className="rounded-2xl border border-border bg-card p-4">
               <Text variant="caption">État</Text>
-              <Text className="mt-1 font-semibold">{listing.condition}</Text>
+              <Text className="mt-1 font-semibold">{conditionLabel}</Text>
             </View>
           ) : null}
 
-          {listing.card_series || listing.card_number ? (
+          {listing.card_series ||
+          listing.card_block ||
+          listing.card_number ||
+          listing.card_language ||
+          listing.card_rarity ||
+          listing.card_illustrator ? (
             <View className="rounded-2xl border border-border bg-card p-4">
               <Text variant="caption">Détails carte</Text>
+              {listing.card_language || listing.card_rarity ? (
+                <View className="mt-2 flex-row flex-wrap gap-2">
+                  {listing.card_language ? (
+                    <Badge variant="secondary">{listing.card_language}</Badge>
+                  ) : null}
+                  {listing.card_rarity ? (
+                    <Badge variant="secondary">{listing.card_rarity}</Badge>
+                  ) : null}
+                </View>
+              ) : null}
               {listing.card_series ? (
-                <Text className="mt-1">Set : {listing.card_series}</Text>
+                <Text className="mt-2">Série : {listing.card_series}</Text>
+              ) : null}
+              {listing.card_block ? (
+                <Text className="mt-1">Bloc : {listing.card_block}</Text>
               ) : null}
               {listing.card_number ? (
                 <Text className="mt-1">N° : {listing.card_number}</Text>
               ) : null}
-              {listing.card_language ? (
-                <Text className="mt-1">Langue : {listing.card_language}</Text>
-              ) : null}
-              {listing.card_rarity ? (
-                <Text className="mt-1">Rareté : {listing.card_rarity}</Text>
+              {listing.card_illustrator ? (
+                <Text className="mt-1">
+                  Illustrateur : {listing.card_illustrator}
+                </Text>
               ) : null}
             </View>
           ) : null}
@@ -248,6 +337,27 @@ export default function ListingScreen() {
           ) : null}
         </View>
       </ScrollView>
+      <SafeAreaView
+        edges={["bottom"]}
+        className="border-t border-border bg-card"
+      >
+        <View className="px-4 py-3">
+          {!isOwner ? (
+            <View className="mb-2 flex-row items-center justify-center gap-1.5">
+              <ShieldCheck size={14} color={primary} />
+              <Text variant="caption">
+                Paiement sécurisé · Protection acheteur
+              </Text>
+            </View>
+          ) : null}
+          <ListingActions
+            listing={listing}
+            viewerId={user?.id ?? null}
+            onContact={handleContact}
+            contactLoading={contactMutation.isPending}
+          />
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -261,10 +371,12 @@ function OverlayIconButton({
   children,
   onPress,
   accessibilityLabel,
+  accessibilityState,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
   accessibilityLabel?: string;
+  accessibilityState?: AccessibilityState;
 }) {
   const theme = useEffectiveTheme();
   return (
@@ -273,6 +385,7 @@ function OverlayIconButton({
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={accessibilityState}
     >
       {({ pressed }) => (
         <MotiView

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SlidersHorizontal, X, Bookmark } from "lucide-react";
+import { SlidersHorizontal, X, Bookmark, Euro } from "lucide-react";
 import { m, AnimatePresence } from "framer-motion";
 import {
   useFiltersFromUrl,
@@ -31,6 +31,12 @@ import {
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   CARD_CONDITIONS,
   CONDITION_LABELS,
@@ -250,6 +256,7 @@ function FeedFiltersInner({ showSearch }: { showSearch: boolean }) {
 
   const [searchText, setSearchText] = useState(filters.q ?? "");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [desktopSheetOpen, setDesktopSheetOpen] = useState(false);
 
   const handleSubmitSearch = (val: string) => {
     const currentQ = new URLSearchParams(window.location.search).get("q") ?? "";
@@ -345,192 +352,181 @@ function FeedFiltersInner({ showSearch }: { showSearch: boolean }) {
         </div>
       </div>
 
-      {/* Desktop: inline advanced filters */}
-      <div className="hidden lg:block">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-3 xl:grid-cols-4">
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">Bloc</Label>
-            <Input
-              placeholder="Ex: Écarlate et Violet..."
-              value={filters.series ?? ""}
-              onChange={(e) =>
-                updateFilters({ series: e.target.value || undefined })
-              }
-            />
-          </div>
+      {/* Desktop: compact primary filters, with advanced options in a sheet. */}
+      <div className="hidden items-center gap-2 lg:flex">
+        <Input
+          aria-label="Filtrer par bloc"
+          placeholder="Bloc"
+          value={filters.series ?? ""}
+          onChange={(e) =>
+            updateFilters({ series: e.target.value || undefined })
+          }
+          className="bg-background min-w-0 flex-1"
+        />
+        <Input
+          aria-label="Filtrer par série"
+          placeholder="Série"
+          value={filters.set ?? ""}
+          onChange={(e) => updateFilters({ set: e.target.value || undefined })}
+          className="bg-background min-w-0 flex-1"
+        />
 
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">Série</Label>
-            <Input
-              placeholder="Ex: Flammes Obsidiennes..."
-              value={filters.set ?? ""}
-              onChange={(e) =>
-                updateFilters({ set: e.target.value || undefined })
-              }
-            />
-          </div>
+        <Select
+          value={filters.condition ?? ""}
+          onValueChange={(val) =>
+            updateFilters({ condition: val || undefined })
+          }
+        >
+          <SelectTrigger className="bg-background w-36">
+            <SelectValue placeholder="État" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Tous les états</SelectItem>
+            <SelectSeparator />
+            {CARD_CONDITIONS.map((condition) => (
+              <SelectItem key={condition} value={condition}>
+                {CONDITION_LABELS[condition]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">N° de carte</Label>
-            <Input
-              placeholder="Ex: 25/165"
-              value={filters.card_number ?? ""}
-              onChange={(e) =>
-                updateFilters({ card_number: e.target.value || undefined })
-              }
-            />
-          </div>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                className="bg-background"
+                aria-label="Filtrer par prix"
+              />
+            }
+          >
+            <Euro />
+            {filters.price_min !== undefined ||
+            filters.price_max !== undefined ? (
+              <span>
+                {filters.price_min ?? 0}–{filters.price_max ?? "∞"} €
+              </span>
+            ) : (
+              "Prix"
+            )}
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64">
+            <PopoverTitle>Fourchette de prix</PopoverTitle>
+            <div className="flex items-center gap-2">
+              <Input
+                aria-label="Prix minimum"
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="Min"
+                value={filters.price_min ?? ""}
+                onChange={(e) =>
+                  updateFilters({
+                    price_min: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
+              />
+              <span className="text-muted-foreground">–</span>
+              <Input
+                aria-label="Prix maximum"
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="Max"
+                value={filters.price_max ?? ""}
+                onChange={(e) =>
+                  updateFilters({
+                    price_max: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
 
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">Rareté</Label>
-            <Select
-              value={filters.rarity ?? ""}
-              onValueChange={(val) =>
-                updateFilters({ rarity: val || undefined })
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Toutes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Toutes</SelectItem>
-                <SelectSeparator />
-                {RARITY_OPTIONS.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <Select
+          value={filters.rarity ?? ""}
+          onValueChange={(val) => updateFilters({ rarity: val || undefined })}
+        >
+          <SelectTrigger className="bg-background w-40">
+            <SelectValue placeholder="Rareté" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Toutes les raretés</SelectItem>
+            <SelectSeparator />
+            {RARITY_OPTIONS.map((rarity) => (
+              <SelectItem key={rarity.value} value={rarity.value}>
+                {rarity.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">État</Label>
-            <Select
-              value={filters.condition ?? ""}
-              onValueChange={(val) =>
-                updateFilters({ condition: val || undefined })
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Tous" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Tous</SelectItem>
-                <SelectSeparator />
-                {CARD_CONDITIONS.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {CONDITION_LABELS[c]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <Button
+          variant={filters.is_graded ? "secondary" : "outline"}
+          className={
+            filters.is_graded
+              ? "border-brand/20 bg-brand/10 text-brand"
+              : "bg-background"
+          }
+          aria-pressed={filters.is_graded ?? false}
+          onClick={() =>
+            updateFilters({
+              is_graded: filters.is_graded ? undefined : true,
+              ...(!filters.is_graded
+                ? {}
+                : { grade_min: undefined, grade_max: undefined }),
+            })
+          }
+        >
+          Gradée
+        </Button>
 
-          <div className="flex items-end gap-2 pb-0.5">
-            <Switch
-              id="filter-graded-desktop"
-              checked={filters.is_graded ?? false}
-              onCheckedChange={(checked: boolean) =>
-                updateFilters({
-                  is_graded: checked || undefined,
-                  ...(!checked && {
-                    grade_min: undefined,
-                    grade_max: undefined,
-                  }),
-                })
-              }
-            />
-            <Label htmlFor="filter-graded-desktop" className="text-xs">
-              Gradée
-            </Label>
-          </div>
-
-          {filters.is_graded && (
-            <>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">
-                  Grade min
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  step={0.5}
-                  placeholder="1"
-                  value={filters.grade_min ?? ""}
-                  onChange={(e) =>
-                    updateFilters({
-                      grade_min: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
-                />
+        <Sheet open={desktopSheetOpen} onOpenChange={setDesktopSheetOpen}>
+          <SheetTrigger
+            render={
+              <Button variant="outline" className="bg-background relative" />
+            }
+          >
+            <SlidersHorizontal />
+            Plus
+            {activeCount > 0 && (
+              <span className="bg-brand flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-white">
+                {activeCount}
+              </span>
+            )}
+          </SheetTrigger>
+          <SheetContent side="right">
+            <SheetHeader>
+              <SheetTitle>Tous les filtres</SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto px-4 pb-4">
+              <AdvancedFilters />
+            </div>
+            <SheetFooter>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    resetFilters();
+                    setSearchText("");
+                  }}
+                >
+                  Réinitialiser
+                </Button>
+                <SheetClose render={<Button className="flex-1" />}>
+                  Voir les résultats
+                </SheetClose>
               </div>
-              <div className="space-y-1">
-                <Label className="text-muted-foreground text-xs">
-                  Grade max
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={10}
-                  step={0.5}
-                  placeholder="10"
-                  value={filters.grade_max ?? ""}
-                  onChange={(e) =>
-                    updateFilters({
-                      grade_max: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
-                />
-              </div>
-            </>
-          )}
-
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">
-              Prix min (€)
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="Min"
-              value={filters.price_min ?? ""}
-              onChange={(e) =>
-                updateFilters({
-                  price_min: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
-                })
-              }
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-muted-foreground text-xs">
-              Prix max (€)
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="Max"
-              value={filters.price_max ?? ""}
-              onChange={(e) =>
-                updateFilters({
-                  price_max: e.target.value
-                    ? Number(e.target.value)
-                    : undefined,
-                })
-              }
-            />
-          </div>
-        </div>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {activeCount > 0 && (

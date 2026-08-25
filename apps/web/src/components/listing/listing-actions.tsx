@@ -28,6 +28,9 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils";
 import { fetchOrCreateConversation } from "@/lib/api/conversations";
 import { deleteListingAction } from "@/actions/listings";
+import { ListingShareButton } from "@/components/listing/listing-share-button";
+import { CheckoutStatusToast } from "@/components/listing/checkout-status-toast";
+import { CheckoutReassurance } from "@/components/listing/checkout-reassurance";
 
 type ListingViewerStatus = "ACTIVE" | "LOCKED" | "RESERVED" | "SOLD" | "DRAFT";
 
@@ -92,12 +95,13 @@ export function ListingActions({
 
   return (
     <>
+      <CheckoutStatusToast />
       <m.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 30, delay: 0.1 }}
         className={cn(
-          "border-border bg-background/95 fixed right-0 bottom-0 left-0 z-40 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:bottom-0 sm:rounded-xl sm:border sm:shadow-lg",
+          "border-border bg-background/95 fixed right-0 bottom-0 left-0 z-40 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:static lg:z-auto lg:mx-auto lg:mt-6 lg:max-w-2xl lg:rounded-xl lg:border lg:pb-3 lg:shadow-sm",
           className,
         )}
       >
@@ -151,36 +155,45 @@ export function ListingActions({
                 : (currentPrice ?? 0);
 
             return (
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1"
-                  onClick={handleContact}
-                  disabled={contactLoading}
-                >
-                  {contactLoading ? (
-                    <Loader2
-                      data-icon="inline-start"
-                      className="size-4 animate-spin"
-                    />
-                  ) : (
-                    <MessageCircle
-                      data-icon="inline-start"
-                      className="size-4"
-                    />
-                  )}
-                  Contacter
-                </Button>
-                <Button size="lg" className="flex-[2]" onClick={handleBuy}>
-                  <ShoppingCart data-icon="inline-start" className="size-4" />
-                  Acheter · {formatPrice(buyPrice)}
-                </Button>
+              <div className="space-y-2">
+                <div className="flex gap-2 sm:gap-3">
+                  <ListingShareButton listingId={listingId} />
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="min-w-0 flex-1"
+                    onClick={handleContact}
+                    disabled={contactLoading}
+                  >
+                    {contactLoading ? (
+                      <Loader2
+                        data-icon="inline-start"
+                        className="size-4 animate-spin"
+                      />
+                    ) : (
+                      <MessageCircle
+                        data-icon="inline-start"
+                        className="size-4"
+                      />
+                    )}
+                    Contacter
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="min-w-0 flex-[2]"
+                    onClick={handleBuy}
+                  >
+                    <ShoppingCart data-icon="inline-start" className="size-4" />
+                    Acheter · {formatPrice(buyPrice)}
+                  </Button>
+                </div>
+                <CheckoutReassurance />
               </div>
             );
           })()
         ) : (
           <div className="flex gap-3">
+            <ListingShareButton listingId={listingId} />
             <Button
               variant="destructive"
               size="lg"

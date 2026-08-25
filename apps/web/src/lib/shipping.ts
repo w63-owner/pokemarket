@@ -1,7 +1,8 @@
 import { FALLBACK_SHIPPING_COST } from "@deckdealr/shared";
+import { createClient } from "@/lib/supabase/server";
 
 /**
- * Temporary flat shipping cost used for every route.
+ * Fallback used only when the configured route is unavailable.
  */
 export { FALLBACK_SHIPPING_COST };
 
@@ -16,9 +17,25 @@ export { FALLBACK_SHIPPING_COST };
  * sees on the checkout summary always equals what Stripe ultimately charges.
  */
 export async function getShippingCost(
-  _originCountry: string,
-  _destCountry: string,
-  _weightClass: string,
+  originCountry: string,
+  destCountry: string,
+  weightClass: string,
 ): Promise<number> {
-  return FALLBACK_SHIPPING_COST;
+  const normalizedWeightClass =
+    weightClass.toLowerCase() === "standard" ? "S" : weightClass.toUpperCase();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("shipping_matrix")
+      .select("price")
+      .eq("origin_country", originCountry.toUpperCase())
+      .eq("dest_country", destCountry.toUpperCase())
+      .eq("weight_class", normalizedWeightClass)
+      .maybeSingle();
+
+    if (error || data?.price == null) return FALLBACK_SHIPPING_COST;
+    return Number(data.price);
+  } catch {
+    return FALLBACK_SHIPPING_COST;
+  }
 }

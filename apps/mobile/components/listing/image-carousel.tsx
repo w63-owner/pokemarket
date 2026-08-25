@@ -18,6 +18,10 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { X, ZoomIn } from "lucide-react-native";
 
 import { duration, spring } from "@/lib/motion";
@@ -27,6 +31,8 @@ import { Text } from "@/components/ui";
 type Props = {
   images: string[];
 };
+
+const FALLBACK_BLURHASH = "LEHV6nWB2yk8pyo0adR*.7kCMdnj";
 
 /**
  * Listing image carousel — mirrors the web `ImageCarousel` :
@@ -43,7 +49,10 @@ type Props = {
  */
 export function ImageCarousel({ images }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [zoomed, setZoomed] = useState<string | null>(null);
+  const [zoomed, setZoomed] = useState<{
+    uri: string;
+    label: string;
+  } | null>(null);
   const { width } = useWindowDimensions();
   const listRef = useRef<FlashListRef<string>>(null);
 
@@ -79,16 +88,29 @@ export function ImageCarousel({ images }: Props) {
         data={images}
         keyExtractor={(uri, idx) => `${uri}-${idx}`}
         onMomentumScrollEnd={onMomentumEnd}
-        renderItem={({ item }) => (
-          <Pressable onPress={() => setZoomed(item)}>
-            <Image
-              source={{ uri: item }}
-              style={{ width, aspectRatio: 0.72 }}
-              contentFit="cover"
-              transition={200}
-            />
-          </Pressable>
-        )}
+        renderItem={({ item, index }) => {
+          const label = index === 0 ? "Recto de la carte" : "Verso de la carte";
+          return (
+            <Pressable
+              onPress={() => setZoomed({ uri: item, label })}
+              accessibilityRole="button"
+              accessibilityLabel={`${label}, ouvrir le zoom`}
+              className="bg-muted"
+            >
+              <Image
+                source={{ uri: item }}
+                style={{ width, aspectRatio: 0.72 }}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                placeholder={{ blurhash: FALLBACK_BLURHASH }}
+                priority={index === 0 ? "high" : "normal"}
+                accessible
+                accessibilityLabel={label}
+                transition={200}
+              />
+            </Pressable>
+          );
+        }}
       />
 
       {images.length > 1 ? (
@@ -108,14 +130,22 @@ export function ImageCarousel({ images }: Props) {
       ) : null}
 
       <Pressable
-        onPress={() => setZoomed(images[activeIndex])}
-        accessibilityLabel="Voir en grand"
+        onPress={() =>
+          setZoomed({
+            uri: images[activeIndex],
+            label:
+              activeIndex === 0 ? "Recto de la carte" : "Verso de la carte",
+          })
+        }
+        accessibilityLabel={`Voir ${
+          activeIndex === 0 ? "le recto" : "le verso"
+        } en grand`}
         className="absolute bottom-3 right-3 z-10 h-9 w-9 items-center justify-center rounded-full bg-black/40 active:opacity-80"
       >
         <ZoomIn size={16} color="#fff" />
       </Pressable>
 
-      <FullscreenZoom uri={zoomed} onClose={() => setZoomed(null)} />
+      <FullscreenZoom image={zoomed} onClose={() => setZoomed(null)} />
     </View>
   );
 }
@@ -160,13 +190,15 @@ function DotPill({ active }: { active: boolean }) {
  *     to avoid swallowing the double-tap).
  */
 function FullscreenZoom({
-  uri,
+  image,
   onClose,
 }: {
-  uri: string | null;
+  image: { uri: string; label: string } | null;
   onClose: () => void;
 }) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const safeHeight = height - insets.top - insets.bottom;
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -256,18 +288,21 @@ function FullscreenZoom({
 
   return (
     <Modal
-      visible={uri !== null}
+      visible={image !== null}
       transparent
       animationType="fade"
       onRequestClose={handleClose}
       statusBarTranslucent
     >
       <StatusBar barStyle="light-content" />
-      <View className="flex-1 bg-black/95">
+      <SafeAreaView
+        edges={["top", "right", "bottom", "left"]}
+        className="flex-1 bg-black/95"
+      >
         <Pressable
           onPress={handleClose}
           accessibilityLabel="Fermer"
-          className="absolute right-4 top-12 z-10 h-10 w-10 items-center justify-center rounded-full bg-white/10 active:opacity-80"
+          className="absolute right-4 top-3 z-10 h-10 w-10 items-center justify-center rounded-full bg-white/10 active:opacity-80"
         >
           <X size={20} color="#fff" />
         </Pressable>
@@ -276,24 +311,27 @@ function FullscreenZoom({
           <Animated.View
             style={{
               width,
-              height,
+              height: safeHeight,
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            {uri ? (
+            {image ? (
               <Animated.View style={imageStyle}>
                 <Image
-                  source={{ uri }}
-                  style={{ width, height: height * 0.8 }}
+                  source={{ uri: image.uri }}
+                  style={{ width, height: safeHeight * 0.8 }}
                   contentFit="contain"
+                  cachePolicy="memory-disk"
+                  accessible
+                  accessibilityLabel={image.label}
                   transition={200}
                 />
               </Animated.View>
             ) : null}
           </Animated.View>
         </GestureDetector>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

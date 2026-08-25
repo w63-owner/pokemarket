@@ -371,6 +371,7 @@ function SellContent() {
       createListing.mutate(
         {
           title: data.title,
+          description: data.description || null,
           price_seller: data.price_seller,
           condition: data.is_graded ? null : (data.condition ?? null),
           is_graded: data.is_graded,

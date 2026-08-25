@@ -11,6 +11,7 @@ type Props = {
   listing: Listing;
   viewerId?: string | null;
   onContact: () => void;
+  contactLoading?: boolean;
 };
 
 /**
@@ -21,7 +22,12 @@ type Props = {
  * carousel finishes its initial paint — same intent as the web sticky
  * CTA entrance animation (`spring.gentle`, `delay 100`).
  */
-export function ListingActions({ listing, viewerId, onContact }: Props) {
+export function ListingActions({
+  listing,
+  viewerId,
+  onContact,
+  contactLoading = false,
+}: Props) {
   const isOwner = !!viewerId && viewerId === listing.seller_id;
   const status = listing.status;
   const reservedFor = listing.reserved_for;
@@ -36,6 +42,7 @@ export function ListingActions({ listing, viewerId, onContact }: Props) {
         listing,
         viewerId,
         onContact,
+        contactLoading,
         isOwner,
         status,
         reservedFor,
@@ -48,6 +55,7 @@ function renderInner({
   listing,
   viewerId,
   onContact,
+  contactLoading,
   isOwner,
   status,
   reservedFor,
@@ -80,9 +88,14 @@ function renderInner({
 
   if (status === "LOCKED") {
     return (
-      <View className="gap-2">
+      <View className="flex-row items-center gap-2">
         <Badge variant="warning">Paiement en cours</Badge>
-        <Button variant="outline" onPress={onContact}>
+        <Button
+          variant="outline"
+          className="flex-1"
+          onPress={onContact}
+          loading={contactLoading}
+        >
           Contacter le vendeur
         </Button>
       </View>
@@ -95,20 +108,33 @@ function renderInner({
       const reservedDisplay =
         listing.reserved_price ?? listing.display_price ?? 0;
       return (
-        <View className="gap-2">
-          <Button onPress={() => router.push(`/checkout/${listing.id}`)}>
+        <View className="flex-row gap-2">
+          <Button
+            className="flex-1"
+            onPress={() => router.push(`/checkout/${listing.id}`)}
+          >
             {`Acheter ${formatPrice(reservedDisplay)}`}
           </Button>
-          <Button variant="outline" onPress={onContact}>
+          <Button
+            variant="outline"
+            onPress={onContact}
+            loading={contactLoading}
+            accessibilityLabel="Contacter le vendeur"
+          >
             Contacter
           </Button>
         </View>
       );
     }
     return (
-      <View className="gap-2">
+      <View className="flex-row items-center gap-2">
         <Badge variant="warning">Réservée</Badge>
-        <Button variant="outline" onPress={onContact}>
+        <Button
+          variant="outline"
+          className="flex-1"
+          onPress={onContact}
+          loading={contactLoading}
+        >
           Contacter
         </Button>
       </View>
@@ -117,11 +143,19 @@ function renderInner({
 
   // ACTIVE
   return (
-    <View className="gap-2">
-      <Button onPress={() => router.push(`/checkout/${listing.id}`)}>
+    <View className="flex-row gap-2">
+      <Button
+        className="flex-1"
+        onPress={() => router.push(`/checkout/${listing.id}`)}
+      >
         {`Acheter ${formatPrice(listing.display_price ?? 0)}`}
       </Button>
-      <Button variant="outline" onPress={onContact}>
+      <Button
+        variant="outline"
+        onPress={onContact}
+        loading={contactLoading}
+        accessibilityLabel="Contacter le vendeur"
+      >
         Contacter
       </Button>
     </View>

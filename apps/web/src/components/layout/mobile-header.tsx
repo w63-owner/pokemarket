@@ -37,14 +37,13 @@ export function MobileHeader({
           />
         </div>
 
-        <h1
-          className={cn(
-            "truncate text-center text-base font-semibold",
-            transparent && "sr-only",
-          )}
-        >
-          {title}
-        </h1>
+        {transparent ? (
+          <span className="sr-only">{title}</span>
+        ) : (
+          <h1 className="truncate text-center text-base font-semibold">
+            {title}
+          </h1>
+        )}
 
         <div className="pointer-events-auto flex min-w-11 items-center justify-end">
           {rightAction}

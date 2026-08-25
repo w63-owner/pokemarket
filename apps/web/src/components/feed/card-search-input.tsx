@@ -196,7 +196,7 @@ export function CardSearchInput({
             ? `${listboxId}-${list[safeActiveIndex].card_key}`
             : undefined
         }
-        className="pr-8 pl-9"
+        className="bg-background pr-8 pl-9 lg:h-10 lg:rounded-xl"
       />
       {value && (
         <button

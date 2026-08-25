@@ -36,6 +36,7 @@ export async function createListingAction(
     .insert({
       seller_id: user.id,
       title: d.title,
+      description: d.description || null,
       price_seller: d.price_seller,
       condition: d.is_graded ? null : (d.condition ?? null),
       is_graded: d.is_graded,

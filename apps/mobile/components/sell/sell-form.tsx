@@ -45,6 +45,7 @@ const sellFormSchema = z
         LIMITS.TITLE_MAX_LENGTH,
         `Maximum ${LIMITS.TITLE_MAX_LENGTH} caractères`,
       ),
+    description: z.string().max(1000, "Maximum 1000 caractères").optional(),
     price_seller: z
       .number({ message: "Entrez un prix valide" })
       .min(
@@ -192,6 +193,7 @@ export function SellForm({
     resolver: zodResolver(sellFormSchema),
     defaultValues: {
       title: "",
+      description: "",
       price_seller: undefined as unknown as number,
       condition: undefined,
       is_graded: false,
@@ -268,6 +270,32 @@ export function SellForm({
           )}
         />
         <FieldError message={errors.title?.message} />
+      </View>
+
+      <View className="gap-1.5">
+        <Label>Description de la carte</Label>
+        <Controller
+          control={control}
+          name="description"
+          render={({ field: { value, onChange, onBlur } }) => (
+            <Input
+              value={value ?? ""}
+              onChangeText={onChange}
+              onBlur={onBlur}
+              placeholder="Plis, rayures, centrage ou autres particularités visibles…"
+              error={!!errors.description}
+              multiline
+              numberOfLines={4}
+              maxLength={1000}
+              textAlignVertical="top"
+              className="min-h-28"
+            />
+          )}
+        />
+        <Text variant="caption">
+          Décris honnêtement l’état réel pour rassurer l’acheteur.
+        </Text>
+        <FieldError message={errors.description?.message} />
       </View>
 
       <View className="flex-row gap-3">

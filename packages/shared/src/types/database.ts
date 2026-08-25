@@ -782,6 +782,7 @@ export type Database = {
           cover_image_url: string | null;
           created_at: string | null;
           delivery_weight_class: string | null;
+          description: string | null;
           display_price: number | null;
           grade_note: number | null;
           grading_company: string | null;
@@ -809,6 +810,7 @@ export type Database = {
           cover_image_url?: string | null;
           created_at?: string | null;
           delivery_weight_class?: string | null;
+          description?: string | null;
           display_price?: number | null;
           grade_note?: number | null;
           grading_company?: string | null;
@@ -836,6 +838,7 @@ export type Database = {
           cover_image_url?: string | null;
           created_at?: string | null;
           delivery_weight_class?: string | null;
+          description?: string | null;
           display_price?: number | null;
           grade_note?: number | null;
           grading_company?: string | null;

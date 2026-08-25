@@ -98,6 +98,7 @@ export default function EditListingPage() {
         {
           id: listing.id,
           title: data.title,
+          description: data.description || null,
           price_seller: data.price_seller,
           condition: data.is_graded ? null : (data.condition ?? null),
           is_graded: data.is_graded,
@@ -152,6 +153,7 @@ export default function EditListingPage() {
 
   const defaultValues: Partial<SellFormValues> = {
     title: listing.title,
+    description: listing.description ?? undefined,
     price_seller: listing.price_seller,
     condition: listing.condition ?? undefined,
     is_graded: listing.is_graded ?? false,
