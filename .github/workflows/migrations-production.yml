@@ -108,9 +108,9 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_PROD_DB_PASSWORD }}
-        # Historical versions are reconciled in the ledger; a normal push must
-        # remain sufficient. `--include-all` would hide future drift.
-        run: supabase db push
+        # Include migrations merged with a timestamp older than the latest
+        # remote entry. The history check above keeps them visible before apply.
+        run: supabase db push --include-all
 
       - name: Verify no drift
         env:
