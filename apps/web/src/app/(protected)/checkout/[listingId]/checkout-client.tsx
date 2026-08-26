@@ -20,6 +20,7 @@ import { MobileHeader } from "@/components/layout/mobile-header";
 import { AddressAutocomplete } from "@/components/checkout/address-autocomplete";
 import { formatPrice } from "@/lib/utils";
 import { calcTotalBuyer } from "@/lib/pricing";
+import { shippingCostForDestination } from "@deckdealr/shared";
 import { SHIPPING_COUNTRIES, COUNTRY_LABELS } from "@/lib/constants";
 import type { ShippingCountry } from "@/lib/constants";
 import type { CheckoutResponse } from "@/types/api";
@@ -45,7 +46,7 @@ interface CheckoutClientProps {
     delivery_weight_class: string;
   };
   effectivePrice: number;
-  shippingCost: number;
+  shippingByCountry: Record<string, number>;
   /**
    * Address copied from the buyer's most recent transaction so returning
    * customers don't have to retype the same shipping info on every checkout.
@@ -61,7 +62,7 @@ function isSupportedCountry(value: string): value is ShippingCountry {
 export function CheckoutClient({
   listing,
   effectivePrice,
-  shippingCost,
+  shippingByCountry,
   defaultShipping,
 }: CheckoutClientProps) {
   const [country, setCountry] = useState<ShippingCountry>(() =>
@@ -79,6 +80,7 @@ export function CheckoutClient({
 
   const [expiresAt] = useState(() => new Date(Date.now() + 30 * 60 * 1000));
 
+  const shippingCost = shippingCostForDestination(shippingByCountry, country);
   const total = calcTotalBuyer(effectivePrice, shippingCost);
 
   const isFormValid =

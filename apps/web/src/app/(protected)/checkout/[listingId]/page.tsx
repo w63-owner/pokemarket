@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { SHIPPING_ORIGIN_COUNTRY } from "@deckdealr/shared";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListingById } from "@/lib/api/listings.server";
-import { getShippingCost } from "@/lib/shipping";
+import { getShippingCostsByDestination } from "@/lib/shipping";
 import { CheckoutClient } from "./checkout-client";
 
 export const metadata: Metadata = {
@@ -42,14 +43,11 @@ export default async function CheckoutPage({ params }: Props) {
       ? (listing.reserved_price ?? listing.display_price)
       : listing.display_price) ?? 0;
 
-  // Compute the actual shipping cost the same way `/api/checkout` does, so
-  // the order summary the buyer sees matches what Stripe ultimately charges.
-  // We default to FR — the client switches the country pre-payment, but the
-  // matrix today is mostly populated for FR anyway, and the route recomputes
-  // server-side using the buyer's chosen country before calling Stripe.
-  const shippingCost = await getShippingCost(
-    "FR",
-    "FR",
+  // Quote every destination for this parcel so the client can follow country
+  // changes. `/api/checkout` uses the same matrix lookup with the buyer's
+  // chosen country before creating the Stripe amount.
+  const shippingByCountry = await getShippingCostsByDestination(
+    SHIPPING_ORIGIN_COUNTRY,
     listing.delivery_weight_class ?? "S",
   );
 
@@ -95,7 +93,7 @@ export default async function CheckoutPage({ params }: Props) {
         delivery_weight_class: listing.delivery_weight_class ?? "standard",
       }}
       effectivePrice={effectivePrice}
-      shippingCost={shippingCost}
+      shippingByCountry={shippingByCountry}
       defaultShipping={defaultShipping}
     />
   );

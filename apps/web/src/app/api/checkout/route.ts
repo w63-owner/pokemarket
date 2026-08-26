@@ -17,6 +17,7 @@ import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
 import {
   FEATURE_FLAGS,
+  SHIPPING_ORIGIN_COUNTRY,
   type CheckoutResponse,
   type MobileCheckoutResponse,
 } from "@deckdealr/shared";
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
         : listing.display_price) ?? 0;
 
     const shippingCost = await getShippingCost(
-      "FR",
+      SHIPPING_ORIGIN_COUNTRY,
       shipping_country,
       listing.delivery_weight_class ?? "standard",
     );
