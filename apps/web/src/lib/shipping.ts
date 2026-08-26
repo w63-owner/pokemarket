@@ -1,4 +1,10 @@
-import { FALLBACK_SHIPPING_COST } from "@deckdealr/shared";
+import {
+  FALLBACK_SHIPPING_COST,
+  SHIPPING_ORIGIN_COUNTRY,
+  normalizeShippingWeightClass,
+  resolveShippingCost,
+  shippingCostForDestination,
+} from "@deckdealr/shared";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -21,21 +27,36 @@ export async function getShippingCost(
   destCountry: string,
   weightClass: string,
 ): Promise<number> {
-  const normalizedWeightClass =
-    weightClass.toLowerCase() === "standard" ? "S" : weightClass.toUpperCase();
+  const costs = await getShippingCostsByDestination(originCountry, weightClass);
+  return shippingCostForDestination(costs, destCountry);
+}
+
+/**
+ * Loads every destination price for one origin + weight class so the checkout
+ * UI can follow country changes without drifting from `/api/checkout`.
+ */
+export async function getShippingCostsByDestination(
+  originCountry: string = SHIPPING_ORIGIN_COUNTRY,
+  weightClass: string,
+): Promise<Record<string, number>> {
+  const normalizedWeightClass = normalizeShippingWeightClass(weightClass);
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("shipping_matrix")
-      .select("price")
+      .select("dest_country, price")
       .eq("origin_country", originCountry.toUpperCase())
-      .eq("dest_country", destCountry.toUpperCase())
-      .eq("weight_class", normalizedWeightClass)
-      .maybeSingle();
+      .eq("weight_class", normalizedWeightClass);
 
-    if (error || data?.price == null) return FALLBACK_SHIPPING_COST;
-    return Number(data.price);
+    if (error || !data) return {};
+
+    const costs: Record<string, number> = {};
+    for (const row of data) {
+      if (!row.dest_country || row.price == null) continue;
+      costs[row.dest_country.toUpperCase()] = resolveShippingCost(row.price);
+    }
+    return costs;
   } catch {
-    return FALLBACK_SHIPPING_COST;
+    return {};
   }
 }
