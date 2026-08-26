@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(8);
+SELECT plan(9);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -152,6 +152,22 @@ SELECT is(
   102::numeric,
   'the aggregate RPC computes the median'
 );
+
+SET LOCAL ROLE anon;
+SELECT is(
+  (
+    SELECT sales_volume
+    FROM public.get_deckdealr_sales_summary(
+      p_card_key => 'fr-sales-observation-1',
+      p_variant => 'holo',
+      p_condition => 'NEAR_MINT',
+      p_limit => 12
+    )
+  ),
+  1::bigint,
+  'anon can read anonymised sales aggregates through the public wrapper'
+);
+RESET ROLE;
 
 UPDATE public.transactions
 SET refunded_amount_minor = 100
