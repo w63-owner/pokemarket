@@ -265,6 +265,43 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
+  // Bind amount/currency to the persisted order before side-effects. Metadata
+  // alone is insufficient defense-in-depth if Checkout line items ever diverge
+  // from the transaction total we credit into escrow.
+  const admin = createAdminClient();
+  const { data: transaction } = await admin
+    .from("transactions")
+    .select("id, status, total_amount")
+    .eq("id", transactionId)
+    .single();
+
+  if (!transaction) {
+    throw new Error(`Transaction ${transactionId} not found`);
+  }
+  if (transaction.status !== "PENDING_PAYMENT") {
+    return;
+  }
+
+  const expectedAmount = Math.round(Number(transaction.total_amount) * 100);
+  if (
+    session.amount_total !== expectedAmount ||
+    session.currency?.toLowerCase() !== "eur"
+  ) {
+    Sentry.captureMessage(
+      `checkout session amount/currency mismatch for tx=${transactionId}`,
+      {
+        level: "error",
+        extra: {
+          session_id: session.id,
+          amount_total: session.amount_total,
+          currency: session.currency,
+          expected_amount: expectedAmount,
+        },
+      },
+    );
+    return;
+  }
+
   // Capture the Payment Intent + Charge IDs so refund / dispute webhooks
   // (which only carry charge IDs, not session IDs) can find this row.
   // payment_intent can be a string id, an expanded object, or null for
@@ -327,20 +364,22 @@ async function handleCheckoutFailed(
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
-  const { data: transaction } = await admin
-    .from("transactions")
-    .select("status")
-    .eq("id", transactionId)
-    .single();
-
-  if (!transaction || transaction.status !== "PENDING_PAYMENT") {
-    return;
-  }
-
-  await admin
+  // Atomic status guard: a concurrent checkout.session.completed /
+  // payment_intent.succeeded may flip PENDING_PAYMENT → PAID between our
+  // read and write. The .eq("status", "PENDING_PAYMENT") prevents overwriting
+  // a paid order with EXPIRED/CANCELLED (and then relisting a sold card).
+  const { data: updated, error: txError } = await admin
     .from("transactions")
     .update({ status: targetStatus })
-    .eq("id", transactionId);
+    .eq("id", transactionId)
+    .eq("status", "PENDING_PAYMENT")
+    .select("id");
+
+  if (txError) throw txError;
+
+  if (!updated || updated.length === 0) {
+    return;
+  }
 
   const { data: acceptedOffer } = await admin
     .from("offers")
@@ -371,6 +410,44 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
 
   if (!transactionId) {
     // Not a DeckDealr checkout PaymentIntent — ignore silently.
+    return;
+  }
+
+  const admin = createAdminClient();
+  const { data: transaction } = await admin
+    .from("transactions")
+    .select("id, status, total_amount")
+    .eq("id", transactionId)
+    .single();
+
+  if (!transaction) {
+    throw new Error(
+      `[webhook] payment_intent.succeeded: transaction ${transactionId} not found`,
+    );
+  }
+  if (transaction.status !== "PENDING_PAYMENT") {
+    return;
+  }
+
+  const expectedAmount = Math.round(Number(transaction.total_amount) * 100);
+  if (
+    intent.currency?.toLowerCase() !== "eur" ||
+    intent.amount !== expectedAmount ||
+    intent.amount_received !== expectedAmount
+  ) {
+    Sentry.captureMessage(
+      `payment_intent amount/currency mismatch for tx=${transactionId}`,
+      {
+        level: "error",
+        extra: {
+          payment_intent_id: intent.id,
+          amount: intent.amount,
+          amount_received: intent.amount_received,
+          currency: intent.currency,
+          expected_amount: expectedAmount,
+        },
+      },
+    );
     return;
   }
 

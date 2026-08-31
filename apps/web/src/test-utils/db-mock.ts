@@ -802,8 +802,34 @@ export function createMockDb(
             error: { code: "P0002", message: "TRANSFER_NOT_FOUND" },
           };
         }
+        if (transfer.cancellation_requested_at) {
+          return {
+            data: null,
+            error: {
+              code: "P0001",
+              message: "TRANSFER_CANCELED_FINANCIAL_RECOVERY",
+            },
+          };
+        }
+        // Mirror the DB handshake: refuse reclaim while a live execution is
+        // unresolved so refunds cannot race an in-flight Stripe transfer.
+        if (
+          transfer.execution_started_at &&
+          !transfer.stripe_transfer_id &&
+          Date.now() - new Date(transfer.execution_started_at).getTime() <
+            10 * 60 * 1000
+        ) {
+          return {
+            data: null,
+            error: {
+              code: "40001",
+              message: "TRANSFER_IN_FLIGHT_RETRY",
+            },
+          };
+        }
         if (["queued", "processing", "failed"].includes(transfer.status)) {
           transfer.status = "processing";
+          transfer.execution_started_at = null;
         }
         return { data: [transfer], error: null };
       }
@@ -827,6 +853,7 @@ export function createMockDb(
         );
         if (!transfer) return { data: false, error: null };
         transfer.status = "failed";
+        transfer.execution_started_at = null;
         transfer.failure_code = params.p_failure_code;
         transfer.failure_message = params.p_failure_message;
         return { data: true, error: null };
