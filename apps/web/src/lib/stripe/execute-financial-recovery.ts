@@ -15,6 +15,12 @@ type PreparedRecovery = {
   stripe_dispute_id: string | null;
 };
 
+/**
+ * Execute a queued financial recovery (Connect reverse or dispute restore).
+ *
+ * Returns the Stripe object id, or `"skipped"` when prepare finds the recovery
+ * obsolete (canceled / dispute already won before reverse).
+ */
 export async function executeFinancialRecovery(
   recoveryId: string,
 ): Promise<string> {
@@ -25,7 +31,10 @@ export async function executeFinancialRecovery(
   if (error) throw error;
 
   const recovery = data?.[0] as PreparedRecovery | undefined;
-  if (!recovery) throw new Error(`Financial recovery ${recoveryId} not found`);
+  if (!recovery) {
+    // Canceled (e.g. dispute won before reverse) or already completed.
+    return "skipped";
+  }
 
   const amount = recovery.target_amount_minor - recovery.completed_amount_minor;
   if (amount <= 0) return recovery.stripe_transfer_id;
