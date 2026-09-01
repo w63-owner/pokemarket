@@ -103,16 +103,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: listingError } = await admin
+    // Only ACTIVE listings may be reserved. Without this guard, accepting a
+    // stale pending offer can overwrite LOCKED (in-flight checkout) or SOLD
+    // and create multiple ACCEPTED offers for the same card.
+    const { data: reservedListing, error: listingError } = await admin
       .from("listings")
       .update({
         status: "RESERVED",
         reserved_for: offer.buyer_id,
         reserved_price: offer.offer_amount,
       })
-      .eq("id", offer.listing_id);
+      .eq("id", offer.listing_id)
+      .eq("status", "ACTIVE")
+      .select("id");
 
     if (listingError) throw listingError;
+    if (!reservedListing || reservedListing.length === 0) {
+      await admin
+        .from("offers")
+        .update({ status: "PENDING" })
+        .eq("id", offer_id)
+        .eq("status", "ACCEPTED");
+
+      return NextResponse.json(
+        { error: "Cette annonce n'est plus disponible" },
+        { status: 409 },
+      );
+    }
 
     // Reject all other pending offers on this listing
     await admin

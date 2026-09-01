@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(27);
+SELECT plan(29);
 
 INSERT INTO auth.users (id, email, aud, role, raw_user_meta_data)
 VALUES
@@ -205,6 +205,46 @@ SELECT throws_ok(
   '42501',
   NULL,
   'upsert_conversation rejects a forged buyer id'
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.conversations (listing_id, buyer_id, seller_id)
+    VALUES (
+      '62000000-0000-4000-8000-000000000001',
+      '61000000-0000-4000-8000-000000000003',
+      '61000000-0000-4000-8000-000000000001'
+    )
+  $$,
+  '42501',
+  NULL,
+  'a buyer cannot forge a conversation naming themselves as the seller'
+);
+
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"61000000-0000-4000-8000-000000000002","role":"authenticated"}',
+  true
+);
+
+SELECT throws_ok(
+  $$
+    INSERT INTO public.conversations (listing_id, buyer_id, seller_id)
+    VALUES (
+      '62000000-0000-4000-8000-000000000001',
+      '61000000-0000-4000-8000-000000000003',
+      '61000000-0000-4000-8000-000000000002'
+    )
+  $$,
+  '42501',
+  NULL,
+  'a seller cannot forge a conversation for an arbitrary buyer'
+);
+
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"61000000-0000-4000-8000-000000000001","role":"authenticated"}',
+  true
 );
 
 SELECT throws_ok(
