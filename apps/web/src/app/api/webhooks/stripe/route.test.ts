@@ -15,6 +15,11 @@ let stripeConstructEventImpl: () => any = () => ({
   },
 });
 
+const piRetrieve = vi.fn(async (id: string) => ({
+  id,
+  latest_charge: "ch_from_pi",
+}));
+
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
     webhooks: {
@@ -22,6 +27,9 @@ vi.mock("@/lib/stripe/server", () => ({
     },
     checkout: {
       sessions: { retrieve: vi.fn(async () => ({ payment_status: "paid" })) },
+    },
+    paymentIntents: {
+      retrieve: piRetrieve,
     },
   }),
 }));
@@ -65,6 +73,14 @@ function makeReq(body = "{}", sig: string | null = "t=1,v1=test") {
 }
 
 describe("webhooks/stripe — QA happy path", () => {
+  beforeEach(() => {
+    piRetrieve.mockReset();
+    piRetrieve.mockImplementation(async (id: string) => ({
+      id,
+      latest_charge: "ch_from_pi",
+    }));
+  });
+
   it("checkout.session.completed → finalizes transaction", async () => {
     const db = createMockDb(basicScenario());
     mockClient = db.client;
@@ -75,6 +91,58 @@ describe("webhooks/stripe — QA happy path", () => {
     expect(json.received).toBe(true);
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
       "PAID",
+    );
+  });
+
+  it("checkout.session.completed with payment_intent binds charge id via PI retrieve", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_bind_charge",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_bind",
+          payment_status: "paid",
+          payment_intent: "pi_bind",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(200);
+    expect(piRetrieve).toHaveBeenCalledWith("pi_bind");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+    expect(
+      db.state.transactions.find((t) => t.id === IDS.TX)?.stripe_charge_id,
+    ).toBe("ch_from_pi");
+  });
+
+  it("checkout.session.completed charge lookup failure → 500 and releases idempotency claim", async () => {
+    piRetrieve.mockRejectedValueOnce(new Error("[chaos] Stripe PI retrieve"));
+    stripeConstructEventImpl = () => ({
+      id: "evt_charge_lookup_fail",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_lookup_fail",
+          payment_status: "paid",
+          payment_intent: "pi_lookup_fail",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+    expect(res.status).toBe(500);
+    expect(db.state.stripe_webhooks_processed).toHaveLength(0);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
     );
   });
 

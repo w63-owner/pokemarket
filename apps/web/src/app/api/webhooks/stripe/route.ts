@@ -277,25 +277,22 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // The Charge id requires expanding payment_intent.latest_charge or fetching
   // the PaymentIntent. The webhook doesn't expand by default, so we'll
   // fetch the PaymentIntent here when we have its id.
+  // Refund / dispute webhooks look up transactions ONLY by stripe_charge_id.
+  // Finalizing without a charge id permanently drops those events (webhook
+  // idempotency acknowledges them), so a transient Stripe retrieve failure
+  // must force a retry rather than finalize unbound.
   let chargeId: string | null = null;
   if (paymentIntentId) {
-    try {
-      const stripe = getStripe();
-      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-      chargeId =
-        typeof pi.latest_charge === "string"
-          ? pi.latest_charge
-          : (pi.latest_charge?.id ?? null);
-    } catch (err) {
-      // Non-fatal: we still record the Payment Intent and downstream webhooks
-      // can re-derive the charge id later. Log so we notice if Stripe rate
-      // limits us or returns a transient error.
-      Sentry.captureException(err, {
-        extra: {
-          context: "handleCheckoutCompleted_charge_lookup",
-          payment_intent_id: paymentIntentId,
-        },
-      });
+    const stripe = getStripe();
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    chargeId =
+      typeof pi.latest_charge === "string"
+        ? pi.latest_charge
+        : (pi.latest_charge?.id ?? null);
+    if (!chargeId) {
+      throw new Error(
+        `Paid Checkout Session ${session.id} PaymentIntent ${paymentIntentId} has no latest_charge yet`,
+      );
     }
   }
 
