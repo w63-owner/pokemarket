@@ -2251,6 +2251,10 @@ export type Database = {
         Args: { p_error: string; p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      abandon_financial_recovery: {
+        Args: { p_error?: string; p_recovery_id: string };
+        Returns: boolean;
+      };
       fail_financial_recovery: {
         Args: { p_error: string; p_recovery_id: string };
         Returns: boolean;
@@ -2433,6 +2437,14 @@ export type Database = {
           target_amount_minor: number;
           transaction_id: string;
         }[];
+      };
+      release_financial_outbox: {
+        Args: {
+          p_delay_seconds?: number;
+          p_id: string;
+          p_lease_token: string;
+        };
+        Returns: boolean;
       };
       record_seller_transfer_failure: {
         Args: {

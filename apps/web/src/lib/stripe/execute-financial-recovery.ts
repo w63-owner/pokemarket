@@ -15,6 +15,13 @@ type PreparedRecovery = {
   stripe_dispute_id: string | null;
 };
 
+export class FinancialRecoveryBusyError extends Error {
+  constructor(recoveryId: string) {
+    super(`Financial recovery ${recoveryId} is already in flight`);
+    this.name = "FinancialRecoveryBusyError";
+  }
+}
+
 export async function executeFinancialRecovery(
   recoveryId: string,
 ): Promise<string> {
@@ -25,7 +32,24 @@ export async function executeFinancialRecovery(
   if (error) throw error;
 
   const recovery = data?.[0] as PreparedRecovery | undefined;
-  if (!recovery) throw new Error(`Financial recovery ${recoveryId} not found`);
+  if (!recovery) {
+    const { data: existing, error: existingError } = await admin
+      .from("financial_recoveries")
+      .select("status, stripe_transfer_id")
+      .eq("id", recoveryId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) {
+      throw new Error(`Financial recovery ${recoveryId} not found`);
+    }
+    if (
+      existing.status === "completed" ||
+      existing.status === "canceled"
+    ) {
+      return existing.stripe_transfer_id ?? recoveryId;
+    }
+    throw new FinancialRecoveryBusyError(recoveryId);
+  }
 
   const amount = recovery.target_amount_minor - recovery.completed_amount_minor;
   if (amount <= 0) return recovery.stripe_transfer_id;
@@ -74,11 +98,20 @@ export async function executeFinancialRecovery(
       );
       stripeObjectId = reversal.id;
 
+      // apply_stripe_transfer_reversal expects Stripe's cumulative
+      // amount_reversed (same as transfer.reversed webhooks). Recovery jobs
+      // are per-refund/dispute and their target is only the liability for
+      // that job — never pass target_amount_minor here or a second recovery
+      // under-counts the ledger while Stripe has fully reversed the transfer.
+      const parentTransfer = await stripe.transfers.retrieve(
+        recovery.stripe_transfer_id,
+      );
+
       const { error: reversalError } = await admin.rpc(
         "apply_stripe_transfer_reversal",
         {
           p_stripe_transfer_id: recovery.stripe_transfer_id,
-          p_amount_reversed_minor: recovery.target_amount_minor,
+          p_amount_reversed_minor: parentTransfer.amount_reversed,
         },
       );
       if (reversalError) throw reversalError;
