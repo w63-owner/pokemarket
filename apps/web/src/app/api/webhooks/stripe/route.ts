@@ -8,6 +8,7 @@ import { getStripe } from "@/lib/stripe/server";
 import { verifyStripeWebhookSource } from "@/lib/stripe/webhook-security";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
+import { listingUnlockAfterCheckout } from "@/lib/listings/checkout-lock";
 import {
   handleChargeRefunded,
   handleRefundUpdated,
@@ -353,7 +354,7 @@ async function handleCheckoutFailed(
 
   await admin
     .from("listings")
-    .update({ status: newListingStatus })
+    .update(listingUnlockAfterCheckout(newListingStatus))
     .eq("id", listingId)
     .eq("status", "LOCKED");
 }

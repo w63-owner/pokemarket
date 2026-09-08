@@ -172,6 +172,9 @@ describe("webhooks/stripe — QA happy path", () => {
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "ACTIVE",
     );
+    expect(
+      db.state.listings.find((l) => l.id === IDS.LISTING)?.reserved_for,
+    ).toBeNull();
   });
 
   it("checkout.session.expired with ACCEPTED offer → listing reverts to RESERVED, not ACTIVE", async () => {
@@ -199,6 +202,9 @@ describe("webhooks/stripe — QA happy path", () => {
     expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
       "RESERVED",
     );
+    expect(
+      db.state.listings.find((l) => l.id === IDS.LISTING)?.reserved_for,
+    ).toBe(IDS.BUYER);
   });
 
   it("async_payment_failed → marks transaction CANCELLED", async () => {

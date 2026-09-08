@@ -57,6 +57,20 @@ describe("ListingActions — buyer-side state rendering", () => {
     expect(screen.queryByText(/Acheter/)).toBeNull();
   });
 
+  it("LOCKED for the current viewer: Acheter stays available so they can retry", () => {
+    render(
+      <ListingActions
+        listingId="L1"
+        mode="buyer"
+        currentPrice={42.5}
+        listingStatus="LOCKED"
+        isReservedForViewer={true}
+      />,
+    );
+    expect(screen.getByText(/Acheter.*42/)).toBeDefined();
+    expect(screen.queryByText(/Paiement en cours/)).toBeNull();
+  });
+
   it("LOCKED for someone else: payment-in-progress pill + Contacter only", () => {
     render(
       <ListingActions
