@@ -86,23 +86,7 @@ function renderInner({
     );
   }
 
-  if (status === "LOCKED") {
-    return (
-      <View className="flex-row items-center gap-2">
-        <Badge variant="warning">Paiement en cours</Badge>
-        <Button
-          variant="outline"
-          className="flex-1"
-          onPress={onContact}
-          loading={contactLoading}
-        >
-          Contacter le vendeur
-        </Button>
-      </View>
-    );
-  }
-
-  if (status === "RESERVED") {
+  if (status === "LOCKED" || status === "RESERVED") {
     const reservedForViewer = !!viewerId && viewerId === reservedFor;
     if (reservedForViewer) {
       const reservedDisplay =
@@ -128,14 +112,16 @@ function renderInner({
     }
     return (
       <View className="flex-row items-center gap-2">
-        <Badge variant="warning">Réservée</Badge>
+        <Badge variant="warning">
+          {status === "LOCKED" ? "Paiement en cours" : "Réservée"}
+        </Badge>
         <Button
           variant="outline"
           className="flex-1"
           onPress={onContact}
           loading={contactLoading}
         >
-          Contacter
+          {status === "LOCKED" ? "Contacter le vendeur" : "Contacter"}
         </Button>
       </View>
     );

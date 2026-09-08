@@ -243,6 +243,7 @@ describe("checkout — listing-status guards", () => {
     expect(json.url).toBeTruthy();
     expect(json.transaction_id).toBeTruthy();
     expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.listings[0].reserved_for).toBe("buyer-1");
     expect(stripeCreate.mock.calls[0][0].payment_intent_data).toEqual({
       transfer_group: `order_${json.transaction_id}`,
     });

@@ -5,6 +5,7 @@ import {
   reconcileCheckoutSession,
   reconcilePaymentIntent,
 } from "@/lib/stripe/reconcile";
+import { listingUnlockAfterCheckout } from "@/lib/listings/checkout-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
 
       await admin
         .from("listings")
-        .update({ status: newStatus })
+        .update(listingUnlockAfterCheckout(newStatus))
         .eq("id", listingId)
         .eq("status", "LOCKED");
     }

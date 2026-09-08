@@ -16,6 +16,10 @@ import {
 import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
 import {
+  listingLockForBuyer,
+  listingUnlockAfterCheckout,
+} from "@/lib/listings/checkout-lock";
+import {
   FEATURE_FLAGS,
   type CheckoutResponse,
   type MobileCheckoutResponse,
@@ -299,7 +303,7 @@ export async function POST(request: Request) {
       // double-charge.
       const { data: locked, error: lockError } = await admin
         .from("listings")
-        .update({ status: "LOCKED" })
+        .update(listingLockForBuyer(user.id))
         .eq("id", listing_id)
         .in("status", isReservedForMe ? ["RESERVED"] : ["ACTIVE"])
         .select("id");
@@ -353,7 +357,7 @@ export async function POST(request: Request) {
       const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
       await admin
         .from("listings")
-        .update({ status: rollbackStatus })
+        .update(listingUnlockAfterCheckout(rollbackStatus))
         .eq("id", listing_id);
 
       return NextResponse.json(
