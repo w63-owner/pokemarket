@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
     if (fetchError) throw fetchError;
     if (!expired || expired.length === 0) {
-      return NextResponse.json({ released: 0, recovered: 0 });
+      return NextResponse.json({ released: 0, recovered: 0, held: 0 });
     }
 
     // CRITICAL: never expire a transaction that Stripe actually charged. The
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
     // truly-paid transaction instead of expiring it.
     const toExpire: { id: string; listing_id: string }[] = [];
     let recovered = 0;
+    let held = 0;
 
     for (const tx of expired) {
       try {
@@ -63,6 +64,14 @@ export async function GET(request: Request) {
           recovered++;
           continue;
         }
+
+        if (status === "PENDING_ASYNC") {
+          // Checkout already submitted with a deferred method (or the mobile
+          // PaymentIntent is still `processing`). Keep the lock until Stripe
+          // settles — do not relist a card that may still be charged.
+          held++;
+          continue;
+        }
       } catch (err) {
         // Stripe lookup failed — be conservative and DON'T expire this round.
         // We'll retry on the next cron tick rather than risk relisting a paid
@@ -80,7 +89,7 @@ export async function GET(request: Request) {
     }
 
     if (toExpire.length === 0) {
-      return NextResponse.json({ released: 0, recovered });
+      return NextResponse.json({ released: 0, recovered, held });
     }
 
     const transactionIds = toExpire.map((t) => t.id);
@@ -113,7 +122,7 @@ export async function GET(request: Request) {
         .eq("status", "LOCKED");
     }
 
-    return NextResponse.json({ released: toExpire.length, recovered });
+    return NextResponse.json({ released: toExpire.length, recovered, held });
   } catch (err) {
     console.error("Cron release-expired error:", err);
     return NextResponse.json(

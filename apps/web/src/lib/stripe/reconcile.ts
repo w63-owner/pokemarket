@@ -2,7 +2,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import { finalizePaidTransaction } from "@/lib/stripe/post-payment";
 
-export type ReconcileResult = "PAID" | "PENDING_PAYMENT" | "ALREADY_PROCESSED";
+export type ReconcileResult =
+  | "PAID"
+  | "PENDING_PAYMENT"
+  | "PENDING_ASYNC"
+  | "ALREADY_PROCESSED";
 
 /**
  * Verify a Stripe checkout session and complete the payment flow if the
@@ -35,7 +39,15 @@ export async function reconcileCheckoutSession(
   const session = await stripe.checkout.sessions.retrieve(stripeSessionId, {
     expand: ["payment_intent.latest_charge"],
   });
-  if (session.payment_status !== "paid") return "PENDING_PAYMENT";
+  if (session.payment_status !== "paid") {
+    // Deferred methods (SEPA, etc.) complete Checkout immediately with
+    // payment_status=unpaid and settle days later. The 30-minute lock must
+    // not treat that as abandonment — otherwise release-expired relists the
+    // card and async_payment_succeeded no-ops on an EXPIRED row (buyer
+    // charged, no order, possible double-sale).
+    if (isInFlightAsyncCheckout(session)) return "PENDING_ASYNC";
+    return "PENDING_PAYMENT";
+  }
 
   const paymentIntent =
     typeof session.payment_intent === "object" &&
@@ -97,6 +109,7 @@ export async function reconcilePaymentIntent(
     expand: ["latest_charge"],
   });
 
+  if (intent.status === "processing") return "PENDING_ASYNC";
   if (intent.status !== "succeeded") return "PENDING_PAYMENT";
 
   const chargeId =
@@ -110,4 +123,17 @@ export async function reconcilePaymentIntent(
   });
   if (result === "PAID" || result === "ALREADY_PROCESSED") return result;
   return "PENDING_PAYMENT";
+}
+
+function isInFlightAsyncCheckout(session: {
+  status?: string | null;
+  payment_intent?: unknown;
+}): boolean {
+  if (session.status === "complete") return true;
+  const paymentIntent =
+    typeof session.payment_intent === "object" &&
+    session.payment_intent !== null
+      ? (session.payment_intent as { status?: string | null })
+      : null;
+  return paymentIntent?.status === "processing";
 }
