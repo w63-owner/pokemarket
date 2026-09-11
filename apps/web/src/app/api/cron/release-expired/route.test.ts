@@ -290,4 +290,56 @@ describe("cron/release-expired — Fix C: réconciliation avant expiration", () 
     expect(db.state.transactions[0].status).toBe("PAID");
     expect(db.state.listings[0].status).toBe("LOCKED");
   });
+
+  it("complete unpaid asynchronous Checkout Session → held, not expired, listing stays LOCKED", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx1",
+          listing_id: "L1",
+          status: "PENDING_PAYMENT",
+          stripe_checkout_session_id: "cs_async_1",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+      offers: [],
+    });
+    mockClient = db.client;
+    reconcileSessionImpl = async () => "PENDING_ASYNC";
+
+    const res = await GET(authedReq());
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.released).toBe(0);
+    expect(json.recovered).toBe(0);
+    expect(json.held).toBe(1);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.listings[0].status).toBe("LOCKED");
+  });
+
+  it("processing mobile PaymentIntent → held, not expired, listing stays LOCKED", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx1",
+          listing_id: "L1",
+          status: "PENDING_PAYMENT",
+          stripe_payment_intent_id: "pi_processing_1",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED" }],
+      offers: [],
+    });
+    mockClient = db.client;
+    reconcilePIImpl = async () => "PENDING_ASYNC";
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+    expect(json.released).toBe(0);
+    expect(json.held).toBe(1);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.listings[0].status).toBe("LOCKED");
+  });
 });

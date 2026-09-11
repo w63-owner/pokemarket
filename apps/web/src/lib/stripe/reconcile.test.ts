@@ -5,6 +5,11 @@ import { basicScenario, IDS } from "@/test-utils/fixtures";
 
 // Track Stripe SDK behaviour
 let stripeRetrieveImpl: () => any = () => ({ payment_status: "paid" });
+let stripePiRetrieveImpl: () => any = () => ({
+  id: "pi_test",
+  status: "succeeded",
+  latest_charge: "ch_test",
+});
 
 vi.mock("@/lib/stripe/server", () => ({
   getStripe: () => ({
@@ -12,6 +17,9 @@ vi.mock("@/lib/stripe/server", () => ({
       sessions: {
         retrieve: vi.fn(async () => stripeRetrieveImpl()),
       },
+    },
+    paymentIntents: {
+      retrieve: vi.fn(async () => stripePiRetrieveImpl()),
     },
   }),
 }));
@@ -29,10 +37,15 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => mockClient,
 }));
 
-import { reconcileCheckoutSession } from "./reconcile";
+import { reconcileCheckoutSession, reconcilePaymentIntent } from "./reconcile";
 
 beforeEach(() => {
   stripeRetrieveImpl = () => ({ payment_status: "paid" });
+  stripePiRetrieveImpl = () => ({
+    id: "pi_test",
+    status: "succeeded",
+    latest_charge: "ch_test",
+  });
 });
 
 describe("reconcileCheckoutSession — QA", () => {
@@ -47,11 +60,32 @@ describe("reconcileCheckoutSession — QA", () => {
   });
 
   it("UNPAID Stripe session → returns PENDING_PAYMENT, does NOT finalize", async () => {
-    stripeRetrieveImpl = () => ({ payment_status: "unpaid" });
+    stripeRetrieveImpl = () => ({
+      status: "open",
+      payment_status: "unpaid",
+    });
     const db = createMockDb(basicScenario());
     mockClient = db.client;
     const result = await reconcileCheckoutSession(IDS.TX, "cs_test_1");
     expect(result).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
+  });
+
+  it("complete unpaid asynchronous session → PENDING_ASYNC, does NOT finalize", async () => {
+    stripeRetrieveImpl = () => ({
+      status: "complete",
+      payment_status: "unpaid",
+      payment_intent: { id: "pi_sepa", status: "processing" },
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+    const result = await reconcileCheckoutSession(IDS.TX, "cs_async_1");
+    expect(result).toBe("PENDING_ASYNC");
     expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
       "PENDING_PAYMENT",
     );
@@ -124,7 +158,10 @@ describe("reconcileCheckoutSession — CHAOS", () => {
     let attempt = 0;
     stripeRetrieveImpl = () => {
       attempt++;
-      return { payment_status: attempt < 2 ? "unpaid" : "paid" };
+      return {
+        status: "open",
+        payment_status: attempt < 2 ? "unpaid" : "paid",
+      };
     };
     const db = createMockDb(basicScenario());
     mockClient = db.client;
@@ -133,5 +170,25 @@ describe("reconcileCheckoutSession — CHAOS", () => {
       "PENDING_PAYMENT",
     );
     expect(await reconcileCheckoutSession(IDS.TX, "cs_test_1")).toBe("PAID");
+  });
+});
+
+describe("reconcilePaymentIntent — async settlement", () => {
+  it("processing PaymentIntent → PENDING_ASYNC, does NOT finalize", async () => {
+    stripePiRetrieveImpl = () => ({
+      id: "pi_processing",
+      status: "processing",
+      latest_charge: null,
+    });
+    const db = createMockDb(basicScenario());
+    mockClient = db.client;
+    const result = await reconcilePaymentIntent(IDS.TX, "pi_processing");
+    expect(result).toBe("PENDING_ASYNC");
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
   });
 });
