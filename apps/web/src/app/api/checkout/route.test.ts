@@ -327,6 +327,10 @@ describe("checkout — listing-status guards", () => {
       status: "PENDING_PAYMENT",
       stripe_checkout_session_id: "cs_existing",
       stripe_payment_intent_id: null,
+      shipping_address_line: "1 rue de la Paix",
+      shipping_address_city: "Paris",
+      shipping_address_postcode: "75001",
+      shipping_country: "FR",
       created_at: new Date().toISOString(),
     });
     mockClient = createMockDb(sc).client;
@@ -336,6 +340,50 @@ describe("checkout — listing-status guards", () => {
     expect(await res.json()).toMatchObject({
       url: "https://checkout.stripe.com/existing",
       transaction_id: "tx-existing",
+    });
+    expect(stripeCreate).not.toHaveBeenCalled();
+    expect(stripeExpire).not.toHaveBeenCalled();
+  });
+
+  it("persists a corrected address when reusing an open Checkout Session", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-existing",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      shipping_address_line: "1 rue de la Paix",
+      shipping_address_city: "Paris",
+      shipping_address_postcode: "75001",
+      shipping_country: "FR",
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(
+      makeReq({
+        ...validBody,
+        shipping_address_line: "99 rue de la République",
+        shipping_address_city: "Lyon",
+        shipping_address_postcode: "69001",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      url: "https://checkout.stripe.com/existing",
+      transaction_id: "tx-existing",
+    });
+    expect(db.state.transactions[0]).toMatchObject({
+      status: "PENDING_PAYMENT",
+      shipping_address_line: "99 rue de la République",
+      shipping_address_city: "Lyon",
+      shipping_address_postcode: "69001",
+      shipping_country: "FR",
     });
     expect(stripeCreate).not.toHaveBeenCalled();
     expect(stripeExpire).not.toHaveBeenCalled();
@@ -414,6 +462,52 @@ describe("checkout — listing-status guards", () => {
     expect(await res.json()).toMatchObject({
       payment_intent_id: "pi_existing",
       transaction_id: "tx-mobile-current",
+    });
+    expect(piCreate).not.toHaveBeenCalled();
+    expect(piCancel).not.toHaveBeenCalled();
+  });
+
+  it("persists a corrected address when reusing a mobile PaymentIntent", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-mobile-current",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: null,
+      stripe_payment_intent_id: "pi_existing",
+      shipping_address_line: "1 rue de la Paix",
+      shipping_address_city: "Paris",
+      shipping_address_postcode: "75001",
+      shipping_country: "FR",
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(
+      makeReq(
+        {
+          ...validBody,
+          shipping_address_line: "12 avenue Jean Jaurès",
+          shipping_address_city: "Lille",
+          shipping_address_postcode: "59000",
+        },
+        { client: "mobile" },
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      payment_intent_id: "pi_existing",
+      transaction_id: "tx-mobile-current",
+    });
+    expect(db.state.transactions[0]).toMatchObject({
+      shipping_address_line: "12 avenue Jean Jaurès",
+      shipping_address_city: "Lille",
+      shipping_address_postcode: "59000",
+      shipping_country: "FR",
     });
     expect(piCreate).not.toHaveBeenCalled();
     expect(piCancel).not.toHaveBeenCalled();
@@ -507,6 +601,43 @@ describe("checkout — STRESS concurrent buyers", () => {
 });
 
 describe("checkout — CHAOS", () => {
+  it("keeps a corrected address when retrying before a Checkout Session id is saved", async () => {
+    stripeCreate.mockRejectedValueOnce(new Error("[chaos] Stripe down"));
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const first = await POST(makeReq(validBody));
+    expect(first.status).toBe(500);
+    expect(db.state.transactions[0]).toMatchObject({
+      status: "PENDING_PAYMENT",
+      shipping_address_line: "1 rue de la Paix",
+    });
+    expect(db.state.transactions[0].stripe_checkout_session_id).toBeUndefined();
+
+    const second = await POST(
+      makeReq({
+        ...validBody,
+        shipping_address_line: "4 place Bellecour",
+        shipping_address_city: "Lyon",
+        shipping_address_postcode: "69002",
+      }),
+    );
+
+    expect(second.status).toBe(200);
+    expect(db.state.transactions).toHaveLength(1);
+    expect(db.state.transactions[0]).toMatchObject({
+      status: "PENDING_PAYMENT",
+      shipping_address_line: "4 place Bellecour",
+      shipping_address_city: "Lyon",
+      shipping_address_postcode: "69002",
+      shipping_country: "FR",
+    });
+    expect(stripeCreate).toHaveBeenCalledTimes(2);
+    expect(stripeCreate.mock.calls[1][1].idempotencyKey).toBe(
+      stripeCreate.mock.calls[0][1].idempotencyKey,
+    );
+  });
+
   it("Stripe session creation fails AFTER tx insert → 500 returned, cron will clean up", async () => {
     stripeCreate.mockRejectedValueOnce(new Error("[chaos] Stripe down"));
     const db = createMockDb(activeListingScenario());

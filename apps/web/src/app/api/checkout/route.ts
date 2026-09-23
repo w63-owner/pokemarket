@@ -92,6 +92,12 @@ export async function POST(request: Request) {
       shipping_address_city,
       shipping_address_postcode,
     } = validation.data;
+    const shippingAddress = {
+      shipping_address_line,
+      shipping_address_city,
+      shipping_address_postcode,
+      shipping_country,
+    };
 
     const admin = createAdminClient();
 
@@ -206,6 +212,14 @@ export async function POST(request: Request) {
           sessionAmountIsCurrent &&
           existingSession.url
         ) {
+          const addressRefresh = await refreshPendingShippingAddress(
+            admin,
+            existingTx.id,
+            shippingAddress,
+          );
+          if (addressRefresh !== "updated") {
+            return shippingAddressRefreshResponse(addressRefresh);
+          }
           return NextResponse.json({
             url: existingSession.url,
             transaction_id: existingTx.id,
@@ -244,6 +258,14 @@ export async function POST(request: Request) {
           existingPi.client_secret &&
           customerId
         ) {
+          const addressRefresh = await refreshPendingShippingAddress(
+            admin,
+            existingTx.id,
+            shippingAddress,
+          );
+          if (addressRefresh !== "updated") {
+            return shippingAddressRefreshResponse(addressRefresh);
+          }
           const ephemeralKey = await createStripeEphemeralKey(
             stripe,
             customerId,
@@ -273,7 +295,17 @@ export async function POST(request: Request) {
           .eq("status", "PENDING_PAYMENT");
       } else {
         // A previous network call may have failed before persisting the Stripe
-        // object ID. Reuse the same transaction and deterministic key.
+        // object ID. Reuse the same transaction and deterministic key, but
+        // keep the address from this attempt — Stripe params do not include it,
+        // so an idempotent replay would otherwise ship to the first address.
+        const addressRefresh = await refreshPendingShippingAddress(
+          admin,
+          existingTx.id,
+          shippingAddress,
+        );
+        if (addressRefresh !== "updated") {
+          return shippingAddressRefreshResponse(addressRefresh);
+        }
         reuseTransactionId = existingTx.id;
       }
     }
@@ -542,6 +574,58 @@ async function createMobileStripeIntent(input: {
     customer_id: customerId,
     transaction_id: input.transactionId,
   };
+}
+
+type ShippingAddress = {
+  shipping_address_line: string;
+  shipping_address_city: string;
+  shipping_address_postcode: string;
+  shipping_country: string;
+};
+
+/**
+ * Checkout reuse returns an already-open Stripe object when the amount is
+ * unchanged. That object does not store the shipping address — sellers ship
+ * from the transaction row — so a buyer who cancels and corrects a street,
+ * city, postcode, or same-price country must have that correction persisted
+ * before they pay.
+ */
+async function refreshPendingShippingAddress(
+  admin: ReturnType<typeof createAdminClient>,
+  transactionId: string,
+  address: ShippingAddress,
+): Promise<"updated" | "missing" | "error"> {
+  const { data, error } = await admin
+    .from("transactions")
+    .update({
+      shipping_address_line: address.shipping_address_line,
+      shipping_address_city: address.shipping_address_city,
+      shipping_address_postcode: address.shipping_address_postcode,
+      shipping_country: address.shipping_country,
+    })
+    .eq("id", transactionId)
+    .eq("status", "PENDING_PAYMENT")
+    .select("id");
+
+  if (error) return "error";
+  if (!data || data.length === 0) return "missing";
+  return "updated";
+}
+
+function shippingAddressRefreshResponse(result: "missing" | "error") {
+  if (result === "missing") {
+    return NextResponse.json(
+      {
+        error:
+          "Le paiement n'est plus modifiable. Vérifiez vos commandes avant de réessayer.",
+      },
+      { status: 409 },
+    );
+  }
+  return NextResponse.json(
+    { error: "Impossible de mettre à jour l'adresse de livraison" },
+    { status: 500 },
+  );
 }
 
 async function createStripeEphemeralKey(
