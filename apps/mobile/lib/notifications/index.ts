@@ -5,6 +5,7 @@ import * as Linking from "expo-linking";
 import { router } from "expo-router";
 
 import { api, apiFetch } from "@/lib/api/client";
+import { classifyIncomingUrl } from "@/lib/notifications/incoming-url";
 import { transactionRoutes } from "@/lib/routes/orders";
 import { supabase } from "@/lib/supabase";
 
@@ -236,79 +237,41 @@ export function setupNotificationListeners(): () => void {
  * directly without going through the global router.
  */
 export async function handleIncomingUrl(url: string) {
-  if (!url) return;
+  const action = classifyIncomingUrl(url);
 
-  let path: string;
-  let searchParams: URLSearchParams;
-  let fragmentParams: URLSearchParams;
-  try {
-    const parsed = new URL(url);
-    fragmentParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+  if (action.type === "ignore") return;
 
-    if (url.startsWith("http")) {
-      // https://thedeckdealr.com/listing/123 → /listing/123
-      path = parsed.pathname + parsed.search;
-      searchParams = parsed.searchParams;
-    } else if (url.startsWith("deckdealr://")) {
-      // Custom scheme: deckdealr://wallet/return → /wallet/return
-      path = `/${parsed.host}${parsed.pathname}${parsed.search}`;
-      searchParams = parsed.searchParams;
-    } else {
-      return;
+  if (action.type === "verify-otp") {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: action.tokenHash,
+      type: action.otpType,
+    });
+    if (!error) {
+      if (action.otpType === "recovery") {
+        router.replace("/(auth)/reset-password");
+      } else if (action.otpType === "signup") {
+        router.replace("/(auth)/confirmed?status=success" as never);
+      } else {
+        router.replace("/(tabs)");
+      }
+    } else if (action.otpType === "signup") {
+      router.replace("/(auth)/confirmed?status=error" as never);
     }
-  } catch {
     return;
   }
 
-  // Handle Supabase auth token links (email confirmation, password reset).
-  // Supabase sends `token_hash` and `type` params that we need to verify
-  // manually since `detectSessionInUrl` is disabled in React Native.
-  const tokenHash = searchParams.get("token_hash");
-  const type = searchParams.get("type");
-  if (tokenHash && type) {
-    const validTypes = [
-      "signup",
-      "email_change",
-      "recovery",
-      "invite",
-    ] as const;
-    if (validTypes.includes(type as (typeof validTypes)[number])) {
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: type as (typeof validTypes)[number],
-      });
-      if (!error) {
-        if (type === "recovery") {
-          router.replace("/(auth)/reset-password");
-        } else if (type === "signup") {
-          router.replace("/(auth)/confirmed?status=success" as never);
-        } else {
-          router.replace("/(tabs)");
-        }
-      } else if (type === "signup") {
-        router.replace("/(auth)/confirmed?status=error" as never);
-      }
+  if (action.type === "exchange-code") {
+    // detectSessionInUrl is off in React Native, so the PKCE code from
+    // signup confirmation and password reset must be exchanged here.
+    const { error } = await supabase.auth.exchangeCodeForSession(action.code);
+    if (action.destination === "reset-password") {
+      router.replace(
+        error
+          ? ("/(auth)/confirmed?status=error" as never)
+          : ("/(auth)/reset-password" as never),
+      );
       return;
     }
-  }
-
-  // Depending on the Supabase Auth flow configured for the project, the
-  // confirmation redirect can contain either a PKCE code or implicit-flow
-  // tokens. Support both so links work consistently across email clients.
-  if (path.split("?")[0] === "/auth/confirm") {
-    const code = searchParams.get("code");
-    const accessToken = fragmentParams.get("access_token");
-    const refreshToken = fragmentParams.get("refresh_token");
-
-    const { error } = code
-      ? await supabase.auth.exchangeCodeForSession(code)
-      : accessToken && refreshToken
-        ? await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          })
-        : { error: new Error("Missing confirmation credentials") };
-
     router.replace(
       error
         ? ("/(auth)/confirmed?status=error" as never)
@@ -317,13 +280,5 @@ export async function handleIncomingUrl(url: string) {
     return;
   }
 
-  // Don't intercept links that already correspond to our own scheme returns
-  // handled inline by callers (e.g. WebBrowser.openAuthSessionAsync resolves
-  // to `deckdealr://wallet/return` synchronously — the wallet flow handles
-  // that one without us pushing it on top of itself).
-  if (path.startsWith("/stripe-redirect")) return;
-
-  // Same web→mobile rewrite as for notifications.
-  const rewritten = path.replace(/^\/messages\//, "/inbox/");
-  router.push(rewritten as never);
+  router.push(action.path as never);
 }
