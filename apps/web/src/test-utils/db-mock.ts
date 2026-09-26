@@ -172,7 +172,7 @@ function matches(row: Row, filters: Filter[]): boolean {
     if (f.type === "gt" && !(v != null && (v as any) > f.val)) return false;
     if (f.type === "gte" && !(v != null && (v as any) >= f.val)) return false;
     if (f.type === "lte" && !(v != null && (v as any) <= f.val)) return false;
-    if (f.type === "is" && v !== f.val) return false;
+    if (f.type === "is" && (v ?? null) !== (f.val ?? null)) return false;
   }
   return true;
 }

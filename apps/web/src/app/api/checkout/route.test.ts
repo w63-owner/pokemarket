@@ -2,8 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockDb } from "@/test-utils/db-mock";
 
-const { featureEnabled } = vi.hoisted(() => ({
+const { featureEnabled, shippingCostForDestination } = vi.hoisted(() => ({
   featureEnabled: vi.fn(async () => true),
+  shippingCostForDestination: vi.fn(async (_destination: string) => 0.02),
 }));
 
 let currentUser: { id: string; email?: string } | null = {
@@ -91,6 +92,13 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/feature-flags/server", () => ({
   isFeatureEnabled: featureEnabled,
 }));
+vi.mock("@/lib/shipping", () => ({
+  getShippingCost: (
+    _origin: string,
+    destination: string,
+    _weightClass: string,
+  ) => shippingCostForDestination(destination),
+}));
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 
 import { POST } from "./route";
@@ -102,6 +110,8 @@ beforeEach(() => {
   delete process.env.STRIPE_SOFT_LAUNCH_BUYER_IDS;
   featureEnabled.mockReset();
   featureEnabled.mockResolvedValue(true);
+  shippingCostForDestination.mockReset();
+  shippingCostForDestination.mockResolvedValue(0.02);
   stripeCreate.mockClear();
   stripeRetrieve.mockClear();
   stripeExpire.mockClear();
@@ -520,6 +530,54 @@ describe("checkout — CHAOS", () => {
     expect(db.state.listings[0].status).toBe("LOCKED");
     expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
   });
+
+  it("starts a new order when a pre-Stripe retry changes the shipping quote", async () => {
+    shippingCostForDestination.mockImplementation(async (destination: string) =>
+      destination === "BE" ? 4.9 : 0.02,
+    );
+    stripeCreate.mockRejectedValueOnce(new Error("[chaos] Stripe down"));
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const first = await POST(makeReq(validBody));
+    expect(first.status).toBe(500);
+    const stale = db.state.transactions[0];
+    expect(stale.status).toBe("PENDING_PAYMENT");
+
+    const second = await POST(
+      makeReq({
+        ...validBody,
+        shipping_country: "BE",
+        shipping_address_line: "10 Grand-Place",
+        shipping_address_city: "Bruxelles",
+        shipping_address_postcode: "1000",
+      }),
+    );
+    expect(second.status).toBe(200);
+    const json = await second.json();
+
+    expect(stale.status).toBe("EXPIRED");
+    const pending = db.state.transactions.find(
+      (tx) => tx.id === json.transaction_id,
+    );
+    expect(pending?.status).toBe("PENDING_PAYMENT");
+    expect(pending?.shipping_country).toBe("BE");
+    expect(pending?.shipping_cost).toBe(4.9);
+    expect(pending?.total_amount).toBeCloseTo(54.9, 2);
+
+    const lineItems = stripeCreate.mock.calls[1][0].line_items as Array<{
+      price_data: { unit_amount: number };
+      quantity: number;
+    }>;
+    const chargedMinor = lineItems.reduce(
+      (sum, item) => sum + item.price_data.unit_amount * item.quantity,
+      0,
+    );
+    expect(chargedMinor).toBe(Math.round(Number(pending?.total_amount) * 100));
+    expect(stripeCreate.mock.calls[0][1].idempotencyKey).not.toBe(
+      stripeCreate.mock.calls[1][1].idempotencyKey,
+    );
+  });
 });
 
 describe("checkout — mobile (?client=mobile)", () => {
@@ -586,6 +644,47 @@ describe("checkout — mobile (?client=mobile)", () => {
     expect(db.state.transactions).toHaveLength(1);
     expect(piCreate).toHaveBeenCalledTimes(2);
     expect(piCreate.mock.calls[0][1].idempotencyKey).toBe(
+      piCreate.mock.calls[1][1].idempotencyKey,
+    );
+  });
+
+  it("starts a new PaymentIntent when a pre-Stripe retry changes the shipping quote", async () => {
+    shippingCostForDestination.mockImplementation(async (destination: string) =>
+      destination === "BE" ? 4.9 : 0.02,
+    );
+    piCreate.mockRejectedValueOnce(new Error("[chaos] PI down"));
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const first = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(first.status).toBe(500);
+
+    const second = await POST(
+      makeReq(
+        {
+          ...validBody,
+          shipping_country: "BE",
+          shipping_address_line: "10 Grand-Place",
+          shipping_address_city: "Bruxelles",
+          shipping_address_postcode: "1000",
+        },
+        { client: "mobile" },
+      ),
+    );
+    expect(second.status).toBe(200);
+    const json = await second.json();
+    const pending = db.state.transactions.find(
+      (tx) => tx.id === json.transaction_id,
+    );
+
+    expect(
+      db.state.transactions.filter((tx) => tx.status === "EXPIRED"),
+    ).toHaveLength(1);
+    expect(pending?.total_amount).toBeCloseTo(54.9, 2);
+    expect(piCreate.mock.calls[1][0].amount).toBe(
+      Math.round(Number(pending?.total_amount) * 100),
+    );
+    expect(piCreate.mock.calls[0][1].idempotencyKey).not.toBe(
       piCreate.mock.calls[1][1].idempotencyKey,
     );
   });
