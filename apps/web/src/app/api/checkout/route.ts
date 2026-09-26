@@ -124,12 +124,17 @@ export async function POST(request: Request) {
       id: string;
       stripe_checkout_session_id: string | null;
       stripe_payment_intent_id: string | null;
+      total_amount: number | null;
+      fee_amount: number | null;
+      shipping_cost: number | null;
     } | null = null;
 
     if (listing.status === "LOCKED") {
       const { data } = await admin
         .from("transactions")
-        .select("id, stripe_checkout_session_id, stripe_payment_intent_id")
+        .select(
+          "id, stripe_checkout_session_id, stripe_payment_intent_id, total_amount, fee_amount, shipping_cost",
+        )
         .eq("listing_id", listing_id)
         .eq("buyer_id", user.id)
         .eq("status", "PENDING_PAYMENT")
@@ -271,10 +276,38 @@ export async function POST(request: Request) {
           .update({ status: "EXPIRED" })
           .eq("id", existingTx.id)
           .eq("status", "PENDING_PAYMENT");
-      } else {
+      } else if (
+        pendingQuoteMatches(existingTx, {
+          totalAmount,
+          feeAmount,
+          shippingCost,
+        })
+      ) {
         // A previous network call may have failed before persisting the Stripe
-        // object ID. Reuse the same transaction and deterministic key.
+        // object ID. Reuse the same transaction and deterministic key only
+        // when the payable quote is unchanged. Stripe parameters do not
+        // include our ledger columns, so a changed quote must not share that
+        // key or this row.
         reuseTransactionId = existingTx.id;
+      } else {
+        const { data: superseded, error: supersedeError } = await admin
+          .from("transactions")
+          .update({ status: "EXPIRED" })
+          .eq("id", existingTx.id)
+          .eq("status", "PENDING_PAYMENT")
+          .is("stripe_checkout_session_id", null)
+          .is("stripe_payment_intent_id", null)
+          .select("id");
+
+        if (supersedeError || !superseded || superseded.length === 0) {
+          return NextResponse.json(
+            {
+              error:
+                "Le paiement précédent est en cours de finalisation. Réessayez dans quelques instants.",
+            },
+            { status: 409 },
+          );
+        }
       }
     }
 
@@ -542,6 +575,33 @@ async function createMobileStripeIntent(input: {
     customer_id: customerId,
     transaction_id: input.transactionId,
   };
+}
+
+function toMinorUnits(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+/**
+ * A reused pending row is the ledger source of truth after payment. It is
+ * safe to attach a new Stripe object only when that row already records the
+ * quote we are about to charge.
+ */
+function pendingQuoteMatches(
+  transaction: {
+    total_amount: number | null;
+    fee_amount: number | null;
+    shipping_cost: number | null;
+  },
+  quote: { totalAmount: number; feeAmount: number; shippingCost: number },
+): boolean {
+  return (
+    toMinorUnits(Number(transaction.total_amount ?? 0)) ===
+      toMinorUnits(quote.totalAmount) &&
+    toMinorUnits(Number(transaction.fee_amount ?? 0)) ===
+      toMinorUnits(quote.feeAmount) &&
+    toMinorUnits(Number(transaction.shipping_cost ?? 0)) ===
+      toMinorUnits(quote.shippingCost)
+  );
 }
 
 async function createStripeEphemeralKey(
