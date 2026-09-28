@@ -327,20 +327,29 @@ async function handleCheckoutFailed(
     throw new Error("Missing transaction_id or listing_id in session metadata");
   }
 
-  const { data: transaction } = await admin
-    .from("transactions")
-    .select("status")
-    .eq("id", transactionId)
-    .single();
-
-  if (!transaction || transaction.status !== "PENDING_PAYMENT") {
-    return;
-  }
-
-  await admin
+  // Only the PENDING_PAYMENT → terminal transition may unlock the listing.
+  // A paid webhook, a success-page reconcile, or a checkout retry can win the
+  // race; an unconditional update would mark a captured order EXPIRED/CANCELLED
+  // or relist a card that already has a replacement checkout.
+  const { data: expiredRows, error: expireError } = await admin
     .from("transactions")
     .update({ status: targetStatus })
-    .eq("id", transactionId);
+    .eq("id", transactionId)
+    .eq("status", "PENDING_PAYMENT")
+    .select("id");
+
+  if (expireError) throw expireError;
+  if (!expiredRows?.length) return;
+
+  const { data: replacement, error: replacementError } = await admin
+    .from("transactions")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("status", "PENDING_PAYMENT")
+    .limit(1);
+
+  if (replacementError) throw replacementError;
+  if (replacement?.length) return;
 
   const { data: acceptedOffer } = await admin
     .from("offers")

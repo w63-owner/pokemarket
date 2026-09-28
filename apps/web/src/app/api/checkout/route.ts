@@ -163,9 +163,9 @@ export async function POST(request: Request) {
     const totalAmountMinor = Math.round(totalAmount * 100);
 
     let reuseTransactionId: string | null = null;
+    let replacedStripeObject = false;
     if (listing.status === "LOCKED" && existingTx) {
       const stripe = getStripe();
-      let replacedStripeObject = false;
 
       if (existingTx?.stripe_checkout_session_id) {
         const existingSession = await stripe.checkout.sessions.retrieve(
@@ -275,6 +275,27 @@ export async function POST(request: Request) {
         // A previous network call may have failed before persisting the Stripe
         // object ID. Reuse the same transaction and deterministic key.
         reuseTransactionId = existingTx.id;
+      }
+    }
+
+    if (replacedStripeObject) {
+      // Expiring the previous Stripe object emits checkout.session.expired /
+      // payment_intent.canceled, and that webhook unlocks a LOCKED listing.
+      // Re-acquire the lock before inserting the replacement checkout so a
+      // second buyer cannot pay for the same card.
+      const lockHeld = await reclaimCheckoutLock(admin, {
+        listingId: listing_id,
+        buyerId: user.id,
+        reservedForBuyer: isReservedForMe,
+      });
+      if (!lockHeld) {
+        return NextResponse.json(
+          {
+            error:
+              "Cette annonce vient d'être verrouillée par un autre acheteur. Réessayez dans quelques instants.",
+          },
+          { status: 409 },
+        );
       }
     }
 
@@ -452,6 +473,65 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+/**
+ * The replacement checkout path expires the previous Stripe object first.
+ * That expiration webhook can set the listing back to ACTIVE or RESERVED
+ * before this request inserts the new transaction. Take the lock again,
+ * unless another buyer already has a pending checkout.
+ */
+async function reclaimCheckoutLock(
+  admin: ReturnType<typeof createAdminClient>,
+  input: { listingId: string; buyerId: string; reservedForBuyer: boolean },
+): Promise<boolean> {
+  const { data: listing, error } = await admin
+    .from("listings")
+    .select("status, reserved_for")
+    .eq("id", input.listingId)
+    .single();
+
+  if (error || !listing || listing.status === "SOLD") return false;
+
+  const { data: pending, error: pendingError } = await admin
+    .from("transactions")
+    .select("id, buyer_id")
+    .eq("listing_id", input.listingId)
+    .eq("status", "PENDING_PAYMENT");
+
+  if (pendingError) return false;
+  if ((pending ?? []).some((row) => row.buyer_id !== input.buyerId)) {
+    return false;
+  }
+
+  if (listing.status === "LOCKED") return true;
+
+  if (listing.status === "ACTIVE" && !input.reservedForBuyer) {
+    const { data: relocked, error: relockError } = await admin
+      .from("listings")
+      .update({ status: "LOCKED" })
+      .eq("id", input.listingId)
+      .eq("status", "ACTIVE")
+      .select("id");
+    return !relockError && (relocked?.length ?? 0) > 0;
+  }
+
+  if (
+    listing.status === "RESERVED" &&
+    input.reservedForBuyer &&
+    listing.reserved_for === input.buyerId
+  ) {
+    const { data: relocked, error: relockError } = await admin
+      .from("listings")
+      .update({ status: "LOCKED" })
+      .eq("id", input.listingId)
+      .eq("status", "RESERVED")
+      .eq("reserved_for", input.buyerId)
+      .select("id");
+    return !relockError && (relocked?.length ?? 0) > 0;
+  }
+
+  return false;
 }
 
 /**

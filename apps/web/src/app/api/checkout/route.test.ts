@@ -453,6 +453,74 @@ describe("checkout — listing-status guards", () => {
     expect(piCreate.mock.calls[0][0].amount).toBe(5002);
     expect((await res.json()).transaction_id).not.toBe("tx-mobile-stale");
   });
+
+  it("re-locks the listing when the expiration webhook unlocked it", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-web",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+    stripeExpire.mockImplementationOnce(async () => {
+      db.state.listings[0].status = "ACTIVE";
+      const previous = db.state.transactions.find((tx) => tx.id === "tx-web");
+      if (previous) previous.status = "EXPIRED";
+      return { id: "cs_existing", status: "expired" };
+    });
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+
+    expect(res.status).toBe(200);
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(
+      db.state.transactions.filter((tx) => tx.status === "PENDING_PAYMENT"),
+    ).toHaveLength(1);
+    expect(piCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a replacement checkout once another buyer has a pending payment", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-web",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+    stripeExpire.mockImplementationOnce(async () => {
+      const previous = db.state.transactions.find((tx) => tx.id === "tx-web");
+      if (previous) previous.status = "EXPIRED";
+      db.state.listings[0].status = "LOCKED";
+      db.state.transactions.push({
+        id: "tx-other-buyer",
+        listing_id: LISTING_ID,
+        buyer_id: "buyer-2",
+        status: "PENDING_PAYMENT",
+        created_at: new Date().toISOString(),
+      });
+      return { id: "cs_existing", status: "expired" };
+    });
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+
+    expect(res.status).toBe(409);
+    expect(piCreate).not.toHaveBeenCalled();
+    expect(
+      db.state.transactions.filter((tx) => tx.status === "PENDING_PAYMENT"),
+    ).toEqual([expect.objectContaining({ id: "tx-other-buyer" })]);
+  });
 });
 
 describe("checkout — STRESS concurrent buyers", () => {
