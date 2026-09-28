@@ -174,6 +174,71 @@ describe("webhooks/stripe — QA happy path", () => {
     );
   });
 
+  it("checkout.session.expired does not overwrite a transaction already paid", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_expired_after_paid",
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          id: "cs_late_expired",
+          payment_status: "unpaid",
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.transactions![0].status = "PAID";
+    scenario.listings![0].status = "SOLD";
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "PAID",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "SOLD",
+    );
+  });
+
+  it("checkout.session.expired keeps the lock when a replacement checkout is pending", async () => {
+    stripeConstructEventImpl = () => ({
+      id: "evt_expired_replacement",
+      type: "checkout.session.expired",
+      data: {
+        object: {
+          metadata: { transaction_id: IDS.TX, listing_id: IDS.LISTING },
+        },
+      },
+    });
+    const scenario = basicScenario();
+    scenario.transactions!.push({
+      id: "tx-replacement",
+      listing_id: IDS.LISTING,
+      buyer_id: IDS.BUYER,
+      seller_id: IDS.SELLER,
+      status: "PENDING_PAYMENT",
+      total_amount: 105.7,
+      fee_amount: 5.7,
+      shipping_cost: 0,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(scenario);
+    mockClient = db.client;
+
+    const res = await POST(makeReq());
+
+    expect(res.status).toBe(200);
+    expect(db.state.transactions.find((t) => t.id === IDS.TX)?.status).toBe(
+      "EXPIRED",
+    );
+    expect(db.state.listings.find((l) => l.id === IDS.LISTING)?.status).toBe(
+      "LOCKED",
+    );
+  });
+
   it("checkout.session.expired with ACCEPTED offer → listing reverts to RESERVED, not ACTIVE", async () => {
     stripeConstructEventImpl = () => ({
       id: "evt_3",
