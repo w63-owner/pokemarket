@@ -344,6 +344,9 @@ export async function POST(request: Request) {
             shipping_address_city,
             shipping_address_postcode,
             shipping_country,
+            stripe_checkout_session_id: null,
+            stripe_payment_intent_id: null,
+            checkout_attempt_client: null,
           })
           .select("id")
           .single();
@@ -359,6 +362,25 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Impossible de créer la transaction" },
         { status: 500 },
+      );
+    }
+
+    // Web sessions and mobile PaymentIntents use different Stripe idempotency
+    // keys. Claim this row before creating either object so a second client
+    // cannot add another payable charge while the first id is still unsaved.
+    const claimed = await claimCheckoutStripeCreation(
+      admin,
+      transaction.id,
+      clientType,
+    );
+    if (!claimed) {
+      return NextResponse.json(
+        {
+          error:
+            "Un paiement est déjà en cours de création pour cette commande. Réessayez dans un instant.",
+          transaction_id: transaction.id,
+        },
+        { status: 409 },
       );
     }
 
@@ -434,7 +456,10 @@ export async function POST(request: Request) {
 
     await admin
       .from("transactions")
-      .update({ stripe_checkout_session_id: session.id })
+      .update({
+        stripe_checkout_session_id: session.id,
+        checkout_attempt_client: null,
+      })
       .eq("id", transaction.id);
 
     const response: CheckoutResponse = {
@@ -530,7 +555,10 @@ async function createMobileStripeIntent(input: {
 
   await admin
     .from("transactions")
-    .update({ stripe_payment_intent_id: paymentIntent.id })
+    .update({
+      stripe_payment_intent_id: paymentIntent.id,
+      checkout_attempt_client: null,
+    })
     .eq("id", input.transactionId);
 
   return {
@@ -542,6 +570,46 @@ async function createMobileStripeIntent(input: {
     customer_id: customerId,
     transaction_id: input.transactionId,
   };
+}
+
+/**
+ * Reserves the right to create the next Stripe object for this pending row.
+ *
+ * The same client may retry: Stripe idempotency returns the original object.
+ * The other client must wait until that id is stored, then the existing
+ * expire-and-replace path runs. The claim stays in place if create fails so
+ * a timeout after Stripe accepted the object cannot be followed by a second
+ * payable object on the other client.
+ */
+async function claimCheckoutStripeCreation(
+  admin: ReturnType<typeof createAdminClient>,
+  transactionId: string,
+  clientType: "web" | "mobile",
+): Promise<boolean> {
+  const claim = (matchClient: "eq" | "is") => {
+    let query = admin
+      .from("transactions")
+      .update({ checkout_attempt_client: clientType })
+      .eq("id", transactionId)
+      .eq("status", "PENDING_PAYMENT")
+      .is("stripe_checkout_session_id", null)
+      .is("stripe_payment_intent_id", null);
+
+    query =
+      matchClient === "eq"
+        ? query.eq("checkout_attempt_client", clientType)
+        : query.is("checkout_attempt_client", null);
+
+    return query.select("id");
+  };
+
+  const { data: owned, error: ownedError } = await claim("eq");
+  if (ownedError) throw ownedError;
+  if (owned && owned.length > 0) return true;
+
+  const { data: claimed, error: claimError } = await claim("is");
+  if (claimError) throw claimError;
+  return Boolean(claimed && claimed.length > 0);
 }
 
 async function createStripeEphemeralKey(

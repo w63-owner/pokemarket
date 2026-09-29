@@ -1942,6 +1942,7 @@ export type Database = {
       transactions: {
         Row: {
           buyer_id: string;
+          checkout_attempt_client: string | null;
           created_at: string | null;
           expiration_date: string | null;
           fee_amount: number;
@@ -1971,6 +1972,7 @@ export type Database = {
         };
         Insert: {
           buyer_id: string;
+          checkout_attempt_client?: string | null;
           created_at?: string | null;
           expiration_date?: string | null;
           fee_amount: number;
@@ -2000,6 +2002,7 @@ export type Database = {
         };
         Update: {
           buyer_id?: string;
+          checkout_attempt_client?: string | null;
           created_at?: string | null;
           expiration_date?: string | null;
           fee_amount?: number;

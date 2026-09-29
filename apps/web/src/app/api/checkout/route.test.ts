@@ -455,6 +455,50 @@ describe("checkout — listing-status guards", () => {
   });
 });
 
+describe("checkout — one payable object per order", () => {
+  it("does not create a PaymentIntent while a web session create is in flight", async () => {
+    let releaseWebCreate!: () => void;
+    const webCreateStarted = new Promise<void>((resolve) => {
+      stripeCreate.mockImplementationOnce(async (params: any) => {
+        resolve();
+        await new Promise<void>((release) => {
+          releaseWebCreate = release;
+        });
+        return {
+          id: "cs_race",
+          url: "https://checkout.stripe.com/race",
+          status: "open",
+          payment_status: "unpaid",
+          metadata: params.metadata,
+        };
+      });
+    });
+
+    const db = createMockDb(activeListingScenario());
+    mockClient = db.client;
+
+    const webPromise = POST(makeReq(validBody));
+    await webCreateStarted;
+
+    const mobileRes = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(mobileRes.status).toBe(409);
+    expect(piCreate).not.toHaveBeenCalled();
+    expect(stripeExpire).not.toHaveBeenCalled();
+    expect(db.state.transactions).toHaveLength(1);
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(db.state.transactions[0].checkout_attempt_client).toBe("web");
+    expect(db.state.listings[0].status).toBe("LOCKED");
+
+    releaseWebCreate();
+    const webRes = await webPromise;
+    expect(webRes.status).toBe(200);
+    expect(stripeCreate).toHaveBeenCalledTimes(1);
+    expect(piCreate).not.toHaveBeenCalled();
+    expect(db.state.transactions[0].stripe_checkout_session_id).toBe("cs_race");
+    expect(db.state.transactions[0].stripe_payment_intent_id).toBeNull();
+  });
+});
+
 describe("checkout — STRESS concurrent buyers", () => {
   it("two buyers race on the same ACTIVE listing — only one gets 200, other gets 409", async () => {
     const db = createMockDb(activeListingScenario(), { serializeWrites: true });
