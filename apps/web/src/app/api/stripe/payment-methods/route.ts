@@ -4,7 +4,10 @@ import { z } from "zod";
 import { getRequestUserClient } from "@/lib/auth/api";
 import { getStripe } from "@/lib/stripe/server";
 import { getAppUrl } from "@/lib/env";
-import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
+import {
+  getOrCreateStripeCustomer,
+  loadOwnedStripeCustomer,
+} from "@/lib/stripe/owned-customer";
 import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
@@ -34,33 +37,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError) {
-      throw profileError;
-    }
-
-    if (!profile?.stripe_customer_id) {
+    const customer = await loadOwnedStripeCustomer(user.id);
+    if (!customer) {
       return NextResponse.json({ payment_methods: [] });
     }
 
     const stripe = getStripe();
-    const [methods, customer] = await Promise.all([
-      // No type filter keeps this aligned with the dynamic payment methods
-      // enabled on the Stripe account.
-      stripe.paymentMethods.list({
-        customer: profile.stripe_customer_id,
-        limit: 100,
-      }),
-      stripe.customers.retrieve(profile.stripe_customer_id),
-    ]);
+    const methods = await stripe.paymentMethods.list({
+      customer: customer.id,
+      limit: 100,
+    });
 
     const defaultPaymentMethodId =
-      !customer.deleted &&
       customer.invoice_settings.default_payment_method != null
         ? getCustomerId(customer.invoice_settings.default_payment_method)
         : null;
@@ -94,39 +82,11 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("stripe_customer_id, username")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError) {
-      throw profileError;
-    }
-
-    let customerId = profile?.stripe_customer_id;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create(
-        {
-          email: user.email,
-          name: profile?.username ?? undefined,
-          metadata: { supabase_user_id: user.id },
-        },
-        { idempotencyKey: stripeIdempotencyKeys.customer(user.id) },
-      );
-      customerId = customer.id;
-
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ stripe_customer_id: customerId })
-        .eq("id", user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-    }
+    const customer = await getOrCreateStripeCustomer({
+      userId: user.id,
+      email: user.email,
+    });
+    const customerId = customer.id;
 
     const appUrl = getAppUrl();
 
@@ -183,14 +143,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError) throw profileError;
-    if (!profile?.stripe_customer_id) {
+    const customer = await loadOwnedStripeCustomer(user.id);
+    if (!customer) {
       return NextResponse.json(
         { error: "Client Stripe introuvable" },
         { status: 404 },
@@ -202,14 +156,14 @@ export async function PATCH(request: Request) {
       parsed.data.payment_method_id,
     );
 
-    if (getCustomerId(paymentMethod.customer) !== profile.stripe_customer_id) {
+    if (getCustomerId(paymentMethod.customer) !== customer.id) {
       return NextResponse.json(
         { error: "Moyen de paiement introuvable" },
         { status: 404 },
       );
     }
 
-    await stripe.customers.update(profile.stripe_customer_id, {
+    await stripe.customers.update(customer.id, {
       invoice_settings: {
         default_payment_method: paymentMethod.id,
       },
@@ -242,14 +196,8 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError) throw profileError;
-    if (!profile?.stripe_customer_id) {
+    const customer = await loadOwnedStripeCustomer(user.id);
+    if (!customer) {
       return NextResponse.json(
         { error: "Client Stripe introuvable" },
         { status: 404 },
@@ -257,12 +205,9 @@ export async function DELETE(request: Request) {
     }
 
     const stripe = getStripe();
-    const [paymentMethod, customer] = await Promise.all([
-      stripe.paymentMethods.retrieve(parsedId.data),
-      stripe.customers.retrieve(profile.stripe_customer_id),
-    ]);
+    const paymentMethod = await stripe.paymentMethods.retrieve(parsedId.data);
 
-    if (getCustomerId(paymentMethod.customer) !== profile.stripe_customer_id) {
+    if (getCustomerId(paymentMethod.customer) !== customer.id) {
       return NextResponse.json(
         { error: "Moyen de paiement introuvable" },
         { status: 404 },
@@ -270,13 +215,12 @@ export async function DELETE(request: Request) {
     }
 
     const defaultPaymentMethodId =
-      !customer.deleted &&
       customer.invoice_settings.default_payment_method != null
         ? getCustomerId(customer.invoice_settings.default_payment_method)
         : null;
 
     if (defaultPaymentMethodId === paymentMethod.id) {
-      await stripe.customers.update(profile.stripe_customer_id, {
+      await stripe.customers.update(customer.id, {
         invoice_settings: { default_payment_method: "" },
       });
     }

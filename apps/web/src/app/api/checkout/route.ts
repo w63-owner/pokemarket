@@ -14,6 +14,10 @@ import {
   STRIPE_API_VERSION,
 } from "@/lib/env";
 import { stripeIdempotencyKeys } from "@/lib/stripe/idempotency";
+import {
+  getOrCreateStripeCustomer,
+  loadOwnedStripeCustomer,
+} from "@/lib/stripe/owned-customer";
 import { isFeatureEnabled } from "@/lib/feature-flags/server";
 import {
   FEATURE_FLAGS,
@@ -373,15 +377,10 @@ export async function POST(request: Request) {
       return NextResponse.json(mobileResponse satisfies MobileCheckoutResponse);
     }
 
-    const { data: buyerProfile } = await admin
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
-
-    const stripeCustomerProps = buyerProfile?.stripe_customer_id
+    const ownedCustomer = await loadOwnedStripeCustomer(user.id);
+    const stripeCustomerProps = ownedCustomer
       ? {
-          customer: buyerProfile.stripe_customer_id,
+          customer: ownedCustomer.id,
           customer_update: { address: "auto" as const, name: "auto" as const },
         }
       : { customer_email: user.email };
@@ -474,33 +473,13 @@ async function createMobileStripeIntent(input: {
   const stripe = getStripe();
   const admin = createAdminClient();
 
-  // Reuse the existing Stripe Customer if we have one; otherwise create a
-  // fresh one and persist on the buyer's profile so future PaymentSheets
-  // can hydrate saved cards. Mirrors the bookkeeping in
-  // `/api/stripe/payment-methods` POST.
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("stripe_customer_id, username")
-    .eq("id", input.user.id)
-    .single();
-
-  let customerId = profile?.stripe_customer_id ?? null;
-
-  if (!customerId) {
-    const customer = await stripe.customers.create(
-      {
-        email: input.user.email,
-        name: profile?.username ?? undefined,
-        metadata: { supabase_user_id: input.user.id },
-      },
-      { idempotencyKey: stripeIdempotencyKeys.customer(input.user.id) },
-    );
-    customerId = customer.id;
-    await admin
-      .from("profiles")
-      .update({ stripe_customer_id: customerId })
-      .eq("id", input.user.id);
-  }
+  // Reuse the buyer's own Stripe Customer. A profile column that points at
+  // someone else's customer is dropped before PaymentSheet can use it.
+  const customer = await getOrCreateStripeCustomer({
+    userId: input.user.id,
+    email: input.user.email,
+  });
+  const customerId = customer.id;
 
   // Keep ephemeral keys on the same reviewed API version as stripe-node.
   // Stripe mobile SDKs are backend-version compatible unless explicitly noted.
