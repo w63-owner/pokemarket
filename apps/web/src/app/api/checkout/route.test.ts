@@ -50,6 +50,13 @@ const customerCreate = vi.fn(async (params: any) => ({
   id: `cus_test_${Date.now()}`,
   email: params.email,
   name: params.name,
+  metadata: params.metadata,
+}));
+const customerRetrieve = vi.fn(async (id: string): Promise<any> => ({
+  id,
+  deleted: false,
+  metadata: { supabase_user_id: "buyer-1" },
+  invoice_settings: { default_payment_method: null },
 }));
 const ephemeralKeyCreate = vi.fn(async () => ({
   id: "ek_test_123",
@@ -70,7 +77,7 @@ vi.mock("@/lib/stripe/server", () => ({
       retrieve: piRetrieve,
       cancel: piCancel,
     },
-    customers: { create: customerCreate },
+    customers: { create: customerCreate, retrieve: customerRetrieve },
     ephemeralKeys: { create: ephemeralKeyCreate },
   }),
 }));
@@ -109,6 +116,13 @@ beforeEach(() => {
   piRetrieve.mockClear();
   piCancel.mockClear();
   customerCreate.mockClear();
+  customerRetrieve.mockReset();
+  customerRetrieve.mockImplementation(async (id: string) => ({
+    id,
+    deleted: false,
+    metadata: { supabase_user_id: "buyer-1" },
+    invoice_settings: { default_payment_method: null },
+  }));
   ephemeralKeyCreate.mockClear();
 });
 
@@ -145,7 +159,7 @@ function activeListingScenario() {
         delivery_weight_class: "standard",
       },
     ],
-    profiles: [{ id: "buyer-1", stripe_customer_id: null }],
+    profiles: [{ id: "buyer-1", stripe_customer_id: null as string | null }],
     transactions: [],
   };
 }
@@ -257,6 +271,27 @@ describe("checkout — listing-status guards", () => {
     expect(stripeCreate.mock.calls[0][1].idempotencyKey).toBe(
       `checkout-session-${json.transaction_id}`,
     );
+  });
+
+  it("does not attach Checkout to a customer id copied from another profile", async () => {
+    const sc = activeListingScenario();
+    sc.profiles[0].stripe_customer_id = "cus_victim";
+    const db = createMockDb(sc);
+    mockClient = db.client;
+    customerRetrieve.mockResolvedValue({
+      id: "cus_victim",
+      deleted: false,
+      metadata: { supabase_user_id: "victim-user" },
+      invoice_settings: { default_payment_method: "pm_victim" },
+    });
+
+    const res = await POST(makeReq(validBody));
+    expect(res.status).toBe(200);
+    expect(stripeCreate.mock.calls[0][0].customer).toBeUndefined();
+    expect(stripeCreate.mock.calls[0][0].customer_email).toBe(
+      "buyer@example.com",
+    );
+    expect(db.state.profiles[0].stripe_customer_id).toBeNull();
   });
 
   it("blocks buying your own listing", async () => {
@@ -569,6 +604,30 @@ describe("checkout — mobile (?client=mobile)", () => {
 
     expect(customerCreate).toHaveBeenCalledTimes(1);
     expect(db.state.profiles[0].stripe_customer_id).toMatch(/^cus_test_/);
+    expect(customerCreate.mock.calls[0][0].metadata).toEqual({
+      supabase_user_id: "buyer-1",
+    });
+  });
+
+  it("does not open PaymentSheet on a customer id copied from another profile", async () => {
+    const db = createMockDb(activeListingScenario());
+    db.state.profiles[0].stripe_customer_id = "cus_victim";
+    mockClient = db.client;
+    customerRetrieve.mockResolvedValue({
+      id: "cus_victim",
+      deleted: false,
+      metadata: { supabase_user_id: "victim-user" },
+      invoice_settings: { default_payment_method: "pm_victim" },
+    });
+
+    const res = await POST(makeReq(validBody, { client: "mobile" }));
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.customer_id).toMatch(/^cus_test_/);
+    expect(json.customer_id).not.toBe("cus_victim");
+    expect(piCreate.mock.calls[0][0].customer).toBe(json.customer_id);
+    expect(db.state.profiles[0].stripe_customer_id).toBe(json.customer_id);
   });
 
   it("keeps and reuses the active transaction after an uncertain PaymentIntent failure", async () => {

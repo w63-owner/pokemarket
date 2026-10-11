@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createMockDb } from "@/test-utils/db-mock";
+
 let currentUser: { id: string; email?: string } | null = {
   id: "user-1",
   email: "buyer@example.com",
 };
-let profile = {
-  stripe_customer_id: "cus_owner",
-  username: "buyer",
-};
+let mockClient: ReturnType<typeof createMockDb>["client"];
+let db: ReturnType<typeof createMockDb>;
 
 const listPaymentMethods = vi.fn();
 const retrievePaymentMethod = vi.fn();
@@ -18,24 +18,15 @@ const createCustomer = vi.fn();
 const createSetupIntent = vi.fn();
 const createCustomerSession = vi.fn();
 
-const supabase = {
-  from: vi.fn(() => ({
-    select: vi.fn(() => ({
-      eq: vi.fn(() => ({
-        single: vi.fn(async () => ({ data: profile, error: null })),
-      })),
-    })),
-    update: vi.fn(() => ({
-      eq: vi.fn(async () => ({ error: null })),
-    })),
-  })),
-};
-
 vi.mock("@/lib/auth/api", () => ({
   getRequestUserClient: async () => ({
     user: currentUser,
-    supabase: currentUser ? supabase : null,
+    supabase: currentUser ? { from: vi.fn() } : null,
   }),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => mockClient,
 }));
 
 vi.mock("@/lib/stripe/server", () => ({
@@ -69,14 +60,23 @@ vi.mock("@sentry/nextjs", () => ({
   captureException: vi.fn(),
 }));
 
-import { GET, PATCH, POST } from "./route";
+import { DELETE, GET, PATCH, POST } from "./route";
 
 const endpoint = "https://thedeckdealr.test/api/stripe/payment-methods";
 
 beforeEach(() => {
   vi.clearAllMocks();
   currentUser = { id: "user-1", email: "buyer@example.com" };
-  profile = { stripe_customer_id: "cus_owner", username: "buyer" };
+  db = createMockDb({
+    profiles: [
+      {
+        id: "user-1",
+        stripe_customer_id: "cus_owner",
+        username: "buyer",
+      },
+    ],
+  });
+  mockClient = db.client;
 
   listPaymentMethods.mockResolvedValue({
     data: [
@@ -88,7 +88,9 @@ beforeEach(() => {
     ],
   });
   retrieveCustomer.mockResolvedValue({
+    id: "cus_owner",
     deleted: false,
+    metadata: { supabase_user_id: "user-1" },
     invoice_settings: { default_payment_method: "pm_default" },
   });
   retrievePaymentMethod.mockResolvedValue({
@@ -151,5 +153,26 @@ describe("/api/stripe/payment-methods", () => {
 
     expect(response.status).toBe(404);
     expect(updateCustomer).not.toHaveBeenCalled();
+  });
+
+  it("does not list or detach cards when the profile points at another customer", async () => {
+    db.state.profiles[0].stripe_customer_id = "cus_victim";
+    retrieveCustomer.mockResolvedValue({
+      id: "cus_victim",
+      deleted: false,
+      metadata: { supabase_user_id: "victim-user" },
+      invoice_settings: { default_payment_method: "pm_victim" },
+    });
+
+    const listed = await GET(new Request(endpoint));
+    expect(listed.status).toBe(200);
+    await expect(listed.json()).resolves.toEqual({ payment_methods: [] });
+    expect(listPaymentMethods).not.toHaveBeenCalled();
+    expect(db.state.profiles[0].stripe_customer_id).toBeNull();
+
+    db.state.profiles[0].stripe_customer_id = "cus_victim";
+    const removed = await DELETE(new Request(`${endpoint}?id=pm_victim`));
+    expect(removed.status).toBe(404);
+    expect(detachPaymentMethod).not.toHaveBeenCalled();
   });
 });
