@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ShieldX } from "lucide-react";
 
+/**
+ * Visual shell for /admin. This does not protect page data: Next.js still
+ * renders the page segment when the layout withholds `children` or redirects.
+ * Pages that read with the service role must call `requireAdminPage` first.
+ */
 export async function AdminGuard({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {

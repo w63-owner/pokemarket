@@ -22,11 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { requireAdminPage } from "@/lib/admin/auth";
 import { getFinancialOperationsSnapshot } from "@/lib/financial-operations";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminFinancePage() {
+  await requireAdminPage();
   const snapshot = await getFinancialOperationsSnapshot();
   const debtMinor = snapshot.sellerDebts.reduce(
     (total, row) => total + row.debt_minor,
