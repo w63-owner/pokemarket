@@ -2411,6 +2411,10 @@ export type Database = {
         Args: { p_buyer_id: string; p_transaction_id: string };
         Returns: boolean;
       };
+      retain_checkout_lock: {
+        Args: { p_buyer_id: string; p_listing_id: string };
+        Returns: boolean;
+      };
       rebuild_wallet_projections: {
         Args: { p_user_id?: string };
         Returns: number;

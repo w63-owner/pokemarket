@@ -114,6 +114,44 @@ describe("cron/release-expired — QA", () => {
     expect(db.state.listings[0].status).toBe("LOCKED");
   });
 
+  it("does not relist when a replacement checkout is still pending", async () => {
+    const db = createMockDb({
+      transactions: [
+        {
+          id: "tx-old",
+          listing_id: "L1",
+          buyer_id: "buyer-1",
+          status: "PENDING_PAYMENT",
+          expiration_date: new Date(Date.now() - HOUR).toISOString(),
+        },
+        {
+          id: "tx-new",
+          listing_id: "L1",
+          buyer_id: "buyer-1",
+          status: "PENDING_PAYMENT",
+          expiration_date: new Date(Date.now() + HOUR).toISOString(),
+        },
+      ],
+      listings: [{ id: "L1", status: "LOCKED", reserved_for: "buyer-1" }],
+      offers: [],
+    });
+    mockClient = db.client;
+
+    const res = await GET(authedReq());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.released).toBe(1);
+    expect(db.state.transactions.find((tx) => tx.id === "tx-old")?.status).toBe(
+      "EXPIRED",
+    );
+    expect(db.state.transactions.find((tx) => tx.id === "tx-new")?.status).toBe(
+      "PENDING_PAYMENT",
+    );
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.listings[0].reserved_for).toBe("buyer-1");
+  });
+
   it("does not touch listing if it is no longer LOCKED (race-safe)", async () => {
     const db = createMockDb({
       transactions: [

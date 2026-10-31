@@ -84,19 +84,48 @@ export async function GET(request: Request) {
     }
 
     const transactionIds = toExpire.map((t) => t.id);
-    const listingIds = [...new Set(toExpire.map((t) => t.listing_id))];
 
-    const { error: txError } = await admin
+    const { data: expiredRows, error: txError } = await admin
       .from("transactions")
       .update({ status: "EXPIRED" })
       .in("id", transactionIds)
       // Guard against a TOCTOU race: only expire rows still PENDING_PAYMENT
       // (a concurrent webhook/reconcile may have flipped one to PAID).
-      .eq("status", "PENDING_PAYMENT");
+      .eq("status", "PENDING_PAYMENT")
+      .select("id, listing_id");
 
     if (txError) throw txError;
 
-    for (const listingId of listingIds) {
+    const expiredListingIds = [
+      ...new Set(
+        (expiredRows ?? [])
+          .map((row) => row.listing_id)
+          .filter((id): id is string => typeof id === "string"),
+      ),
+    ];
+
+    if (expiredListingIds.length === 0) {
+      return NextResponse.json({ released: 0, recovered });
+    }
+
+    // A buyer retry may already have inserted a replacement checkout for
+    // this listing. Unlocking it would leave that PaymentIntent payable
+    // while another buyer purchases the same card.
+    const { data: openCheckouts, error: openCheckoutError } = await admin
+      .from("transactions")
+      .select("listing_id")
+      .in("listing_id", expiredListingIds)
+      .eq("status", "PENDING_PAYMENT");
+
+    if (openCheckoutError) throw openCheckoutError;
+
+    const listingsWithOpenCheckout = new Set(
+      (openCheckouts ?? []).map((row) => row.listing_id),
+    );
+
+    for (const listingId of expiredListingIds) {
+      if (listingsWithOpenCheckout.has(listingId)) continue;
+
       const { data: acceptedOffer } = await admin
         .from("offers")
         .select("id")
@@ -108,12 +137,19 @@ export async function GET(request: Request) {
 
       await admin
         .from("listings")
-        .update({ status: newStatus })
+        .update(
+          newStatus === "ACTIVE"
+            ? { status: newStatus, reserved_for: null, reserved_price: null }
+            : { status: newStatus },
+        )
         .eq("id", listingId)
         .eq("status", "LOCKED");
     }
 
-    return NextResponse.json({ released: toExpire.length, recovered });
+    return NextResponse.json({
+      released: expiredRows?.length ?? 0,
+      recovered,
+    });
   } catch (err) {
     console.error("Cron release-expired error:", err);
     return NextResponse.json(

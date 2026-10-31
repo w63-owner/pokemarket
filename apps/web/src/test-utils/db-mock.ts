@@ -500,6 +500,52 @@ export function createMockDb(
       bump(`rpc.${name}`);
       await maybeChaos(`rpc.${name}`);
 
+      if (name === "retain_checkout_lock") {
+        const listing = state.listings.find(
+          (row) => row.id === params.p_listing_id,
+        );
+        if (!listing) return { data: false, error: null };
+
+        const blocking = new Set(["PAID", "SHIPPED", "COMPLETED", "DISPUTED"]);
+        const listingTxs = state.transactions.filter(
+          (row) => row.listing_id === params.p_listing_id,
+        );
+        if (listingTxs.some((row) => blocking.has(row.status))) {
+          return { data: false, error: null };
+        }
+        if (
+          listingTxs.some(
+            (row) =>
+              row.status === "PENDING_PAYMENT" &&
+              row.buyer_id !== params.p_buyer_id,
+          )
+        ) {
+          return { data: false, error: null };
+        }
+
+        const reservedFor = listing.reserved_for ?? null;
+        if (
+          listing.status === "LOCKED" &&
+          (reservedFor === null || reservedFor === params.p_buyer_id)
+        ) {
+          if (reservedFor === null) listing.reserved_for = params.p_buyer_id;
+          return { data: true, error: null };
+        }
+        if (listing.status === "LOCKED") {
+          return { data: false, error: null };
+        }
+        if (
+          (listing.status === "ACTIVE" &&
+            (reservedFor === null || reservedFor === params.p_buyer_id)) ||
+          (listing.status === "RESERVED" && reservedFor === params.p_buyer_id)
+        ) {
+          listing.status = "LOCKED";
+          listing.reserved_for = params.p_buyer_id;
+          return { data: true, error: null };
+        }
+        return { data: false, error: null };
+      }
+
       if (name === "claim_notifications_outbox") {
         const due = state.notifications_outbox
           .filter(
