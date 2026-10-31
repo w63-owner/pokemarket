@@ -243,6 +243,7 @@ describe("checkout — listing-status guards", () => {
     expect(json.url).toBeTruthy();
     expect(json.transaction_id).toBeTruthy();
     expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.listings[0].reserved_for).toBe("buyer-1");
     expect(stripeCreate.mock.calls[0][0].payment_intent_data).toEqual({
       transfer_group: `order_${json.transaction_id}`,
     });
@@ -315,6 +316,94 @@ describe("checkout — listing-status guards", () => {
     mockClient = createMockDb(sc).client;
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(400);
+  });
+
+  it("refuses a replacement payment when another buyer owns the lock", async () => {
+    stripeRetrieve.mockResolvedValueOnce({
+      id: "cs_old",
+      status: "expired",
+      payment_status: "unpaid",
+      url: null,
+    } as any);
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-2";
+    (sc.transactions as any[]).push(
+      {
+        id: "tx-old",
+        listing_id: LISTING_ID,
+        buyer_id: "buyer-1",
+        status: "PENDING_PAYMENT",
+        stripe_checkout_session_id: "cs_old",
+        stripe_payment_intent_id: null,
+        created_at: new Date(Date.now() - 60_000).toISOString(),
+      },
+      {
+        id: "tx-other",
+        listing_id: LISTING_ID,
+        buyer_id: "buyer-2",
+        status: "PENDING_PAYMENT",
+        stripe_checkout_session_id: "cs_other",
+        created_at: new Date().toISOString(),
+      },
+    );
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(409);
+    expect(stripeCreate).not.toHaveBeenCalled();
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.listings[0].reserved_for).toBe("buyer-2");
+    expect(
+      db.state.transactions.find((tx) => tx.id === "tx-other")?.status,
+    ).toBe("PENDING_PAYMENT");
+    expect(
+      db.state.transactions.filter((tx) => tx.status === "PENDING_PAYMENT"),
+    ).toHaveLength(1);
+  });
+
+  it("reclaims a listing the expiry cron freed during replacement", async () => {
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.listings[0] as any).reserved_for = "buyer-1";
+    (sc.transactions as any[]).push({
+      id: "tx-old",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_old",
+      stripe_payment_intent_id: null,
+      created_at: new Date(Date.now() - 60_000).toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+    stripeRetrieve.mockImplementationOnce(async () => {
+      // Replace the row so the route's already-loaded listing stays LOCKED
+      // while the database shows the cron has freed it.
+      db.state.listings[0] = {
+        ...db.state.listings[0],
+        status: "ACTIVE",
+        reserved_for: null,
+      };
+      return {
+        id: "cs_old",
+        status: "expired",
+        payment_status: "unpaid",
+        url: null,
+      } as any;
+    });
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(200);
+    expect(stripeCreate).toHaveBeenCalledTimes(1);
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.listings[0].reserved_for).toBe("buyer-1");
+    expect(
+      db.state.transactions.filter((tx) => tx.status === "PENDING_PAYMENT"),
+    ).toHaveLength(1);
   });
 
   it("reuses an open Checkout Session instead of creating another payable object", async () => {

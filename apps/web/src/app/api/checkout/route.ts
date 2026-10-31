@@ -299,7 +299,7 @@ export async function POST(request: Request) {
       // double-charge.
       const { data: locked, error: lockError } = await admin
         .from("listings")
-        .update({ status: "LOCKED" })
+        .update({ status: "LOCKED", reserved_for: user.id })
         .eq("id", listing_id)
         .in("status", isReservedForMe ? ["RESERVED"] : ["ACTIVE"])
         .select("id");
@@ -353,13 +353,44 @@ export async function POST(request: Request) {
       const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
       await admin
         .from("listings")
-        .update({ status: rollbackStatus })
-        .eq("id", listing_id);
+        .update(
+          rollbackStatus === "ACTIVE"
+            ? {
+                status: rollbackStatus,
+                reserved_for: null,
+                reserved_price: null,
+              }
+            : { status: rollbackStatus },
+        )
+        .eq("id", listing_id)
+        .eq("status", "LOCKED");
 
       return NextResponse.json(
         { error: "Impossible de créer la transaction" },
         { status: 500 },
       );
+    }
+
+    // Replacing an expired checkout inserts a new row while release-expired
+    // may already have freed the listing. Re-claim the lock before creating
+    // another Stripe object, otherwise a second buyer can pay too.
+    if (listing.status === "LOCKED" && !reuseTransactionId) {
+      const { data: retained, error: retainError } = await admin.rpc(
+        "retain_checkout_lock",
+        { p_listing_id: listing_id, p_buyer_id: user.id },
+      );
+      if (retainError) throw retainError;
+      if (!retained) {
+        await admin
+          .from("transactions")
+          .update({ status: "EXPIRED" })
+          .eq("id", transaction.id)
+          .eq("status", "PENDING_PAYMENT");
+        return NextResponse.json(
+          { error: "Cette annonce n'est plus disponible à l'achat" },
+          { status: 409 },
+        );
+      }
     }
 
     if (clientType === "mobile") {
