@@ -370,6 +370,73 @@ describe("checkout — listing-status guards", () => {
     expect(stripeExpire).not.toHaveBeenCalled();
   });
 
+  it("does not create a second payable checkout when an expired session is retried twice", async () => {
+    stripeRetrieve.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(
+            () =>
+              resolve({
+                id: "cs_existing",
+                url: "https://checkout.stripe.com/expired",
+                status: "expired",
+                payment_status: "unpaid",
+                amount_total: 5002,
+                currency: "eur",
+              }),
+            20,
+          );
+        }),
+    );
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-expired-session",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      seller_id: "seller-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    try {
+      const responses = await Promise.all([
+        POST(makeReq(validBody)),
+        POST(makeReq(validBody)),
+      ]);
+      const codes = responses.map((response) => response.status);
+
+      expect(codes.filter((code) => code === 200)).toHaveLength(1);
+      expect(codes.filter((code) => code === 409)).toHaveLength(1);
+      expect(stripeCreate).toHaveBeenCalledTimes(1);
+      expect(stripeExpire).not.toHaveBeenCalled();
+      expect(db.state.listings[0].status).toBe("LOCKED");
+      expect(
+        db.state.transactions.filter(
+          (tx) =>
+            tx.listing_id === LISTING_ID && tx.status === "PENDING_PAYMENT",
+        ),
+      ).toHaveLength(1);
+      expect(
+        db.state.transactions.find((tx) => tx.id === "tx-expired-session")
+          ?.status,
+      ).toBe("EXPIRED");
+    } finally {
+      stripeRetrieve.mockImplementation(async () => ({
+        id: "cs_existing",
+        url: "https://checkout.stripe.com/existing",
+        status: "open",
+        payment_status: "unpaid",
+        amount_total: 5002,
+        currency: "eur",
+      }));
+    }
+  });
+
   it("expires an open web session before replacing it with a mobile intent", async () => {
     const sc = activeListingScenario();
     sc.listings[0].status = "LOCKED";
