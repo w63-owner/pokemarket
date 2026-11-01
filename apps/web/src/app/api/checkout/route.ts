@@ -350,11 +350,34 @@ export async function POST(request: Request) {
     const { data: transaction, error: txError } = transactionResult;
 
     if (txError || !transaction) {
-      const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
-      await admin
-        .from("listings")
-        .update({ status: rollbackStatus })
-        .eq("id", listing_id);
+      // A second retry can lose the insert race after the first session has
+      // already expired. Another PENDING_PAYMENT row then owns the card, so
+      // unlocking here would let a second buyer pay for it.
+      const { data: remainingPending, error: pendingLookupError } = await admin
+        .from("transactions")
+        .select("id")
+        .eq("listing_id", listing_id)
+        .eq("status", "PENDING_PAYMENT")
+        .limit(1);
+
+      if (!pendingLookupError && !remainingPending?.length) {
+        const rollbackStatus = isReservedForMe ? "RESERVED" : "ACTIVE";
+        await admin
+          .from("listings")
+          .update({ status: rollbackStatus })
+          .eq("id", listing_id)
+          .eq("status", "LOCKED");
+      }
+
+      if (txError?.code === "23505") {
+        return NextResponse.json(
+          {
+            error:
+              "Un paiement est déjà en cours pour cette annonce. Réessayez dans quelques instants.",
+          },
+          { status: 409 },
+        );
+      }
 
       return NextResponse.json(
         { error: "Impossible de créer la transaction" },

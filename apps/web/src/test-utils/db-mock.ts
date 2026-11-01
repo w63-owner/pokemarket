@@ -33,6 +33,26 @@
 
 type Row = Record<string, any>;
 
+function codedQueryError(
+  err: unknown,
+): { data: null; error: { code: string; message: string } } | null {
+  if (
+    !err ||
+    typeof err !== "object" ||
+    !("code" in err) ||
+    typeof (err as { code?: unknown }).code !== "string"
+  ) {
+    return null;
+  }
+  return {
+    data: null,
+    error: {
+      code: (err as { code: string }).code,
+      message: err instanceof Error ? err.message : "query failed",
+    },
+  };
+}
+
 interface Filter {
   type: "eq" | "in" | "lt" | "gt" | "gte" | "lte" | "is";
   col: string;
@@ -303,37 +323,49 @@ export function createMockDb(
         return builder;
       },
       async single() {
-        const rows = await runQuery();
-        if (rows.length === 0) {
-          return {
-            data: null,
-            error: { code: "PGRST116", message: "no rows" },
-          };
+        try {
+          const rows = await runQuery();
+          if (rows.length === 0) {
+            return {
+              data: null,
+              error: { code: "PGRST116", message: "no rows" },
+            };
+          }
+          if (rows.length > 1) {
+            return {
+              data: null,
+              error: {
+                code: "PGRST117",
+                message: "multiple rows returned for single()",
+              },
+            };
+          }
+          return { data: rows[0], error: null };
+        } catch (err) {
+          const coded = codedQueryError(err);
+          if (coded) return coded;
+          throw err;
         }
-        if (rows.length > 1) {
-          return {
-            data: null,
-            error: {
-              code: "PGRST117",
-              message: "multiple rows returned for single()",
-            },
-          };
-        }
-        return { data: rows[0], error: null };
       },
       async maybeSingle() {
-        const rows = await runQuery();
-        if (rows.length === 0) return { data: null, error: null };
-        if (rows.length > 1) {
-          return {
-            data: null,
-            error: {
-              code: "PGRST117",
-              message: "multiple rows returned for maybeSingle()",
-            },
-          };
+        try {
+          const rows = await runQuery();
+          if (rows.length === 0) return { data: null, error: null };
+          if (rows.length > 1) {
+            return {
+              data: null,
+              error: {
+                code: "PGRST117",
+                message: "multiple rows returned for maybeSingle()",
+              },
+            };
+          }
+          return { data: rows[0], error: null };
+        } catch (err) {
+          const coded = codedQueryError(err);
+          if (coded) return coded;
+          throw err;
         }
-        return { data: rows[0], error: null };
       },
       then(onFulfilled: any, onRejected: any) {
         // Mirror supabase-js: errors with a `code` are returned, not thrown.
@@ -433,6 +465,24 @@ export function createMockDb(
             created_at: r.created_at ?? new Date().toISOString(),
             ...r,
           }));
+          if (name === "transactions") {
+            for (const row of rows) {
+              if (row.status !== "PENDING_PAYMENT") continue;
+              const duplicate = state.transactions.some(
+                (existing) =>
+                  existing.listing_id === row.listing_id &&
+                  existing.status === "PENDING_PAYMENT",
+              );
+              if (duplicate) {
+                throw Object.assign(
+                  new Error(
+                    "duplicate key value violates unique constraint \"transactions_one_pending_checkout_per_listing\"",
+                  ),
+                  { code: "23505" },
+                );
+              }
+            }
+          }
           (state as any)[name].push(...rows);
           return rows;
         });
