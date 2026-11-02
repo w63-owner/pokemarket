@@ -231,6 +231,32 @@ describe("checkout — auth + validation", () => {
     expect(db.state.transactions).toHaveLength(0);
     expect(stripeCreate).not.toHaveBeenCalled();
   });
+
+  it("rejects an over-cap retry without expiring the open checkout", async () => {
+    process.env.STRIPE_SOFT_LAUNCH_MAX_AMOUNT_MINOR = "1000";
+    const sc = activeListingScenario();
+    sc.listings[0].status = "LOCKED";
+    (sc.transactions as any[]).push({
+      id: "tx-existing",
+      listing_id: LISTING_ID,
+      buyer_id: "buyer-1",
+      status: "PENDING_PAYMENT",
+      stripe_checkout_session_id: "cs_existing",
+      stripe_payment_intent_id: null,
+      created_at: new Date().toISOString(),
+    });
+    const db = createMockDb(sc);
+    mockClient = db.client;
+
+    const res = await POST(makeReq(validBody));
+
+    expect(res.status).toBe(422);
+    expect(db.state.listings[0].status).toBe("LOCKED");
+    expect(db.state.transactions[0].status).toBe("PENDING_PAYMENT");
+    expect(stripeRetrieve).not.toHaveBeenCalled();
+    expect(stripeExpire).not.toHaveBeenCalled();
+    expect(stripeCreate).not.toHaveBeenCalled();
+  });
 });
 
 describe("checkout — listing-status guards", () => {

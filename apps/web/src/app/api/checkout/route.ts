@@ -162,6 +162,24 @@ export async function POST(request: Request) {
     const totalAmount = calcTotalBuyer(effectiveDisplayPrice, shippingCost);
     const totalAmountMinor = Math.round(totalAmount * 100);
 
+    // Reject over-cap quotes before touching an in-flight checkout. Expiring
+    // the pending row first, then returning 422, leaves the listing LOCKED
+    // with no PENDING_PAYMENT row. release-expired only reclaims pending
+    // rows, and a later retry cannot see a lock that has no reserved buyer,
+    // so the card stays unsellable.
+    if (
+      launchPolicy.maxAmountMinor !== null &&
+      totalAmountMinor > launchPolicy.maxAmountMinor
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Le montant de cette commande dépasse le plafond temporaire du lancement",
+        },
+        { status: 422 },
+      );
+    }
+
     let reuseTransactionId: string | null = null;
     if (listing.status === "LOCKED" && existingTx) {
       const stripe = getStripe();
@@ -276,19 +294,6 @@ export async function POST(request: Request) {
         // object ID. Reuse the same transaction and deterministic key.
         reuseTransactionId = existingTx.id;
       }
-    }
-
-    if (
-      launchPolicy.maxAmountMinor !== null &&
-      totalAmountMinor > launchPolicy.maxAmountMinor
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Le montant de cette commande dépasse le plafond temporaire du lancement",
-        },
-        { status: 422 },
-      );
     }
 
     if (listing.status !== "LOCKED") {
